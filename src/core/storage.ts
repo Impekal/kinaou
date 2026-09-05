@@ -1,4 +1,7 @@
+import { z } from 'zod'
+
 export type StorageArea = 'models' | 'projects' | 'assets' | 'cache' | 'temp' | 'renders' | 'archive'
+export type StorageBackend = 'browser' | 'desktop-worker'
 
 export interface StorageLocation {
   area: StorageArea
@@ -8,11 +11,17 @@ export interface StorageLocation {
 }
 
 export interface StorageSettings {
+  backend: StorageBackend
+  workspaceRoot: string
   locations: Record<StorageArea, string>
   managedFolderName: string
 }
 
+const storageAreas: StorageArea[] = ['models', 'projects', 'assets', 'cache', 'temp', 'renders', 'archive']
+
 export const defaultStorageSettings: StorageSettings = {
+  backend: 'browser',
+  workspaceRoot: '',
   managedFolderName: 'KINAOU',
   locations: {
     models: 'KINAOU/Models',
@@ -24,6 +33,21 @@ export const defaultStorageSettings: StorageSettings = {
     archive: 'KINAOU/Archive'
   }
 }
+
+const storageSettingsSchema = z.object({
+  backend: z.enum(['browser', 'desktop-worker']),
+  workspaceRoot: z.string(),
+  managedFolderName: z.string().min(1),
+  locations: z.object({
+    models: z.string().min(1),
+    projects: z.string().min(1),
+    assets: z.string().min(1),
+    cache: z.string().min(1),
+    temp: z.string().min(1),
+    renders: z.string().min(1),
+    archive: z.string().min(1)
+  })
+})
 
 export function normalizeRelativePath(path: string): string {
   return path.replaceAll('\\', '/').replace(/^\/+/, '').replace(/\/{2,}/g, '/')
@@ -44,6 +68,22 @@ export function assertSafeManagedPath(path: string, managedFolderName = 'KINAOU'
     throw new Error('Refusing path traversal outside managed storage')
   }
   return normalized
+}
+
+export function parseStorageSettings(value: unknown): StorageSettings {
+  const parsed = storageSettingsSchema.parse(value)
+  for (const area of storageAreas) assertSafeManagedPath(parsed.locations[area], parsed.managedFolderName)
+  return parsed
+}
+
+export function configureWorkspaceRoot(settings: StorageSettings, workspaceRoot: string, backend: StorageBackend): StorageSettings {
+  return parseStorageSettings({ ...settings, workspaceRoot: workspaceRoot.trim(), backend })
+}
+
+export function storageTarget(settings: StorageSettings, area: StorageArea): string {
+  const relative = assertSafeManagedPath(settings.locations[area], settings.managedFolderName)
+  const root = settings.workspaceRoot.trim().replace(/[\\/]+$/, '')
+  return root ? `${root}/${relative}` : relative
 }
 
 export interface StorageAdapter {
