@@ -265,6 +265,9 @@ function validateRenderPlan(plan) {
     if (!Number.isFinite(clip.durationMs) || clip.durationMs <= 0) throw new Error('Invalid clip duration')
     if (!Number.isFinite(clip.sourceOffsetMs) || clip.sourceOffsetMs < 0) throw new Error('Invalid source offset')
     if (clip.speed !== 1) throw new Error('Multi-track compositor currently requires clip speed 1')
+    const transform = clip.transform
+    if (!transform || ![transform.x, transform.y, transform.scale, transform.cropLeft, transform.cropTop, transform.cropRight, transform.cropBottom].every(Number.isFinite)) throw new Error('Invalid clip transform')
+    if (transform.scale < 0.1 || transform.scale > 4 || ![transform.cropLeft, transform.cropTop, transform.cropRight, transform.cropBottom].every((value) => Number.isInteger(value) && value >= 0)) throw new Error('Invalid clip transform range')
     if (clip.asset?.kind === 'caption') {
       if (clip.trackType !== 'caption' || typeof clip.asset.metadata?.text !== 'string' || !clip.asset.metadata.text.trim()) throw new Error('Invalid caption clip')
     } else requireManagedRelativePath(clip.asset?.uri)
@@ -396,8 +399,9 @@ function buildCompositeArgs(plan, mediaClips, inputPaths, outputPath, subtitlePa
     const output = `vo${visualIndex}`
     const start = seconds(clip.startMs)
     const end = seconds(clip.startMs + clip.durationMs)
-    parts.push(`[${index}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black,setpts=PTS-STARTPTS+${start}/TB[${prepared}]`)
-    parts.push(`[${currentVideo}][${prepared}]overlay=0:0:enable='between(t,${start},${end})'[${output}]`)
+    const transform = clip.transform
+    parts.push(`[${index}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,crop=iw-${transform.cropLeft}-${transform.cropRight}:ih-${transform.cropTop}-${transform.cropBottom}:${transform.cropLeft}:${transform.cropTop},scale=iw*${transform.scale}:ih*${transform.scale},setpts=PTS-STARTPTS+${start}/TB[${prepared}]`)
+    parts.push(`[${currentVideo}][${prepared}]overlay=(W-w)/2${signedOffset(transform.x)}:(H-h)/2${signedOffset(transform.y)}:enable='between(t,${start},${end})'[${output}]`)
     currentVideo = output
   })
 
@@ -478,6 +482,8 @@ function parseRate(rate) {
 function seconds(ms) {
   return (ms / 1000).toFixed(3)
 }
+
+function signedOffset(value) { return value < 0 ? String(value) : `+${value}` }
 
 function normalizeError(error) {
   return { code: error?.code ?? 'UNKNOWN', message: error instanceof Error ? error.message : String(error) }

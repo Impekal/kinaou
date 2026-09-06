@@ -56,7 +56,7 @@ describe('local Mac worker contract', () => {
     const filter = buildCompositeFilter(plan)
     const command = buildRenderCommand(plan, (uri) => `/Volumes/Media/${uri}`, '/Volumes/Media/KINAOU/Renders/composite.mp4')
 
-    expect(filter.graph).toContain("overlay=0:0:enable='between(t,1.000,6.000)'")
+    expect(filter.graph).toContain("overlay=(W-w)/2+0:(H-h)/2+0:enable='between(t,1.000,6.000)'")
     expect(filter.graph).toContain('adelay=2000|2000')
     expect(filter.graph).toContain('volume=0.8')
     expect(filter.graph).toContain('amix=inputs=1')
@@ -73,6 +73,16 @@ describe('local Mac worker contract', () => {
     expect(plan.clips.map((clip) => clip.trackIndex)).toEqual([1, 0])
     const graph = buildCompositeFilter(plan).graph
     expect(graph.indexOf('[1:v]scale')).toBeLessThan(graph.indexOf('[0:v]scale'))
+  })
+
+  it('compiles crop, scale and position into the real compositor graph', () => {
+    const base = createProject('Transform')
+    const asset = assetSchema.parse({ id: 'asset-1', kind: 'video', uri: 'KINAOU/Assets/demo.mp4', managed: true, metadata: {} })
+    const clip = clipSchema.parse({ id: 'clip-1', assetId: asset.id, startMs: 0, durationMs: 1000, transform: { x: 120, y: -40, scale: 1.5, cropLeft: 10, cropTop: 20, cropRight: 30, cropBottom: 40 } })
+    const track = trackSchema.parse({ id: 'track-1', type: 'video', name: 'Video', clips: [clip] })
+    const graph = buildCompositeFilter(createRenderPlan({ ...base, assets: [asset], tracks: [track] }, preview1080pPreset, 'KINAOU/Renders/transformed.mp4')).graph
+    expect(graph).toContain('crop=iw-10-30:ih-20-40:10:20,scale=iw*1.5:ih*1.5')
+    expect(graph).toContain('overlay=(W-w)/2+120:(H-h)/2-40')
   })
 
   it('rejects speed changes until compositor timing supports them exactly', () => {

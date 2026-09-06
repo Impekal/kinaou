@@ -11,6 +11,7 @@ export type TimelineOperation =
   | { type: 'move-clip'; trackId: string; clipId: string; startMs: number }
   | { type: 'trim-clip'; trackId: string; clipId: string; startMs: number; durationMs: number; sourceOffsetMs: number }
   | { type: 'set-clip-gain'; trackId: string; clipId: string; gain: number }
+  | { type: 'set-clip-transform'; trackId: string; clipId: string; transform: NonNullable<TimelineClip['transform']> }
 
 function updateTrack(project: KinaouProject, trackId: string, update: (track: TimelineTrack) => TimelineTrack): KinaouProject {
   let found = false
@@ -88,5 +89,12 @@ export function applyTimelineOperation(project: KinaouProject, operation: Timeli
     case 'set-clip-gain':
       if (!Number.isFinite(operation.gain) || operation.gain < 0 || operation.gain > 4) throw new Error('Clip gain must be between 0 and 4')
       return updateUnlockedTrack(project, operation.trackId, (track) => updateExistingClip(track, operation.clipId, (clip) => ({ ...clip, gain: operation.gain })))
+    case 'set-clip-transform': {
+      const parsed = operation.transform
+      if (![parsed.x, parsed.y, parsed.scale, parsed.cropLeft, parsed.cropTop, parsed.cropRight, parsed.cropBottom].every(Number.isFinite)) throw new Error('Clip transform values must be finite')
+      if (parsed.scale < 0.1 || parsed.scale > 4) throw new Error('Clip scale must be between 0.1 and 4')
+      if (![parsed.cropLeft, parsed.cropTop, parsed.cropRight, parsed.cropBottom].every((value) => Number.isInteger(value) && value >= 0)) throw new Error('Clip crop must use non-negative integer pixels')
+      return updateUnlockedTrack(project, operation.trackId, (track) => updateExistingClip(track, operation.clipId, (clip) => ({ ...clip, transform: { ...parsed } })))
+    }
   }
 }
