@@ -3,6 +3,7 @@ import { workerHandshakeSchema, type MediaProbeResult, type MediaProxyResult, ty
 import type { RenderPlan } from './render'
 import { parseRenderJob, type RenderJobRecord } from './renderJobs'
 import { parseSttJob, type SttJobRecord } from './sttJobs'
+import { parseTtsJob, type TtsJobRecord } from './ttsJobs'
 
 export interface WorkerClientOptions {
   baseUrl: string
@@ -89,6 +90,27 @@ export class WorkerClient {
     const payload = await this.request(`/stt/jobs/${encodeURIComponent(jobId)}/cancel`, { method: 'POST' })
     if (payload?.ok !== true || payload?.type !== 'stt-job') throw new Error('Invalid STT cancellation response')
     return parseSttJob(payload.job)
+  }
+
+  async listTtsVoices(): Promise<string[]> {
+    const payload = await this.request('/tts/voices', { method: 'GET' })
+    if (payload?.ok !== true || payload?.type !== 'tts-voices' || !Array.isArray(payload.voices) || !payload.voices.every((item: unknown) => typeof item === 'string' && item.startsWith('KINAOU/Models/'))) throw new Error('Invalid TTS voice response')
+    return payload.voices
+  }
+  async startTts(text: string, voicePath: string): Promise<TtsJobRecord> {
+    const payload = await this.request('/tts/jobs', { method: 'POST', body: JSON.stringify({ text, voicePath }) })
+    if (payload?.ok !== true || payload?.type !== 'tts-job') throw new Error('Invalid TTS start response')
+    return parseTtsJob(payload.job)
+  }
+  async ttsStatus(jobId: string): Promise<TtsJobRecord> {
+    const payload = await this.request(`/tts/jobs/${encodeURIComponent(jobId)}`, { method: 'GET' })
+    if (payload?.ok !== true || payload?.type !== 'tts-job') throw new Error('Invalid TTS status response')
+    return parseTtsJob(payload.job)
+  }
+  async cancelTts(jobId: string): Promise<TtsJobRecord> {
+    const payload = await this.request(`/tts/jobs/${encodeURIComponent(jobId)}/cancel`, { method: 'POST' })
+    if (payload?.ok !== true || payload?.type !== 'tts-job') throw new Error('Invalid TTS cancellation response')
+    return parseTtsJob(payload.job)
   }
 
   async generateVideoProxy(path: string): Promise<MediaProxyResult> {
