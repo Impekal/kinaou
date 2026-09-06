@@ -42,7 +42,7 @@ Safety rule: only paths below the configured KINAOU root may be created/moved/de
 ## Repository
 Repo: `Impekal/kinaou`
 Default branch: `main`
-Current main SHA after PR #49: `7a61c359643c7a051cb0047362303fc7c88fc8d5`
+Current main SHA after PR #51: `8abcc5802187f6dfc7857f424e66af5ac1b97454`
 
 ## Merged slices
 - **PR #1** — foundation. Main `0230448aad6ee49e98118ab196b91f2b20e8ca8a`. React/Vite/TS, project schema, non-destructive timeline, storage safety, versioning, jobs, model registry, CI.
@@ -77,9 +77,10 @@ Current main SHA after PR #49: `7a61c359643c7a051cb0047362303fc7c88fc8d5`
 - **PR #45** — visible local STT Assets workflow. Main `cc01f5fa4aa0ff1aff643c5e43e988de7aa9afbf`. Assets exposes available managed audio/video sources, detected GGML models and language selection; it starts, polls and cancels authenticated STT jobs and displays progress/result. Successful transcripts are registered exactly once as managed document assets with source, job, adapter, language and normalized segments retained as attribution. Final gate: 72/72 Vitest + 16/16 native worker tests + production build + worker syntax green.
 - **PR #47** — reviewed transcript segments to real captions. Main `e5a543946d41c55cafb8c493d75ee52dbcebdbd5`. Caption Studio discovers only structurally valid transcript assets, exposes every timestamped segment for explicit selection, and creates caption assets/clips at the original STT times. Each caption retains transcript, segment and whisper.cpp attribution; corrupt selections and locked tracks are rejected before mutation, and an automatic Version History snapshot makes each batch reversible. Final gate: 74/74 Vitest + 16/16 native worker tests + production build + worker syntax green.
 - **PR #49** — safe local Piper TTS contract. Main `7a61c359643c7a051cb0047362303fc7c88fc8d5`. Voice discovery accepts only ONNX models with adjacent configuration under `KINAOU/Models`; synthesis text is trimmed and bounded, temporary text and generated WAV targets stay in managed directories, and the current Piper file-input command is constructed without a shell. UI remains hidden until cancellable execution exists. Final gate: 74/74 Vitest + 19/19 native worker tests + production build + syntax green.
+- **PR #51** — cancellable local Piper TTS jobs. Main `8abcc5802187f6dfc7857f424e66af5ac1b97454`. The worker advertises text-to-speech only when Piper, ffprobe and a managed configured ONNX voice are available; authenticated endpoints discover voices and start/poll/cancel jobs. Piper runs shell-free from a managed temporary UTF-8 text file, successful WAV output is probed and retained under `KINAOU/Assets/GeneratedVoice`, while temporary text and incomplete audio are removed after failure or cancellation. Final gate: 76/76 Vitest + 19/19 native worker tests + production build + worker syntax green.
 
 ## CI incident record (2026-09-06)
-The repeated GitHub “all jobs failed” emails did not indicate a broken `main`. CI was configured with `push.branches: ['**']`, so every intermediate commit on every feature branch immediately triggered a full run; opening a PR triggered another run for the same head. A PR #11 work-in-progress sequence produced 13 consecutive red push runs while native `node:test` coverage was temporarily being discovered by Vitest; the final feature head, PR gate, merge commit and documentation commit were green. Earlier isolated failures were normal pre-fix commits: the initial CSS side-effect import lacked Vite types, the Worker UI used nested probe fields not present in its type, and the compositor test still expected complex plans to be rejected after support was added. All were corrected before their PRs merged. There are no open feature PRs after PR #49.
+The repeated GitHub “all jobs failed” emails did not indicate a broken `main`. CI was configured with `push.branches: ['**']`, so every intermediate commit on every feature branch immediately triggered a full run; opening a PR triggered another run for the same head. A PR #11 work-in-progress sequence produced 13 consecutive red push runs while native `node:test` coverage was temporarily being discovered by Vitest; the final feature head, PR gate, merge commit and documentation commit were green. Earlier isolated failures were normal pre-fix commits: the initial CSS side-effect import lacked Vite types, the Worker UI used nested probe fields not present in its type, and the compositor test still expected complex plans to be rejected after support was added. All were corrected before their PRs merged. There are no open feature PRs after PR #51.
 
 ## Important modules
 - `src/core/project.ts` — project/assets/tracks/clips/storyboard schema.
@@ -131,9 +132,9 @@ The repeated GitHub “all jobs failed” emails did not indicate a broken `main
 ## Current next milestone
 Build the first **Director/AI foundation with local and open adapters**.
 Immediate plan:
-1. execute Piper synthesis as a detected, cancellable worker job,
+1. expose Piper voice/text selection, progress and cancellation in Audio Studio,
 2. persist generated voice as an attributable managed audio asset,
-3. expose generation and explicit voice-track placement in Audio Studio,
+3. enable explicit placement of generated voice on the voice track,
 4. build AI Editor proposals as structured reviewable diffs with Version History safety.
 
 ## Later roadmap
