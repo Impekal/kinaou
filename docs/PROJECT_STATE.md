@@ -56,7 +56,7 @@ Repository: `Impekal/kinaou`
 
 Default branch: `main`
 
-Current main SHA: `3677d3994a143da9f88442eb004fe278dd31dfe7`
+Current main SHA: `c71efbc1eb7d176abdd08b264ecd39acdde0e82d`
 
 ## Merged slices
 
@@ -100,9 +100,25 @@ Established:
 - real `ffprobe` process execution and metadata extraction
 - deliberately narrow real `ffmpeg` render execution for one clip starting at 0
 - render output restriction to `KINAOU/Renders`
-- `spawn(..., { shell: false })`, avoiding shell interpolation
+- `spawn(..., { shell: false })`
 - worker safety/usage docs
 - CI syntax check via `node --check worker/mac-worker.mjs`
+
+Gate: tests + production build + worker syntax check green.
+
+### PR #6 — PWA worker bridge and probed media import
+Main SHA: `c71efbc1eb7d176abdd08b264ecd39acdde0e82d`
+
+Established:
+- `WorkerClient` for localhost-only PWA → worker communication
+- constructor rejects non-localhost endpoints
+- bearer token kept in the running client and attached to each request
+- health/probe/render client methods
+- invalid worker responses and worker-side errors surface as real errors
+- `importProbedMedia` registers real managed media under `KINAOU/Assets`
+- probe metadata (duration/size/mime when available) is persisted into asset metadata
+- imports outside `KINAOU/Assets` are rejected
+- mocked-fetch tests cover auth, health, probing, failure propagation and asset registration
 
 Gate: tests + production build + worker syntax check green.
 
@@ -134,6 +150,10 @@ Gate: tests + production build + worker syntax check green.
 
 `src/core/localWorker.ts` — safe path mapping, ffprobe planning/parsing, initial ffmpeg command planning, Mac handshake.
 
+`src/core/workerClient.ts` — localhost-only authenticated PWA worker client.
+
+`src/core/mediaImport.ts` — conversion of probed worker media into managed project assets.
+
 `worker/mac-worker.mjs` — actual local Node worker runtime.
 
 `worker/README.md` — local prerequisites, security model and launch instructions.
@@ -156,10 +176,14 @@ KINAOU can currently:
 - restrict the worker to an explicitly selected `<disk>/KINAOU` root
 - run real ffprobe against managed assets
 - run a real one-clip ffmpeg render into `KINAOU/Renders`
+- connect to the worker through a typed localhost client core
+- call worker health/probe/render endpoints
+- turn probe results into managed project assets
 
 KINAOU does **not yet** genuinely:
-- connect the PWA UI to the running worker
-- import/copy/link media through the worker
+- expose worker connection/token controls in the visible UI
+- provide a real user-facing file-selection/import flow
+- copy external source media into `KINAOU/Assets`
 - render multi-track/composited timelines
 - report/cancel render progress from UI
 - generate proxies/thumbnails/waveforms
@@ -170,24 +194,24 @@ Unsupported capabilities must not be faked in UI.
 
 ## Current next milestone
 
-Build the **PWA ↔ local worker client bridge and real media import/probe flow**.
+Build the **visible worker connection + real media import UX**.
 
 Immediate scope:
-1. worker client abstraction in the app
-2. configure localhost endpoint + token without persisting secrets unsafely
-3. health/capability detection
-4. import/link an existing media file into managed project state
-5. probe real media through worker and store returned metadata
-6. handle worker offline / SSD disconnected states cleanly
-7. expose real worker status in Settings/Assets
-8. add render job submission/progress/error foundation
-9. keep mobile/remote access separate from the localhost worker security boundary
-10. then expand compositor from one clip to real multi-track rendering
+1. Settings fields for localhost endpoint/token; token must not be silently persisted
+2. Test Connection button using real worker health handshake
+3. visible online/offline/capability status
+4. Assets screen for entering/selecting a managed `KINAOU/Assets/...` media path
+5. probe through worker and import returned metadata into the current project
+6. worker/SSD offline handling without project corruption
+7. then implement source-file copy/link policy into managed Assets
+8. render submission/status UI
+9. progress/cancel/retry foundation
+10. expand compositor beyond one clip
 
-## Roadmap after worker bridge
+## Roadmap after worker UI/import
 
 ### Basic media I/O
-- import/link/copy policy
+- source file chooser / copy/link policy
 - thumbnails/waveforms/proxies
 - disconnected SSD recovery
 - render progress/cancel/retry
