@@ -42,7 +42,7 @@ Safety rule: only paths below the configured KINAOU root may be created/moved/de
 ## Repository
 Repo: `Impekal/kinaou`
 Default branch: `main`
-Current main SHA after PR #13: `b31f4ce3b504707c26b483505fd6a7101f9d10cb`
+Current main SHA after PR #14: `c8bb9c86d748dab82ec499492c6a11e17c693719`
 
 ## Merged slices
 - **PR #1** — foundation. Main `0230448aad6ee49e98118ab196b91f2b20e8ca8a`. React/Vite/TS, project schema, non-destructive timeline, storage safety, versioning, jobs, model registry, CI.
@@ -58,9 +58,10 @@ Current main SHA after PR #13: `b31f4ce3b504707c26b483505fd6a7101f9d10cb`
 - **PR #11** — secure browser file import + deterministic visual z-order. Main `576dc633a5987bf819ccb79f0cc0754414587691`. Explicit browser File/Blob streaming to authenticated worker; worker receives bytes, never arbitrary source path. Upload writes `.part` under `KINAOU/Temp/Uploads`, enforces configurable size limit, sanitizes/collision-proofs destination, atomically renames to `KINAOU/Assets`, cleans failures, then PWA probes/registers asset. Worker advertises `asset-upload`. Native `node:test` worker security tests were separated from Vitest discovery. RenderPlan now carries `trackIndex`; higher visual track indexes composite later/on top independent of clip start order. Final push + PR gates: Vitest + native worker tests + production build + worker syntax all green.
 - **PR #12** — CI notification noise + reproducible installs. Main `f13c9d349f478b1bbac0d90eae93461e0e0b4f31`. Feature work is gated once through `pull_request`; `push` CI now runs only on `main`, so intermediate work-in-progress commits no longer generate repeated failure notifications or duplicate PR checks. Superseded runs are cancelled, workflow permissions are read-only, `package-lock.json` is committed and CI uses `npm ci`. Final local gate: 40/40 Vitest + 2/2 native worker tests + production build + worker syntax. PR gate green.
 - **PR #13** — supported GitHub Actions runtime. Main `b31f4ce3b504707c26b483505fd6a7101f9d10cb`. `actions/checkout` and `actions/setup-node` moved to v5, removing the deprecated Node 20 action-runtime warning while the application test matrix remains on Node.js 22. Local and PR gates green.
+- **PR #14** — structured captions and real subtitle rendering. Main `c8bb9c86d748dab82ec499492c6a11e17c693719`. Studio creates and edits timed caption assets as project metadata; caption clips pass readiness without pretending to be filesystem assets. The worker deterministically generates UTF-8 ASS under `KINAOU/Temp/Captions`, burns it in after visual composition, neutralizes ASS override characters, supports Unicode/multiline text and removes the temporary file after success, failure or cancellation. Final gate: 43/43 Vitest + 4/4 native worker tests + production build + worker syntax green.
 
 ## CI incident record (2026-09-06)
-The repeated GitHub “all jobs failed” emails did not indicate a broken `main`. CI was configured with `push.branches: ['**']`, so every intermediate commit on every feature branch immediately triggered a full run; opening a PR triggered another run for the same head. A PR #11 work-in-progress sequence produced 13 consecutive red push runs while native `node:test` coverage was temporarily being discovered by Vitest; the final feature head, PR gate, merge commit and documentation commit were green. Earlier isolated failures were normal pre-fix commits: the initial CSS side-effect import lacked Vite types, the Worker UI used nested probe fields not present in its type, and the compositor test still expected complex plans to be rejected after support was added. All were corrected before their PRs merged. There are no open PRs after PR #13.
+The repeated GitHub “all jobs failed” emails did not indicate a broken `main`. CI was configured with `push.branches: ['**']`, so every intermediate commit on every feature branch immediately triggered a full run; opening a PR triggered another run for the same head. A PR #11 work-in-progress sequence produced 13 consecutive red push runs while native `node:test` coverage was temporarily being discovered by Vitest; the final feature head, PR gate, merge commit and documentation commit were green. Earlier isolated failures were normal pre-fix commits: the initial CSS side-effect import lacked Vite types, the Worker UI used nested probe fields not present in its type, and the compositor test still expected complex plans to be rejected after support was added. All were corrected before their PRs merged. There are no open feature PRs after PR #14.
 
 ## Important modules
 - `src/core/project.ts` — project/assets/tracks/clips/storyboard schema.
@@ -74,9 +75,11 @@ The repeated GitHub “all jobs failed” emails did not indicate a broken `main
 - `src/core/mediaImport.ts` — probed media → managed project asset.
 - `src/components/AssetUploadPanel.tsx` — explicit browser file chooser → upload → probe → register.
 - `src/components/TimelineEditor.tsx` — real timeline controls.
+- `src/components/CaptionEditor.tsx` / `src/core/captions.ts` — structured timed caption creation/editing.
 - `src/components/AssetPlacementControl.tsx` — compatible track chooser + Add to timeline.
 - `src/components/RenderPanel.tsx` — real render start/progress/cancel/result.
 - `worker/asset-upload.mjs` — safe filename/temp/final upload paths.
+- `worker/captions.mjs` — deterministic ASS generation, escaping and managed temp paths.
 - `worker/mac-worker.mjs` — actual local upload/ffprobe/FFmpeg runtime.
 - `src/App.tsx` — Projects/Create/Studio/Assets/Settings shell; unfinished sections are not faked.
 
@@ -87,31 +90,28 @@ The repeated GitHub “all jobs failed” emails did not indicate a broken `main
 4. Worker streams selected file safely into `KINAOU/Assets`; PWA auto-probes and registers it.
 5. Choose compatible timeline track and place asset.
 6. Move/trim/mute/lock; adjust audio gain.
-7. Render deterministic multi-track visual/audio composition to `KINAOU/Renders` with explicit z-order.
-8. Watch progress, cancel, see failure/result, retry as new job.
+7. Create/edit timed Unicode captions stored non-destructively in the project.
+8. Render deterministic multi-track visual/audio composition plus caption burn-in to `KINAOU/Renders` with explicit z-order.
+9. Watch progress, cancel, see failure/result, retry as new job; worker cleans caption temp files in every terminal path.
 
 ## Current limitations
-- Caption/subtitle tracks are not rendered yet.
 - No transitions, crop/position/keyframes, fades/automation or exact speed retiming.
 - No thumbnails/waveforms/proxies.
 - No real local AI model execution yet; Director/AI Editor remain intentionally non-functional UI slots.
 - Local worker has not yet been run against the user's actual Mac/SSD; repository behavior is CI-tested, local hardware execution remains a later USER ACTION.
 
 ## Current next milestone
-Build **real caption/subtitle creation + render support**.
+Build **Studio fidelity controls backed by real FFmpeg semantics**.
 Immediate plan:
-1. structured caption assets stored as project metadata rather than arbitrary external files,
-2. caption creation/edit UI on Caption track,
-3. caption clips participate in RenderPlan without requiring `KINAOU/Assets` file URI,
-4. worker generates temporary managed ASS subtitle file under `KINAOU/Temp`,
-5. safe ASS escaping/timing,
-6. FFmpeg burns captions after visual composition,
-7. cleanup temp subtitle file on success/failure/cancel,
-8. remove Caption-track render blocker,
-9. tests for Unicode/punctuation/multiline captions and timing.
+1. explicit track reordering in the UI while preserving deterministic z-order,
+2. per-clip position/scale/crop schema, controls and compositor filters,
+3. deterministic video/image transitions,
+4. audio/video fades and automation envelopes,
+5. exact speed retiming with matching audio/video duration semantics,
+6. preview/proxy, thumbnail and waveform generation after fidelity controls are stable.
 
 ## Later roadmap
-Studio fidelity: captions → transitions → retiming → fades/automation → transform/keyframes → proxies.
+Studio fidelity: transforms/reorder → transitions → fades/automation → retiming → proxies/thumbnails/waveforms.
 AI creation: DirectorPlan schema → local LLM adapter → script/storyboard/scenes → STT/TTS → image/video adapters → AI Editor structured proposals/diffs/undo.
 Advanced: Avatar, Audio Studio, browser/app capture, commentary/reaction/duo, long-to-short, content factory, trend/opportunity, platform adaptation, official-API publishing, analytics/learning loop.
 
