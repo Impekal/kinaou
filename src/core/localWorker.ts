@@ -68,19 +68,22 @@ function parseRate(rate: string): number {
 const visualTrackTypes = new Set(['video', 'broll', 'image', 'avatar', 'overlay'])
 const audioTrackTypes = new Set(['voice', 'dialog', 'music', 'sfx'])
 
-export function buildRenderCommand(plan: RenderPlan, resolveAssetPath: (uri: string) => string, outputAbsolutePath: string): ProcessCommand {
+export function buildRenderCommand(plan: RenderPlan, resolveAssetPath: (uri: string) => string, outputAbsolutePath: string, subtitleAbsolutePath?: string): ProcessCommand {
   if (!outputAbsolutePath.startsWith('/')) throw new Error('Render output must be absolute')
   if (plan.clips.length === 0) throw new Error('Render plan contains no clips')
   if (plan.durationMs <= 0) throw new Error('Render duration must be positive')
   if (plan.clips.some((clip) => clip.speed !== 1)) throw new Error('Multi-track compositor currently requires clip speed 1')
 
   const args: string[] = ['-y']
-  for (const clip of plan.clips) {
+  const mediaClips = plan.clips.filter((clip) => clip.asset.kind !== 'caption')
+  const hasCaptions = mediaClips.length !== plan.clips.length
+  if (hasCaptions && !subtitleAbsolutePath) throw new Error('Caption render requires a generated subtitle file')
+  for (const clip of mediaClips) {
     if (clip.asset.kind === 'image') args.push('-loop', '1')
     args.push('-ss', seconds(clip.sourceOffsetMs), '-t', seconds(clip.durationMs), '-i', resolveAssetPath(clip.asset.uri))
   }
 
-  const filter = buildCompositeFilter(plan)
+  const filter = buildCompositeFilter({ ...plan, clips: mediaClips }, subtitleAbsolutePath)
   args.push('-filter_complex', filter.graph)
   args.push('-map', filter.videoOutput)
   if (filter.audioOutput) args.push('-map', filter.audioOutput)
@@ -98,7 +101,7 @@ export interface CompositeFilter {
   audioOutput?: string
 }
 
-export function buildCompositeFilter(plan: RenderPlan): CompositeFilter {
+export function buildCompositeFilter(plan: RenderPlan, subtitleAbsolutePath?: string): CompositeFilter {
   const width = plan.preset.width
   const height = plan.preset.height
   const fps = plan.preset.fps
@@ -125,6 +128,12 @@ export function buildCompositeFilter(plan: RenderPlan): CompositeFilter {
     parts.push(`[${currentVideo}][${prepared}]overlay=0:0:enable='between(t,${start},${end})'[${output}]`)
     currentVideo = output
   })
+
+  if (subtitleAbsolutePath) {
+    const escaped = subtitleAbsolutePath.replaceAll('\\', '\\\\').replaceAll(':', '\\:').replaceAll("'", "'\\''").replaceAll(',', '\\,').replaceAll('[', '\\[').replaceAll(']', '\\]')
+    parts.push(`[${currentVideo}]subtitles=filename='${escaped}'[captioned]`)
+    currentVideo = 'captioned'
+  }
 
   let audioOutput: string | undefined
   if (audios.length) {

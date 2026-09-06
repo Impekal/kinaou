@@ -84,6 +84,16 @@ describe('local Mac worker contract', () => {
     expect(() => buildRenderCommand(plan, (uri) => `/Volumes/Media/${uri}`, '/Volumes/Media/KINAOU/Renders/demo.mp4')).toThrow(/speed 1/)
   })
 
+  it('requires a generated subtitle path and burns it after visual composition', () => {
+    const base = createProject('Caption')
+    const caption = assetSchema.parse({ id: 'caption-1', kind: 'caption', uri: 'kinaou://caption/caption-1', managed: true, metadata: { text: 'Hello' } })
+    const track = trackSchema.parse({ id: 'captions', type: 'caption', name: 'Captions', clips: [clipSchema.parse({ id: 'cc', assetId: caption.id, startMs: 0, durationMs: 2000 })] })
+    const plan = createRenderPlan({ ...base, assets: [caption], tracks: [track] }, preview1080pPreset, 'KINAOU/Renders/caption.mp4')
+    expect(() => buildRenderCommand(plan, () => { throw new Error('caption is not a file input') }, '/Volumes/Media/KINAOU/Renders/caption.mp4')).toThrow(/subtitle file/)
+    const command = buildRenderCommand(plan, () => { throw new Error('caption is not a file input') }, '/Volumes/Media/KINAOU/Renders/caption.mp4', '/Volumes/Media/KINAOU/Temp/Captions/job.ass')
+    expect(command.args.join(' ')).toContain("subtitles=filename='/Volumes/Media/KINAOU/Temp/Captions/job.ass'")
+  })
+
   it('advertises the real local capabilities intended for the Mac worker', () => {
     const handshake = createMacWorkerHandshake({ workerId: 'mac-1', version: '0.4.0', managedRoot: '/Volumes/Media/KINAOU', ffmpegVersion: '7.1' })
     expect(handshake.platform).toBe('darwin')

@@ -1,6 +1,6 @@
 import type { KinaouProject } from './project'
 
-const renderableTrackTypes = new Set(['video', 'broll', 'image', 'avatar', 'overlay', 'voice', 'dialog', 'music', 'sfx'])
+const renderableTrackTypes = new Set(['video', 'broll', 'image', 'avatar', 'overlay', 'voice', 'dialog', 'music', 'sfx', 'caption'])
 
 export function renderOutputPath(project: KinaouProject, now = new Date()): string {
   const slug = project.title
@@ -25,6 +25,10 @@ export function renderReadiness(project: KinaouProject): { ready: boolean; reaso
     const asset = project.assets.find((item) => item.id === assetId)
     if (!asset) return { ready: false, reason: 'A timeline clip references a missing asset.' }
     if (asset.offline) return { ready: false, reason: 'Reconnect offline media before rendering.' }
+    if (asset.kind === 'caption') {
+      if (typeof asset.metadata.text !== 'string' || !asset.metadata.text.trim()) return { ready: false, reason: 'A caption has no text.' }
+      continue
+    }
     if (!asset.managed || !asset.uri.startsWith('KINAOU/Assets/')) {
       return { ready: false, reason: 'Replace planning/external clips with managed KINAOU/Assets media before rendering.' }
     }
