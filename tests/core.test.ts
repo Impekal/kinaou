@@ -27,6 +27,18 @@ describe('project engine', () => {
     expect(withClip.tracks[0].clips[0].startMs).toBe(0)
     expect(moved.tracks[0].clips[0].startMs).toBe(2500)
   })
+
+  it('reorders tracks as persistent render layer order', () => {
+    let project = createProject('Layers')
+    const lower = trackSchema.parse({ id: 'lower', type: 'video', name: 'Lower' })
+    const upper = trackSchema.parse({ id: 'upper', type: 'overlay', name: 'Upper' })
+    project = applyTimelineOperation(project, { type: 'add-track', track: lower })
+    project = applyTimelineOperation(project, { type: 'add-track', track: upper })
+    const reordered = applyTimelineOperation(project, { type: 'reorder-track', trackId: 'lower', toIndex: 1 })
+    expect(reordered.tracks.map((track) => track.id)).toEqual(['upper', 'lower'])
+    expect(project.tracks.map((track) => track.id)).toEqual(['lower', 'upper'])
+    expect(() => applyTimelineOperation(project, { type: 'reorder-track', trackId: 'lower', toIndex: 2 })).toThrow(/out of range/)
+  })
 })
 
 describe('storage safety boundary', () => {

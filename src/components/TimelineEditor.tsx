@@ -51,13 +51,17 @@ export function TimelineEditor({ project, onProjectChange }: TimelineEditorProps
 
   return (
     <div className="timeline card">
-      {project.tracks.map((track) => (
+      {project.tracks.map((track, trackIndex) => (
         <div className={track.muted ? 'trackRow mutedTrack' : 'trackRow'} key={track.id}>
           <div className="trackLabel">
             <strong>{track.name}</strong><small>{track.type}</small>
             <div className="trackControls">
               <button onClick={() => apply({ type: 'set-track-state', trackId: track.id, muted: !track.muted })}>{track.muted ? 'Unmute' : 'Mute'}</button>
               <button onClick={() => apply({ type: 'set-track-state', trackId: track.id, locked: !track.locked })}>{track.locked ? 'Unlock' : 'Lock'}</button>
+            </div>
+            <div className="trackControls" aria-label={`${track.name} layer order`}>
+              <button disabled={trackIndex === project.tracks.length - 1} onClick={() => apply({ type: 'reorder-track', trackId: track.id, toIndex: trackIndex + 1 })}>Layer ↑</button>
+              <button disabled={trackIndex === 0} onClick={() => apply({ type: 'reorder-track', trackId: track.id, toIndex: trackIndex - 1 })}>Layer ↓</button>
             </div>
             <button disabled={track.locked} onClick={() => addPlanningBlock(track)}>+ planning block</button>
           </div>
