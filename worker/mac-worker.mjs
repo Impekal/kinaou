@@ -9,7 +9,10 @@ const PORT = Number(process.env.KINAOU_WORKER_PORT ?? 43117)
 const TOKEN = process.env.KINAOU_WORKER_TOKEN ?? crypto.randomBytes(24).toString('hex')
 const MANAGED_ROOT = normalizeRoot(process.env.KINAOU_MANAGED_ROOT ?? '')
 const WORKER_ID = process.env.KINAOU_WORKER_ID ?? `mac-${crypto.randomUUID()}`
-const VERSION = '0.1.0'
+const VERSION = '0.3.0'
+const renderJobs = new Map()
+const visualTrackTypes = new Set(['video', 'broll', 'image', 'avatar', 'overlay'])
+const audioTrackTypes = new Set(['voice', 'dialog', 'music', 'sfx'])
 
 if (!MANAGED_ROOT) {
   console.error('KINAOU_MANAGED_ROOT is required and must point to the dedicated KINAOU directory on the selected disk.')
@@ -24,7 +27,14 @@ const versions = {
 }
 
 const server = http.createServer(async (request, response) => {
-  setJsonHeaders(response)
+  setCorsHeaders(request, response)
+  if (request.method === 'OPTIONS') {
+    response.statusCode = 204
+    return response.end()
+  }
+  response.setHeader('content-type', 'application/json; charset=utf-8')
+  response.setHeader('cache-control', 'no-store')
+
   if (!isAuthorized(request)) return send(response, 401, { ok: false, error: { code: 'UNAUTHORIZED', message: 'Invalid worker token' } })
 
   try {
@@ -56,18 +66,28 @@ const server = http.createServer(async (request, response) => {
 
     if (request.method === 'POST' && request.url === '/render') {
       const body = await readJson(request)
-      const plan = validateSingleClipRender(body.plan)
-      const inputPath = resolveManaged(requireManagedRelativePath(plan.clips[0].asset.uri))
-      const outputPath = resolveManaged(requireRenderRelativePath(plan.outputRelativePath))
-      await access(inputPath)
-      await mkdir(path.dirname(outputPath), { recursive: true })
-      const result = await renderSingleClip(plan, inputPath, outputPath)
-      return send(response, 200, { ok: true, type: 'render', result })
+      const plan = validateRenderPlan(body.plan)
+      const job = createRenderJob(plan)
+      queueMicrotask(() => executeRenderJob(job.id).catch(() => {}))
+      return send(response, 202, { ok: true, type: 'render-job', job: publicJob(job) })
+    }
+
+    const statusMatch = request.url?.match(/^\/render\/jobs\/([^/]+)$/)
+    if (request.method === 'GET' && statusMatch) {
+      const job = requireRenderJob(decodeURIComponent(statusMatch[1]))
+      return send(response, 200, { ok: true, type: 'render-job', job: publicJob(job) })
+    }
+
+    const cancelMatch = request.url?.match(/^\/render\/jobs\/([^/]+)\/cancel$/)
+    if (request.method === 'POST' && cancelMatch) {
+      const job = requireRenderJob(decodeURIComponent(cancelMatch[1]))
+      cancelRenderJob(job)
+      return send(response, 200, { ok: true, type: 'render-job', job: publicJob(job) })
     }
 
     return send(response, 404, { ok: false, error: { code: 'NOT_FOUND', message: 'Unknown worker endpoint' } })
   } catch (error) {
-    const status = error?.code === 'UNAUTHORIZED_PATH' ? 403 : 400
+    const status = error?.code === 'UNAUTHORIZED_PATH' ? 403 : error?.code === 'NOT_FOUND' ? 404 : 400
     return send(response, status, { ok: false, error: normalizeError(error) })
   }
 })
@@ -78,15 +98,26 @@ server.listen(PORT, HOST, () => {
   if (!process.env.KINAOU_WORKER_TOKEN) console.log(`Generated one-time token: ${TOKEN}`)
 })
 
-function setJsonHeaders(response) {
-  response.setHeader('content-type', 'application/json; charset=utf-8')
-  response.setHeader('cache-control', 'no-store')
-  response.setHeader('access-control-allow-origin', 'http://127.0.0.1')
+function setCorsHeaders(request, response) {
+  const origin = request.headers.origin
+  if (isLoopbackOrigin(origin)) response.setHeader('access-control-allow-origin', origin)
+  response.setHeader('vary', 'origin')
+  response.setHeader('access-control-allow-headers', 'authorization, content-type')
+  response.setHeader('access-control-allow-methods', 'GET, POST, OPTIONS')
+}
+
+function isLoopbackOrigin(origin) {
+  if (!origin) return false
+  try {
+    const url = new URL(origin)
+    return url.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(url.hostname)
+  } catch {
+    return false
+  }
 }
 
 function isAuthorized(request) {
-  const auth = request.headers.authorization ?? ''
-  return auth === `Bearer ${TOKEN}`
+  return (request.headers.authorization ?? '') === `Bearer ${TOKEN}`
 }
 
 async function readJson(request) {
@@ -98,8 +129,7 @@ async function readJson(request) {
     chunks.push(chunk)
   }
   const text = Buffer.concat(chunks).toString('utf8')
-  if (!text) return {}
-  return JSON.parse(text)
+  return text ? JSON.parse(text) : {}
 }
 
 function normalizeRoot(value) {
@@ -171,37 +201,173 @@ async function probeMedia(absolutePath) {
   }
 }
 
-function validateSingleClipRender(plan) {
+function validateRenderPlan(plan) {
   if (!plan || typeof plan !== 'object') throw new Error('Render plan required')
-  if (!Array.isArray(plan.clips) || plan.clips.length !== 1) throw new Error('Worker runtime currently supports exactly one render clip')
-  const clip = plan.clips[0]
-  if (clip.startMs !== 0) throw new Error('Worker runtime currently supports clips starting at 0 only')
-  if (!Number.isFinite(clip.durationMs) || clip.durationMs <= 0) throw new Error('Invalid clip duration')
-  if (!Number.isFinite(clip.sourceOffsetMs) || clip.sourceOffsetMs < 0) throw new Error('Invalid source offset')
-  if (!plan.preset || !Number.isFinite(plan.preset.width) || !Number.isFinite(plan.preset.height) || !Number.isFinite(plan.preset.fps)) throw new Error('Invalid render preset')
+  if (!Array.isArray(plan.clips) || plan.clips.length < 1) throw new Error('Render plan requires at least one clip')
+  if (!Number.isFinite(plan.durationMs) || plan.durationMs <= 0) throw new Error('Invalid render duration')
+  if (!plan.preset || !Number.isFinite(plan.preset.width) || plan.preset.width <= 0 || !Number.isFinite(plan.preset.height) || plan.preset.height <= 0 || !Number.isFinite(plan.preset.fps) || plan.preset.fps <= 0) throw new Error('Invalid render preset')
   requireRenderRelativePath(plan.outputRelativePath)
-  requireManagedRelativePath(clip.asset?.uri)
+  for (const clip of plan.clips) {
+    if (!Number.isFinite(clip.startMs) || clip.startMs < 0) throw new Error('Invalid clip start')
+    if (!Number.isFinite(clip.durationMs) || clip.durationMs <= 0) throw new Error('Invalid clip duration')
+    if (!Number.isFinite(clip.sourceOffsetMs) || clip.sourceOffsetMs < 0) throw new Error('Invalid source offset')
+    if (clip.speed !== 1) throw new Error('Multi-track compositor currently requires clip speed 1')
+    requireManagedRelativePath(clip.asset?.uri)
+  }
   return plan
 }
 
-async function renderSingleClip(plan, inputPath, outputPath) {
-  if (!versions.ffmpeg) throw capabilityError('ffmpeg is not available')
-  const clip = plan.clips[0]
-  const codec = plan.preset.videoCodec === 'hevc' ? 'libx265' : 'libx264'
-  const args = [
-    '-y',
-    '-ss', seconds(clip.sourceOffsetMs),
-    '-t', seconds(clip.durationMs),
-    '-i', inputPath,
-    '-c:v', codec,
-    '-c:a', 'aac',
-    '-r', String(plan.preset.fps),
-    '-s', `${plan.preset.width}x${plan.preset.height}`,
-    outputPath
-  ]
-  await run('ffmpeg', args)
-  const info = await stat(outputPath)
-  return { outputPath, durationMs: clip.durationMs, sizeBytes: info.size }
+function createRenderJob(plan) {
+  const now = new Date().toISOString()
+  const job = { id: crypto.randomUUID(), state: 'queued', progress: 0, createdAt: now, updatedAt: now, plan, child: null }
+  renderJobs.set(job.id, job)
+  return job
+}
+
+function publicJob(job) {
+  return {
+    id: job.id, state: job.state, progress: job.progress, createdAt: job.createdAt, updatedAt: job.updatedAt,
+    ...(job.outputPath ? { outputPath: job.outputPath } : {}),
+    ...(job.durationMs !== undefined ? { durationMs: job.durationMs } : {}),
+    ...(job.sizeBytes !== undefined ? { sizeBytes: job.sizeBytes } : {}),
+    ...(job.error ? { error: job.error } : {})
+  }
+}
+
+function requireRenderJob(id) {
+  const job = renderJobs.get(id)
+  if (!job) {
+    const error = new Error('Render job not found')
+    error.code = 'NOT_FOUND'
+    throw error
+  }
+  return job
+}
+
+function touchJob(job) {
+  job.updatedAt = new Date().toISOString()
+}
+
+async function executeRenderJob(id) {
+  const job = requireRenderJob(id)
+  if (job.state === 'cancelled') return
+  job.state = 'running'
+  touchJob(job)
+  try {
+    if (!versions.ffmpeg) throw capabilityError('ffmpeg is not available')
+    const plan = job.plan
+    const outputPath = resolveManaged(requireRenderRelativePath(plan.outputRelativePath))
+    const inputPaths = []
+    for (const clip of plan.clips) {
+      const input = resolveManaged(requireManagedRelativePath(clip.asset.uri))
+      await access(input)
+      inputPaths.push(input)
+    }
+    await mkdir(path.dirname(outputPath), { recursive: true })
+    const args = buildCompositeArgs(plan, inputPaths, outputPath)
+    const child = spawn('ffmpeg', args, { shell: false, stdio: ['ignore', 'pipe', 'pipe'] })
+    job.child = child
+    let progressBuffer = ''
+    let stderr = ''
+    child.stdout.on('data', (data) => {
+      progressBuffer += data.toString()
+      const lines = progressBuffer.split('\n')
+      progressBuffer = lines.pop() ?? ''
+      for (const line of lines) updateFfmpegProgress(job, line, plan.durationMs)
+    })
+    child.stderr.on('data', (data) => { stderr += data.toString() })
+    await new Promise((resolve, reject) => {
+      child.on('error', reject)
+      child.on('close', (code, signal) => {
+        job.child = null
+        if (job.state === 'cancelled') return resolve()
+        if (code === 0) return resolve()
+        const error = new Error(`ffmpeg exited with code ${code ?? 'null'}${signal ? ` (${signal})` : ''}: ${stderr.trim()}`)
+        error.code = 'PROCESS_FAILED'
+        reject(error)
+      })
+    })
+    if (job.state === 'cancelled') return
+    const info = await stat(outputPath)
+    job.state = 'succeeded'
+    job.progress = 1
+    job.outputPath = outputPath
+    job.durationMs = plan.durationMs
+    job.sizeBytes = info.size
+    touchJob(job)
+  } catch (error) {
+    if (job.state === 'cancelled') return
+    job.state = 'failed'
+    job.error = error instanceof Error ? error.message : String(error)
+    touchJob(job)
+  }
+}
+
+function buildCompositeArgs(plan, inputPaths, outputPath) {
+  const args = ['-y']
+  plan.clips.forEach((clip, index) => {
+    if (clip.asset.kind === 'image') args.push('-loop', '1')
+    args.push('-ss', seconds(clip.sourceOffsetMs), '-t', seconds(clip.durationMs), '-i', inputPaths[index])
+  })
+
+  const width = plan.preset.width
+  const height = plan.preset.height
+  const fps = plan.preset.fps
+  const parts = [`color=c=black:s=${width}x${height}:r=${fps}:d=${seconds(plan.durationMs)}[base]`]
+  const visuals = []
+  const audios = []
+  plan.clips.forEach((clip, index) => {
+    if (visualTrackTypes.has(clip.trackType)) visuals.push({ index, clip })
+    if (audioTrackTypes.has(clip.trackType)) audios.push({ index, clip })
+  })
+
+  let currentVideo = 'base'
+  visuals.forEach(({ index, clip }, visualIndex) => {
+    const prepared = `v${visualIndex}`
+    const output = `vo${visualIndex}`
+    const start = seconds(clip.startMs)
+    const end = seconds(clip.startMs + clip.durationMs)
+    parts.push(`[${index}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black,setpts=PTS-STARTPTS+${start}/TB[${prepared}]`)
+    parts.push(`[${currentVideo}][${prepared}]overlay=0:0:enable='between(t,${start},${end})'[${output}]`)
+    currentVideo = output
+  })
+
+  let audioOutput = null
+  if (audios.length) {
+    const labels = []
+    audios.forEach(({ index, clip }, audioIndex) => {
+      const label = `a${audioIndex}`
+      const delay = Math.round(clip.startMs)
+      parts.push(`[${index}:a]atrim=0:${seconds(clip.durationMs)},asetpts=PTS-STARTPTS,volume=${clip.gain},adelay=${delay}|${delay}[${label}]`)
+      labels.push(`[${label}]`)
+    })
+    audioOutput = 'aout'
+    parts.push(`${labels.join('')}amix=inputs=${labels.length}:duration=longest:normalize=0[${audioOutput}]`)
+  }
+
+  args.push('-filter_complex', parts.join(';'), '-map', `[${currentVideo}]`)
+  if (audioOutput) args.push('-map', `[${audioOutput}]`)
+  else args.push('-an')
+  args.push('-t', seconds(plan.durationMs), '-c:v', plan.preset.videoCodec === 'hevc' ? 'libx265' : 'libx264')
+  if (audioOutput) args.push('-c:a', 'aac')
+  args.push('-r', String(fps), '-pix_fmt', 'yuv420p', '-progress', 'pipe:1', '-nostats', outputPath)
+  return args
+}
+
+function updateFfmpegProgress(job, line, durationMs) {
+  const [key, rawValue] = line.split('=', 2)
+  if (key !== 'out_time_us') return
+  const elapsedMs = Number(rawValue) / 1000
+  if (!Number.isFinite(elapsedMs)) return
+  job.progress = Math.max(0, Math.min(0.99, elapsedMs / durationMs))
+  touchJob(job)
+}
+
+function cancelRenderJob(job) {
+  if (['succeeded', 'failed', 'cancelled'].includes(job.state)) return
+  job.state = 'cancelled'
+  touchJob(job)
+  if (job.child && !job.child.killed) job.child.kill('SIGTERM')
 }
 
 function capabilityError(message) {
@@ -240,10 +406,7 @@ function seconds(ms) {
 }
 
 function normalizeError(error) {
-  return {
-    code: error?.code ?? 'UNKNOWN',
-    message: error instanceof Error ? error.message : String(error)
-  }
+  return { code: error?.code ?? 'UNKNOWN', message: error instanceof Error ? error.message : String(error) }
 }
 
 function send(response, status, body) {
