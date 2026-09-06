@@ -64,7 +64,7 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .card > .eyebrow:first-child { margin-top: 20px; }
 .chipRow { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { border: 1px solid #343b4c; border-radius: 999px; padding: 7px 10px; color: #c4cada; font-size: 11px; background: #11151e; }
-.errorBox { padding: 16px 18px; border-color: #65333a; background: rgba(145, 45, 57, .12); color: #f0aeb6; }
+.errorBox { padding: 16px 18px; border: 1px solid #65333a; border-radius: 12px; background: rgba(145, 45, 57, .12); color: #f0aeb6; }
 .probeCard { padding: 24px; display: grid; gap: 18px; }
 .probeGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
 .probeGrid span { display: grid; gap: 4px; padding: 13px; background: #10131a; border: 1px solid #282e3b; border-radius: 10px; color: #7f899c; font-size: 10px; text-transform: uppercase; }
@@ -77,6 +77,18 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .assetRow code { color: #b8bfd0; overflow-wrap: anywhere; }
 .badge { border: 1px solid #315b42; color: #a8f0c3; border-radius: 999px; padding: 6px 8px; font-size: 9px; }
 .badge.offline { border-color: #65333a; color: #f0aeb6; }
+.workerCard { padding: 24px; }
+.renderPanel { padding: 24px; display: grid; gap: 16px; }
+.renderPanel .sectionLead { margin-bottom: 0; }
+.renderPanel p { margin-bottom: 0; }
+.renderPanel code, .renderMeta code { color: #cdd3e3; overflow-wrap: anywhere; }
+.renderJob { display: grid; gap: 10px; padding: 16px; background: #10131a; border: 1px solid #292f3d; border-radius: 12px; }
+.renderJobHead, .renderMeta, .renderActions { display: flex; align-items: center; gap: 12px; justify-content: space-between; flex-wrap: wrap; }
+.renderJobHead span, .renderMeta span { color: #9099aa; font-size: 12px; }
+.progressTrack { height: 10px; overflow: hidden; border-radius: 999px; background: #090c12; border: 1px solid #272d39; }
+.progressFill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #6e5de9, #a56cff); transition: width .25s ease; }
+.renderActions { justify-content: flex-start; }
+.dangerButton { border: 1px solid #6d343c; border-radius: 11px; padding: 11px 15px; background: rgba(132, 42, 54, .12); color: #f0aeb6; font-weight: 700; }
 
 @media (max-width: 850px) {
   .shell { grid-template-columns: 1fr; }
