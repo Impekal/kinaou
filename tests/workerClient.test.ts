@@ -137,6 +137,12 @@ describe('probed media import', () => {
     expect((await client.loadWaveform(generated.path)).type).toBe('image/png')
   })
 
+  it('loads only managed composed timeline previews', async () => {
+    const client = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl: async () => new Response(new Uint8Array([1]), { status: 200, headers: { 'content-type': 'video/mp4' } }) })
+    expect((await client.loadTimelinePreview('KINAOU/Cache/Previews/project.mp4')).type).toBe('video/mp4')
+    await expect(client.loadTimelinePreview('KINAOU/Renders/export.mp4')).rejects.toThrow(/preview path/)
+  })
+
   it('rejects imports outside KINAOU/Assets', () => {
     const project = createProject('Import')
     expect(() => importProbedMedia(project, {

@@ -97,6 +97,9 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .thumbnailControl img { width: 160px; max-width: 100%; border-radius: 8px; border: 1px solid #343b4c; }
 .waveformControl { margin-top: 8px; display: grid; gap: 6px; }
 .waveformImage { width: 100%; min-height: 36px; max-height: 80px; object-fit: fill; border-radius: 6px; background: #0b0d13; border: 1px solid #343b4c; }
+.timelinePreview { padding: 24px; display: grid; gap: 14px; }
+.timelinePreview .sectionLead { margin-bottom: 0; }
+.timelinePreview p { margin-bottom: 0; }
 .badge { border: 1px solid #315b42; color: #a8f0c3; border-radius: 999px; padding: 6px 8px; font-size: 9px; }
 .badge.offline { border-color: #65333a; color: #f0aeb6; }
 .workerCard { padding: 24px; }

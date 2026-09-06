@@ -31,6 +31,7 @@ export function requireProxyMediaPath(value) {
 export function previewMediaType(value) {
   if (typeof value !== 'string' || value.split('/').some((part) => part === '..')) throw new Error('Invalid preview media path')
   if (value.startsWith('KINAOU/Cache/Proxies/') && value.endsWith('.mp4')) return 'video/mp4'
+  if (value.startsWith('KINAOU/Cache/Previews/') && value.endsWith('.mp4')) return 'video/mp4'
   if (value.startsWith('KINAOU/Cache/Thumbnails/') && value.endsWith('.jpg')) return 'image/jpeg'
   if (value.startsWith('KINAOU/Cache/Waveforms/') && value.endsWith('.png')) return 'image/png'
   throw new Error('Media streaming is limited to generated preview assets')

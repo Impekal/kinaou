@@ -29,6 +29,7 @@ export interface RenderClipStep {
 }
 
 export interface RenderPlan {
+  purpose: 'export' | 'preview'
   projectId: string
   outputRelativePath: string
   preset: RenderPreset
@@ -47,9 +48,12 @@ export const preview1080pPreset: RenderPreset = {
   audioCodec: 'aac'
 }
 
+export const timelinePreviewPreset: RenderPreset = { ...preview1080pPreset, name: 'Timeline Preview 540p', width: 960, height: 540 }
+
 export function createRenderPlan(project: KinaouProject, preset: RenderPreset, outputRelativePath: string): RenderPlan {
   const safeOutput = assertSafeManagedPath(outputRelativePath)
-  if (!safeOutput.startsWith('KINAOU/Renders/')) throw new Error('Render output must stay inside KINAOU/Renders')
+  const preview = safeOutput.startsWith('KINAOU/Cache/Previews/')
+  if (!preview && !safeOutput.startsWith('KINAOU/Renders/')) throw new Error('Render output must stay inside KINAOU/Renders or KINAOU/Cache/Previews')
   if (preset.width <= 0 || preset.height <= 0 || preset.fps <= 0) throw new Error('Invalid render preset')
 
   const assets = new Map(project.assets.map((asset) => [asset.id, asset]))
@@ -89,6 +93,7 @@ export function createRenderPlan(project: KinaouProject, preset: RenderPreset, o
   clips.sort((a, b) => a.startMs - b.startMs || a.trackIndex - b.trackIndex || a.clipId.localeCompare(b.clipId))
 
   return {
+    purpose: preview ? 'preview' : 'export',
     projectId: project.id,
     outputRelativePath: safeOutput,
     preset,
@@ -96,4 +101,10 @@ export function createRenderPlan(project: KinaouProject, preset: RenderPreset, o
     requiredCapabilities: ['filesystem', 'ffmpeg'],
     clips
   }
+}
+
+export function createTimelinePreviewPlan(project: KinaouProject): RenderPlan {
+  const id = project.id.replace(/[^a-zA-Z0-9-]/g, '').slice(0, 80)
+  if (!id) throw new Error('Project id cannot form a preview path')
+  return createRenderPlan(project, timelinePreviewPreset, `KINAOU/Cache/Previews/${id}.mp4`)
 }
