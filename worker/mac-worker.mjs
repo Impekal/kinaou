@@ -11,6 +11,7 @@ import { buildAssDocument, captionTempPaths, escapeSubtitleFilterPath } from './
 import { buildProxyArgs, buildThumbnailArgs, buildWaveformArgs, previewMediaType, proxyRelativePath, thumbnailRelativePath, waveformRelativePath } from './proxies.mjs'
 import { generateDirectorPlan, listOllamaModels, normalizeOllamaUrl } from './ollama.mjs'
 import { buildSttCommands, normalizeWhisperTranscript, sttPaths, whisperModelRelativePaths } from './whisper.mjs'
+import { buildPiperCommand, piperVoiceRelativePaths, ttsPaths, validateTtsText } from './piper.mjs'
 
 const HOST = '127.0.0.1'
 const PORT = Number(process.env.KINAOU_WORKER_PORT ?? 43117)
@@ -21,8 +22,10 @@ const MAX_UPLOAD_BYTES = Number(process.env.KINAOU_MAX_UPLOAD_BYTES ?? 250 * 102
 const VERSION = '0.6.0'
 const OLLAMA_URL = normalizeOllamaUrl(process.env.KINAOU_OLLAMA_URL)
 const WHISPER_CLI = process.env.KINAOU_WHISPER_CLI ?? ''
+const PIPER_CLI = process.env.KINAOU_PIPER_CLI ?? ''
 const renderJobs = new Map()
 const sttJobs = new Map()
+const ttsJobs = new Map()
 const visualTrackTypes = new Set(['video', 'broll', 'image', 'avatar', 'overlay'])
 const audioTrackTypes = new Set(['voice', 'dialog', 'music', 'sfx'])
 
@@ -71,6 +74,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === 'GET' && request.url === '/health') {
       const localModels = await listOllamaModels(OLLAMA_URL).catch(() => [])
       const whisperModels = await listWhisperModels()
+      const piperVoices = await listPiperVoices()
       return send(response, 200, {
         ok: true,
         type: 'health',
@@ -79,7 +83,7 @@ const server = http.createServer(async (request, response) => {
           name: 'KINAOU Mac Worker',
           platform: process.platform,
           version: VERSION,
-          capabilities: ['filesystem', 'ffmpeg', 'media-probe', 'asset-upload', 'media-proxy', 'media-thumbnail', 'media-waveform', ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : [])],
+          capabilities: ['filesystem', 'ffmpeg', 'media-probe', 'asset-upload', 'media-proxy', 'media-thumbnail', 'media-waveform', ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(PIPER_CLI && piperVoices.length && versions.ffprobe ? ['text-to-speech'] : [])],
           managedRoots: [MANAGED_ROOT],
           ffmpegVersion: versions.ffmpeg,
           ffprobeVersion: versions.ffprobe
@@ -123,6 +127,20 @@ const server = http.createServer(async (request, response) => {
       const job = requireSttJob(decodeURIComponent(sttCancelMatch[1]))
       cancelSttJob(job)
       return send(response, 200, { ok: true, type: 'stt-job', job: publicSttJob(job) })
+    }
+
+    if (request.method === 'GET' && request.url === '/tts/voices') return send(response, 200, { ok: true, type: 'tts-voices', voices: await listPiperVoices() })
+    if (request.method === 'POST' && request.url === '/tts/jobs') {
+      const job = await createTtsJob(await readJson(request))
+      queueMicrotask(() => executeTtsJob(job.id).catch(() => {}))
+      return send(response, 202, { ok: true, type: 'tts-job', job: publicTtsJob(job) })
+    }
+    const ttsStatusMatch = request.url?.match(/^\/tts\/jobs\/([^/]+)$/)
+    if (request.method === 'GET' && ttsStatusMatch) return send(response, 200, { ok: true, type: 'tts-job', job: publicTtsJob(requireTtsJob(decodeURIComponent(ttsStatusMatch[1]))) })
+    const ttsCancelMatch = request.url?.match(/^\/tts\/jobs\/([^/]+)\/cancel$/)
+    if (request.method === 'POST' && ttsCancelMatch) {
+      const job = requireTtsJob(decodeURIComponent(ttsCancelMatch[1])); cancelTtsJob(job)
+      return send(response, 200, { ok: true, type: 'tts-job', job: publicTtsJob(job) })
     }
 
     if (request.method === 'POST' && request.url === '/probe') {
@@ -625,6 +643,66 @@ async function runSttCommand(job, command) {
 function cancelSttJob(job) {
   if (['succeeded', 'failed', 'cancelled'].includes(job.state)) return
   job.state = 'cancelled'; touchSttJob(job)
+  if (job.child && !job.child.killed) job.child.kill('SIGTERM')
+}
+
+async function listPiperVoices() {
+  if (!PIPER_CLI || !path.isAbsolute(PIPER_CLI)) return []
+  try { await access(PIPER_CLI); return piperVoiceRelativePaths(await readdir(resolveManaged('KINAOU/Models'), { withFileTypes: true })) } catch { return [] }
+}
+
+async function createTtsJob(input) {
+  if (!PIPER_CLI || !versions.ffprobe) throw capabilityError('KINAOU_PIPER_CLI and ffprobe are required')
+  const voices = await listPiperVoices()
+  if (!voices.includes(input.voicePath)) throw capabilityError('Requested Piper voice is not available in KINAOU/Models')
+  const now = new Date().toISOString()
+  const job = { id: crypto.randomUUID(), state: 'queued', progress: 0, createdAt: now, updatedAt: now, voicePath: input.voicePath, text: validateTtsText(input.text), child: null }
+  ttsJobs.set(job.id, job)
+  return job
+}
+
+function requireTtsJob(id) {
+  const job = ttsJobs.get(id)
+  if (!job) { const error = new Error('TTS job not found'); error.code = 'NOT_FOUND'; throw error }
+  return job
+}
+
+function publicTtsJob(job) {
+  return { id: job.id, state: job.state, progress: job.progress, createdAt: job.createdAt, updatedAt: job.updatedAt, voicePath: job.voicePath, ...(job.audioPath ? { audioPath: job.audioPath, durationMs: job.durationMs, sizeBytes: job.sizeBytes } : {}), ...(job.error ? { error: job.error } : {}) }
+}
+
+function touchTtsJob(job) { job.updatedAt = new Date().toISOString() }
+
+async function executeTtsJob(id) {
+  const job = requireTtsJob(id)
+  if (job.state === 'cancelled') return
+  const relative = ttsPaths(job.id)
+  const textPath = resolveManaged(relative.text); const audioPath = resolveManaged(relative.audio)
+  job.state = 'running'; job.progress = 0.1; touchTtsJob(job)
+  try {
+    await mkdir(path.dirname(textPath), { recursive: true }); await mkdir(path.dirname(audioPath), { recursive: true })
+    await writeFile(textPath, job.text, { encoding: 'utf8', flag: 'wx' })
+    const command = buildPiperCommand({ piperCli: PIPER_CLI, modelPath: resolveManaged(job.voicePath), textPath, audioPath })
+    await runTtsCommand(job, command)
+    if (job.state === 'cancelled') { await unlink(audioPath).catch(() => {}); return }
+    const probe = await probeMedia(audioPath)
+    job.state = 'succeeded'; job.progress = 1; job.audioPath = relative.audio; job.durationMs = probe.durationMs; job.sizeBytes = probe.sizeBytes; touchTtsJob(job)
+  } catch (error) {
+    await unlink(audioPath).catch(() => {})
+    if (job.state !== 'cancelled') { job.state = 'failed'; job.error = error instanceof Error ? error.message : String(error); touchTtsJob(job) }
+  } finally { await unlink(textPath).catch(() => {}) }
+}
+
+async function runTtsCommand(job, command) {
+  const child = spawn(command.executable, command.args, { shell: false, stdio: ['ignore', 'ignore', 'pipe'] }); job.child = child
+  let stderr = ''; child.stderr.on('data', (data) => { stderr += data.toString() })
+  await new Promise((resolve, reject) => { child.on('error', reject); child.on('close', (code) => code === 0 || job.state === 'cancelled' ? resolve() : reject(Object.assign(new Error(`TTS process exited with code ${code}: ${stderr.trim()}`), { code: 'PROCESS_FAILED' }))) })
+  job.child = null
+}
+
+function cancelTtsJob(job) {
+  if (['succeeded', 'failed', 'cancelled'].includes(job.state)) return
+  job.state = 'cancelled'; touchTtsJob(job)
   if (job.child && !job.child.killed) job.child.kill('SIGTERM')
 }
 
