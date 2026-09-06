@@ -42,7 +42,7 @@ Safety rule: only paths below the configured KINAOU root may be created/moved/de
 ## Repository
 Repo: `Impekal/kinaou`
 Default branch: `main`
-Current main SHA after PR #39: `62ae58219bdccc73953f8914d499500376e50b92`
+Current main SHA after PR #41: `ad3128af63883e493294dfcdbde45ae49d813111`
 
 ## Merged slices
 - **PR #1** — foundation. Main `0230448aad6ee49e98118ab196b91f2b20e8ca8a`. React/Vite/TS, project schema, non-destructive timeline, storage safety, versioning, jobs, model registry, CI.
@@ -72,9 +72,10 @@ Current main SHA after PR #39: `62ae58219bdccc73953f8914d499500376e50b92`
 - **PR #35** — persistent reversible Version History UI. Main `b4aa43996bb729e0ff191d50a0f3ef2c541718c9`. Studio creates, lists, restores and deletes named project snapshots persisted alongside the project in local storage. Restores first capture the current project as an automatic safety version, stored payloads are schema-validated and corrupt entries are ignored, and retention is capped. Final gate: 64/64 Vitest + 9/9 native worker tests + production build + worker syntax green.
 - **PR #37** — validated DirectorPlan review/apply workflow. Main `aa8ee9bec52a03a01c6592264cdee48019449211`. A bounded versioned schema validates script, unique scenes, media requirements and human/local-model provenance. Director exposes real JSON validation and scene review, applies accepted script/storyboard data to project truth only after review, persists the source plan, and creates an automatic safety version first. It explicitly does not claim model generation. Final gate: 67/67 Vitest + 9/9 native worker tests + production build + worker syntax green.
 - **PR #39** — real localhost Ollama Director adapter. Main `62ae58219bdccc73953f8914d499500376e50b92`. The worker permits only loopback Ollama URLs, detects actually installed models through `/api/tags`, advertises local-LLM capability only when available, and requests non-streaming schema-structured plans at temperature zero. It stamps trusted adapter/model provenance; the PWA validates the result again and requires scene review before reversible apply. No model download or cloud endpoint is used. Final gate: 68/68 Vitest + 12/12 native worker tests + production build + worker syntax green.
+- **PR #41** — safe whisper.cpp STT contract. Main `ad3128af63883e493294dfcdbde45ae49d813111`. Model discovery accepts only GGML files under `KINAOU/Models`; deterministic shell-free commands convert managed media to 16-bit/16-kHz mono WAV and invoke configured whisper-cli JSON output. Temporary and durable paths stay under managed STT/transcript directories, and timestamped whisper.cpp JSON is normalized into a stable attributable transcript schema. UI remains hidden until the cancellable runtime job is complete. Final gate: 68/68 Vitest + 16/16 native worker tests + production build + syntax green.
 
 ## CI incident record (2026-09-06)
-The repeated GitHub “all jobs failed” emails did not indicate a broken `main`. CI was configured with `push.branches: ['**']`, so every intermediate commit on every feature branch immediately triggered a full run; opening a PR triggered another run for the same head. A PR #11 work-in-progress sequence produced 13 consecutive red push runs while native `node:test` coverage was temporarily being discovered by Vitest; the final feature head, PR gate, merge commit and documentation commit were green. Earlier isolated failures were normal pre-fix commits: the initial CSS side-effect import lacked Vite types, the Worker UI used nested probe fields not present in its type, and the compositor test still expected complex plans to be rejected after support was added. All were corrected before their PRs merged. There are no open feature PRs after PR #39.
+The repeated GitHub “all jobs failed” emails did not indicate a broken `main`. CI was configured with `push.branches: ['**']`, so every intermediate commit on every feature branch immediately triggered a full run; opening a PR triggered another run for the same head. A PR #11 work-in-progress sequence produced 13 consecutive red push runs while native `node:test` coverage was temporarily being discovered by Vitest; the final feature head, PR gate, merge commit and documentation commit were green. Earlier isolated failures were normal pre-fix commits: the initial CSS side-effect import lacked Vite types, the Worker UI used nested probe fields not present in its type, and the compositor test still expected complex plans to be rejected after support was added. All were corrected before their PRs merged. There are no open feature PRs after PR #41.
 
 ## Important modules
 - `src/core/project.ts` — project/assets/tracks/clips/storyboard schema.
@@ -94,6 +95,7 @@ The repeated GitHub “all jobs failed” emails did not indicate a broken `main
 - `src/core/versioning.ts` / `src/components/VersionHistoryPanel.tsx` — persistent named snapshots and reversible Studio restore controls.
 - `src/core/director.ts` / `src/components/DirectorPanel.tsx` — validated DirectorPlan contract and explicit review/apply UI.
 - `worker/ollama.mjs` — localhost-only Ollama discovery and structured Director generation adapter.
+- `worker/whisper.mjs` — managed whisper.cpp model/path/command and normalized transcript contract.
 - `worker/asset-upload.mjs` — safe filename/temp/final upload paths.
 - `worker/captions.mjs` — deterministic ASS generation, escaping and managed temp paths.
 - `worker/proxies.mjs` / `src/components/VideoProxyControl.tsx` — deterministic managed video proxy generation and association.
@@ -124,9 +126,9 @@ The repeated GitHub “all jobs failed” emails did not indicate a broken `main
 ## Current next milestone
 Build the first **Director/AI foundation with local and open adapters**.
 Immediate plan:
-1. add a real local STT adapter with capability detection, managed input/output and cancellable job semantics,
-2. add a local TTS adapter under the same constraints,
-3. persist generated transcripts/voice as attributable managed assets,
+1. execute the whisper.cpp contract as a detected, cancellable worker job,
+2. expose progress/result in Assets and persist completed transcripts as attributable managed assets,
+3. add a local TTS adapter under the same constraints,
 4. build AI Editor proposals as structured reviewable diffs with Version History safety.
 
 ## Later roadmap
