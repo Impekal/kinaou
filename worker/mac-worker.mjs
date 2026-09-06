@@ -1,21 +1,30 @@
 import http from 'node:http'
 import { spawn } from 'node:child_process'
-import { access, mkdir, stat } from 'node:fs/promises'
+import { createWriteStream } from 'node:fs'
+import { access, mkdir, rename, stat, unlink } from 'node:fs/promises'
+import { Transform } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
 import path from 'node:path'
 import crypto from 'node:crypto'
+import { managedUploadPaths } from './asset-upload.mjs'
 
 const HOST = '127.0.0.1'
 const PORT = Number(process.env.KINAOU_WORKER_PORT ?? 43117)
 const TOKEN = process.env.KINAOU_WORKER_TOKEN ?? crypto.randomBytes(24).toString('hex')
 const MANAGED_ROOT = normalizeRoot(process.env.KINAOU_MANAGED_ROOT ?? '')
 const WORKER_ID = process.env.KINAOU_WORKER_ID ?? `mac-${crypto.randomUUID()}`
-const VERSION = '0.3.0'
+const MAX_UPLOAD_BYTES = Number(process.env.KINAOU_MAX_UPLOAD_BYTES ?? 250 * 1024 * 1024 * 1024)
+const VERSION = '0.4.0'
 const renderJobs = new Map()
 const visualTrackTypes = new Set(['video', 'broll', 'image', 'avatar', 'overlay'])
 const audioTrackTypes = new Set(['voice', 'dialog', 'music', 'sfx'])
 
 if (!MANAGED_ROOT) {
   console.error('KINAOU_MANAGED_ROOT is required and must point to the dedicated KINAOU directory on the selected disk.')
+  process.exit(1)
+}
+if (!Number.isFinite(MAX_UPLOAD_BYTES) || MAX_UPLOAD_BYTES <= 0) {
+  console.error('KINAOU_MAX_UPLOAD_BYTES must be a positive number.')
   process.exit(1)
 }
 
@@ -47,12 +56,17 @@ const server = http.createServer(async (request, response) => {
           name: 'KINAOU Mac Worker',
           platform: process.platform,
           version: VERSION,
-          capabilities: ['filesystem', 'ffmpeg', 'media-probe'],
+          capabilities: ['filesystem', 'ffmpeg', 'media-probe', 'asset-upload'],
           managedRoots: [MANAGED_ROOT],
           ffmpegVersion: versions.ffmpeg,
           ffprobeVersion: versions.ffprobe
         }
       })
+    }
+
+    if (request.method === 'POST' && request.url === '/assets/import') {
+      const result = await importAssetStream(request)
+      return send(response, 201, { ok: true, type: 'asset-upload', result })
     }
 
     if (request.method === 'POST' && request.url === '/probe') {
@@ -87,7 +101,7 @@ const server = http.createServer(async (request, response) => {
 
     return send(response, 404, { ok: false, error: { code: 'NOT_FOUND', message: 'Unknown worker endpoint' } })
   } catch (error) {
-    const status = error?.code === 'UNAUTHORIZED_PATH' ? 403 : error?.code === 'NOT_FOUND' ? 404 : 400
+    const status = error?.code === 'UNAUTHORIZED_PATH' ? 403 : error?.code === 'NOT_FOUND' ? 404 : error?.code === 'UPLOAD_TOO_LARGE' ? 413 : 400
     return send(response, status, { ok: false, error: normalizeError(error) })
   }
 })
@@ -102,7 +116,7 @@ function setCorsHeaders(request, response) {
   const origin = request.headers.origin
   if (isLoopbackOrigin(origin)) response.setHeader('access-control-allow-origin', origin)
   response.setHeader('vary', 'origin')
-  response.setHeader('access-control-allow-headers', 'authorization, content-type')
+  response.setHeader('access-control-allow-headers', 'authorization, content-type, x-kinaou-filename')
   response.setHeader('access-control-allow-methods', 'GET, POST, OPTIONS')
 }
 
@@ -110,7 +124,7 @@ function isLoopbackOrigin(origin) {
   if (!origin) return false
   try {
     const url = new URL(origin)
-    return url.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(url.hostname)
+    return ['http:', 'https:'].includes(url.protocol) && ['127.0.0.1', 'localhost'].includes(url.hostname)
   } catch {
     return false
   }
@@ -118,6 +132,43 @@ function isLoopbackOrigin(origin) {
 
 function isAuthorized(request) {
   return (request.headers.authorization ?? '') === `Bearer ${TOKEN}`
+}
+
+async function importAssetStream(request) {
+  const declared = Number(request.headers['content-length'] ?? 0)
+  if (Number.isFinite(declared) && declared > MAX_UPLOAD_BYTES) throw uploadTooLarge()
+  const originalName = request.headers['x-kinaou-filename']
+  const id = crypto.randomUUID()
+  const paths = managedUploadPaths(id, Array.isArray(originalName) ? originalName[0] : originalName)
+  const tempAbsolute = resolveManaged(paths.tempRelativePath)
+  const assetAbsolute = resolveManaged(paths.assetRelativePath)
+  await mkdir(path.dirname(tempAbsolute), { recursive: true })
+  await mkdir(path.dirname(assetAbsolute), { recursive: true })
+
+  let bytes = 0
+  const limiter = new Transform({
+    transform(chunk, _encoding, callback) {
+      bytes += chunk.length
+      if (bytes > MAX_UPLOAD_BYTES) return callback(uploadTooLarge())
+      callback(null, chunk)
+    }
+  })
+
+  try {
+    await pipeline(request, limiter, createWriteStream(tempAbsolute, { flags: 'wx' }))
+    await rename(tempAbsolute, assetAbsolute)
+  } catch (error) {
+    await unlink(tempAbsolute).catch(() => {})
+    throw error
+  }
+
+  return { managedPath: paths.assetRelativePath, name: paths.safeName, sizeBytes: bytes }
+}
+
+function uploadTooLarge() {
+  const error = new Error(`Asset upload exceeds configured limit of ${MAX_UPLOAD_BYTES} bytes`)
+  error.code = 'UPLOAD_TOO_LARGE'
+  return error
 }
 
 async function readJson(request) {
