@@ -98,6 +98,21 @@ describe('probed media import', () => {
     expect(result.probe.width).toBe(960)
   })
 
+  it('loads proxy bytes through authenticated worker fetch without exposing token in the URL', async () => {
+    let seenUrl = ''
+    let seenAuthorization = ''
+    const client = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'top-secret', fetchImpl: async (input, init) => {
+      seenUrl = String(input)
+      seenAuthorization = new Headers(init?.headers).get('authorization') ?? ''
+      return new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-type': 'video/mp4' } })
+    } })
+    const blob = await client.loadVideoProxy('KINAOU/Cache/Proxies/demo_960p.mp4')
+    expect(blob.size).toBe(3)
+    expect(seenUrl).not.toContain('top-secret')
+    expect(seenAuthorization).toBe('Bearer top-secret')
+    await expect(client.loadVideoProxy('KINAOU/Assets/original.mov')).rejects.toThrow(/proxy path/)
+  })
+
   it('rejects imports outside KINAOU/Assets', () => {
     const project = createProject('Import')
     expect(() => importProbedMedia(project, {

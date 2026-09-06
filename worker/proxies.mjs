@@ -10,3 +10,8 @@ export function buildProxyArgs(sourceAbsolutePath, outputAbsolutePath) {
   if (!sourceAbsolutePath.startsWith('/') || !outputAbsolutePath.startsWith('/')) throw new Error('Proxy paths must be absolute')
   return ['-y', '-i', sourceAbsolutePath, '-map', '0:v:0', '-map', '0:a:0?', '-vf', "scale='min(960,iw)':-2", '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '28', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', outputAbsolutePath]
 }
+
+export function requireProxyMediaPath(value) {
+  if (typeof value !== 'string' || !value.startsWith('KINAOU/Cache/Proxies/') || !value.endsWith('.mp4') || value.split('/').some((part) => part === '..')) throw new Error('Media streaming is limited to generated video proxies')
+  return value
+}
