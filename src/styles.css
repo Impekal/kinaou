@@ -113,6 +113,12 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .directorActions { display: flex; gap: 10px; flex-wrap: wrap; }
 .localDirector { display: grid; gap: 12px; padding-bottom: 16px; border-bottom: 1px solid #292f3d; }
 .localDirector textarea { min-height: 100px; font-family: inherit; font-size: inherit; }
+.sttPanel { padding: 24px; display: grid; gap: 14px; }
+.sttPanel .sectionLead, .sttPanel p { margin-bottom: 0; }
+.sttControls { display: grid; grid-template-columns: 1fr 1fr 140px; gap: 10px; }
+.sttJob { display: grid; gap: 9px; padding: 14px; border: 1px solid #292f3d; border-radius: 12px; background: #10131a; }
+.sttJob > div:first-child { display: flex; justify-content: space-between; }
+.sttJob small { color: #7d8699; }
 .directorReview { display: grid; gap: 14px; border-top: 1px solid #292f3d; padding-top: 16px; }
 .directorReview > div { display: grid; gap: 5px; }
 .directorReview small { color: #7d8699; }
@@ -148,7 +154,7 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
   nav { display: flex; overflow-x: auto; }
   .navItem { white-space: nowrap; }
   .main { padding: 20px; }
-  .hero, .settingsPanel, .captionCreate, .previewControls, .versionCreate { grid-template-columns: 1fr; }
+  .hero, .settingsPanel, .captionCreate, .previewControls, .versionCreate, .sttControls { grid-template-columns: 1fr; }
   .versionRow { align-items: flex-start; flex-direction: column; }
   .trackRow { grid-template-columns: 130px 1fr; }
   .assetRow, .assetRowWithPlacement { grid-template-columns: 1fr; }
