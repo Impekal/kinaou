@@ -125,6 +125,18 @@ describe('probed media import', () => {
     expect((await client.loadVideoThumbnail(generated.path)).type).toBe('image/jpeg')
   })
 
+  it('generates and loads authenticated waveform images', async () => {
+    let calls = 0
+    const client = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl: async () => {
+      calls += 1
+      if (calls === 1) return jsonResponse({ ok: true, type: 'media-waveform', result: { path: 'KINAOU/Cache/Waveforms/demo.png', sizeBytes: 64 } }, 201)
+      return new Response(new Uint8Array([137, 80, 78, 71]), { status: 200, headers: { 'content-type': 'image/png' } })
+    } })
+    const generated = await client.generateWaveform('KINAOU/Assets/voice.wav')
+    expect(generated.path).toBe('KINAOU/Cache/Waveforms/demo.png')
+    expect((await client.loadWaveform(generated.path)).type).toBe('image/png')
+  })
+
   it('rejects imports outside KINAOU/Assets', () => {
     const project = createProject('Import')
     expect(() => importProbedMedia(project, {

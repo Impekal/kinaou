@@ -28,3 +28,17 @@ export function attachVideoThumbnail(project: KinaouProject, assetId: string, th
   if (!found) throw new Error(`Asset not found: ${assetId}`)
   return touchProject({ ...project, assets })
 }
+
+export function attachWaveform(project: KinaouProject, assetId: string, waveformPath: string): KinaouProject {
+  const safePath = assertSafeManagedPath(waveformPath)
+  if (!safePath.startsWith('KINAOU/Cache/Waveforms/') || !safePath.endsWith('.png')) throw new Error('Invalid managed waveform path')
+  let found = false
+  const assets = project.assets.map((asset) => {
+    if (asset.id !== assetId) return asset
+    if (!['audio', 'video'].includes(asset.kind) || !asset.managed || !asset.uri.startsWith('KINAOU/Assets/')) throw new Error('Only managed audio/video assets can receive waveforms')
+    found = true
+    return { ...asset, metadata: { ...asset.metadata, waveformPath: safePath } }
+  })
+  if (!found) throw new Error(`Asset not found: ${assetId}`)
+  return touchProject({ ...project, assets })
+}

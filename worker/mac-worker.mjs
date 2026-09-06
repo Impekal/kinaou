@@ -8,7 +8,7 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import { managedUploadPaths } from './asset-upload.mjs'
 import { buildAssDocument, captionTempPaths, escapeSubtitleFilterPath } from './captions.mjs'
-import { buildProxyArgs, buildThumbnailArgs, previewMediaType, proxyRelativePath, thumbnailRelativePath } from './proxies.mjs'
+import { buildProxyArgs, buildThumbnailArgs, buildWaveformArgs, previewMediaType, proxyRelativePath, thumbnailRelativePath, waveformRelativePath } from './proxies.mjs'
 
 const HOST = '127.0.0.1'
 const PORT = Number(process.env.KINAOU_WORKER_PORT ?? 43117)
@@ -72,7 +72,7 @@ const server = http.createServer(async (request, response) => {
           name: 'KINAOU Mac Worker',
           platform: process.platform,
           version: VERSION,
-          capabilities: ['filesystem', 'ffmpeg', 'media-probe', 'asset-upload', 'media-proxy', 'media-thumbnail'],
+          capabilities: ['filesystem', 'ffmpeg', 'media-probe', 'asset-upload', 'media-proxy', 'media-thumbnail', 'media-waveform'],
           managedRoots: [MANAGED_ROOT],
           ffmpegVersion: versions.ffmpeg,
           ffprobeVersion: versions.ffprobe
@@ -122,6 +122,21 @@ const server = http.createServer(async (request, response) => {
       await run('ffmpeg', buildThumbnailArgs(sourceAbsolutePath, outputAbsolutePath))
       const info = await stat(outputAbsolutePath)
       return send(response, 201, { ok: true, type: 'media-thumbnail', result: { path: outputRelativePath, sizeBytes: info.size } })
+    }
+
+    if (request.method === 'POST' && request.url === '/assets/waveform') {
+      if (!versions.ffmpeg) throw capabilityError('ffmpeg is not available')
+      const body = await readJson(request)
+      const sourceRelativePath = requireManagedRelativePath(body.path)
+      if (!sourceRelativePath.startsWith('KINAOU/Assets/')) throw unauthorizedPath('Waveform source must be inside KINAOU/Assets')
+      const outputRelativePath = waveformRelativePath(sourceRelativePath)
+      const sourceAbsolutePath = resolveManaged(sourceRelativePath)
+      const outputAbsolutePath = resolveManaged(outputRelativePath)
+      await access(sourceAbsolutePath)
+      await mkdir(path.dirname(outputAbsolutePath), { recursive: true })
+      await run('ffmpeg', buildWaveformArgs(sourceAbsolutePath, outputAbsolutePath))
+      const info = await stat(outputAbsolutePath)
+      return send(response, 201, { ok: true, type: 'media-waveform', result: { path: outputRelativePath, sizeBytes: info.size } })
     }
 
     if (request.method === 'POST' && request.url === '/render') {

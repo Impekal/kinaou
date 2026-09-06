@@ -1,4 +1,4 @@
-export type WorkerCapability = 'filesystem' | 'ffmpeg' | 'media-probe' | 'asset-upload' | 'media-proxy' | 'media-thumbnail' | 'llm' | 'image-generation' | 'video-generation' | 'speech-to-text' | 'text-to-speech' | 'avatar'
+export type WorkerCapability = 'filesystem' | 'ffmpeg' | 'media-probe' | 'asset-upload' | 'media-proxy' | 'media-thumbnail' | 'media-waveform' | 'llm' | 'image-generation' | 'video-generation' | 'speech-to-text' | 'text-to-speech' | 'avatar'
 
 export interface WorkerDescriptor {
   id: string
