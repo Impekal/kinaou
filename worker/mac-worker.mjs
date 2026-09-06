@@ -1,6 +1,6 @@
 import http from 'node:http'
 import { spawn } from 'node:child_process'
-import { createWriteStream } from 'node:fs'
+import { createReadStream, createWriteStream } from 'node:fs'
 import { access, mkdir, rename, stat, unlink, writeFile } from 'node:fs/promises'
 import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
@@ -8,7 +8,7 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import { managedUploadPaths } from './asset-upload.mjs'
 import { buildAssDocument, captionTempPaths, escapeSubtitleFilterPath } from './captions.mjs'
-import { buildProxyArgs, proxyRelativePath } from './proxies.mjs'
+import { buildProxyArgs, proxyRelativePath, requireProxyMediaPath } from './proxies.mjs'
 
 const HOST = '127.0.0.1'
 const PORT = Number(process.env.KINAOU_WORKER_PORT ?? 43117)
@@ -49,6 +49,18 @@ const server = http.createServer(async (request, response) => {
   if (!isAuthorized(request)) return send(response, 401, { ok: false, error: { code: 'UNAUTHORIZED', message: 'Invalid worker token' } })
 
   try {
+    if (request.method === 'GET' && request.url?.startsWith('/media?')) {
+      const requestUrl = new URL(request.url, `http://${HOST}:${PORT}`)
+      const relativePath = requireManagedRelativePath(requireProxyMediaPath(requestUrl.searchParams.get('path')))
+      const absolutePath = resolveManaged(relativePath)
+      const info = await stat(absolutePath)
+      response.statusCode = 200
+      response.setHeader('content-type', 'video/mp4')
+      response.setHeader('content-length', String(info.size))
+      await pipeline(createReadStream(absolutePath), response)
+      return
+    }
+
     if (request.method === 'GET' && request.url === '/health') {
       return send(response, 200, {
         ok: true,

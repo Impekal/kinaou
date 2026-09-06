@@ -60,6 +60,15 @@ export class WorkerClient {
     return payload.result as MediaProxyResult
   }
 
+  async loadVideoProxy(path: string): Promise<Blob> {
+    if (!path.startsWith('KINAOU/Cache/Proxies/') || !path.endsWith('.mp4')) throw new Error('Invalid managed proxy path')
+    const response = await this.fetchImpl(`${this.baseUrl}/media?path=${encodeURIComponent(path)}`, { headers: { authorization: `Bearer ${this.token}` } })
+    if (!response.ok) throw new Error(`Worker media request failed with HTTP ${response.status}`)
+    const contentType = response.headers.get('content-type') ?? ''
+    if (!contentType.startsWith('video/mp4')) throw new Error('Worker returned an invalid proxy media type')
+    return response.blob()
+  }
+
   async startRender(plan: RenderPlan): Promise<RenderJobRecord> {
     const payload = await this.request('/render', { method: 'POST', body: JSON.stringify({ plan }) })
     if (payload?.ok !== true || payload?.type !== 'render-job') throw new Error('Invalid worker render job response')

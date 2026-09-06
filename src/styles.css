@@ -88,6 +88,11 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .proxyControl { margin-top: 8px; display: grid; gap: 5px; }
 .proxyControl code { font-size: 10px; }
 .inlineError { color: #f0aeb6 !important; }
+.previewPanel { padding: 24px; display: grid; gap: 14px; }
+.previewPanel .sectionLead { margin-bottom: 0; }
+.previewPanel p { margin-bottom: 0; }
+.previewControls { display: grid; grid-template-columns: minmax(220px, 1fr) auto; gap: 10px; }
+.proxyVideo { display: block; width: 100%; max-height: 520px; border-radius: 12px; background: black; }
 .badge { border: 1px solid #315b42; color: #a8f0c3; border-radius: 999px; padding: 6px 8px; font-size: 9px; }
 .badge.offline { border-color: #65333a; color: #f0aeb6; }
 .workerCard { padding: 24px; }
@@ -117,7 +122,7 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
   nav { display: flex; overflow-x: auto; }
   .navItem { white-space: nowrap; }
   .main { padding: 20px; }
-  .hero, .settingsPanel, .captionCreate { grid-template-columns: 1fr; }
+  .hero, .settingsPanel, .captionCreate, .previewControls { grid-template-columns: 1fr; }
   .trackRow { grid-template-columns: 130px 1fr; }
   .assetRow, .assetRowWithPlacement { grid-template-columns: 1fr; }
 }
