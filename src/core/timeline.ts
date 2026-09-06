@@ -4,6 +4,7 @@ import { touchProject } from './project'
 export type TimelineOperation =
   | { type: 'add-track'; track: TimelineTrack }
   | { type: 'remove-track'; trackId: string }
+  | { type: 'reorder-track'; trackId: string; toIndex: number }
   | { type: 'set-track-state'; trackId: string; muted?: boolean; locked?: boolean }
   | { type: 'add-clip'; trackId: string; clip: TimelineClip }
   | { type: 'remove-clip'; trackId: string; clipId: string }
@@ -47,6 +48,16 @@ export function applyTimelineOperation(project: KinaouProject, operation: Timeli
       return touchProject({ ...project, tracks: [...project.tracks, operation.track] })
     case 'remove-track':
       return touchProject({ ...project, tracks: project.tracks.filter((track) => track.id !== operation.trackId) })
+    case 'reorder-track': {
+      const fromIndex = project.tracks.findIndex((track) => track.id === operation.trackId)
+      if (fromIndex < 0) throw new Error(`Timeline track not found: ${operation.trackId}`)
+      if (!Number.isInteger(operation.toIndex) || operation.toIndex < 0 || operation.toIndex >= project.tracks.length) throw new Error('Track destination is out of range')
+      if (fromIndex === operation.toIndex) return project
+      const tracks = [...project.tracks]
+      const [track] = tracks.splice(fromIndex, 1)
+      tracks.splice(operation.toIndex, 0, track)
+      return touchProject({ ...project, tracks })
+    }
     case 'set-track-state':
       return updateTrack(project, operation.trackId, (track) => ({
         ...track,
