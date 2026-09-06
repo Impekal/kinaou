@@ -143,6 +143,12 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .captionCreate { display: grid; grid-template-columns: minmax(260px, 1fr) 140px 140px auto; gap: 12px; align-items: end; }
 .captionCreate textarea, .captionList textarea { min-height: 72px; }
 .captionList { display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid #292f3d; }
+.transcriptImport { display: grid; gap: 12px; padding-top: 14px; border-top: 1px solid #292f3d; }
+.transcriptSegments { display: grid; gap: 7px; max-height: 320px; overflow-y: auto; }
+.transcriptSegments label { display: grid; grid-template-columns: auto 1fr; align-items: start; padding: 10px; border: 1px solid #303646; border-radius: 9px; background: #10131a; }
+.transcriptSegments input { width: auto; }
+.transcriptSegments span { display: grid; gap: 4px; font-weight: 400; }
+.transcriptSegments strong { color: #8d78ff; font-size: 10px; }
 .dangerButton { border: 1px solid #6d343c; border-radius: 11px; padding: 11px 15px; background: rgba(132, 42, 54, .12); color: #f0aeb6; font-weight: 700; }
 
 @media (max-width: 1050px) {

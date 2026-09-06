@@ -161,7 +161,7 @@ export function App() {
             <TimelinePreview project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} />
             <VersionHistoryPanel project={project} history={versionHistory} onProjectChange={persistProject} />
             <TimelineEditor project={project} onProjectChange={persistProject} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} />
-            <CaptionEditor project={project} onProjectChange={persistProject} />
+            <CaptionEditor project={project} history={versionHistory} onProjectChange={persistProject} />
             <RenderPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} />
             <div className="card note"><strong>Current render boundary:</strong> multi-track visuals/audio, captions, dissolves, fades, transforms and speed retiming are real. Keyframes and interactive proxy preview remain upcoming.</div>
           </>}

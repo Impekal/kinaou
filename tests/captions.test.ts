@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addCaption, updateCaptionText } from '../src/core/captions'
+import { addCaption, addTranscriptCaptions, updateCaptionText } from '../src/core/captions'
 import { createProjectFromInput } from '../src/core/create'
 import { createRenderPlan, preview1080pPreset } from '../src/core/render'
 import { renderReadiness } from '../src/core/renderUi'
@@ -23,5 +23,24 @@ describe('structured captions', () => {
     const plan = createRenderPlan(project, preview1080pPreset, 'KINAOU/Renders/captions.mp4')
     expect(plan.clips[0].asset.kind).toBe('caption')
     expect(plan.durationMs).toBe(2000)
+  })
+})
+
+describe('transcript captions', () => {
+  it('adds only explicitly selected timed segments with attribution', () => {
+    const project = createProjectFromInput({ title: 'Interview', kind: 'audio', content: '' })
+    project.assets.push({ id: 'transcript', kind: 'document', uri: 'KINAOU/Projects/Transcripts/j.json', managed: true, offline: false, metadata: { transcript: { schemaVersion: 1, adapterId: 'whisper.cpp', language: 'de', text: 'Eins Zwei', segments: [{ startMs: 0, endMs: 900, text: 'Eins' }, { startMs: 1000, endMs: 2200, text: 'Zwei' }] } } })
+    const next = addTranscriptCaptions(project, 'transcript', [1])
+    const caption = next.assets.at(-1)!
+    expect(next.tracks.find((track) => track.type === 'caption')!.clips[0]).toMatchObject({ startMs: 1000, durationMs: 1200 })
+    expect(caption.metadata).toMatchObject({ text: 'Zwei', transcriptAssetId: 'transcript', transcriptSegmentIndex: 1, adapterId: 'whisper.cpp' })
+  })
+
+  it('rejects empty selections and locked caption tracks', () => {
+    const project = createProjectFromInput({ title: 'Interview', kind: 'audio', content: '' })
+    project.assets.push({ id: 'transcript', kind: 'document', uri: 'KINAOU/Projects/Transcripts/j.json', managed: true, offline: false, metadata: { transcript: { schemaVersion: 1, adapterId: 'whisper.cpp', language: 'de', text: 'Eins', segments: [{ startMs: 0, endMs: 900, text: 'Eins' }] } } })
+    expect(() => addTranscriptCaptions(project, 'transcript', [])).toThrow(/select/i)
+    const locked = { ...project, tracks: project.tracks.map((track) => track.type === 'caption' ? { ...track, locked: true } : track) }
+    expect(() => addTranscriptCaptions(locked, 'transcript', [0])).toThrow(/locked/i)
   })
 })
