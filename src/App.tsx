@@ -11,6 +11,7 @@ import { WaveformControl } from './components/WaveformControl'
 import { TimelinePreview } from './components/TimelinePreview'
 import { VersionHistoryPanel } from './components/VersionHistoryPanel'
 import { DirectorPanel } from './components/DirectorPanel'
+import { SttPanel } from './components/SttPanel'
 import { createProjectFromInput, type CreationInputKind } from './core/create'
 import { importProbedMedia, type ImportableMediaKind } from './core/mediaImport'
 import { ProjectRepository, StorageSettingsRepository } from './core/persistence'
@@ -169,6 +170,7 @@ export function App() {
         {section === 'Assets' && <section className="stack">
           <div className="sectionLead"><div><div className="eyebrow">MANAGED MEDIA</div><h2>Assets</h2></div><span className={workerHandshake ? 'status online' : 'status'}>{workerHandshake ? 'WORKER ONLINE' : 'WORKER NOT CONNECTED'}</span></div>
           {!project ? <div className="card emptyState">Create or open a project before importing media.</div> : <>
+            <SttPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
             <AssetUploadPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
             <div className="card settingsPanel">
               <div><div className="eyebrow">PROBE EXISTING MANAGED MEDIA</div><h3>Inspect a file already inside KINAOU/Assets</h3><p>The worker resolves only managed paths under the configured KINAOU root.</p></div>
