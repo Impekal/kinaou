@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { AssetPlacementControl } from './components/AssetPlacementControl'
+import { AssetUploadPanel } from './components/AssetUploadPanel'
 import { RenderPanel } from './components/RenderPanel'
 import { TimelineEditor } from './components/TimelineEditor'
 import { createProjectFromInput, type CreationInputKind } from './core/create'
@@ -152,6 +153,7 @@ export function App() {
         {section === 'Assets' && <section className="stack">
           <div className="sectionLead"><div><div className="eyebrow">MANAGED MEDIA</div><h2>Assets</h2></div><span className={workerHandshake ? 'status online' : 'status'}>{workerHandshake ? 'WORKER ONLINE' : 'WORKER NOT CONNECTED'}</span></div>
           {!project ? <div className="card emptyState">Create or open a project before importing media.</div> : <>
+            <AssetUploadPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
             <div className="card settingsPanel">
               <div><div className="eyebrow">PROBE EXISTING MANAGED MEDIA</div><h3>Inspect a file already inside KINAOU/Assets</h3><p>The worker resolves only managed paths under the configured KINAOU root.</p></div>
               <div className="formStack">
