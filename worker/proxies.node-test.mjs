@@ -28,6 +28,7 @@ test('derives and builds managed JPEG thumbnails', () => {
   assert.equal(args.at(-1), '/Volumes/Media/KINAOU/Cache/Thumbnails/demo.jpg')
   assert.equal(previewMediaType('KINAOU/Cache/Thumbnails/demo.jpg'), 'image/jpeg')
   assert.equal(previewMediaType('KINAOU/Cache/Proxies/demo.mp4'), 'video/mp4')
+  assert.equal(previewMediaType('KINAOU/Cache/Previews/timeline.mp4'), 'video/mp4')
   assert.throws(() => previewMediaType('KINAOU/Assets/demo.mov'))
 })
 

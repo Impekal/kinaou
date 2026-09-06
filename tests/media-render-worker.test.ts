@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { registerAsset, markAssetAvailability } from '../src/core/assets'
 import { createProjectFromInput } from '../src/core/create'
-import { createRenderPlan, preview1080pPreset } from '../src/core/render'
+import { createRenderPlan, createTimelinePreviewPlan, preview1080pPreset } from '../src/core/render'
 import { applyTimelineOperation } from '../src/core/timeline'
 import { WorkerRegistry } from '../src/core/workers'
 import { clipSchema, trackSchema } from '../src/core/project'
@@ -45,7 +45,18 @@ describe('render planning', () => {
     const plan = createRenderPlan(project, preview1080pPreset, 'KINAOU/Renders/render.mp4')
     expect(plan.clips).toHaveLength(1)
     expect(plan.durationMs).toBe(6000)
+    expect(plan.purpose).toBe('export')
     expect(plan.requiredCapabilities).toEqual(['filesystem', 'ffmpeg'])
+  })
+
+  it('creates a low-resolution composed preview plan only inside managed cache', () => {
+    let project = createProjectFromInput({ title: 'Preview', kind: 'idea', content: '' })
+    project = registerAsset(project, { kind: 'video', uri: 'KINAOU/Assets/clip.mov', name: 'Clip', durationMs: 5000, managed: true })
+    project = applyTimelineOperation(project, { type: 'add-clip', trackId: project.tracks[0].id, clip: { id: 'clip-preview', assetId: project.assets[0].id, startMs: 0, durationMs: 5000, sourceOffsetMs: 0, gain: 1, speed: 1 } })
+    const plan = createTimelinePreviewPlan(project)
+    expect(plan.purpose).toBe('preview')
+    expect(plan.outputRelativePath).toMatch(/^KINAOU\/Cache\/Previews\/.+\.mp4$/)
+    expect(plan.preset).toMatchObject({ width: 960, height: 540 })
   })
 
   it('refuses render output outside the managed render directory', () => {

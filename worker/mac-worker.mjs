@@ -265,7 +265,7 @@ function requireManagedRelativePath(value) {
 
 function requireRenderRelativePath(value) {
   const normalized = requireManagedRelativePath(value)
-  if (!normalized.startsWith('KINAOU/Renders/')) throw unauthorizedPath('Render output must stay inside KINAOU/Renders')
+  if (!normalized.startsWith('KINAOU/Renders/') && !normalized.startsWith('KINAOU/Cache/Previews/')) throw unauthorizedPath('Render output must stay inside KINAOU/Renders or KINAOU/Cache/Previews')
   return normalized
 }
 
@@ -319,6 +319,9 @@ function validateRenderPlan(plan) {
   if (!Number.isFinite(plan.durationMs) || plan.durationMs <= 0) throw new Error('Invalid render duration')
   if (!plan.preset || !Number.isFinite(plan.preset.width) || plan.preset.width <= 0 || !Number.isFinite(plan.preset.height) || plan.preset.height <= 0 || !Number.isFinite(plan.preset.fps) || plan.preset.fps <= 0) throw new Error('Invalid render preset')
   requireRenderRelativePath(plan.outputRelativePath)
+  if (!['export', 'preview'].includes(plan.purpose)) throw new Error('Invalid render purpose')
+  if (plan.purpose === 'export' && !plan.outputRelativePath.startsWith('KINAOU/Renders/')) throw new Error('Export must target KINAOU/Renders')
+  if (plan.purpose === 'preview' && !plan.outputRelativePath.startsWith('KINAOU/Cache/Previews/')) throw new Error('Preview must target KINAOU/Cache/Previews')
   for (const clip of plan.clips) {
     if (!Number.isFinite(clip.trackIndex) || clip.trackIndex < 0) throw new Error('Invalid track index')
     if (!Number.isFinite(clip.startMs) || clip.startMs < 0) throw new Error('Invalid clip start')

@@ -97,6 +97,14 @@ export class WorkerClient {
     return response.blob()
   }
 
+  async loadTimelinePreview(path: string): Promise<Blob> {
+    if (!path.startsWith('KINAOU/Cache/Previews/') || !path.endsWith('.mp4')) throw new Error('Invalid managed timeline preview path')
+    const response = await this.fetchImpl(`${this.baseUrl}/media?path=${encodeURIComponent(path)}`, { headers: { authorization: `Bearer ${this.token}` } })
+    if (!response.ok) throw new Error(`Worker media request failed with HTTP ${response.status}`)
+    if (!(response.headers.get('content-type') ?? '').startsWith('video/mp4')) throw new Error('Worker returned an invalid timeline preview media type')
+    return response.blob()
+  }
+
   async startRender(plan: RenderPlan): Promise<RenderJobRecord> {
     const payload = await this.request('/render', { method: 'POST', body: JSON.stringify({ plan }) })
     if (payload?.ok !== true || payload?.type !== 'render-job') throw new Error('Invalid worker render job response')
