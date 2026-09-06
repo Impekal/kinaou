@@ -1,5 +1,6 @@
-import { workerHandshakeSchema, type MediaProbeResult, type RenderExecutionResult, type WorkerHandshake } from './workerProtocol'
+import { workerHandshakeSchema, type MediaProbeResult, type WorkerHandshake } from './workerProtocol'
 import type { RenderPlan } from './render'
+import { parseRenderJob, type RenderJobRecord } from './renderJobs'
 
 export interface WorkerClientOptions {
   baseUrl: string
@@ -38,13 +39,25 @@ export class WorkerClient {
     return payload.result as MediaProbeResult
   }
 
-  async render(plan: RenderPlan): Promise<RenderExecutionResult> {
+  async startRender(plan: RenderPlan): Promise<RenderJobRecord> {
     const payload = await this.request('/render', {
       method: 'POST',
       body: JSON.stringify({ plan })
     })
-    if (payload?.ok !== true || payload?.type !== 'render') throw new Error('Invalid worker render response')
-    return payload.result as RenderExecutionResult
+    if (payload?.ok !== true || payload?.type !== 'render-job') throw new Error('Invalid worker render job response')
+    return parseRenderJob(payload.job)
+  }
+
+  async renderStatus(jobId: string): Promise<RenderJobRecord> {
+    const payload = await this.request(`/render/jobs/${encodeURIComponent(jobId)}`, { method: 'GET' })
+    if (payload?.ok !== true || payload?.type !== 'render-job') throw new Error('Invalid worker render status response')
+    return parseRenderJob(payload.job)
+  }
+
+  async cancelRender(jobId: string): Promise<RenderJobRecord> {
+    const payload = await this.request(`/render/jobs/${encodeURIComponent(jobId)}/cancel`, { method: 'POST' })
+    if (payload?.ok !== true || payload?.type !== 'render-job') throw new Error('Invalid worker render cancellation response')
+    return parseRenderJob(payload.job)
   }
 
   private async request(path: string, init: RequestInit): Promise<any> {
