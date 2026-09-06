@@ -119,6 +119,11 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .sttJob { display: grid; gap: 9px; padding: 14px; border: 1px solid #292f3d; border-radius: 12px; background: #10131a; }
 .sttJob > div:first-child { display: flex; justify-content: space-between; }
 .sttJob small { color: #7d8699; }
+.audioStudio { padding: 24px; display: grid; gap: 14px; }
+.generatedVoices { padding: 24px; display: grid; gap: 10px; }
+.generatedVoices > div:not(.eyebrow) { display: grid; grid-template-columns: 1fr minmax(260px, .8fr); gap: 14px; align-items: center; border-top: 1px solid #292f3d; padding-top: 10px; }
+.generatedVoices span { display: grid; gap: 4px; }
+.generatedVoices small { color: #7d8699; }
 .directorReview { display: grid; gap: 14px; border-top: 1px solid #292f3d; padding-top: 16px; }
 .directorReview > div { display: grid; gap: 5px; }
 .directorReview small { color: #7d8699; }
@@ -164,4 +169,5 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
   .versionRow { align-items: flex-start; flex-direction: column; }
   .trackRow { grid-template-columns: 130px 1fr; }
   .assetRow, .assetRowWithPlacement { grid-template-columns: 1fr; }
+  .generatedVoices > div:not(.eyebrow) { grid-template-columns: 1fr; }
 }

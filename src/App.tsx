@@ -12,6 +12,7 @@ import { TimelinePreview } from './components/TimelinePreview'
 import { VersionHistoryPanel } from './components/VersionHistoryPanel'
 import { DirectorPanel } from './components/DirectorPanel'
 import { SttPanel } from './components/SttPanel'
+import { AudioStudioPanel } from './components/AudioStudioPanel'
 import { createProjectFromInput, type CreationInputKind } from './core/create'
 import { importProbedMedia, type ImportableMediaKind } from './core/mediaImport'
 import { ProjectRepository, StorageSettingsRepository } from './core/persistence'
@@ -153,6 +154,7 @@ export function App() {
         </section>}
 
         {section === 'Director' && (project ? <DirectorPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">Create or open a project first.</section>)}
+        {section === 'Audio' && (project ? <AudioStudioPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">Create or open a project first.</section>)}
 
         {section === 'Studio' && <section className="stack">
           {!project ? <div className="card emptyState">Create or open a project first.</div> : <>
@@ -195,7 +197,7 @@ export function App() {
           <div className="card"><div className="eyebrow">MANAGED TARGETS</div><ul className="paths">{storageAreas.map((area) => <li key={area}><span>{area}</span><code>{storageTarget(storage, area)}</code></li>)}</ul><div className="note">{storage.backend === 'desktop-worker' ? 'External filesystem profile configured. Real media access is available when the local worker is running and authenticated.' : 'Browser mode stores project metadata locally. Heavy media should use the desktop worker / external SSD adapter.'}</div></div>
         </section>}
 
-        {!['Projects', 'Create', 'Director', 'Studio', 'Assets', 'Settings'].includes(section) && <section className="card emptyState"><div className="eyebrow">{section.toUpperCase()}</div><h2>Engine slot reserved</h2><p>This area is intentionally not presented as functional until its underlying engine exists.</p></section>}
+        {!['Projects', 'Create', 'Director', 'Studio', 'Assets', 'Audio', 'Settings'].includes(section) && <section className="card emptyState"><div className="eyebrow">{section.toUpperCase()}</div><h2>Engine slot reserved</h2><p>This area is intentionally not presented as functional until its underlying engine exists.</p></section>}
       </main>
     </div>
   )
