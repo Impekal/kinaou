@@ -13,6 +13,7 @@ export type TimelineOperation =
   | { type: 'set-clip-gain'; trackId: string; clipId: string; gain: number }
   | { type: 'set-clip-transform'; trackId: string; clipId: string; transform: NonNullable<TimelineClip['transform']> }
   | { type: 'set-clip-transition'; trackId: string; clipId: string; transitionIn?: NonNullable<TimelineClip['transitionIn']> }
+  | { type: 'set-clip-fades'; trackId: string; clipId: string; fades: NonNullable<TimelineClip['fades']> }
 
 function updateTrack(project: KinaouProject, trackId: string, update: (track: TimelineTrack) => TimelineTrack): KinaouProject {
   let found = false
@@ -105,6 +106,13 @@ export function applyTimelineOperation(project: KinaouProject, operation: Timeli
         }
         if (operation.transitionIn.type !== 'dissolve' || !Number.isInteger(operation.transitionIn.durationMs) || operation.transitionIn.durationMs < 100 || operation.transitionIn.durationMs > Math.min(5000, clip.durationMs)) throw new Error('Dissolve duration must fit the clip and be between 100ms and 5000ms')
         return { ...clip, transitionIn: { ...operation.transitionIn } }
+      }))
+    case 'set-clip-fades':
+      return updateUnlockedTrack(project, operation.trackId, (track) => updateExistingClip(track, operation.clipId, (clip) => {
+        const { inMs, outMs } = operation.fades
+        if (![inMs, outMs].every((value) => Number.isInteger(value) && value >= 0 && value <= 5000)) throw new Error('Fade durations must be integer milliseconds between 0 and 5000')
+        if (inMs + outMs > clip.durationMs) throw new Error('Combined fades cannot exceed clip duration')
+        return { ...clip, fades: { inMs, outMs } }
       }))
   }
 }

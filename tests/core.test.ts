@@ -62,6 +62,17 @@ describe('project engine', () => {
     expect(() => applyTimelineOperation(project, { type: 'set-clip-transition', trackId: track.id, clipId: clip.id, transitionIn: { type: 'dissolve', durationMs: 1100 } })).toThrow(/fit the clip/)
     expect(applyTimelineOperation(project, { type: 'set-clip-transition', trackId: track.id, clipId: clip.id }).tracks[0].clips[0].transitionIn).toBeUndefined()
   })
+
+  it('stores bounded clip fade envelopes', () => {
+    let project = createProject('Fades')
+    const track = trackSchema.parse({ id: 'audio', type: 'music', name: 'Music' })
+    const clip = clipSchema.parse({ id: 'clip', assetId: 'asset', startMs: 0, durationMs: 1000 })
+    project = applyTimelineOperation(project, { type: 'add-track', track })
+    project = applyTimelineOperation(project, { type: 'add-clip', trackId: track.id, clip })
+    project = applyTimelineOperation(project, { type: 'set-clip-fades', trackId: track.id, clipId: clip.id, fades: { inMs: 300, outMs: 500 } })
+    expect(project.tracks[0].clips[0].fades).toEqual({ inMs: 300, outMs: 500 })
+    expect(() => applyTimelineOperation(project, { type: 'set-clip-fades', trackId: track.id, clipId: clip.id, fades: { inMs: 600, outMs: 500 } })).toThrow(/exceed clip/)
+  })
 })
 
 describe('storage safety boundary', () => {

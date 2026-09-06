@@ -125,8 +125,9 @@ export function buildCompositeFilter(plan: RenderPlan, subtitleAbsolutePath?: st
     const start = seconds(clip.startMs)
     const end = seconds(clip.startMs + clip.durationMs)
     const transform = clip.transform
-    const dissolve = clip.transitionIn ? `,format=rgba,fade=t=in:st=0:d=${seconds(clip.transitionIn.durationMs)}:alpha=1` : ''
-    parts.push(`[${index}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,crop=iw-${transform.cropLeft}-${transform.cropRight}:ih-${transform.cropTop}-${transform.cropBottom}:${transform.cropLeft}:${transform.cropTop},scale=iw*${transform.scale}:ih*${transform.scale}${dissolve},setpts=PTS-STARTPTS+${start}/TB[${prepared}]`)
+    const visualFadeIn = clip.transitionIn?.durationMs ?? clip.fades.inMs
+    const fadeFilters = visualFadeIn || clip.fades.outMs ? [',format=rgba', ...(visualFadeIn ? [`,fade=t=in:st=0:d=${seconds(visualFadeIn)}:alpha=1`] : []), ...(clip.fades.outMs ? [`,fade=t=out:st=${seconds(clip.durationMs - clip.fades.outMs)}:d=${seconds(clip.fades.outMs)}:alpha=1`] : [])].join('') : ''
+    parts.push(`[${index}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,crop=iw-${transform.cropLeft}-${transform.cropRight}:ih-${transform.cropTop}-${transform.cropBottom}:${transform.cropLeft}:${transform.cropTop},scale=iw*${transform.scale}:ih*${transform.scale}${fadeFilters},setpts=PTS-STARTPTS+${start}/TB[${prepared}]`)
     parts.push(`[${currentVideo}][${prepared}]overlay=(W-w)/2${signedOffset(transform.x)}:(H-h)/2${signedOffset(transform.y)}:enable='between(t,${start},${end})'[${output}]`)
     currentVideo = output
   })
@@ -143,7 +144,8 @@ export function buildCompositeFilter(plan: RenderPlan, subtitleAbsolutePath?: st
     audios.forEach(({ index, clip }, audioIndex) => {
       const label = `a${audioIndex}`
       const delay = Math.round(clip.startMs)
-      parts.push(`[${index}:a]atrim=0:${seconds(clip.durationMs)},asetpts=PTS-STARTPTS,volume=${clip.gain},adelay=${delay}|${delay}[${label}]`)
+      const fades = `${clip.fades.inMs ? `,afade=t=in:st=0:d=${seconds(clip.fades.inMs)}` : ''}${clip.fades.outMs ? `,afade=t=out:st=${seconds(clip.durationMs - clip.fades.outMs)}:d=${seconds(clip.fades.outMs)}` : ''}`
+      parts.push(`[${index}:a]atrim=0:${seconds(clip.durationMs)},asetpts=PTS-STARTPTS,volume=${clip.gain}${fades},adelay=${delay}|${delay}[${label}]`)
       labels.push(`[${label}]`)
     })
     audioOutput = 'aout'
