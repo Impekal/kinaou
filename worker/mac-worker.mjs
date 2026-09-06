@@ -1,7 +1,7 @@
 import http from 'node:http'
 import { spawn } from 'node:child_process'
 import { createReadStream, createWriteStream } from 'node:fs'
-import { access, mkdir, rename, stat, unlink, writeFile } from 'node:fs/promises'
+import { access, mkdir, readdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises'
 import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import path from 'node:path'
@@ -10,6 +10,7 @@ import { managedUploadPaths } from './asset-upload.mjs'
 import { buildAssDocument, captionTempPaths, escapeSubtitleFilterPath } from './captions.mjs'
 import { buildProxyArgs, buildThumbnailArgs, buildWaveformArgs, previewMediaType, proxyRelativePath, thumbnailRelativePath, waveformRelativePath } from './proxies.mjs'
 import { generateDirectorPlan, listOllamaModels, normalizeOllamaUrl } from './ollama.mjs'
+import { buildSttCommands, normalizeWhisperTranscript, sttPaths, whisperModelRelativePaths } from './whisper.mjs'
 
 const HOST = '127.0.0.1'
 const PORT = Number(process.env.KINAOU_WORKER_PORT ?? 43117)
@@ -19,7 +20,9 @@ const WORKER_ID = process.env.KINAOU_WORKER_ID ?? `mac-${crypto.randomUUID()}`
 const MAX_UPLOAD_BYTES = Number(process.env.KINAOU_MAX_UPLOAD_BYTES ?? 250 * 1024 * 1024 * 1024)
 const VERSION = '0.6.0'
 const OLLAMA_URL = normalizeOllamaUrl(process.env.KINAOU_OLLAMA_URL)
+const WHISPER_CLI = process.env.KINAOU_WHISPER_CLI ?? ''
 const renderJobs = new Map()
+const sttJobs = new Map()
 const visualTrackTypes = new Set(['video', 'broll', 'image', 'avatar', 'overlay'])
 const audioTrackTypes = new Set(['voice', 'dialog', 'music', 'sfx'])
 
@@ -67,6 +70,7 @@ const server = http.createServer(async (request, response) => {
 
     if (request.method === 'GET' && request.url === '/health') {
       const localModels = await listOllamaModels(OLLAMA_URL).catch(() => [])
+      const whisperModels = await listWhisperModels()
       return send(response, 200, {
         ok: true,
         type: 'health',
@@ -75,7 +79,7 @@ const server = http.createServer(async (request, response) => {
           name: 'KINAOU Mac Worker',
           platform: process.platform,
           version: VERSION,
-          capabilities: ['filesystem', 'ffmpeg', 'media-probe', 'asset-upload', 'media-proxy', 'media-thumbnail', 'media-waveform', ...(localModels.length ? ['local-llm', 'director-plan'] : [])],
+          capabilities: ['filesystem', 'ffmpeg', 'media-probe', 'asset-upload', 'media-proxy', 'media-thumbnail', 'media-waveform', ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : [])],
           managedRoots: [MANAGED_ROOT],
           ffmpegVersion: versions.ffmpeg,
           ffprobeVersion: versions.ffprobe
@@ -99,6 +103,26 @@ const server = http.createServer(async (request, response) => {
       if (!localModels.some((item) => item.id === body.model)) throw capabilityError('Requested local model is not installed')
       const plan = await generateDirectorPlan(OLLAMA_URL, body.model, body.brief)
       return send(response, 200, { ok: true, type: 'director-plan', plan })
+    }
+
+    if (request.method === 'GET' && request.url === '/stt/models') {
+      return send(response, 200, { ok: true, type: 'stt-models', models: await listWhisperModels() })
+    }
+
+    if (request.method === 'POST' && request.url === '/stt/jobs') {
+      const body = await readJson(request)
+      const job = await createSttJob(body)
+      queueMicrotask(() => executeSttJob(job.id).catch(() => {}))
+      return send(response, 202, { ok: true, type: 'stt-job', job: publicSttJob(job) })
+    }
+
+    const sttStatusMatch = request.url?.match(/^\/stt\/jobs\/([^/]+)$/)
+    if (request.method === 'GET' && sttStatusMatch) return send(response, 200, { ok: true, type: 'stt-job', job: publicSttJob(requireSttJob(decodeURIComponent(sttStatusMatch[1]))) })
+    const sttCancelMatch = request.url?.match(/^\/stt\/jobs\/([^/]+)\/cancel$/)
+    if (request.method === 'POST' && sttCancelMatch) {
+      const job = requireSttJob(decodeURIComponent(sttCancelMatch[1]))
+      cancelSttJob(job)
+      return send(response, 200, { ok: true, type: 'stt-job', job: publicSttJob(job) })
     }
 
     if (request.method === 'POST' && request.url === '/probe') {
@@ -532,6 +556,75 @@ function cancelRenderJob(job) {
   if (['succeeded', 'failed', 'cancelled'].includes(job.state)) return
   job.state = 'cancelled'
   touchJob(job)
+  if (job.child && !job.child.killed) job.child.kill('SIGTERM')
+}
+
+async function listWhisperModels() {
+  if (!WHISPER_CLI || !path.isAbsolute(WHISPER_CLI)) return []
+  try {
+    await access(WHISPER_CLI)
+    return whisperModelRelativePaths(await readdir(resolveManaged('KINAOU/Models'), { withFileTypes: true }))
+  } catch { return [] }
+}
+
+async function createSttJob(input) {
+  if (!versions.ffmpeg || !WHISPER_CLI) throw capabilityError('FFmpeg and KINAOU_WHISPER_CLI are required')
+  const sourcePath = requireManagedRelativePath(input.sourcePath)
+  if (!sourcePath.startsWith('KINAOU/Assets/')) throw unauthorizedPath('STT input must be inside KINAOU/Assets')
+  const models = await listWhisperModels()
+  if (!models.includes(input.modelPath)) throw capabilityError('Requested whisper.cpp model is not available in KINAOU/Models')
+  await access(resolveManaged(sourcePath))
+  const now = new Date().toISOString()
+  const job = { id: crypto.randomUUID(), state: 'queued', progress: 0, createdAt: now, updatedAt: now, sourcePath, modelPath: input.modelPath, language: input.language ?? 'auto', child: null }
+  sttJobs.set(job.id, job)
+  return job
+}
+
+function requireSttJob(id) {
+  const job = sttJobs.get(id)
+  if (!job) { const error = new Error('STT job not found'); error.code = 'NOT_FOUND'; throw error }
+  return job
+}
+
+function publicSttJob(job) {
+  return { id: job.id, state: job.state, progress: job.progress, createdAt: job.createdAt, updatedAt: job.updatedAt, ...(job.transcriptPath ? { transcriptPath: job.transcriptPath, transcript: job.transcript } : {}), ...(job.error ? { error: job.error } : {}) }
+}
+
+function touchSttJob(job) { job.updatedAt = new Date().toISOString() }
+
+async function executeSttJob(id) {
+  const job = requireSttJob(id)
+  if (job.state === 'cancelled') return
+  const relative = sttPaths(job.id)
+  const absolute = Object.fromEntries(Object.entries(relative).map(([key, value]) => [key, resolveManaged(value)]))
+  job.state = 'running'; job.progress = 0.05; touchSttJob(job)
+  try {
+    await mkdir(path.dirname(absolute.wav), { recursive: true })
+    await mkdir(path.dirname(absolute.transcript), { recursive: true })
+    const commands = buildSttCommands({ whisperCli: WHISPER_CLI, modelPath: resolveManaged(job.modelPath), sourcePath: resolveManaged(job.sourcePath), wavPath: absolute.wav, outputBase: absolute.outputBase, language: job.language })
+    await runSttCommand(job, commands[0]); if (job.state === 'cancelled') return
+    job.progress = 0.35; touchSttJob(job)
+    await runSttCommand(job, commands[1]); if (job.state === 'cancelled') return
+    const transcript = normalizeWhisperTranscript(JSON.parse(await readFile(absolute.transcript, 'utf8')))
+    await writeFile(absolute.transcript, JSON.stringify(transcript, null, 2), 'utf8')
+    job.state = 'succeeded'; job.progress = 1; job.transcriptPath = relative.transcript; job.transcript = transcript; touchSttJob(job)
+  } catch (error) {
+    if (job.state !== 'cancelled') { job.state = 'failed'; job.error = error instanceof Error ? error.message : String(error); touchSttJob(job) }
+  } finally { await unlink(absolute.wav).catch(() => {}) }
+}
+
+async function runSttCommand(job, command) {
+  const child = spawn(command.executable, command.args, { shell: false, stdio: ['ignore', 'ignore', 'pipe'] })
+  job.child = child
+  let stderr = ''
+  child.stderr.on('data', (data) => { stderr += data.toString() })
+  await new Promise((resolve, reject) => { child.on('error', reject); child.on('close', (code) => code === 0 || job.state === 'cancelled' ? resolve() : reject(Object.assign(new Error(`STT process exited with code ${code}: ${stderr.trim()}`), { code: 'PROCESS_FAILED' }))) })
+  job.child = null
+}
+
+function cancelSttJob(job) {
+  if (['succeeded', 'failed', 'cancelled'].includes(job.state)) return
+  job.state = 'cancelled'; touchSttJob(job)
   if (job.child && !job.child.killed) job.child.kill('SIGTERM')
 }
 

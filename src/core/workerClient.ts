@@ -2,6 +2,7 @@ import { parseAssetUploadResult, type AssetUploadResult } from './assetUpload'
 import { workerHandshakeSchema, type MediaProbeResult, type MediaProxyResult, type WorkerHandshake } from './workerProtocol'
 import type { RenderPlan } from './render'
 import { parseRenderJob, type RenderJobRecord } from './renderJobs'
+import { parseSttJob, type SttJobRecord } from './sttJobs'
 
 export interface WorkerClientOptions {
   baseUrl: string
@@ -64,6 +65,30 @@ export class WorkerClient {
     const payload = await this.request('/director/generate', { method: 'POST', body: JSON.stringify({ model, brief }) })
     if (payload?.ok !== true || payload?.type !== 'director-plan') throw new Error('Invalid Director response')
     return payload.plan
+  }
+
+  async listSttModels(): Promise<string[]> {
+    const payload = await this.request('/stt/models', { method: 'GET' })
+    if (payload?.ok !== true || payload?.type !== 'stt-models' || !Array.isArray(payload.models) || !payload.models.every((item: unknown) => typeof item === 'string' && item.startsWith('KINAOU/Models/'))) throw new Error('Invalid STT model response')
+    return payload.models
+  }
+
+  async startStt(sourcePath: string, modelPath: string, language = 'auto'): Promise<SttJobRecord> {
+    const payload = await this.request('/stt/jobs', { method: 'POST', body: JSON.stringify({ sourcePath, modelPath, language }) })
+    if (payload?.ok !== true || payload?.type !== 'stt-job') throw new Error('Invalid STT start response')
+    return parseSttJob(payload.job)
+  }
+
+  async sttStatus(jobId: string): Promise<SttJobRecord> {
+    const payload = await this.request(`/stt/jobs/${encodeURIComponent(jobId)}`, { method: 'GET' })
+    if (payload?.ok !== true || payload?.type !== 'stt-job') throw new Error('Invalid STT status response')
+    return parseSttJob(payload.job)
+  }
+
+  async cancelStt(jobId: string): Promise<SttJobRecord> {
+    const payload = await this.request(`/stt/jobs/${encodeURIComponent(jobId)}/cancel`, { method: 'POST' })
+    if (payload?.ok !== true || payload?.type !== 'stt-job') throw new Error('Invalid STT cancellation response')
+    return parseSttJob(payload.job)
   }
 
   async generateVideoProxy(path: string): Promise<MediaProxyResult> {
