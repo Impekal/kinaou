@@ -1,4 +1,4 @@
-import type { RenderPlan } from './render'
+import type { RenderPlan, RenderClipStep } from './render'
 import { assertSafeManagedPath, normalizeRelativePath } from './storage'
 import type { MediaProbeResult, WorkerHandshake } from './workerProtocol'
 
@@ -65,26 +65,78 @@ function parseRate(rate: string): number {
   return Number.isFinite(value) ? value : 0
 }
 
+const visualTrackTypes = new Set(['video', 'broll', 'image', 'avatar', 'overlay'])
+const audioTrackTypes = new Set(['voice', 'dialog', 'music', 'sfx'])
+
 export function buildRenderCommand(plan: RenderPlan, resolveAssetPath: (uri: string) => string, outputAbsolutePath: string): ProcessCommand {
   if (!outputAbsolutePath.startsWith('/')) throw new Error('Render output must be absolute')
   if (plan.clips.length === 0) throw new Error('Render plan contains no clips')
+  if (plan.durationMs <= 0) throw new Error('Render duration must be positive')
+  if (plan.clips.some((clip) => clip.speed !== 1)) throw new Error('Multi-track compositor currently requires clip speed 1')
 
   const args: string[] = ['-y']
   for (const clip of plan.clips) {
+    if (clip.asset.kind === 'image') args.push('-loop', '1')
     args.push('-ss', seconds(clip.sourceOffsetMs), '-t', seconds(clip.durationMs), '-i', resolveAssetPath(clip.asset.uri))
   }
 
-  // This first executable rendering slice supports one linear visual/audio source.
-  // Multi-track compositing remains represented by RenderPlan and will be compiled incrementally.
-  if (plan.clips.length !== 1 || plan.clips[0].startMs !== 0) {
-    throw new Error('Current local render command supports exactly one clip starting at 0; complex plans require compositor support')
+  const filter = buildCompositeFilter(plan)
+  args.push('-filter_complex', filter.graph)
+  args.push('-map', filter.videoOutput)
+  if (filter.audioOutput) args.push('-map', filter.audioOutput)
+  else args.push('-an')
+  args.push('-t', seconds(plan.durationMs))
+  args.push('-c:v', plan.preset.videoCodec === 'hevc' ? 'libx265' : 'libx264')
+  if (filter.audioOutput) args.push('-c:a', 'aac')
+  args.push('-r', String(plan.preset.fps), '-pix_fmt', 'yuv420p', outputAbsolutePath)
+  return { executable: 'ffmpeg', args }
+}
+
+export interface CompositeFilter {
+  graph: string
+  videoOutput: string
+  audioOutput?: string
+}
+
+export function buildCompositeFilter(plan: RenderPlan): CompositeFilter {
+  const width = plan.preset.width
+  const height = plan.preset.height
+  const fps = plan.preset.fps
+  const duration = seconds(plan.durationMs)
+  const parts: string[] = [`color=c=black:s=${width}x${height}:r=${fps}:d=${duration}[base]`]
+  const visuals: Array<{ index: number; clip: RenderClipStep }> = []
+  const audios: Array<{ index: number; clip: RenderClipStep }> = []
+
+  plan.clips.forEach((clip, index) => {
+    if (visualTrackTypes.has(clip.trackType)) visuals.push({ index, clip })
+    if (audioTrackTypes.has(clip.trackType)) audios.push({ index, clip })
+  })
+
+  let currentVideo = 'base'
+  visuals.forEach(({ index, clip }, visualIndex) => {
+    const prepared = `v${visualIndex}`
+    const output = `vo${visualIndex}`
+    const start = seconds(clip.startMs)
+    const end = seconds(clip.startMs + clip.durationMs)
+    parts.push(`[${index}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black,setpts=PTS-STARTPTS+${start}/TB[${prepared}]`)
+    parts.push(`[${currentVideo}][${prepared}]overlay=0:0:enable='between(t,${start},${end})'[${output}]`)
+    currentVideo = output
+  })
+
+  let audioOutput: string | undefined
+  if (audios.length) {
+    const labels: string[] = []
+    audios.forEach(({ index, clip }, audioIndex) => {
+      const label = `a${audioIndex}`
+      const delay = Math.round(clip.startMs)
+      parts.push(`[${index}:a]atrim=0:${seconds(clip.durationMs)},asetpts=PTS-STARTPTS,volume=${clip.gain},adelay=${delay}|${delay}[${label}]`)
+      labels.push(`[${label}]`)
+    })
+    audioOutput = 'aout'
+    parts.push(`${labels.join('')}amix=inputs=${labels.length}:duration=longest:normalize=0[${audioOutput}]`)
   }
 
-  const clip = plan.clips[0]
-  if (clip.speed !== 1) args.push('-filter:v', `setpts=PTS/${clip.speed}`)
-  args.push('-c:v', plan.preset.videoCodec === 'hevc' ? 'libx265' : 'libx264')
-  args.push('-c:a', 'aac', '-r', String(plan.preset.fps), '-s', `${plan.preset.width}x${plan.preset.height}`, outputAbsolutePath)
-  return { executable: 'ffmpeg', args }
+  return { graph: parts.join(';'), videoOutput: `[${currentVideo}]`, ...(audioOutput ? { audioOutput: `[${audioOutput}]` } : {}) }
 }
 
 function seconds(ms: number): string {
