@@ -10,6 +10,7 @@ import { VideoThumbnailControl } from './components/VideoThumbnailControl'
 import { WaveformControl } from './components/WaveformControl'
 import { TimelinePreview } from './components/TimelinePreview'
 import { VersionHistoryPanel } from './components/VersionHistoryPanel'
+import { DirectorPanel } from './components/DirectorPanel'
 import { createProjectFromInput, type CreationInputKind } from './core/create'
 import { importProbedMedia, type ImportableMediaKind } from './core/mediaImport'
 import { ProjectRepository, StorageSettingsRepository } from './core/persistence'
@@ -150,6 +151,8 @@ export function App() {
           </div>
         </section>}
 
+        {section === 'Director' && (project ? <DirectorPanel project={project} history={versionHistory} onProjectChange={persistProject} /> : <section className="card emptyState">Create or open a project first.</section>)}
+
         {section === 'Studio' && <section className="stack">
           {!project ? <div className="card emptyState">Create or open a project first.</div> : <>
             <div className="sectionLead"><div><div className="eyebrow">NON-DESTRUCTIVE TIMELINE</div><h2>Studio</h2></div><span className="status">AUTO-SAVED</span></div>
@@ -190,7 +193,7 @@ export function App() {
           <div className="card"><div className="eyebrow">MANAGED TARGETS</div><ul className="paths">{storageAreas.map((area) => <li key={area}><span>{area}</span><code>{storageTarget(storage, area)}</code></li>)}</ul><div className="note">{storage.backend === 'desktop-worker' ? 'External filesystem profile configured. Real media access is available when the local worker is running and authenticated.' : 'Browser mode stores project metadata locally. Heavy media should use the desktop worker / external SSD adapter.'}</div></div>
         </section>}
 
-        {!['Projects', 'Create', 'Studio', 'Assets', 'Settings'].includes(section) && <section className="card emptyState"><div className="eyebrow">{section.toUpperCase()}</div><h2>Engine slot reserved</h2><p>This area is intentionally not presented as functional until its underlying engine exists.</p></section>}
+        {!['Projects', 'Create', 'Director', 'Studio', 'Assets', 'Settings'].includes(section) && <section className="card emptyState"><div className="eyebrow">{section.toUpperCase()}</div><h2>Engine slot reserved</h2><p>This area is intentionally not presented as functional until its underlying engine exists.</p></section>}
       </main>
     </div>
   )
