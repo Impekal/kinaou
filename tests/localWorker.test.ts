@@ -95,6 +95,17 @@ describe('local Mac worker contract', () => {
     expect(graph).toContain("enable='between(t,2.000,5.000)'")
   })
 
+  it('renders visual and audio fade envelopes at clip-local times', () => {
+    const base = createProject('Fades')
+    const video = assetSchema.parse({ id: 'video', kind: 'video', uri: 'KINAOU/Assets/video.mp4', managed: true, metadata: {} })
+    const audio = assetSchema.parse({ id: 'audio', kind: 'audio', uri: 'KINAOU/Assets/audio.wav', managed: true, metadata: {} })
+    const videoTrack = trackSchema.parse({ id: 'v', type: 'video', name: 'Video', clips: [clipSchema.parse({ id: 'vc', assetId: video.id, startMs: 1000, durationMs: 4000, fades: { inMs: 500, outMs: 750 } })] })
+    const audioTrack = trackSchema.parse({ id: 'a', type: 'music', name: 'Music', clips: [clipSchema.parse({ id: 'ac', assetId: audio.id, startMs: 2000, durationMs: 3000, fades: { inMs: 250, outMs: 500 } })] })
+    const graph = buildCompositeFilter(createRenderPlan({ ...base, assets: [video, audio], tracks: [videoTrack, audioTrack] }, preview1080pPreset, 'KINAOU/Renders/fades.mp4')).graph
+    expect(graph).toContain('fade=t=in:st=0:d=0.500:alpha=1,fade=t=out:st=3.250:d=0.750:alpha=1')
+    expect(graph).toContain('afade=t=in:st=0:d=0.250,afade=t=out:st=2.500:d=0.500')
+  })
+
   it('rejects speed changes until compositor timing supports them exactly', () => {
     const base = createProject('Speed')
     const asset = assetSchema.parse({ id: 'asset-1', kind: 'video', uri: 'KINAOU/Assets/demo.mp4', managed: true, offline: false, metadata: {} })

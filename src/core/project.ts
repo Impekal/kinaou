@@ -29,6 +29,10 @@ export const clipSchema = z.object({
   transitionIn: z.object({
     type: z.literal('dissolve'),
     durationMs: z.number().int().min(100).max(5000)
+  }).optional(),
+  fades: z.object({
+    inMs: z.number().int().min(0).max(5000).default(0),
+    outMs: z.number().int().min(0).max(5000).default(0)
   }).optional()
 })
 

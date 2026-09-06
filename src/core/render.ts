@@ -25,6 +25,7 @@ export interface RenderClipStep {
   speed: number
   transform: { x: number; y: number; scale: number; cropLeft: number; cropTop: number; cropRight: number; cropBottom: number }
   transitionIn?: { type: 'dissolve'; durationMs: number }
+  fades: { inMs: number; outMs: number }
 }
 
 export interface RenderPlan {
@@ -73,7 +74,8 @@ export function createRenderPlan(project: KinaouProject, preset: RenderPreset, o
         gain: clip.gain,
         speed: clip.speed,
         transform: { x: 0, y: 0, scale: 1, cropLeft: 0, cropTop: 0, cropRight: 0, cropBottom: 0, ...clip.transform },
-        ...(clip.transitionIn ? { transitionIn: clip.transitionIn } : {})
+        ...(clip.transitionIn ? { transitionIn: clip.transitionIn } : {}),
+        fades: { inMs: 0, outMs: 0, ...clip.fades }
       })
       durationMs = Math.max(durationMs, clip.startMs + clip.durationMs)
     }

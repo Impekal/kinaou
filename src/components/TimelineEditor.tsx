@@ -54,6 +54,12 @@ export function TimelineEditor({ project, onProjectChange }: TimelineEditorProps
     apply({ type: 'set-clip-transform', trackId: track.id, clipId: clip.id, transform: { x: 0, y: 0, scale: 1, cropLeft: 0, cropTop: 0, cropRight: 0, cropBottom: 0, ...clip.transform, ...change } })
   }
 
+  function toggleFade(track: TimelineTrack, clip: TimelineClip, edge: 'inMs' | 'outMs') {
+    const current = { inMs: 0, outMs: 0, ...clip.fades }
+    const next = current[edge] ? 0 : Math.min(500, clip.durationMs - current[edge === 'inMs' ? 'outMs' : 'inMs'])
+    apply({ type: 'set-clip-fades', trackId: track.id, clipId: clip.id, fades: { ...current, [edge]: next } })
+  }
+
   return (
     <div className="timeline card">
       {project.tracks.map((track, trackIndex) => (
@@ -79,6 +85,7 @@ export function TimelineEditor({ project, onProjectChange }: TimelineEditorProps
                   <small>{(clip.startMs / 1000).toFixed(1)}s · {(clip.durationMs / 1000).toFixed(1)}s{audioTrackTypes.has(track.type) ? ` · gain ${clip.gain.toFixed(1)}` : ''}</small>
                   {visualTrackTypes.has(track.type) && <small>scale {(clip.transform?.scale ?? 1).toFixed(1)} · x {clip.transform?.x ?? 0} · y {clip.transform?.y ?? 0}</small>}
                   {clip.transitionIn && <small>dissolve {(clip.transitionIn.durationMs / 1000).toFixed(1)}s</small>}
+                  {(clip.fades?.inMs || clip.fades?.outMs) && <small>fade {(clip.fades?.inMs ?? 0) / 1000}s in · {(clip.fades?.outMs ?? 0) / 1000}s out</small>}
                   <div className="clipActions">
                     <button disabled={track.locked} onClick={() => apply({ type: 'move-clip', trackId: track.id, clipId: clip.id, startMs: Math.max(0, clip.startMs - 1000) })}>← 1s</button>
                     <button disabled={track.locked} onClick={() => apply({ type: 'move-clip', trackId: track.id, clipId: clip.id, startMs: clip.startMs + 1000 })}>1s →</button>
@@ -87,6 +94,7 @@ export function TimelineEditor({ project, onProjectChange }: TimelineEditorProps
                     {audioTrackTypes.has(track.type) && <><button disabled={track.locked} onClick={() => gain(track, clip, -0.1)}>Gain −</button><button disabled={track.locked} onClick={() => gain(track, clip, 0.1)}>Gain +</button></>}
                     {visualTrackTypes.has(track.type) && <><button disabled={track.locked || (clip.transform?.scale ?? 1) <= 0.1} onClick={() => transform(track, clip, { scale: Math.max(0.1, Math.round(((clip.transform?.scale ?? 1) - 0.1) * 10) / 10) })}>Scale −</button><button disabled={track.locked || (clip.transform?.scale ?? 1) >= 4} onClick={() => transform(track, clip, { scale: Math.min(4, Math.round(((clip.transform?.scale ?? 1) + 0.1) * 10) / 10) })}>Scale +</button><button disabled={track.locked} onClick={() => transform(track, clip, { x: (clip.transform?.x ?? 0) - 50 })}>←</button><button disabled={track.locked} onClick={() => transform(track, clip, { x: (clip.transform?.x ?? 0) + 50 })}>→</button><button disabled={track.locked} onClick={() => transform(track, clip, { y: (clip.transform?.y ?? 0) - 50 })}>↑</button><button disabled={track.locked} onClick={() => transform(track, clip, { y: (clip.transform?.y ?? 0) + 50 })}>↓</button><button disabled={track.locked} onClick={() => transform(track, clip, { cropLeft: (clip.transform?.cropLeft ?? 0) + 10, cropRight: (clip.transform?.cropRight ?? 0) + 10 })}>Crop X +</button><button disabled={track.locked} onClick={() => transform(track, clip, { cropTop: (clip.transform?.cropTop ?? 0) + 10, cropBottom: (clip.transform?.cropBottom ?? 0) + 10 })}>Crop Y +</button><button disabled={track.locked} onClick={() => transform(track, clip, { x: 0, y: 0, scale: 1, cropLeft: 0, cropTop: 0, cropRight: 0, cropBottom: 0 })}>Reset frame</button></>}
                     {visualTrackTypes.has(track.type) && <button disabled={track.locked || clip.durationMs < 500} onClick={() => apply({ type: 'set-clip-transition', trackId: track.id, clipId: clip.id, transitionIn: clip.transitionIn ? undefined : { type: 'dissolve', durationMs: Math.min(500, clip.durationMs) } })}>{clip.transitionIn ? 'Remove dissolve' : 'Dissolve in'}</button>}
+                    {(visualTrackTypes.has(track.type) || audioTrackTypes.has(track.type)) && <><button disabled={track.locked} onClick={() => toggleFade(track, clip, 'inMs')}>{clip.fades?.inMs ? 'Remove fade in' : 'Fade in'}</button><button disabled={track.locked} onClick={() => toggleFade(track, clip, 'outMs')}>{clip.fades?.outMs ? 'Remove fade out' : 'Fade out'}</button></>}
                     <button disabled={track.locked} onClick={() => apply({ type: 'remove-clip', trackId: track.id, clipId: clip.id })}>Remove</button>
                   </div>
                 </div>
