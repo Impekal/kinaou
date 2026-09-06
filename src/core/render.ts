@@ -15,6 +15,7 @@ export interface RenderPreset {
 export interface RenderClipStep {
   trackId: string
   trackType: string
+  trackIndex: number
   clipId: string
   asset: KinaouAsset
   startMs: number
@@ -52,8 +53,8 @@ export function createRenderPlan(project: KinaouProject, preset: RenderPreset, o
   const clips: RenderClipStep[] = []
   let durationMs = 0
 
-  for (const track of project.tracks) {
-    if (track.muted) continue
+  project.tracks.forEach((track, trackIndex) => {
+    if (track.muted) return
     for (const clip of track.clips) {
       const asset = assets.get(clip.assetId)
       if (!asset) throw new Error(`Missing asset for clip ${clip.id}`)
@@ -61,6 +62,7 @@ export function createRenderPlan(project: KinaouProject, preset: RenderPreset, o
       clips.push({
         trackId: track.id,
         trackType: track.type,
+        trackIndex,
         clipId: clip.id,
         asset,
         startMs: clip.startMs,
@@ -71,9 +73,9 @@ export function createRenderPlan(project: KinaouProject, preset: RenderPreset, o
       })
       durationMs = Math.max(durationMs, clip.startMs + clip.durationMs)
     }
-  }
+  })
 
-  clips.sort((a, b) => a.startMs - b.startMs)
+  clips.sort((a, b) => a.startMs - b.startMs || a.trackIndex - b.trackIndex || a.clipId.localeCompare(b.clipId))
 
   return {
     projectId: project.id,
