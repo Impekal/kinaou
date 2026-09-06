@@ -108,6 +108,15 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .versionRow { padding: 14px 0; border-bottom: 1px solid #292f3d; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
 .versionRow > div:first-child { display: grid; gap: 5px; }
 .versionRow small { color: #7d8699; }
+.directorPanel, .directorCurrent { padding: 24px; display: grid; gap: 16px; }
+.directorPanel textarea { min-height: 220px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.directorActions { display: flex; gap: 10px; flex-wrap: wrap; }
+.directorReview { display: grid; gap: 14px; border-top: 1px solid #292f3d; padding-top: 16px; }
+.directorReview > div { display: grid; gap: 5px; }
+.directorReview small { color: #7d8699; }
+.directorReview ol { display: grid; gap: 10px; margin: 0; padding-left: 24px; }
+.directorReview li { padding-left: 5px; }
+.directorReview li span, .directorReview li small { display: block; margin-top: 4px; }
 .badge { border: 1px solid #315b42; color: #a8f0c3; border-radius: 999px; padding: 6px 8px; font-size: 9px; }
 .badge.offline { border-color: #65333a; color: #f0aeb6; }
 .workerCard { padding: 24px; }
