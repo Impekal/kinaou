@@ -62,6 +62,8 @@ Repository: `Impekal/kinaou`
 
 Default branch: `main`
 
+Current main SHA after PR #4: `c53c720936624b0e208aaa339d63f55d489a7e6f`
+
 ### Merged slices
 
 #### PR #1 — Foundation: local-first project, storage, timeline and model architecture
@@ -108,6 +110,22 @@ Established:
 
 Gate: tests + production build green.
 
+#### PR #4 — Local worker: safe SSD paths, ffprobe and first ffmpeg render contract
+Merged main SHA: `c53c720936624b0e208aaa339d63f55d489a7e6f`
+
+Established:
+- durable worker RPC request/response types for health, media probe and render
+- worker handshake with managed roots and capabilities
+- strict mapping from managed `KINAOU/...` paths to an explicitly authorized absolute SSD root
+- deterministic `ffprobe` command builder
+- parser for duration/size/video/audio metadata from ffprobe JSON
+- Mac worker handshake advertising filesystem/ffmpeg/media-probe capabilities
+- first executable ffmpeg command compiler for one linear clip starting at time 0
+- explicit refusal of complex render plans until real compositor support exists
+- tests for path safety, probe parsing, handshake and render command planning
+
+Gate: tests + production build green.
+
 ## Important modules already present
 
 `src/core/project.ts`
@@ -142,7 +160,21 @@ Gate: tests + production build green.
 - capability list including filesystem, ffmpeg, media-probe, LLM/image/video/STT/TTS/avatar
 - online/load-aware worker selection
 
-Render planning module added in PR #3 compiles project/timeline state into a deterministic render plan and enforces safe output paths.
+`src/core/render.ts`
+- deterministic RenderPlan
+- output safety under KINAOU/Renders
+- asset presence/offline checks
+
+`src/core/workerProtocol.ts`
+- health/probe/render RPC contracts
+- worker errors
+- worker handshake parsing/capability checks
+
+`src/core/localWorker.ts`
+- safe managed-to-absolute root resolution
+- ffprobe command creation and output parsing
+- initial ffmpeg command creation
+- Mac worker handshake
 
 ## Current product capability
 
@@ -153,16 +185,20 @@ KINAOU can currently:
 - create and manipulate non-destructive timeline state
 - persist storage profiles
 - register assets and mark them offline
-- model future external-SSD-backed assets safely
+- model external-SSD-backed assets safely
 - describe/choose compute workers by capabilities
 - compile a render plan from timeline state
 - refuse unsafe render outputs and missing/offline inputs
+- compile safe local ffprobe commands
+- parse real ffprobe-compatible metadata JSON
+- compile a real ffmpeg command for the first deliberately narrow one-clip render case
+- define a local Mac-worker health/probe/render protocol
 
 KINAOU cannot yet genuinely:
-- read/write the external SSD from the PWA by itself
-- run `ffmpeg` / `ffprobe`
-- import/copy/probe real media through a native worker
-- render an actual video file
+- start a local worker process from the repository/runtime
+- execute `ffmpeg` / `ffprobe` from the PWA
+- import/copy/probe real media through a running worker
+- render complex/multi-track videos
 - execute local AI models
 - generate script/storyboard/media through real AI providers
 
@@ -170,27 +206,30 @@ These capabilities must not be faked in UI.
 
 ## Current next milestone
 
-Build a trusted **local Mac worker / desktop bridge** foundation that can eventually execute real local work for the PWA.
+Build a **startable localhost Mac worker runtime**.
 
 Immediate scope:
-1. Define worker RPC/request/response protocol.
-2. Define filesystem capabilities with explicit managed-root authorization.
-3. Define media probe contract (`ffprobe` semantics).
-4. Define render execution contract (`ffmpeg` semantics) using existing render plans.
-5. Add secure path/root validation so the worker cannot operate outside explicitly managed KINAOU roots.
-6. Add health/capability handshake for Mac worker discovery.
-7. Add deterministic command-building/planning layer that can be unit-tested without actually invoking processes in GitHub CI.
-8. Only claim real ffmpeg/filesystem execution once a local runtime bridge is actually implemented and tested on the user's Mac.
+1. localhost-only server process, never public network by default
+2. per-run authentication token
+3. configured managed absolute root pointing only to the chosen `<SSD>/KINAOU` directory
+4. health endpoint returning worker handshake/capabilities
+5. probe endpoint executing ffprobe with argument arrays (no shell interpolation)
+6. render endpoint executing only validated/supported render plans
+7. output directories restricted to managed KINAOU/Renders
+8. process progress/error/cancel foundation
+9. CI syntax/security/unit coverage without requiring the user's SSD
+10. local Mac execution test deferred to USER ACTIONS AT END while independent repo work continues
 
-## Roadmap after local worker foundation
+## Roadmap after local worker runtime
 
 ### Basic media I/O
 - real media import
-- ffprobe metadata extraction
+- ffprobe metadata extraction through worker
 - thumbnails/waveforms/proxies
 - managed asset copy/link policy
 - disconnected SSD recovery
 - render execution and progress/cancel/retry
+- multi-track compositor
 
 ### Director / creation intelligence
 - input understanding
@@ -263,4 +302,4 @@ For each meaningful slice:
 
 None currently required for repository-only work.
 
-A future local Mac-worker execution test will require the user to run/install the worker locally and point it at the selected external SSD. Do not block independent repository work on that local test; prepare everything else first.
+A future local Mac-worker execution test will require the user to run/install the worker locally, have FFmpeg available, and point the worker at the selected external SSD's `KINAOU` directory. Do not block independent repository work on that local test; prepare everything else first.
