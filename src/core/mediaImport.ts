@@ -22,7 +22,6 @@ export function importProbedMedia(project: KinaouProject, input: ProbedMediaImpo
     managed: true,
     ...(input.probe.sizeBytes !== undefined ? { sizeBytes: input.probe.sizeBytes } : {}),
     ...(input.probe.durationMs !== undefined ? { durationMs: input.probe.durationMs } : {}),
-    mimeType: input.probe.mimeType,
-    metadata: undefined
-  } as never)
+    ...(input.probe.mimeType ? { mimeType: input.probe.mimeType } : {})
+  })
 }
