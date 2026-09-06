@@ -42,7 +42,7 @@ Safety rule: only paths below the configured KINAOU root may be created/moved/de
 ## Repository
 Repo: `Impekal/kinaou`
 Default branch: `main`
-Current main SHA after PR #14: `c8bb9c86d748dab82ec499492c6a11e17c693719`
+Current main SHA after PR #17: `c3ea67d513a7320ed7ed748aac90a3ff16e5595c`
 
 ## Merged slices
 - **PR #1** — foundation. Main `0230448aad6ee49e98118ab196b91f2b20e8ca8a`. React/Vite/TS, project schema, non-destructive timeline, storage safety, versioning, jobs, model registry, CI.
@@ -59,9 +59,11 @@ Current main SHA after PR #14: `c8bb9c86d748dab82ec499492c6a11e17c693719`
 - **PR #12** — CI notification noise + reproducible installs. Main `f13c9d349f478b1bbac0d90eae93461e0e0b4f31`. Feature work is gated once through `pull_request`; `push` CI now runs only on `main`, so intermediate work-in-progress commits no longer generate repeated failure notifications or duplicate PR checks. Superseded runs are cancelled, workflow permissions are read-only, `package-lock.json` is committed and CI uses `npm ci`. Final local gate: 40/40 Vitest + 2/2 native worker tests + production build + worker syntax. PR gate green.
 - **PR #13** — supported GitHub Actions runtime. Main `b31f4ce3b504707c26b483505fd6a7101f9d10cb`. `actions/checkout` and `actions/setup-node` moved to v5, removing the deprecated Node 20 action-runtime warning while the application test matrix remains on Node.js 22. Local and PR gates green.
 - **PR #14** — structured captions and real subtitle rendering. Main `c8bb9c86d748dab82ec499492c6a11e17c693719`. Studio creates and edits timed caption assets as project metadata; caption clips pass readiness without pretending to be filesystem assets. The worker deterministically generates UTF-8 ASS under `KINAOU/Temp/Captions`, burns it in after visual composition, neutralizes ASS override characters, supports Unicode/multiline text and removes the temporary file after success, failure or cancellation. Final gate: 43/43 Vitest + 4/4 native worker tests + production build + worker syntax green.
+- **PR #16** — persistent track/layer reordering. Main `6bc069e663b141029fe247cf8a8eaa502badf11b`. Studio exposes guarded Layer Up/Down controls; immutable timeline operations persist order and the existing `trackIndex` compositor contract makes it the real visual z-order. Final gate: 44/44 Vitest + 4/4 native worker tests + production build + worker syntax green.
+- **PR #17** — render-backed clip transforms. Main `c3ea67d513a7320ed7ed748aac90a3ff16e5595c`. Backward-compatible clip metadata and Studio controls now drive position, 0.1–4× scaling, symmetric pixel crop and reset. Both the typed worker contract and actual Mac FFmpeg compositor validate and apply the same filter graph. Final gate: 46/46 Vitest + 4/4 native worker tests + production build + worker syntax green.
 
 ## CI incident record (2026-09-06)
-The repeated GitHub “all jobs failed” emails did not indicate a broken `main`. CI was configured with `push.branches: ['**']`, so every intermediate commit on every feature branch immediately triggered a full run; opening a PR triggered another run for the same head. A PR #11 work-in-progress sequence produced 13 consecutive red push runs while native `node:test` coverage was temporarily being discovered by Vitest; the final feature head, PR gate, merge commit and documentation commit were green. Earlier isolated failures were normal pre-fix commits: the initial CSS side-effect import lacked Vite types, the Worker UI used nested probe fields not present in its type, and the compositor test still expected complex plans to be rejected after support was added. All were corrected before their PRs merged. There are no open feature PRs after PR #14.
+The repeated GitHub “all jobs failed” emails did not indicate a broken `main`. CI was configured with `push.branches: ['**']`, so every intermediate commit on every feature branch immediately triggered a full run; opening a PR triggered another run for the same head. A PR #11 work-in-progress sequence produced 13 consecutive red push runs while native `node:test` coverage was temporarily being discovered by Vitest; the final feature head, PR gate, merge commit and documentation commit were green. Earlier isolated failures were normal pre-fix commits: the initial CSS side-effect import lacked Vite types, the Worker UI used nested probe fields not present in its type, and the compositor test still expected complex plans to be rejected after support was added. All were corrected before their PRs merged. There are no open feature PRs after PR #17.
 
 ## Important modules
 - `src/core/project.ts` — project/assets/tracks/clips/storyboard schema.
@@ -89,13 +91,13 @@ The repeated GitHub “all jobs failed” emails did not indicate a broken `main
 3. Select video/audio/image explicitly in browser OR probe an existing managed asset.
 4. Worker streams selected file safely into `KINAOU/Assets`; PWA auto-probes and registers it.
 5. Choose compatible timeline track and place asset.
-6. Move/trim/mute/lock; adjust audio gain.
+6. Move/trim/mute/lock; reorder visual layers; adjust audio gain and visual position/scale/crop.
 7. Create/edit timed Unicode captions stored non-destructively in the project.
 8. Render deterministic multi-track visual/audio composition plus caption burn-in to `KINAOU/Renders` with explicit z-order.
 9. Watch progress, cancel, see failure/result, retry as new job; worker cleans caption temp files in every terminal path.
 
 ## Current limitations
-- No transitions, crop/position/keyframes, fades/automation or exact speed retiming.
+- No transitions, keyframes, fades/automation or exact speed retiming. Position/scale/crop are currently static per clip.
 - No thumbnails/waveforms/proxies.
 - No real local AI model execution yet; Director/AI Editor remain intentionally non-functional UI slots.
 - Local worker has not yet been run against the user's actual Mac/SSD; repository behavior is CI-tested, local hardware execution remains a later USER ACTION.
@@ -103,12 +105,10 @@ The repeated GitHub “all jobs failed” emails did not indicate a broken `main
 ## Current next milestone
 Build **Studio fidelity controls backed by real FFmpeg semantics**.
 Immediate plan:
-1. explicit track reordering in the UI while preserving deterministic z-order,
-2. per-clip position/scale/crop schema, controls and compositor filters,
-3. deterministic video/image transitions,
-4. audio/video fades and automation envelopes,
-5. exact speed retiming with matching audio/video duration semantics,
-6. preview/proxy, thumbnail and waveform generation after fidelity controls are stable.
+1. deterministic video/image transitions,
+2. audio/video fades and automation envelopes,
+3. exact speed retiming with matching audio/video duration semantics,
+4. preview/proxy, thumbnail and waveform generation after fidelity controls are stable.
 
 ## Later roadmap
 Studio fidelity: transforms/reorder → transitions → fades/automation → retiming → proxies/thumbnails/waveforms.
