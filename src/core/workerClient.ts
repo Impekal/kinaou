@@ -1,5 +1,5 @@
 import { parseAssetUploadResult, type AssetUploadResult } from './assetUpload'
-import { workerHandshakeSchema, type MediaProbeResult, type WorkerHandshake } from './workerProtocol'
+import { workerHandshakeSchema, type MediaProbeResult, type MediaProxyResult, type WorkerHandshake } from './workerProtocol'
 import type { RenderPlan } from './render'
 import { parseRenderJob, type RenderJobRecord } from './renderJobs'
 
@@ -52,6 +52,12 @@ export class WorkerClient {
     const payload = await this.request('/probe', { method: 'POST', body: JSON.stringify({ path }) })
     if (payload?.ok !== true || payload?.type !== 'probe-media') throw new Error('Invalid worker probe response')
     return payload.result as MediaProbeResult
+  }
+
+  async generateVideoProxy(path: string): Promise<MediaProxyResult> {
+    const payload = await this.request('/assets/proxy', { method: 'POST', body: JSON.stringify({ path }) })
+    if (payload?.ok !== true || payload?.type !== 'media-proxy' || typeof payload.result?.path !== 'string' || !payload.result.path.startsWith('KINAOU/Cache/Proxies/')) throw new Error('Invalid worker proxy response')
+    return payload.result as MediaProxyResult
   }
 
   async startRender(plan: RenderPlan): Promise<RenderJobRecord> {

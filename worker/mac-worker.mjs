@@ -8,6 +8,7 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import { managedUploadPaths } from './asset-upload.mjs'
 import { buildAssDocument, captionTempPaths, escapeSubtitleFilterPath } from './captions.mjs'
+import { buildProxyArgs, proxyRelativePath } from './proxies.mjs'
 
 const HOST = '127.0.0.1'
 const PORT = Number(process.env.KINAOU_WORKER_PORT ?? 43117)
@@ -15,7 +16,7 @@ const TOKEN = process.env.KINAOU_WORKER_TOKEN ?? crypto.randomBytes(24).toString
 const MANAGED_ROOT = normalizeRoot(process.env.KINAOU_MANAGED_ROOT ?? '')
 const WORKER_ID = process.env.KINAOU_WORKER_ID ?? `mac-${crypto.randomUUID()}`
 const MAX_UPLOAD_BYTES = Number(process.env.KINAOU_MAX_UPLOAD_BYTES ?? 250 * 1024 * 1024 * 1024)
-const VERSION = '0.5.0'
+const VERSION = '0.6.0'
 const renderJobs = new Map()
 const visualTrackTypes = new Set(['video', 'broll', 'image', 'avatar', 'overlay'])
 const audioTrackTypes = new Set(['voice', 'dialog', 'music', 'sfx'])
@@ -57,7 +58,7 @@ const server = http.createServer(async (request, response) => {
           name: 'KINAOU Mac Worker',
           platform: process.platform,
           version: VERSION,
-          capabilities: ['filesystem', 'ffmpeg', 'media-probe', 'asset-upload'],
+          capabilities: ['filesystem', 'ffmpeg', 'media-probe', 'asset-upload', 'media-proxy'],
           managedRoots: [MANAGED_ROOT],
           ffmpegVersion: versions.ffmpeg,
           ffprobeVersion: versions.ffprobe
@@ -77,6 +78,21 @@ const server = http.createServer(async (request, response) => {
       await access(absolutePath)
       const result = await probeMedia(absolutePath)
       return send(response, 200, { ok: true, type: 'probe-media', result })
+    }
+
+    if (request.method === 'POST' && request.url === '/assets/proxy') {
+      if (!versions.ffmpeg) throw capabilityError('ffmpeg is not available')
+      const body = await readJson(request)
+      const sourceRelativePath = requireManagedRelativePath(body.path)
+      if (!sourceRelativePath.startsWith('KINAOU/Assets/')) throw unauthorizedPath('Proxy source must be inside KINAOU/Assets')
+      const outputRelativePath = proxyRelativePath(sourceRelativePath)
+      const sourceAbsolutePath = resolveManaged(sourceRelativePath)
+      const outputAbsolutePath = resolveManaged(outputRelativePath)
+      await access(sourceAbsolutePath)
+      await mkdir(path.dirname(outputAbsolutePath), { recursive: true })
+      await run('ffmpeg', buildProxyArgs(sourceAbsolutePath, outputAbsolutePath))
+      const probe = await probeMedia(outputAbsolutePath)
+      return send(response, 201, { ok: true, type: 'media-proxy', result: { path: outputRelativePath, probe } })
     }
 
     if (request.method === 'POST' && request.url === '/render') {
