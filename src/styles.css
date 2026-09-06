@@ -100,6 +100,14 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .timelinePreview { padding: 24px; display: grid; gap: 14px; }
 .timelinePreview .sectionLead { margin-bottom: 0; }
 .timelinePreview p { margin-bottom: 0; }
+.versionPanel { padding: 24px; display: grid; gap: 14px; }
+.versionPanel .sectionLead { margin-bottom: 0; }
+.versionPanel p { margin-bottom: 0; }
+.versionCreate { display: grid; grid-template-columns: minmax(220px, 1fr) auto; gap: 10px; }
+.versionList { display: grid; border-top: 1px solid #292f3d; }
+.versionRow { padding: 14px 0; border-bottom: 1px solid #292f3d; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.versionRow > div:first-child { display: grid; gap: 5px; }
+.versionRow small { color: #7d8699; }
 .badge { border: 1px solid #315b42; color: #a8f0c3; border-radius: 999px; padding: 6px 8px; font-size: 9px; }
 .badge.offline { border-color: #65333a; color: #f0aeb6; }
 .workerCard { padding: 24px; }
@@ -129,7 +137,8 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
   nav { display: flex; overflow-x: auto; }
   .navItem { white-space: nowrap; }
   .main { padding: 20px; }
-  .hero, .settingsPanel, .captionCreate, .previewControls { grid-template-columns: 1fr; }
+  .hero, .settingsPanel, .captionCreate, .previewControls, .versionCreate { grid-template-columns: 1fr; }
+  .versionRow { align-items: flex-start; flex-direction: column; }
   .trackRow { grid-template-columns: 130px 1fr; }
   .assetRow, .assetRowWithPlacement { grid-template-columns: 1fr; }
 }

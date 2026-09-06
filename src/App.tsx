@@ -9,6 +9,7 @@ import { StudioProxyPreview } from './components/StudioProxyPreview'
 import { VideoThumbnailControl } from './components/VideoThumbnailControl'
 import { WaveformControl } from './components/WaveformControl'
 import { TimelinePreview } from './components/TimelinePreview'
+import { VersionHistoryPanel } from './components/VersionHistoryPanel'
 import { createProjectFromInput, type CreationInputKind } from './core/create'
 import { importProbedMedia, type ImportableMediaKind } from './core/mediaImport'
 import { ProjectRepository, StorageSettingsRepository } from './core/persistence'
@@ -16,6 +17,7 @@ import type { KinaouProject } from './core/project'
 import { configureWorkspaceRoot, storageTarget, type StorageBackend, type StorageSettings } from './core/storage'
 import { WorkerClient } from './core/workerClient'
 import type { MediaProbeResult, WorkerHandshake } from './core/workerProtocol'
+import { PersistentVersionHistory } from './core/versioning'
 
 const nav = ['Projects', 'Create', 'Director', 'Studio', 'Assets', 'Avatar', 'Audio', 'Publish', 'Analytics', 'Settings']
 const storageAreas = ['models', 'projects', 'assets', 'cache', 'temp', 'renders', 'archive'] as const
@@ -23,6 +25,7 @@ const storageAreas = ['models', 'projects', 'assets', 'cache', 'temp', 'renders'
 export function App() {
   const projectRepo = useMemo(() => new ProjectRepository(window.localStorage), [])
   const storageRepo = useMemo(() => new StorageSettingsRepository(window.localStorage), [])
+  const versionHistory = useMemo(() => new PersistentVersionHistory(window.localStorage), [])
   const [projects, setProjects] = useState<KinaouProject[]>(() => projectRepo.list())
   const [project, setProject] = useState<KinaouProject | null>(() => projectRepo.list()[0] ?? null)
   const [section, setSection] = useState(projects.length ? 'Projects' : 'Create')
@@ -152,6 +155,7 @@ export function App() {
             <div className="sectionLead"><div><div className="eyebrow">NON-DESTRUCTIVE TIMELINE</div><h2>Studio</h2></div><span className="status">AUTO-SAVED</span></div>
             <StudioProxyPreview project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} />
             <TimelinePreview project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} />
+            <VersionHistoryPanel project={project} history={versionHistory} onProjectChange={persistProject} />
             <TimelineEditor project={project} onProjectChange={persistProject} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} />
             <CaptionEditor project={project} onProjectChange={persistProject} />
             <RenderPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} />
