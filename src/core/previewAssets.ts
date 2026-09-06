@@ -14,3 +14,17 @@ export function attachVideoProxy(project: KinaouProject, assetId: string, proxyP
   if (!found) throw new Error(`Asset not found: ${assetId}`)
   return touchProject({ ...project, assets })
 }
+
+export function attachVideoThumbnail(project: KinaouProject, assetId: string, thumbnailPath: string): KinaouProject {
+  const safePath = assertSafeManagedPath(thumbnailPath)
+  if (!safePath.startsWith('KINAOU/Cache/Thumbnails/') || !safePath.endsWith('.jpg')) throw new Error('Invalid managed thumbnail path')
+  let found = false
+  const assets = project.assets.map((asset) => {
+    if (asset.id !== assetId) return asset
+    if (asset.kind !== 'video' || !asset.managed || !asset.uri.startsWith('KINAOU/Assets/')) throw new Error('Only managed video assets can receive thumbnails')
+    found = true
+    return { ...asset, metadata: { ...asset.metadata, thumbnailPath: safePath } }
+  })
+  if (!found) throw new Error(`Asset not found: ${assetId}`)
+  return touchProject({ ...project, assets })
+}

@@ -8,7 +8,7 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import { managedUploadPaths } from './asset-upload.mjs'
 import { buildAssDocument, captionTempPaths, escapeSubtitleFilterPath } from './captions.mjs'
-import { buildProxyArgs, proxyRelativePath, requireProxyMediaPath } from './proxies.mjs'
+import { buildProxyArgs, buildThumbnailArgs, previewMediaType, proxyRelativePath, thumbnailRelativePath } from './proxies.mjs'
 
 const HOST = '127.0.0.1'
 const PORT = Number(process.env.KINAOU_WORKER_PORT ?? 43117)
@@ -51,11 +51,13 @@ const server = http.createServer(async (request, response) => {
   try {
     if (request.method === 'GET' && request.url?.startsWith('/media?')) {
       const requestUrl = new URL(request.url, `http://${HOST}:${PORT}`)
-      const relativePath = requireManagedRelativePath(requireProxyMediaPath(requestUrl.searchParams.get('path')))
+      const requestedPath = requestUrl.searchParams.get('path')
+      const contentType = previewMediaType(requestedPath)
+      const relativePath = requireManagedRelativePath(requestedPath)
       const absolutePath = resolveManaged(relativePath)
       const info = await stat(absolutePath)
       response.statusCode = 200
-      response.setHeader('content-type', 'video/mp4')
+      response.setHeader('content-type', contentType)
       response.setHeader('content-length', String(info.size))
       await pipeline(createReadStream(absolutePath), response)
       return
@@ -70,7 +72,7 @@ const server = http.createServer(async (request, response) => {
           name: 'KINAOU Mac Worker',
           platform: process.platform,
           version: VERSION,
-          capabilities: ['filesystem', 'ffmpeg', 'media-probe', 'asset-upload', 'media-proxy'],
+          capabilities: ['filesystem', 'ffmpeg', 'media-probe', 'asset-upload', 'media-proxy', 'media-thumbnail'],
           managedRoots: [MANAGED_ROOT],
           ffmpegVersion: versions.ffmpeg,
           ffprobeVersion: versions.ffprobe
@@ -105,6 +107,21 @@ const server = http.createServer(async (request, response) => {
       await run('ffmpeg', buildProxyArgs(sourceAbsolutePath, outputAbsolutePath))
       const probe = await probeMedia(outputAbsolutePath)
       return send(response, 201, { ok: true, type: 'media-proxy', result: { path: outputRelativePath, probe } })
+    }
+
+    if (request.method === 'POST' && request.url === '/assets/thumbnail') {
+      if (!versions.ffmpeg) throw capabilityError('ffmpeg is not available')
+      const body = await readJson(request)
+      const sourceRelativePath = requireManagedRelativePath(body.path)
+      if (!sourceRelativePath.startsWith('KINAOU/Assets/')) throw unauthorizedPath('Thumbnail source must be inside KINAOU/Assets')
+      const outputRelativePath = thumbnailRelativePath(sourceRelativePath)
+      const sourceAbsolutePath = resolveManaged(sourceRelativePath)
+      const outputAbsolutePath = resolveManaged(outputRelativePath)
+      await access(sourceAbsolutePath)
+      await mkdir(path.dirname(outputAbsolutePath), { recursive: true })
+      await run('ffmpeg', buildThumbnailArgs(sourceAbsolutePath, outputAbsolutePath))
+      const info = await stat(outputAbsolutePath)
+      return send(response, 201, { ok: true, type: 'media-thumbnail', result: { path: outputRelativePath, sizeBytes: info.size } })
     }
 
     if (request.method === 'POST' && request.url === '/render') {
