@@ -56,7 +56,7 @@ Repository: `Impekal/kinaou`
 
 Default branch: `main`
 
-Current main SHA after PR #7: `92e6069547a79e9d62e220edb0e2794ad8fb360c`
+Current main SHA after PR #8: `7d2cc05b975d77057dc6a95b79fe30e0f0ef376e`
 
 ## Merged slices
 
@@ -67,95 +67,95 @@ Gate after correction: 6/6 tests + production build green.
 
 ### PR #2 — Product core
 Main SHA: `581cd2a18a7d963f6bf0c630d797716ef3a8d6dd`
-Established persistent project repository/storage contract, Create flow for idea/document/URL/image/audio/video inputs, standard initial tracks, usable timeline operations with persistence, storage profiles and browser-vs-worker boundary.
+Established persistent project repository/storage contract, Create flow, standard initial tracks, usable timeline operations with persistence, storage profiles and browser-vs-worker boundary.
 Gate: tests + production build green.
 
 ### PR #3 — Media core
 Main SHA: `bb93d8d0374ee1a32f2e1d76346d9b2ae91918a4`
-Established asset registration/offline state, worker capability scheduler, deterministic render-plan compilation, safe render-output boundary, missing/offline asset blocking and related tests.
+Established asset registration/offline state, worker capability scheduler, deterministic render-plan compilation, safe render-output boundary, missing/offline asset blocking and tests.
 Gate: tests + production build green.
 
 ### PR #4 — Local worker contract
 Main SHA: `c53c720936624b0e208aaa339d63f55d489a7e6f`
-Established worker RPC types, health/probe/render protocol, managed-root path mapping, ffprobe command builder/parser, Mac capability handshake, first one-clip ffmpeg command compiler and explicit refusal of unsupported complex render plans.
+Established worker RPC, health/probe/render protocol, managed-root mapping, ffprobe planning/parsing, Mac capability handshake and first ffmpeg command compiler.
 Gate: tests + production build green.
 
 ### PR #5 — Startable Mac worker runtime
 Main SHA: `3677d3994a143da9f88442eb004fe278dd31dfe7`
-Established startable `worker/mac-worker.mjs`, localhost-only binding, Bearer-token auth, exact KINAOU managed root, real ffprobe execution, narrow one-clip ffmpeg execution, render-output restriction and `shell:false` process spawning.
+Established startable localhost-only authenticated worker, exact KINAOU root, real ffprobe, narrow real ffmpeg execution, safe output restriction and shell-free process spawning.
 Gate: tests + production build + worker syntax check green.
 
 ### PR #6 — PWA worker bridge and probed media import
 Main SHA: `c71efbc1eb7d176abdd08b264ecd39acdde0e82d`
-Established localhost-only `WorkerClient`, in-memory bearer token, health/probe/render methods, worker error propagation, `importProbedMedia`, managed-asset validation and mocked-fetch tests.
+Established localhost-only `WorkerClient`, in-memory token, health/probe methods, worker error propagation, managed media import and tests.
 Gate: tests + production build + worker syntax check green.
 
 ### PR #7 — Visible worker UI + managed assets
 Main SHA: `92e6069547a79e9d62e220edb0e2794ad8fb360c`
+Established visible worker connection controls, Test Connection, capability state, Assets screen, real managed media probe/import and project asset inventory.
+Final gate: 28/28 tests + production build + worker syntax check green.
+
+### PR #8 — Async render jobs + basic multi-track compositor
+Main SHA: `7d2cc05b975d77057dc6a95b79fe30e0f0ef376e`
 Established:
-- visible Settings controls for localhost worker URL and session token
-- token remains in memory only
-- real Test Connection action using worker health handshake
-- online/capability display
-- visible Assets screen
-- probe of real managed `KINAOU/Assets/...` paths through the worker
-- display of duration, size, dimensions and sample rate from probe results
-- import of probed media into persistent project assets
-- project asset inventory with managed/offline state
-- timeline labels now resolve real asset names when available
+- asynchronous render jobs with `queued/running/succeeded/failed/cancelled`
+- worker-side job registry
+- status endpoint and exact-job cancel endpoint
+- FFmpeg progress parsing and SIGTERM cancellation
+- PWA WorkerClient start/status/cancel render methods
+- loopback CORS for localhost PWA origins
+- black master canvas and timed visual layering for video/B-roll/image/avatar/overlay tracks
+- delayed/gain-controlled mixing for voice/dialog/music/SFX tracks
+- output remains restricted to `KINAOU/Renders`
+- image inputs loop for their clip duration
+- speed values other than 1 are explicitly rejected until exact retiming is implemented
+- tests for render lifecycle and deterministic compositor planning
 
-One intermediate build failed because the UI expected nested `video`/`audio` probe objects; the canonical `MediaProbeResult` is flat. This was corrected before merge.
-
-Final gate: **28/28 tests + production build + worker syntax check green.**
+Gate: tests + production build + worker syntax check green on push and PR gates.
 
 ## Important modules
 
-`src/core/project.ts` — project schema, assets, tracks, clips, storyboard, create/parse/touch.
-`src/core/timeline.ts` — immutable add/remove/move/trim timeline operations.
-`src/core/storage.ts` — storage areas, safe managed-path validation, StorageAdapter contract.
-`src/core/persistence.ts` — persistent project repository/storage behavior.
-`src/core/create.ts` — project creation from supported starting-point types.
-`src/core/versioning.ts` — version snapshot/restore foundation.
-`src/core/jobs.ts` — cancellable job queue.
-`src/core/models.ts` — model registry/capability filtering.
-`src/core/assets.ts` — asset registration and online/offline state.
-`src/core/workers.ts` — WorkerDescriptor, capabilities, load-aware selection.
-`src/core/render.ts` — deterministic RenderPlan with output/asset safety checks.
-`src/core/workerProtocol.ts` — health/probe/render RPC contracts and errors.
-`src/core/localWorker.ts` — safe path mapping, ffprobe planning/parsing, initial ffmpeg command planning, Mac handshake.
-`src/core/workerClient.ts` — localhost-only authenticated PWA worker client.
-`src/core/mediaImport.ts` — conversion of probed worker media into managed project assets.
-`worker/mac-worker.mjs` — actual local Node worker runtime.
-`worker/README.md` — local prerequisites, security model and launch instructions.
-`src/App.tsx` — visible worker connection, managed asset probing/import, project/timeline UI.
+`src/core/project.ts` — project schema, assets, tracks, clips, storyboard.
+`src/core/timeline.ts` — immutable timeline operations.
+`src/core/storage.ts` — storage safety and adapter contract.
+`src/core/persistence.ts` — persistent project repository.
+`src/core/create.ts` — project creation from supported inputs.
+`src/core/versioning.ts` — version snapshots/restoration foundation.
+`src/core/jobs.ts` — cancellable generic job queue.
+`src/core/models.ts` — model registry/capabilities.
+`src/core/assets.ts` — asset registration/offline state.
+`src/core/workers.ts` — worker descriptors/scheduling.
+`src/core/render.ts` — deterministic RenderPlan.
+`src/core/renderJobs.ts` — render job lifecycle record/parser.
+`src/core/workerProtocol.ts` — worker RPC data types.
+`src/core/localWorker.ts` — safe path mapping, ffprobe, compositor command planning.
+`src/core/workerClient.ts` — authenticated localhost client including render lifecycle.
+`src/core/mediaImport.ts` — probed media → managed asset.
+`worker/mac-worker.mjs` — actual local worker with ffprobe, async ffmpeg jobs, basic compositor.
+`worker/README.md` — local worker prerequisites and security model.
+`src/App.tsx` — visible projects/timeline/worker/assets UI.
 
 ## Current real capabilities
 
 KINAOU can currently:
-- create structured projects
-- persist/reload projects in browser-side repository
-- create project starting points from multiple input categories
-- create/manipulate non-destructive timeline state
-- persist storage profiles
-- register assets and mark them offline
-- model external-SSD-backed assets safely
-- choose workers by capability/load
-- compile render plans
-- refuse unsafe outputs and missing/offline inputs
-- start a real local Mac worker process
-- authenticate local worker requests with a token
-- restrict worker filesystem access to an explicitly selected `<disk>/KINAOU` root
-- run real ffprobe against managed assets
-- run a real one-clip ffmpeg render into `KINAOU/Renders`
-- connect visibly to the worker from Settings
-- show worker online/capability state
-- probe managed media from the Assets UI
-- import probe results into persistent project assets
+- create/persist/reopen structured projects
+- manipulate a non-destructive timeline
+- model safe external-SSD storage
+- connect visibly to a real localhost Mac worker
+- probe and register managed media
+- compile safe render plans
+- submit asynchronous FFmpeg renders through the worker core
+- query/cancel render jobs through WorkerClient core
+- composite multiple timed visual layers
+- mix designated voice/dialog/music/SFX tracks with delay and gain
+- keep all worker filesystem activity inside the selected KINAOU root
 
 KINAOU does **not yet** genuinely:
-- copy arbitrary source media from outside KINAOU into `KINAOU/Assets`
-- render multi-track/composited timelines
-- report/cancel/retry render jobs from UI
+- expose render start/progress/cancel/result in the visible UI
+- copy arbitrary outside media into KINAOU/Assets through an authorized chooser
+- burn captions/subtitles into renders
+- implement transitions/position/scale/keyframe controls beyond full-frame basic layering
+- retime speed != 1 accurately
 - generate proxies/thumbnails/waveforms
 - execute local AI models
 - generate script/storyboard/media through real AI providers
@@ -164,26 +164,35 @@ Unsupported capabilities must not be faked in UI.
 
 ## Current next milestone
 
-Build **multi-track render execution + render-job lifecycle** before broadening import privileges.
+Build **visible render controls and result lifecycle in Studio**.
 
 Immediate scope:
-1. extend render protocol with asynchronous render job id/state/progress
-2. worker-side in-memory job registry
-3. GET render status endpoint
-4. cancel endpoint that terminates the exact child process
-5. retry-safe result/error state
-6. expand local ffmpeg compositor beyond the one-clip case
-7. support basic video/image visual layering and voice/music audio mix
-8. keep output inside `KINAOU/Renders`
-9. add PWA Render controls/status/cancel once worker protocol is green
-10. only after that design an explicit, auditable source-file import authorization flow; never silently grant arbitrary filesystem read access
+1. safe deterministic output filename helper under `KINAOU/Renders`
+2. start render from current project using real RenderPlan
+3. require connected worker and renderable managed assets
+4. visible queued/running progress
+5. status polling with cleanup
+6. cancel button
+7. success output path/size/duration
+8. failure state and retry via a new job
+9. prevent concurrent accidental duplicate submissions from UI
+10. then add caption rendering, track-level controls and explicit media import authorization
 
-## Roadmap after render lifecycle
+## Roadmap after visible render UI
+
+### Studio/render fidelity
+- caption/subtitle burn-in
+- track ordering/z-index semantics
+- transitions
+- speed/retiming
+- volume automation/fades
+- position/scale/crop/keyframes
+- preview proxies
 
 ### Basic media I/O
-- explicit source-file chooser / copy policy
+- explicit source-file chooser/copy policy
 - thumbnails/waveforms/proxies
-- disconnected SSD recovery and re-probe
+- disconnected SSD recovery/re-probe
 
 ### Director / creation intelligence
 - input understanding
@@ -224,41 +233,14 @@ Immediate scope:
 
 ## Product-definition milestone
 
-The first major KINAOU core milestone is reached when a user can:
-1. open KINAOU,
-2. create a project,
-3. provide an input,
-4. obtain script/storyboard/scenes,
-5. import or generate media/voice/captions,
-6. edit everything on a real timeline,
-7. select a region and edit it through AI,
-8. undo/restore versions,
-9. render/export a real video,
-10. close and reopen the project safely,
-11. store models/projects/assets on external SSD,
-12. disconnect/reconnect SSD without corruption.
+The first major KINAOU core milestone is reached when a user can create a project, get script/storyboard/scenes, import/generate media, fully edit a real timeline, AI-edit selected ranges reversibly, render/export, reopen safely, and use external SSD storage without corruption.
 
 ## Working discipline
 
-For every meaningful slice:
-1. verify actual `main` SHA and repo state,
-2. work on a feature branch,
-3. implement real behavior rather than mock functionality,
-4. add/update tests,
-5. open PR,
-6. wait for CI gate,
-7. fix failures,
-8. merge only when green,
-9. update this file with PR, SHA, decisions, capabilities and next step.
+For every meaningful slice: verify main, feature branch, real implementation, tests, PR, green CI, merge, then update this file.
 
 ## USER ACTIONS AT END
 
 No user action blocks independent repository work right now.
 
-A later real Mac-worker execution test requires the user to:
-- have Node.js 22+
-- have FFmpeg/ffprobe in PATH
-- create/select the external SSD's `KINAOU` directory
-- launch the worker with `KINAOU_MANAGED_ROOT` and a token
-
-Do not block independent repository work on this local test; prepare everything else first.
+A later real Mac execution test requires Node.js 22+, FFmpeg/ffprobe in PATH, the external SSD's `KINAOU` directory, and launching the worker with `KINAOU_MANAGED_ROOT` plus a token. Do not block independent repo work on this test.
