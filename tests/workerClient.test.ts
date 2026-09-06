@@ -113,6 +113,18 @@ describe('probed media import', () => {
     await expect(client.loadVideoProxy('KINAOU/Assets/original.mov')).rejects.toThrow(/proxy path/)
   })
 
+  it('generates and loads authenticated thumbnails', async () => {
+    let calls = 0
+    const client = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl: async () => {
+      calls += 1
+      if (calls === 1) return jsonResponse({ ok: true, type: 'media-thumbnail', result: { path: 'KINAOU/Cache/Thumbnails/demo.jpg', sizeBytes: 42 } }, 201)
+      return new Response(new Uint8Array([255, 216, 255]), { status: 200, headers: { 'content-type': 'image/jpeg' } })
+    } })
+    const generated = await client.generateVideoThumbnail('KINAOU/Assets/demo.mov')
+    expect(generated.sizeBytes).toBe(42)
+    expect((await client.loadVideoThumbnail(generated.path)).type).toBe('image/jpeg')
+  })
+
   it('rejects imports outside KINAOU/Assets', () => {
     const project = createProject('Import')
     expect(() => importProbedMedia(project, {
