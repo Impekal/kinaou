@@ -1,12 +1,13 @@
 import http from 'node:http'
 import { spawn } from 'node:child_process'
 import { createWriteStream } from 'node:fs'
-import { access, mkdir, rename, stat, unlink } from 'node:fs/promises'
+import { access, mkdir, rename, stat, unlink, writeFile } from 'node:fs/promises'
 import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import { managedUploadPaths } from './asset-upload.mjs'
+import { buildAssDocument, captionTempPaths, escapeSubtitleFilterPath } from './captions.mjs'
 
 const HOST = '127.0.0.1'
 const PORT = Number(process.env.KINAOU_WORKER_PORT ?? 43117)
@@ -14,7 +15,7 @@ const TOKEN = process.env.KINAOU_WORKER_TOKEN ?? crypto.randomBytes(24).toString
 const MANAGED_ROOT = normalizeRoot(process.env.KINAOU_MANAGED_ROOT ?? '')
 const WORKER_ID = process.env.KINAOU_WORKER_ID ?? `mac-${crypto.randomUUID()}`
 const MAX_UPLOAD_BYTES = Number(process.env.KINAOU_MAX_UPLOAD_BYTES ?? 250 * 1024 * 1024 * 1024)
-const VERSION = '0.4.0'
+const VERSION = '0.5.0'
 const renderJobs = new Map()
 const visualTrackTypes = new Set(['video', 'broll', 'image', 'avatar', 'overlay'])
 const audioTrackTypes = new Set(['voice', 'dialog', 'music', 'sfx'])
@@ -264,7 +265,9 @@ function validateRenderPlan(plan) {
     if (!Number.isFinite(clip.durationMs) || clip.durationMs <= 0) throw new Error('Invalid clip duration')
     if (!Number.isFinite(clip.sourceOffsetMs) || clip.sourceOffsetMs < 0) throw new Error('Invalid source offset')
     if (clip.speed !== 1) throw new Error('Multi-track compositor currently requires clip speed 1')
-    requireManagedRelativePath(clip.asset?.uri)
+    if (clip.asset?.kind === 'caption') {
+      if (clip.trackType !== 'caption' || typeof clip.asset.metadata?.text !== 'string' || !clip.asset.metadata.text.trim()) throw new Error('Invalid caption clip')
+    } else requireManagedRelativePath(clip.asset?.uri)
   }
   return plan
 }
@@ -309,14 +312,24 @@ async function executeRenderJob(id) {
     if (!versions.ffmpeg) throw capabilityError('ffmpeg is not available')
     const plan = job.plan
     const outputPath = resolveManaged(requireRenderRelativePath(plan.outputRelativePath))
+    const mediaClips = plan.clips.filter((clip) => clip.asset.kind !== 'caption')
+    const captionClips = plan.clips.filter((clip) => clip.asset.kind === 'caption')
     const inputPaths = []
-    for (const clip of plan.clips) {
+    for (const clip of mediaClips) {
       const input = resolveManaged(requireManagedRelativePath(clip.asset.uri))
       await access(input)
       inputPaths.push(input)
     }
     await mkdir(path.dirname(outputPath), { recursive: true })
-    const args = buildCompositeArgs(plan, inputPaths, outputPath)
+    let subtitlePath
+    if (captionClips.length) {
+      const temp = captionTempPaths(MANAGED_ROOT, job.id)
+      await mkdir(temp.directory, { recursive: true })
+      await writeFile(temp.file, buildAssDocument(captionClips, plan.preset.width, plan.preset.height), { encoding: 'utf8', flag: 'wx' })
+      subtitlePath = temp.file
+      job.subtitlePath = temp.file
+    }
+    const args = buildCompositeArgs(plan, mediaClips, inputPaths, outputPath, subtitlePath)
     const child = spawn('ffmpeg', args, { shell: false, stdio: ['ignore', 'pipe', 'pipe'] })
     job.child = child
     let progressBuffer = ''
@@ -352,12 +365,15 @@ async function executeRenderJob(id) {
     job.state = 'failed'
     job.error = error instanceof Error ? error.message : String(error)
     touchJob(job)
+  } finally {
+    if (job.subtitlePath) await unlink(job.subtitlePath).catch(() => {})
+    job.subtitlePath = null
   }
 }
 
-function buildCompositeArgs(plan, inputPaths, outputPath) {
+function buildCompositeArgs(plan, mediaClips, inputPaths, outputPath, subtitlePath) {
   const args = ['-y']
-  plan.clips.forEach((clip, index) => {
+  mediaClips.forEach((clip, index) => {
     if (clip.asset.kind === 'image') args.push('-loop', '1')
     args.push('-ss', seconds(clip.sourceOffsetMs), '-t', seconds(clip.durationMs), '-i', inputPaths[index])
   })
@@ -368,7 +384,7 @@ function buildCompositeArgs(plan, inputPaths, outputPath) {
   const parts = [`color=c=black:s=${width}x${height}:r=${fps}:d=${seconds(plan.durationMs)}[base]`]
   const visuals = []
   const audios = []
-  plan.clips.forEach((clip, index) => {
+  mediaClips.forEach((clip, index) => {
     if (visualTrackTypes.has(clip.trackType)) visuals.push({ index, clip })
     if (audioTrackTypes.has(clip.trackType)) audios.push({ index, clip })
   })
@@ -384,6 +400,11 @@ function buildCompositeArgs(plan, inputPaths, outputPath) {
     parts.push(`[${currentVideo}][${prepared}]overlay=0:0:enable='between(t,${start},${end})'[${output}]`)
     currentVideo = output
   })
+
+  if (subtitlePath) {
+    parts.push(`[${currentVideo}]subtitles=filename='${escapeSubtitleFilterPath(subtitlePath)}'[captioned]`)
+    currentVideo = 'captioned'
+  }
 
   let audioOutput = null
   if (audios.length) {

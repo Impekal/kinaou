@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { AssetPlacementControl } from './components/AssetPlacementControl'
 import { AssetUploadPanel } from './components/AssetUploadPanel'
+import { CaptionEditor } from './components/CaptionEditor'
 import { RenderPanel } from './components/RenderPanel'
 import { TimelineEditor } from './components/TimelineEditor'
 import { createProjectFromInput, type CreationInputKind } from './core/create'
@@ -145,8 +146,9 @@ export function App() {
           {!project ? <div className="card emptyState">Create or open a project first.</div> : <>
             <div className="sectionLead"><div><div className="eyebrow">NON-DESTRUCTIVE TIMELINE</div><h2>Studio</h2></div><span className="status">AUTO-SAVED</span></div>
             <TimelineEditor project={project} onProjectChange={persistProject} />
+            <CaptionEditor project={project} onProjectChange={persistProject} />
             <RenderPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} />
-            <div className="card note"><strong>Current render boundary:</strong> basic multi-track visuals and designated audio mixing are real. Captions, transitions, keyframes and speed retiming remain blocked until their render semantics exist.</div>
+            <div className="card note"><strong>Current render boundary:</strong> multi-track visuals, designated audio mixing and burned-in captions are real. Transitions, keyframes and speed retiming remain blocked until their render semantics exist.</div>
           </>}
         </section>}
 

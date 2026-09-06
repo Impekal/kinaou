@@ -98,6 +98,11 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .progressTrack { height: 10px; overflow: hidden; border-radius: 999px; background: #090c12; border: 1px solid #272d39; }
 .progressFill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #6e5de9, #a56cff); transition: width .25s ease; }
 .renderActions { justify-content: flex-start; }
+.captionEditor { padding: 24px; display: grid; gap: 18px; }
+.captionEditor p { margin-bottom: 0; }
+.captionCreate { display: grid; grid-template-columns: minmax(260px, 1fr) 140px 140px auto; gap: 12px; align-items: end; }
+.captionCreate textarea, .captionList textarea { min-height: 72px; }
+.captionList { display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid #292f3d; }
 .dangerButton { border: 1px solid #6d343c; border-radius: 11px; padding: 11px 15px; background: rgba(132, 42, 54, .12); color: #f0aeb6; font-weight: 700; }
 
 @media (max-width: 1050px) {
@@ -109,7 +114,7 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
   nav { display: flex; overflow-x: auto; }
   .navItem { white-space: nowrap; }
   .main { padding: 20px; }
-  .hero, .settingsPanel { grid-template-columns: 1fr; }
+  .hero, .settingsPanel, .captionCreate { grid-template-columns: 1fr; }
   .trackRow { grid-template-columns: 130px 1fr; }
   .assetRow, .assetRowWithPlacement { grid-template-columns: 1fr; }
 }
