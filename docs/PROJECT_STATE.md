@@ -42,7 +42,7 @@ Safety rule: only paths below the configured KINAOU root may be created/moved/de
 ## Repository
 Repo: `Impekal/kinaou`
 Default branch: `main`
-Current main SHA after PR #33: `0e86028db388fbc551039f4c3f5f8cf2021ff7e1`
+Current main SHA after PR #35: `b4aa43996bb729e0ff191d50a0f3ef2c541718c9`
 
 ## Merged slices
 - **PR #1** — foundation. Main `0230448aad6ee49e98118ab196b91f2b20e8ca8a`. React/Vite/TS, project schema, non-destructive timeline, storage safety, versioning, jobs, model registry, CI.
@@ -69,9 +69,10 @@ Current main SHA after PR #33: `0e86028db388fbc551039f4c3f5f8cf2021ff7e1`
 - **PR #29** — managed video thumbnails. Main `7f06845ace383bf0081feae52379a1842bd4509e`. Worker extracts deterministic 640px JPEG poster frames from managed videos into `KINAOU/Cache/Thumbnails`, advertises `media-thumbnail`, and streams only validated preview-cache paths through the authenticated media route. Assets persists and displays the thumbnail without changing the source. Final gate: 58/58 Vitest + 8/8 native worker tests + production build + worker syntax green.
 - **PR #31** — managed audio waveforms. Main `01d4afd6ce669a5fe2374f29ead47977e5dad144`. Worker uses FFmpeg `showwavespic` to render deterministic mono amplitude PNGs under `KINAOU/Cache/Waveforms`, advertises `media-waveform`, and serves them only through the authenticated preview route. Audio/video assets persist the association; Assets displays it and audio timeline clips render the waveform. Final gate: 60/60 Vitest + 9/9 native worker tests + production build + worker syntax green.
 - **PR #33** — composed timeline preview with scrubbing. Main `0e86028db388fbc551039f4c3f5f8cf2021ff7e1`. Render plans explicitly distinguish `export` and `preview`; the worker enforces purpose/path pairing, uses the real compositor at 960×540 for preview jobs under `KINAOU/Cache/Previews`, and exposes the result only through authenticated preview media transport. Studio polls progress and provides video playback plus a precise playhead slider. Original media and full export semantics remain unchanged. Final gate: 62/62 Vitest + 9/9 native worker tests + production build + worker syntax green.
+- **PR #35** — persistent reversible Version History UI. Main `b4aa43996bb729e0ff191d50a0f3ef2c541718c9`. Studio creates, lists, restores and deletes named project snapshots persisted alongside the project in local storage. Restores first capture the current project as an automatic safety version, stored payloads are schema-validated and corrupt entries are ignored, and retention is capped. Final gate: 64/64 Vitest + 9/9 native worker tests + production build + worker syntax green.
 
 ## CI incident record (2026-09-06)
-The repeated GitHub “all jobs failed” emails did not indicate a broken `main`. CI was configured with `push.branches: ['**']`, so every intermediate commit on every feature branch immediately triggered a full run; opening a PR triggered another run for the same head. A PR #11 work-in-progress sequence produced 13 consecutive red push runs while native `node:test` coverage was temporarily being discovered by Vitest; the final feature head, PR gate, merge commit and documentation commit were green. Earlier isolated failures were normal pre-fix commits: the initial CSS side-effect import lacked Vite types, the Worker UI used nested probe fields not present in its type, and the compositor test still expected complex plans to be rejected after support was added. All were corrected before their PRs merged. There are no open feature PRs after PR #33.
+The repeated GitHub “all jobs failed” emails did not indicate a broken `main`. CI was configured with `push.branches: ['**']`, so every intermediate commit on every feature branch immediately triggered a full run; opening a PR triggered another run for the same head. A PR #11 work-in-progress sequence produced 13 consecutive red push runs while native `node:test` coverage was temporarily being discovered by Vitest; the final feature head, PR gate, merge commit and documentation commit were green. Earlier isolated failures were normal pre-fix commits: the initial CSS side-effect import lacked Vite types, the Worker UI used nested probe fields not present in its type, and the compositor test still expected complex plans to be rejected after support was added. All were corrected before their PRs merged. There are no open feature PRs after PR #35.
 
 ## Important modules
 - `src/core/project.ts` — project/assets/tracks/clips/storyboard schema.
@@ -88,6 +89,7 @@ The repeated GitHub “all jobs failed” emails did not indicate a broken `main
 - `src/components/CaptionEditor.tsx` / `src/core/captions.ts` — structured timed caption creation/editing.
 - `src/components/AssetPlacementControl.tsx` — compatible track chooser + Add to timeline.
 - `src/components/RenderPanel.tsx` — real render start/progress/cancel/result.
+- `src/core/versioning.ts` / `src/components/VersionHistoryPanel.tsx` — persistent named snapshots and reversible Studio restore controls.
 - `worker/asset-upload.mjs` — safe filename/temp/final upload paths.
 - `worker/captions.mjs` — deterministic ASS generation, escaping and managed temp paths.
 - `worker/proxies.mjs` / `src/components/VideoProxyControl.tsx` — deterministic managed video proxy generation and association.
@@ -105,24 +107,25 @@ The repeated GitHub “all jobs failed” emails did not indicate a broken `main
 8. Render deterministic multi-track visual/audio composition plus caption burn-in to `KINAOU/Renders` with explicit z-order.
 9. Generate/play managed source proxies, thumbnails and waveforms while retaining originals as render sources.
 10. Render the composed timeline into managed 540p preview cache and scrub its real output, or export full quality to `KINAOU/Renders`.
-11. Watch render progress, cancel, see failure/result, retry as new job; worker cleans caption temp files in every terminal path.
+11. Create named project versions, inspect their summaries, and restore any snapshot reversibly through an automatic pre-restore safety version.
+12. Watch render progress, cancel, see failure/result, retry as new job; worker cleans caption temp files in every terminal path.
 
 ## Current limitations
 - Only dissolve-in transitions are supported; fade automation is limited to bounded clip-edge envelopes. No keyframes. Position/scale/crop are currently static per clip.
 - Preview is render-then-play rather than frame-live; changes require refreshing the composed preview.
-- No real local AI model execution yet; Director/AI Editor remain intentionally non-functional UI slots.
+- No real local AI model execution yet; Director/AI Editor remain intentionally non-functional UI slots while their typed plan and capability contracts are built.
 - Local worker has not yet been run against the user's actual Mac/SSD; repository behavior is CI-tested, local hardware execution remains a later USER ACTION.
 
 ## Current next milestone
-Build **complete Version History UI backed by persistent snapshots**.
+Build the first **Director/AI foundation with local and open adapters**.
 Immediate plan:
-1. persist named project snapshots alongside each project,
-2. expose create/list/restore/delete actions in Studio,
-3. make restore itself reversible by snapshotting the pre-restore state,
-4. show timestamps and meaningful timeline/asset summaries.
+1. define a validated, versioned DirectorPlan schema for structured scripts, storyboard scenes and required media,
+2. add an explicit local-LLM capability/adapter contract without claiming a model is available,
+3. persist accepted plans non-destructively and expose review/apply controls,
+4. add local STT/TTS adapter contracts only where worker capability detection and safe job semantics can be implemented and tested.
 
 ## Later roadmap
-Studio fidelity: transforms/reorder → transitions → fades/automation → retiming → proxies/thumbnails/waveforms.
+Studio fidelity baseline complete: transforms/reorder → transitions → fades/automation → retiming → proxies/thumbnails/waveforms → composed preview → persistent Version History.
 AI creation: DirectorPlan schema → local LLM adapter → script/storyboard/scenes → STT/TTS → image/video adapters → AI Editor structured proposals/diffs/undo.
 Advanced: Avatar, Audio Studio, browser/app capture, commentary/reaction/duo, long-to-short, content factory, trend/opportunity, platform adaptation, official-API publishing, analytics/learning loop.
 
