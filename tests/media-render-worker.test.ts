@@ -4,6 +4,7 @@ import { createProjectFromInput } from '../src/core/create'
 import { createRenderPlan, preview1080pPreset } from '../src/core/render'
 import { applyTimelineOperation } from '../src/core/timeline'
 import { WorkerRegistry } from '../src/core/workers'
+import { clipSchema, trackSchema } from '../src/core/project'
 
 describe('asset registry', () => {
   it('registers an external media reference without copying or claiming ownership', () => {
@@ -59,5 +60,12 @@ describe('render planning', () => {
     project = applyTimelineOperation(project, { type: 'add-clip', trackId: project.tracks[0].id, clip: { id: 'clip-x', assetId: project.assets[0].id, startMs: 0, durationMs: 1000, sourceOffsetMs: 0, gain: 1, speed: 1 } })
     project = markAssetAvailability(project, project.assets[0].id, true)
     expect(() => createRenderPlan(project, preview1080pPreset, 'KINAOU/Renders/offline.mp4')).toThrow(/offline/)
+  })
+
+  it('rejects retiming that reads beyond known source duration', () => {
+    let project = createProjectFromInput({ title: 'Retiming bounds', kind: 'idea', content: '' })
+    project = registerAsset(project, { kind: 'video', uri: 'KINAOU/Assets/short.mp4', name: 'Short', durationMs: 5000, managed: true })
+    const track = trackSchema.parse({ id: 'video', type: 'video', name: 'Video', clips: [clipSchema.parse({ id: 'clip', assetId: project.assets[0].id, startMs: 0, durationMs: 4000, sourceOffsetMs: 0, speed: 2 })] })
+    expect(() => createRenderPlan({ ...project, tracks: [track] }, preview1080pPreset, 'KINAOU/Renders/too-long.mp4')).toThrow(/source range/)
   })
 })

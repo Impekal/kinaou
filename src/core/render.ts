@@ -62,6 +62,11 @@ export function createRenderPlan(project: KinaouProject, preset: RenderPreset, o
       const asset = assets.get(clip.assetId)
       if (!asset) throw new Error(`Missing asset for clip ${clip.id}`)
       if (asset.offline) throw new Error(`Asset offline: ${asset.id}`)
+      if (clip.speed < 0.25 || clip.speed > 4) throw new Error(`Unsupported speed for clip ${clip.id}`)
+      if ((asset.kind === 'image' || asset.kind === 'caption') && clip.speed !== 1) throw new Error(`Speed retiming is only supported for video and audio clips: ${clip.id}`)
+      const sourceDuration = clip.durationMs * clip.speed
+      const assetDuration = typeof asset.metadata.durationMs === 'number' ? asset.metadata.durationMs : undefined
+      if (asset.kind !== 'image' && asset.kind !== 'caption' && assetDuration !== undefined && clip.sourceOffsetMs + sourceDuration > assetDuration + 1) throw new Error(`Retimed source range exceeds asset duration for clip ${clip.id}`)
       clips.push({
         trackId: track.id,
         trackType: track.type,

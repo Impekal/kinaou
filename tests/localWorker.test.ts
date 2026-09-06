@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createProject, assetSchema, clipSchema, trackSchema } from '../src/core/project'
 import { createRenderPlan, preview1080pPreset } from '../src/core/render'
-import { buildCompositeFilter, buildFfprobeCommand, buildRenderCommand, createMacWorkerHandshake, parseFfprobeJson, resolveManagedAbsolutePath } from '../src/core/localWorker'
+import { buildAtempoFilters, buildCompositeFilter, buildFfprobeCommand, buildRenderCommand, createMacWorkerHandshake, parseFfprobeJson, resolveManagedAbsolutePath } from '../src/core/localWorker'
 
 describe('local Mac worker contract', () => {
   it('resolves only explicitly managed KINAOU paths', () => {
@@ -106,13 +106,21 @@ describe('local Mac worker contract', () => {
     expect(graph).toContain('afade=t=in:st=0:d=0.250,afade=t=out:st=2.500:d=0.500')
   })
 
-  it('rejects speed changes until compositor timing supports them exactly', () => {
+  it('retimes video and input duration exactly', () => {
     const base = createProject('Speed')
     const asset = assetSchema.parse({ id: 'asset-1', kind: 'video', uri: 'KINAOU/Assets/demo.mp4', managed: true, offline: false, metadata: {} })
     const clip = clipSchema.parse({ id: 'clip-1', assetId: asset.id, startMs: 0, durationMs: 5000, speed: 1.5 })
     const track = trackSchema.parse({ id: 'track-1', type: 'video', name: 'Main video', clips: [clip] })
     const plan = createRenderPlan({ ...base, assets: [asset], tracks: [track] }, preview1080pPreset, 'KINAOU/Renders/demo.mp4')
-    expect(() => buildRenderCommand(plan, (uri) => `/Volumes/Media/${uri}`, '/Volumes/Media/KINAOU/Renders/demo.mp4')).toThrow(/speed 1/)
+    const command = buildRenderCommand(plan, (uri) => `/Volumes/Media/${uri}`, '/Volumes/Media/KINAOU/Renders/demo.mp4')
+    expect(command.args.join(' ')).toContain('-t 7.500')
+    expect(command.args.join(' ')).toContain('setpts=(PTS-STARTPTS)/1.5+0.000/TB')
+  })
+
+  it('builds safe atempo chains across the supported speed range', () => {
+    expect(buildAtempoFilters(1)).toBe('')
+    expect(buildAtempoFilters(0.25)).toBe(',atempo=0.5,atempo=0.5')
+    expect(buildAtempoFilters(4)).toBe(',atempo=2,atempo=2')
   })
 
   it('requires a generated subtitle path and burns it after visual composition', () => {

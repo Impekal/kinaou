@@ -264,7 +264,8 @@ function validateRenderPlan(plan) {
     if (!Number.isFinite(clip.startMs) || clip.startMs < 0) throw new Error('Invalid clip start')
     if (!Number.isFinite(clip.durationMs) || clip.durationMs <= 0) throw new Error('Invalid clip duration')
     if (!Number.isFinite(clip.sourceOffsetMs) || clip.sourceOffsetMs < 0) throw new Error('Invalid source offset')
-    if (clip.speed !== 1) throw new Error('Multi-track compositor currently requires clip speed 1')
+    if (!Number.isFinite(clip.speed) || clip.speed < 0.25 || clip.speed > 4) throw new Error('Invalid clip speed')
+    if ((clip.asset?.kind === 'image' || clip.asset?.kind === 'caption') && clip.speed !== 1) throw new Error('Speed retiming only supports video and audio')
     const transform = clip.transform
     if (!transform || ![transform.x, transform.y, transform.scale, transform.cropLeft, transform.cropTop, transform.cropRight, transform.cropBottom].every(Number.isFinite)) throw new Error('Invalid clip transform')
     if (transform.scale < 0.1 || transform.scale > 4 || ![transform.cropLeft, transform.cropTop, transform.cropRight, transform.cropBottom].every((value) => Number.isInteger(value) && value >= 0)) throw new Error('Invalid clip transform range')
@@ -380,7 +381,7 @@ function buildCompositeArgs(plan, mediaClips, inputPaths, outputPath, subtitlePa
   const args = ['-y']
   mediaClips.forEach((clip, index) => {
     if (clip.asset.kind === 'image') args.push('-loop', '1')
-    args.push('-ss', seconds(clip.sourceOffsetMs), '-t', seconds(clip.durationMs), '-i', inputPaths[index])
+    args.push('-ss', seconds(clip.sourceOffsetMs), '-t', seconds(clip.durationMs * (clip.asset.kind === 'image' ? 1 : clip.speed)), '-i', inputPaths[index])
   })
 
   const width = plan.preset.width
@@ -404,7 +405,8 @@ function buildCompositeArgs(plan, mediaClips, inputPaths, outputPath, subtitlePa
     const transform = clip.transform
     const visualFadeIn = clip.transitionIn?.durationMs ?? clip.fades.inMs
     const fadeFilters = visualFadeIn || clip.fades.outMs ? [',format=rgba', ...(visualFadeIn ? [`,fade=t=in:st=0:d=${seconds(visualFadeIn)}:alpha=1`] : []), ...(clip.fades.outMs ? [`,fade=t=out:st=${seconds(clip.durationMs - clip.fades.outMs)}:d=${seconds(clip.fades.outMs)}:alpha=1`] : [])].join('') : ''
-    parts.push(`[${index}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,crop=iw-${transform.cropLeft}-${transform.cropRight}:ih-${transform.cropTop}-${transform.cropBottom}:${transform.cropLeft}:${transform.cropTop},scale=iw*${transform.scale}:ih*${transform.scale}${fadeFilters},setpts=PTS-STARTPTS+${start}/TB[${prepared}]`)
+    const timing = clip.asset.kind === 'image' || clip.speed === 1 ? 'PTS-STARTPTS' : `(PTS-STARTPTS)/${clip.speed}`
+    parts.push(`[${index}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,crop=iw-${transform.cropLeft}-${transform.cropRight}:ih-${transform.cropTop}-${transform.cropBottom}:${transform.cropLeft}:${transform.cropTop},scale=iw*${transform.scale}:ih*${transform.scale}${fadeFilters},setpts=${timing}+${start}/TB[${prepared}]`)
     parts.push(`[${currentVideo}][${prepared}]overlay=(W-w)/2${signedOffset(transform.x)}:(H-h)/2${signedOffset(transform.y)}:enable='between(t,${start},${end})'[${output}]`)
     currentVideo = output
   })
@@ -421,7 +423,8 @@ function buildCompositeArgs(plan, mediaClips, inputPaths, outputPath, subtitlePa
       const label = `a${audioIndex}`
       const delay = Math.round(clip.startMs)
       const fades = `${clip.fades.inMs ? `,afade=t=in:st=0:d=${seconds(clip.fades.inMs)}` : ''}${clip.fades.outMs ? `,afade=t=out:st=${seconds(clip.durationMs - clip.fades.outMs)}:d=${seconds(clip.fades.outMs)}` : ''}`
-      parts.push(`[${index}:a]atrim=0:${seconds(clip.durationMs)},asetpts=PTS-STARTPTS,volume=${clip.gain}${fades},adelay=${delay}|${delay}[${label}]`)
+      const tempo = buildAtempoFilters(clip.speed)
+      parts.push(`[${index}:a]atrim=0:${seconds(clip.durationMs * clip.speed)},asetpts=PTS-STARTPTS${tempo},atrim=0:${seconds(clip.durationMs)},volume=${clip.gain}${fades},adelay=${delay}|${delay}[${label}]`)
       labels.push(`[${label}]`)
     })
     audioOutput = 'aout'
@@ -489,6 +492,15 @@ function seconds(ms) {
 }
 
 function signedOffset(value) { return value < 0 ? String(value) : `+${value}` }
+
+function buildAtempoFilters(speed) {
+  const factors = []
+  let remaining = speed
+  while (remaining < 0.5) { factors.push(0.5); remaining /= 0.5 }
+  while (remaining > 2) { factors.push(2); remaining /= 2 }
+  if (Math.abs(remaining - 1) > 1e-9 || factors.length === 0) factors.push(remaining)
+  return factors.filter((factor) => Math.abs(factor - 1) > 1e-9).map((factor) => `,atempo=${Number(factor.toFixed(6))}`).join('')
+}
 
 function normalizeError(error) {
   return { code: error?.code ?? 'UNKNOWN', message: error instanceof Error ? error.message : String(error) }
