@@ -16,7 +16,7 @@ export const clipSchema = z.object({
   durationMs: z.number().int().positive(),
   sourceOffsetMs: z.number().int().nonnegative().default(0),
   gain: z.number().default(1),
-  speed: z.number().positive().default(1),
+  speed: z.number().min(0.25).max(4).default(1),
   transform: z.object({
     x: z.number().finite().default(0),
     y: z.number().finite().default(0),

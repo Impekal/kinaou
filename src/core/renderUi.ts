@@ -33,8 +33,5 @@ export function renderReadiness(project: KinaouProject): { ready: boolean; reaso
       return { ready: false, reason: 'Replace planning/external clips with managed KINAOU/Assets media before rendering.' }
     }
   }
-  if (activeTracks.some((track) => track.clips.some((clip) => clip.speed !== 1))) {
-    return { ready: false, reason: 'Clip speed changes are not renderable yet.' }
-  }
   return { ready: true }
 }

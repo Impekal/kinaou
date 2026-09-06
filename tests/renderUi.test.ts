@@ -17,6 +17,9 @@ describe('render UI helpers', () => {
     const track = trackSchema.parse({ id: 't1', type: 'video', name: 'Video', clips: [clip] })
     expect(renderReadiness({ ...base, assets: [asset], tracks: [track] })).toEqual({ ready: true })
 
+    const retimedTrack = { ...track, clips: [{ ...clip, speed: 2 }] }
+    expect(renderReadiness({ ...base, assets: [asset], tracks: [retimedTrack] })).toEqual({ ready: true })
+
     const planning = { ...asset, managed: false, uri: 'kinaou://planning/a1' }
     expect(renderReadiness({ ...base, assets: [planning], tracks: [track] }).reason).toMatch(/managed/)
   })

@@ -73,6 +73,16 @@ describe('project engine', () => {
     expect(project.tracks[0].clips[0].fades).toEqual({ inMs: 300, outMs: 500 })
     expect(() => applyTimelineOperation(project, { type: 'set-clip-fades', trackId: track.id, clipId: clip.id, fades: { inMs: 600, outMs: 500 } })).toThrow(/exceed clip/)
   })
+
+  it('stores only supported clip speed factors', () => {
+    let project = createProject('Speed')
+    const track = trackSchema.parse({ id: 'video', type: 'video', name: 'Video' })
+    const clip = clipSchema.parse({ id: 'clip', assetId: 'asset', startMs: 0, durationMs: 1000 })
+    project = applyTimelineOperation(project, { type: 'add-track', track })
+    project = applyTimelineOperation(project, { type: 'add-clip', trackId: track.id, clip })
+    expect(applyTimelineOperation(project, { type: 'set-clip-speed', trackId: track.id, clipId: clip.id, speed: 0.5 }).tracks[0].clips[0].speed).toBe(0.5)
+    expect(() => applyTimelineOperation(project, { type: 'set-clip-speed', trackId: track.id, clipId: clip.id, speed: 5 })).toThrow(/between/)
+  })
 })
 
 describe('storage safety boundary', () => {

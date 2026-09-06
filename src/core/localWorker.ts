@@ -72,7 +72,7 @@ export function buildRenderCommand(plan: RenderPlan, resolveAssetPath: (uri: str
   if (!outputAbsolutePath.startsWith('/')) throw new Error('Render output must be absolute')
   if (plan.clips.length === 0) throw new Error('Render plan contains no clips')
   if (plan.durationMs <= 0) throw new Error('Render duration must be positive')
-  if (plan.clips.some((clip) => clip.speed !== 1)) throw new Error('Multi-track compositor currently requires clip speed 1')
+  if (plan.clips.some((clip) => clip.speed < 0.25 || clip.speed > 4)) throw new Error('Clip speed must be between 0.25 and 4')
 
   const args: string[] = ['-y']
   const mediaClips = plan.clips.filter((clip) => clip.asset.kind !== 'caption')
@@ -80,7 +80,7 @@ export function buildRenderCommand(plan: RenderPlan, resolveAssetPath: (uri: str
   if (hasCaptions && !subtitleAbsolutePath) throw new Error('Caption render requires a generated subtitle file')
   for (const clip of mediaClips) {
     if (clip.asset.kind === 'image') args.push('-loop', '1')
-    args.push('-ss', seconds(clip.sourceOffsetMs), '-t', seconds(clip.durationMs), '-i', resolveAssetPath(clip.asset.uri))
+    args.push('-ss', seconds(clip.sourceOffsetMs), '-t', seconds(clip.durationMs * (clip.asset.kind === 'image' ? 1 : clip.speed)), '-i', resolveAssetPath(clip.asset.uri))
   }
 
   const filter = buildCompositeFilter({ ...plan, clips: mediaClips }, subtitleAbsolutePath)
@@ -127,7 +127,8 @@ export function buildCompositeFilter(plan: RenderPlan, subtitleAbsolutePath?: st
     const transform = clip.transform
     const visualFadeIn = clip.transitionIn?.durationMs ?? clip.fades.inMs
     const fadeFilters = visualFadeIn || clip.fades.outMs ? [',format=rgba', ...(visualFadeIn ? [`,fade=t=in:st=0:d=${seconds(visualFadeIn)}:alpha=1`] : []), ...(clip.fades.outMs ? [`,fade=t=out:st=${seconds(clip.durationMs - clip.fades.outMs)}:d=${seconds(clip.fades.outMs)}:alpha=1`] : [])].join('') : ''
-    parts.push(`[${index}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,crop=iw-${transform.cropLeft}-${transform.cropRight}:ih-${transform.cropTop}-${transform.cropBottom}:${transform.cropLeft}:${transform.cropTop},scale=iw*${transform.scale}:ih*${transform.scale}${fadeFilters},setpts=PTS-STARTPTS+${start}/TB[${prepared}]`)
+    const timing = clip.asset.kind === 'image' || clip.speed === 1 ? 'PTS-STARTPTS' : `(PTS-STARTPTS)/${clip.speed}`
+    parts.push(`[${index}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,crop=iw-${transform.cropLeft}-${transform.cropRight}:ih-${transform.cropTop}-${transform.cropBottom}:${transform.cropLeft}:${transform.cropTop},scale=iw*${transform.scale}:ih*${transform.scale}${fadeFilters},setpts=${timing}+${start}/TB[${prepared}]`)
     parts.push(`[${currentVideo}][${prepared}]overlay=(W-w)/2${signedOffset(transform.x)}:(H-h)/2${signedOffset(transform.y)}:enable='between(t,${start},${end})'[${output}]`)
     currentVideo = output
   })
@@ -145,7 +146,8 @@ export function buildCompositeFilter(plan: RenderPlan, subtitleAbsolutePath?: st
       const label = `a${audioIndex}`
       const delay = Math.round(clip.startMs)
       const fades = `${clip.fades.inMs ? `,afade=t=in:st=0:d=${seconds(clip.fades.inMs)}` : ''}${clip.fades.outMs ? `,afade=t=out:st=${seconds(clip.durationMs - clip.fades.outMs)}:d=${seconds(clip.fades.outMs)}` : ''}`
-      parts.push(`[${index}:a]atrim=0:${seconds(clip.durationMs)},asetpts=PTS-STARTPTS,volume=${clip.gain}${fades},adelay=${delay}|${delay}[${label}]`)
+      const tempo = buildAtempoFilters(clip.speed)
+      parts.push(`[${index}:a]atrim=0:${seconds(clip.durationMs * clip.speed)},asetpts=PTS-STARTPTS${tempo},atrim=0:${seconds(clip.durationMs)},volume=${clip.gain}${fades},adelay=${delay}|${delay}[${label}]`)
       labels.push(`[${label}]`)
     })
     audioOutput = 'aout'
@@ -160,6 +162,16 @@ function seconds(ms: number): string {
 }
 
 function signedOffset(value: number): string { return value < 0 ? String(value) : `+${value}` }
+
+export function buildAtempoFilters(speed: number): string {
+  if (!Number.isFinite(speed) || speed < 0.25 || speed > 4) throw new Error('Audio speed must be between 0.25 and 4')
+  const factors: number[] = []
+  let remaining = speed
+  while (remaining < 0.5) { factors.push(0.5); remaining /= 0.5 }
+  while (remaining > 2) { factors.push(2); remaining /= 2 }
+  if (Math.abs(remaining - 1) > 1e-9 || factors.length === 0) factors.push(remaining)
+  return factors.filter((factor) => Math.abs(factor - 1) > 1e-9).map((factor) => `,atempo=${Number(factor.toFixed(6))}`).join('')
+}
 
 export function createMacWorkerHandshake(input: {
   workerId: string

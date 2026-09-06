@@ -14,6 +14,7 @@ export type TimelineOperation =
   | { type: 'set-clip-transform'; trackId: string; clipId: string; transform: NonNullable<TimelineClip['transform']> }
   | { type: 'set-clip-transition'; trackId: string; clipId: string; transitionIn?: NonNullable<TimelineClip['transitionIn']> }
   | { type: 'set-clip-fades'; trackId: string; clipId: string; fades: NonNullable<TimelineClip['fades']> }
+  | { type: 'set-clip-speed'; trackId: string; clipId: string; speed: number }
 
 function updateTrack(project: KinaouProject, trackId: string, update: (track: TimelineTrack) => TimelineTrack): KinaouProject {
   let found = false
@@ -114,5 +115,8 @@ export function applyTimelineOperation(project: KinaouProject, operation: Timeli
         if (inMs + outMs > clip.durationMs) throw new Error('Combined fades cannot exceed clip duration')
         return { ...clip, fades: { inMs, outMs } }
       }))
+    case 'set-clip-speed':
+      if (!Number.isFinite(operation.speed) || operation.speed < 0.25 || operation.speed > 4) throw new Error('Clip speed must be between 0.25 and 4')
+      return updateUnlockedTrack(project, operation.trackId, (track) => updateExistingClip(track, operation.clipId, (clip) => ({ ...clip, speed: operation.speed })))
   }
 }
