@@ -56,60 +56,57 @@ Repository: `Impekal/kinaou`
 
 Default branch: `main`
 
-Current main SHA after PR #8: `7d2cc05b975d77057dc6a95b79fe30e0f0ef376e`
+Current main SHA after PR #9: `48bd07bd5b04125b7d7d98a26d680ec42fe5bea1`
 
 ## Merged slices
 
 ### PR #1 — Foundation
 Main SHA: `0230448aad6ee49e98118ab196b91f2b20e8ca8a`
-Established React/Vite/TypeScript shell, structured project schema, asset/track/clip schemas, non-destructive timeline operations, storage safety boundary, version history, cancellable jobs, model registry, tests and CI.
-Gate after correction: 6/6 tests + production build green.
+Structured project/timeline/storage/model foundations, tests and CI.
 
 ### PR #2 — Product core
 Main SHA: `581cd2a18a7d963f6bf0c630d797716ef3a8d6dd`
-Established persistent project repository/storage contract, Create flow, standard initial tracks, usable timeline operations with persistence, storage profiles and browser-vs-worker boundary.
-Gate: tests + production build green.
+Persistent projects, Create flow, standard tracks, editable timeline, storage profiles.
 
 ### PR #3 — Media core
 Main SHA: `bb93d8d0374ee1a32f2e1d76346d9b2ae91918a4`
-Established asset registration/offline state, worker capability scheduler, deterministic render-plan compilation, safe render-output boundary, missing/offline asset blocking and tests.
-Gate: tests + production build green.
+Asset registry/offline state, worker scheduling and safe render plans.
 
 ### PR #4 — Local worker contract
 Main SHA: `c53c720936624b0e208aaa339d63f55d489a7e6f`
-Established worker RPC, health/probe/render protocol, managed-root mapping, ffprobe planning/parsing, Mac capability handshake and first ffmpeg command compiler.
-Gate: tests + production build green.
+Worker protocol, managed-root mapping, ffprobe/ffmpeg planning.
 
 ### PR #5 — Startable Mac worker runtime
 Main SHA: `3677d3994a143da9f88442eb004fe278dd31dfe7`
-Established startable localhost-only authenticated worker, exact KINAOU root, real ffprobe, narrow real ffmpeg execution, safe output restriction and shell-free process spawning.
-Gate: tests + production build + worker syntax check green.
+Local authenticated Node worker, real ffprobe and first real ffmpeg execution.
 
 ### PR #6 — PWA worker bridge and probed media import
 Main SHA: `c71efbc1eb7d176abdd08b264ecd39acdde0e82d`
-Established localhost-only `WorkerClient`, in-memory token, health/probe methods, worker error propagation, managed media import and tests.
-Gate: tests + production build + worker syntax check green.
+WorkerClient plus managed media import.
 
 ### PR #7 — Visible worker UI + managed assets
 Main SHA: `92e6069547a79e9d62e220edb0e2794ad8fb360c`
-Established visible worker connection controls, Test Connection, capability state, Assets screen, real managed media probe/import and project asset inventory.
+Worker connection UI, capability state, Assets screen and real managed media probe/import.
 Final gate: 28/28 tests + production build + worker syntax check green.
 
 ### PR #8 — Async render jobs + basic multi-track compositor
 Main SHA: `7d2cc05b975d77057dc6a95b79fe30e0f0ef376e`
+Asynchronous render jobs, status/cancel/progress, basic visual multi-track composition and voice/dialog/music/SFX mixing. Output remains inside `KINAOU/Renders`; unsupported speed retiming is explicitly blocked.
+Gate: tests + production build + worker syntax check green on push and PR gates.
+
+### PR #9 — Visible Studio render lifecycle
+Main SHA: `48bd07bd5b04125b7d7d98a26d680ec42fe5bea1`
 Established:
-- asynchronous render jobs with `queued/running/succeeded/failed/cancelled`
-- worker-side job registry
-- status endpoint and exact-job cancel endpoint
-- FFmpeg progress parsing and SIGTERM cancellation
-- PWA WorkerClient start/status/cancel render methods
-- loopback CORS for localhost PWA origins
-- black master canvas and timed visual layering for video/B-roll/image/avatar/overlay tracks
-- delayed/gain-controlled mixing for voice/dialog/music/SFX tracks
-- output remains restricted to `KINAOU/Renders`
-- image inputs loop for their clip duration
-- speed values other than 1 are explicitly rejected until exact retiming is implemented
-- tests for render lifecycle and deterministic compositor planning
+- safe deterministic output names under `KINAOU/Renders`
+- render-readiness checks for active timeline content
+- visible Studio render panel
+- real RenderPlan submission to local worker
+- automatic status polling with cleanup
+- visible progress/state/output metadata
+- exact render cancellation
+- terminal-state retry as a new job
+- duplicate submission prevention
+- explicit blocking for planning/external/offline assets, unsupported caption tracks and speed changes
 
 Gate: tests + production build + worker syntax check green on push and PR gates.
 
@@ -126,14 +123,15 @@ Gate: tests + production build + worker syntax check green on push and PR gates.
 `src/core/assets.ts` — asset registration/offline state.
 `src/core/workers.ts` — worker descriptors/scheduling.
 `src/core/render.ts` — deterministic RenderPlan.
-`src/core/renderJobs.ts` — render job lifecycle record/parser.
+`src/core/renderJobs.ts` — render job lifecycle.
+`src/core/renderUi.ts` — render readiness and safe output naming.
 `src/core/workerProtocol.ts` — worker RPC data types.
 `src/core/localWorker.ts` — safe path mapping, ffprobe, compositor command planning.
 `src/core/workerClient.ts` — authenticated localhost client including render lifecycle.
 `src/core/mediaImport.ts` — probed media → managed asset.
+`src/components/RenderPanel.tsx` — real visible render start/progress/cancel/result UI.
 `worker/mac-worker.mjs` — actual local worker with ffprobe, async ffmpeg jobs, basic compositor.
-`worker/README.md` — local worker prerequisites and security model.
-`src/App.tsx` — visible projects/timeline/worker/assets UI.
+`src/App.tsx` — visible projects/timeline/worker/assets/render UI.
 
 ## Current real capabilities
 
@@ -142,16 +140,15 @@ KINAOU can currently:
 - manipulate a non-destructive timeline
 - model safe external-SSD storage
 - connect visibly to a real localhost Mac worker
-- probe and register managed media
-- compile safe render plans
-- submit asynchronous FFmpeg renders through the worker core
-- query/cancel render jobs through WorkerClient core
-- composite multiple timed visual layers
-- mix designated voice/dialog/music/SFX tracks with delay and gain
-- keep all worker filesystem activity inside the selected KINAOU root
+- probe/register managed media
+- compile and execute safe asynchronous multi-track render jobs
+- display render readiness, start, progress, cancellation, failure and result in Studio
+- composite timed visual layers
+- mix designated voice/dialog/music/SFX tracks
+- keep worker filesystem activity inside the selected KINAOU root
 
 KINAOU does **not yet** genuinely:
-- expose render start/progress/cancel/result in the visible UI
+- place imported real assets onto the timeline from the Assets UI
 - copy arbitrary outside media into KINAOU/Assets through an authorized chooser
 - burn captions/subtitles into renders
 - implement transitions/position/scale/keyframe controls beyond full-frame basic layering
@@ -164,28 +161,27 @@ Unsupported capabilities must not be faked in UI.
 
 ## Current next milestone
 
-Build **visible render controls and result lifecycle in Studio**.
+Build **real asset → timeline placement and track-level editing** so the working render engine is usable end-to-end from the UI.
 
 Immediate scope:
-1. safe deterministic output filename helper under `KINAOU/Renders`
-2. start render from current project using real RenderPlan
-3. require connected worker and renderable managed assets
-4. visible queued/running progress
-5. status polling with cleanup
-6. cancel button
-7. success output path/size/duration
-8. failure state and retry via a new job
-9. prevent concurrent accidental duplicate submissions from UI
-10. then add caption rendering, track-level controls and explicit media import authorization
+1. deterministic clip placement helper using asset metadata duration
+2. choose target compatible timeline track
+3. append at track end by default
+4. prevent missing/offline asset placement
+5. Assets UI action to place media on timeline
+6. basic clip duration trim controls
+7. track mute and lock controls
+8. clip gain for audio tracks
+9. then caption rendering and explicit source-file import authorization
 
-## Roadmap after visible render UI
+## Roadmap
 
 ### Studio/render fidelity
 - caption/subtitle burn-in
 - track ordering/z-index semantics
 - transitions
 - speed/retiming
-- volume automation/fades
+- volume fades/automation
 - position/scale/crop/keyframes
 - preview proxies
 
@@ -210,7 +206,7 @@ Immediate scope:
 - apply/undo/version restore
 
 ### Local model layer
-- STT first (Whisper-compatible)
+- STT first
 - TTS
 - local LLM
 - image generation
