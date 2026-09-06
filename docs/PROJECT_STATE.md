@@ -42,7 +42,7 @@ Safety rule: only paths below the configured KINAOU root may be created/moved/de
 ## Repository
 Repo: `Impekal/kinaou`
 Default branch: `main`
-Current main SHA after PR #23: `9a78142cfac39d7a429f54a64ae6839cbbe1ae2d`
+Current main SHA after PR #25: `f413013e5475b8ce12f5b18da30c4e66c9a04243`
 
 ## Merged slices
 - **PR #1** — foundation. Main `0230448aad6ee49e98118ab196b91f2b20e8ca8a`. React/Vite/TS, project schema, non-destructive timeline, storage safety, versioning, jobs, model registry, CI.
@@ -64,9 +64,10 @@ Current main SHA after PR #23: `9a78142cfac39d7a429f54a64ae6839cbbe1ae2d`
 - **PR #19** — render-backed dissolve transitions. Main `62ffcb35f2a11193ab7302c329a1f2f932f12746`. Visual clips can add/remove a bounded 100–5000ms dissolve-in; timeline validation ensures the transition fits the clip, and both render implementations apply a real alpha fade before overlaying the clip at its timeline position. Final gate: 48/48 Vitest + 4/4 native worker tests + production build + worker syntax green.
 - **PR #21** — render-backed audio/visual fade envelopes. Main `f1f37148ae4ad0cf9f7b224053bef3ef2a429d6d`. Clips persist bounded fade-in/out automation; Studio exposes reversible controls, the compositor applies alpha fades to visual layers and `afade` to audio before timeline placement, and validation prevents envelopes exceeding clip length. Final gate: 50/50 Vitest + 4/4 native worker tests + production build + worker syntax green.
 - **PR #23** — exact audio/video speed retiming. Main `9a78142cfac39d7a429f54a64ae6839cbbe1ae2d`. Video/audio clips support 0.25×–4× speed while timeline `durationMs` remains the exact output duration. Worker input reads `duration × speed`, video PTS is rescaled, audio uses safe chained `atempo` plus exact trim, fades/delay remain clip-local, and known source bounds are enforced. Images/captions reject meaningless speed changes. Final gate: 53/53 Vitest + 4/4 native worker tests + production build + worker syntax green.
+- **PR #25** — managed video proxy generation. Main `f413013e5475b8ce12f5b18da30c4e66c9a04243`. Authenticated worker generates deterministic 960px H.264/AAC proxies only from `KINAOU/Assets` into `KINAOU/Cache/Proxies`; Studio Assets exposes generation and persists the proxy association on the original asset without replacing its full-quality render URI. Worker advertises `media-proxy`. Final gate: 55/55 Vitest + 6/6 native worker tests + production build + worker syntax green.
 
 ## CI incident record (2026-09-06)
-The repeated GitHub “all jobs failed” emails did not indicate a broken `main`. CI was configured with `push.branches: ['**']`, so every intermediate commit on every feature branch immediately triggered a full run; opening a PR triggered another run for the same head. A PR #11 work-in-progress sequence produced 13 consecutive red push runs while native `node:test` coverage was temporarily being discovered by Vitest; the final feature head, PR gate, merge commit and documentation commit were green. Earlier isolated failures were normal pre-fix commits: the initial CSS side-effect import lacked Vite types, the Worker UI used nested probe fields not present in its type, and the compositor test still expected complex plans to be rejected after support was added. All were corrected before their PRs merged. There are no open feature PRs after PR #23.
+The repeated GitHub “all jobs failed” emails did not indicate a broken `main`. CI was configured with `push.branches: ['**']`, so every intermediate commit on every feature branch immediately triggered a full run; opening a PR triggered another run for the same head. A PR #11 work-in-progress sequence produced 13 consecutive red push runs while native `node:test` coverage was temporarily being discovered by Vitest; the final feature head, PR gate, merge commit and documentation commit were green. Earlier isolated failures were normal pre-fix commits: the initial CSS side-effect import lacked Vite types, the Worker UI used nested probe fields not present in its type, and the compositor test still expected complex plans to be rejected after support was added. All were corrected before their PRs merged. There are no open feature PRs after PR #25.
 
 ## Important modules
 - `src/core/project.ts` — project/assets/tracks/clips/storyboard schema.
@@ -85,6 +86,7 @@ The repeated GitHub “all jobs failed” emails did not indicate a broken `main
 - `src/components/RenderPanel.tsx` — real render start/progress/cancel/result.
 - `worker/asset-upload.mjs` — safe filename/temp/final upload paths.
 - `worker/captions.mjs` — deterministic ASS generation, escaping and managed temp paths.
+- `worker/proxies.mjs` / `src/components/VideoProxyControl.tsx` — deterministic managed video proxy generation and association.
 - `worker/mac-worker.mjs` — actual local upload/ffprobe/FFmpeg runtime.
 - `src/App.tsx` — Projects/Create/Studio/Assets/Settings shell; unfinished sections are not faked.
 
@@ -97,20 +99,21 @@ The repeated GitHub “all jobs failed” emails did not indicate a broken `main
 6. Move/trim/mute/lock; reorder visual layers; adjust audio gain, speed and visual position/scale/crop; add dissolve and audio/visual fade envelopes.
 7. Create/edit timed Unicode captions stored non-destructively in the project.
 8. Render deterministic multi-track visual/audio composition plus caption burn-in to `KINAOU/Renders` with explicit z-order.
-9. Watch progress, cancel, see failure/result, retry as new job; worker cleans caption temp files in every terminal path.
+9. Optionally generate a managed lightweight video proxy while retaining the original as render source.
+10. Watch render progress, cancel, see failure/result, retry as new job; worker cleans caption temp files in every terminal path.
 
 ## Current limitations
 - Only dissolve-in transitions are supported; fade automation is limited to bounded clip-edge envelopes. No keyframes. Position/scale/crop are currently static per clip.
-- No thumbnails/waveforms/proxies.
+- Video proxies can be generated and associated, but Studio does not yet play them; no thumbnails or waveforms.
 - No real local AI model execution yet; Director/AI Editor remain intentionally non-functional UI slots.
 - Local worker has not yet been run against the user's actual Mac/SSD; repository behavior is CI-tested, local hardware execution remains a later USER ACTION.
 
 ## Current next milestone
 Build **Studio fidelity controls backed by real FFmpeg semantics**.
 Immediate plan:
-1. preview/proxy generation and selection,
-2. thumbnail extraction and waveform generation,
-3. connect generated preview assets to Studio without changing full-quality render inputs.
+1. connect generated proxies to Studio preview without changing full-quality render inputs,
+2. thumbnail extraction and display,
+3. waveform generation and timeline display.
 
 ## Later roadmap
 Studio fidelity: transforms/reorder → transitions → fades/automation → retiming → proxies/thumbnails/waveforms.
