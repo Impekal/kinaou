@@ -1,3 +1,4 @@
+import { parseAssetUploadResult, type AssetUploadResult } from './assetUpload'
 import { workerHandshakeSchema, type MediaProbeResult, type WorkerHandshake } from './workerProtocol'
 import type { RenderPlan } from './render'
 import { parseRenderJob, type RenderJobRecord } from './renderJobs'
@@ -30,20 +31,31 @@ export class WorkerClient {
     return workerHandshakeSchema.parse(payload.handshake)
   }
 
-  async probe(path: string): Promise<MediaProbeResult> {
-    const payload = await this.request('/probe', {
+  async importAsset(file: Blob, filename: string): Promise<AssetUploadResult> {
+    if (!filename.trim()) throw new Error('Asset filename is required')
+    const response = await this.fetchImpl(`${this.baseUrl}/assets/import`, {
       method: 'POST',
-      body: JSON.stringify({ path })
+      headers: {
+        authorization: `Bearer ${this.token}`,
+        'content-type': file.type || 'application/octet-stream',
+        'x-kinaou-filename': encodeURIComponent(filename)
+      },
+      body: file
     })
+    const payload = await response.json().catch(() => null)
+    if (!response.ok) throw new Error(payload?.error?.message ?? `Worker request failed with HTTP ${response.status}`)
+    if (payload?.ok !== true || payload?.type !== 'asset-upload') throw new Error('Invalid worker asset upload response')
+    return parseAssetUploadResult(payload.result)
+  }
+
+  async probe(path: string): Promise<MediaProbeResult> {
+    const payload = await this.request('/probe', { method: 'POST', body: JSON.stringify({ path }) })
     if (payload?.ok !== true || payload?.type !== 'probe-media') throw new Error('Invalid worker probe response')
     return payload.result as MediaProbeResult
   }
 
   async startRender(plan: RenderPlan): Promise<RenderJobRecord> {
-    const payload = await this.request('/render', {
-      method: 'POST',
-      body: JSON.stringify({ plan })
-    })
+    const payload = await this.request('/render', { method: 'POST', body: JSON.stringify({ plan }) })
     if (payload?.ok !== true || payload?.type !== 'render-job') throw new Error('Invalid worker render job response')
     return parseRenderJob(payload.job)
   }
@@ -70,10 +82,7 @@ export class WorkerClient {
       }
     })
     const payload = await response.json().catch(() => null)
-    if (!response.ok) {
-      const message = payload?.error?.message ?? `Worker request failed with HTTP ${response.status}`
-      throw new Error(message)
-    }
+    if (!response.ok) throw new Error(payload?.error?.message ?? `Worker request failed with HTTP ${response.status}`)
     return payload
   }
 }
