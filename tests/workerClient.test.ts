@@ -88,6 +88,16 @@ describe('probed media import', () => {
     expect(next.assets[0].metadata.sizeBytes).toBe(1234)
   })
 
+  it('requests and validates a managed video proxy', async () => {
+    const client = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl: async (input) => {
+      expect(String(input)).toContain('/assets/proxy')
+      return jsonResponse({ ok: true, type: 'media-proxy', result: { path: 'KINAOU/Cache/Proxies/demo_960p.mp4', probe: { path: '/Volumes/Media/KINAOU/Cache/Proxies/demo_960p.mp4', width: 960, height: 540 } } }, 201)
+    } })
+    const result = await client.generateVideoProxy('KINAOU/Assets/demo.mov')
+    expect(result.path).toBe('KINAOU/Cache/Proxies/demo_960p.mp4')
+    expect(result.probe.width).toBe(960)
+  })
+
   it('rejects imports outside KINAOU/Assets', () => {
     const project = createProject('Import')
     expect(() => importProbedMedia(project, {

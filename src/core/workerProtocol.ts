@@ -40,6 +40,8 @@ export interface MediaProbeResult {
   mimeType?: string
 }
 
+export interface MediaProxyResult { path: string; probe: MediaProbeResult }
+
 export interface RenderExecutionResult {
   outputPath: string
   durationMs: number

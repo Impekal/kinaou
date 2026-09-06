@@ -4,6 +4,7 @@ import { AssetUploadPanel } from './components/AssetUploadPanel'
 import { CaptionEditor } from './components/CaptionEditor'
 import { RenderPanel } from './components/RenderPanel'
 import { TimelineEditor } from './components/TimelineEditor'
+import { VideoProxyControl } from './components/VideoProxyControl'
 import { createProjectFromInput, type CreationInputKind } from './core/create'
 import { importProbedMedia, type ImportableMediaKind } from './core/mediaImport'
 import { ProjectRepository, StorageSettingsRepository } from './core/persistence'
@@ -148,7 +149,7 @@ export function App() {
             <TimelineEditor project={project} onProjectChange={persistProject} />
             <CaptionEditor project={project} onProjectChange={persistProject} />
             <RenderPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} />
-            <div className="card note"><strong>Current render boundary:</strong> multi-track visuals, designated audio mixing and burned-in captions are real. Transitions, keyframes and speed retiming remain blocked until their render semantics exist.</div>
+            <div className="card note"><strong>Current render boundary:</strong> multi-track visuals/audio, captions, dissolves, fades, transforms and speed retiming are real. Keyframes and interactive proxy preview remain upcoming.</div>
           </>}
         </section>}
 
@@ -167,7 +168,7 @@ export function App() {
             </div>
             {workerError && <div className="card errorBox">{workerError}</div>}
             {assetProbe && <div className="card probeCard"><div><div className="eyebrow">PROBE RESULT</div><h3>{assetName || assetPath.split('/').pop()}</h3></div><div className="probeGrid"><span>Duration<strong>{assetProbe.durationMs !== undefined ? `${(assetProbe.durationMs / 1000).toFixed(2)} s` : '—'}</strong></span><span>Size<strong>{assetProbe.sizeBytes !== undefined ? `${(assetProbe.sizeBytes / 1024 / 1024).toFixed(1)} MB` : '—'}</strong></span><span>Video<strong>{assetProbe.width !== undefined && assetProbe.height !== undefined ? `${assetProbe.width}×${assetProbe.height}` : '—'}</strong></span><span>Audio<strong>{assetProbe.sampleRate !== undefined ? `${assetProbe.sampleRate} Hz` : '—'}</strong></span></div><button className="primary" onClick={addProbedAssetToProject}>Add managed asset to project</button></div>}
-            <div className="card"><div className="eyebrow">PROJECT ASSETS</div>{project.assets.length === 0 ? <p className="cardBody">No assets yet.</p> : <div className="assetList">{project.assets.map((asset) => <div className="assetRow assetRowWithPlacement" key={asset.id}><div><strong>{String(asset.metadata.name ?? asset.metadata.label ?? asset.id)}</strong><small>{asset.kind} · {asset.managed ? 'managed' : 'external/planning'}</small></div><code>{asset.uri}</code><span className={asset.offline ? 'badge offline' : 'badge'}>{asset.offline ? 'OFFLINE' : 'AVAILABLE'}</span><AssetPlacementControl project={project} asset={asset} onProjectChange={persistProject} /></div>)}</div>}</div>
+            <div className="card"><div className="eyebrow">PROJECT ASSETS</div>{project.assets.length === 0 ? <p className="cardBody">No assets yet.</p> : <div className="assetList">{project.assets.map((asset) => <div className="assetRow assetRowWithPlacement" key={asset.id}><div><strong>{String(asset.metadata.name ?? asset.metadata.label ?? asset.id)}</strong><small>{asset.kind} · {asset.managed ? 'managed' : 'external/planning'}</small></div><code>{asset.uri}</code><span className={asset.offline ? 'badge offline' : 'badge'}>{asset.offline ? 'OFFLINE' : 'AVAILABLE'}</span><div><AssetPlacementControl project={project} asset={asset} onProjectChange={persistProject} /><VideoProxyControl project={project} asset={asset} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /></div></div>)}</div>}</div>
           </>}
         </section>}
 
