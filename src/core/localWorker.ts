@@ -125,7 +125,8 @@ export function buildCompositeFilter(plan: RenderPlan, subtitleAbsolutePath?: st
     const start = seconds(clip.startMs)
     const end = seconds(clip.startMs + clip.durationMs)
     const transform = clip.transform
-    parts.push(`[${index}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,crop=iw-${transform.cropLeft}-${transform.cropRight}:ih-${transform.cropTop}-${transform.cropBottom}:${transform.cropLeft}:${transform.cropTop},scale=iw*${transform.scale}:ih*${transform.scale},setpts=PTS-STARTPTS+${start}/TB[${prepared}]`)
+    const dissolve = clip.transitionIn ? `,format=rgba,fade=t=in:st=0:d=${seconds(clip.transitionIn.durationMs)}:alpha=1` : ''
+    parts.push(`[${index}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,crop=iw-${transform.cropLeft}-${transform.cropRight}:ih-${transform.cropTop}-${transform.cropBottom}:${transform.cropLeft}:${transform.cropTop},scale=iw*${transform.scale}:ih*${transform.scale}${dissolve},setpts=PTS-STARTPTS+${start}/TB[${prepared}]`)
     parts.push(`[${currentVideo}][${prepared}]overlay=(W-w)/2${signedOffset(transform.x)}:(H-h)/2${signedOffset(transform.y)}:enable='between(t,${start},${end})'[${output}]`)
     currentVideo = output
   })

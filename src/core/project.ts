@@ -25,6 +25,10 @@ export const clipSchema = z.object({
     cropTop: z.number().int().nonnegative().default(0),
     cropRight: z.number().int().nonnegative().default(0),
     cropBottom: z.number().int().nonnegative().default(0)
+  }).optional(),
+  transitionIn: z.object({
+    type: z.literal('dissolve'),
+    durationMs: z.number().int().min(100).max(5000)
   }).optional()
 })
 
