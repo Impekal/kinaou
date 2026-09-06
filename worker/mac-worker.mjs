@@ -259,6 +259,7 @@ function validateRenderPlan(plan) {
   if (!plan.preset || !Number.isFinite(plan.preset.width) || plan.preset.width <= 0 || !Number.isFinite(plan.preset.height) || plan.preset.height <= 0 || !Number.isFinite(plan.preset.fps) || plan.preset.fps <= 0) throw new Error('Invalid render preset')
   requireRenderRelativePath(plan.outputRelativePath)
   for (const clip of plan.clips) {
+    if (!Number.isFinite(clip.trackIndex) || clip.trackIndex < 0) throw new Error('Invalid track index')
     if (!Number.isFinite(clip.startMs) || clip.startMs < 0) throw new Error('Invalid clip start')
     if (!Number.isFinite(clip.durationMs) || clip.durationMs <= 0) throw new Error('Invalid clip duration')
     if (!Number.isFinite(clip.sourceOffsetMs) || clip.sourceOffsetMs < 0) throw new Error('Invalid source offset')
@@ -371,6 +372,7 @@ function buildCompositeArgs(plan, inputPaths, outputPath) {
     if (visualTrackTypes.has(clip.trackType)) visuals.push({ index, clip })
     if (audioTrackTypes.has(clip.trackType)) audios.push({ index, clip })
   })
+  visuals.sort((a, b) => a.clip.trackIndex - b.clip.trackIndex || a.clip.startMs - b.clip.startMs || String(a.clip.clipId).localeCompare(String(b.clip.clipId)))
 
   let currentVideo = 'base'
   visuals.forEach(({ index, clip }, visualIndex) => {
