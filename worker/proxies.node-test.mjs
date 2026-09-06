@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildProxyArgs, buildThumbnailArgs, previewMediaType, proxyRelativePath, requireProxyMediaPath, thumbnailRelativePath } from './proxies.mjs'
+import { buildProxyArgs, buildThumbnailArgs, buildWaveformArgs, previewMediaType, proxyRelativePath, requireProxyMediaPath, thumbnailRelativePath, waveformRelativePath } from './proxies.mjs'
 
 test('derives deterministic proxy paths only below managed cache', () => {
   assert.equal(proxyRelativePath('KINAOU/Assets/demo.mov'), proxyRelativePath('KINAOU/Assets/demo.mov'))
@@ -29,4 +29,11 @@ test('derives and builds managed JPEG thumbnails', () => {
   assert.equal(previewMediaType('KINAOU/Cache/Thumbnails/demo.jpg'), 'image/jpeg')
   assert.equal(previewMediaType('KINAOU/Cache/Proxies/demo.mp4'), 'video/mp4')
   assert.throws(() => previewMediaType('KINAOU/Assets/demo.mov'))
+})
+
+test('derives and builds managed audio waveform images', () => {
+  assert.match(waveformRelativePath('KINAOU/Assets/voice.wav'), /^KINAOU\/Cache\/Waveforms\/[a-f0-9]{24}_waveform\.png$/)
+  const args = buildWaveformArgs('/Volumes/Media/KINAOU/Assets/voice.wav', '/Volumes/Media/KINAOU/Cache/Waveforms/voice.png')
+  assert.ok(args.includes('aformat=channel_layouts=mono,showwavespic=s=1200x160:colors=8d78ff'))
+  assert.equal(previewMediaType('KINAOU/Cache/Waveforms/voice.png'), 'image/png')
 })

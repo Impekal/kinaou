@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { attachVideoProxy, attachVideoThumbnail } from '../src/core/previewAssets'
+import { attachVideoProxy, attachVideoThumbnail, attachWaveform } from '../src/core/previewAssets'
 import { assetSchema, createProject } from '../src/core/project'
 
 describe('preview assets', () => {
@@ -18,5 +18,13 @@ describe('preview assets', () => {
     const project = attachVideoThumbnail({ ...base, assets: [asset] }, asset.id, 'KINAOU/Cache/Thumbnails/abc_poster.jpg')
     expect(project.assets[0].metadata.thumbnailPath).toBe('KINAOU/Cache/Thumbnails/abc_poster.jpg')
     expect(() => attachVideoThumbnail({ ...base, assets: [asset] }, asset.id, '../poster.jpg')).toThrow()
+  })
+
+  it('attaches waveform previews to managed audio and video sources', () => {
+    const base = createProject('Waveform')
+    const asset = assetSchema.parse({ id: 'audio', kind: 'audio', uri: 'KINAOU/Assets/voice.wav', managed: true, metadata: {} })
+    const project = attachWaveform({ ...base, assets: [asset] }, asset.id, 'KINAOU/Cache/Waveforms/voice_waveform.png')
+    expect(project.assets[0].metadata.waveformPath).toBe('KINAOU/Cache/Waveforms/voice_waveform.png')
+    expect(() => attachWaveform({ ...base, assets: [asset] }, asset.id, 'KINAOU/Cache/Thumbnails/wrong.png')).toThrow(/waveform path/)
   })
 })

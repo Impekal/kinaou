@@ -1,16 +1,20 @@
 import type { KinaouAsset, KinaouProject, TimelineClip, TimelineTrack } from '../core/project'
 import { touchProject } from '../core/project'
 import { applyTimelineOperation } from '../core/timeline'
+import { WaveformImage } from './WaveformImage'
 
 interface TimelineEditorProps {
   project: KinaouProject
   onProjectChange: (project: KinaouProject) => void
+  workerUrl: string
+  workerToken: string
+  workerConnected: boolean
 }
 
 const audioTrackTypes = new Set(['voice', 'dialog', 'music', 'sfx'])
 const visualTrackTypes = new Set(['video', 'broll', 'image', 'avatar', 'overlay'])
 
-export function TimelineEditor({ project, onProjectChange }: TimelineEditorProps) {
+export function TimelineEditor({ project, onProjectChange, workerUrl, workerToken, workerConnected }: TimelineEditorProps) {
   function apply(operation: Parameters<typeof applyTimelineOperation>[1]) {
     onProjectChange(applyTimelineOperation(project, operation))
   }
@@ -87,6 +91,7 @@ export function TimelineEditor({ project, onProjectChange }: TimelineEditorProps
                   {visualTrackTypes.has(track.type) && <small>scale {(clip.transform?.scale ?? 1).toFixed(1)} · x {clip.transform?.x ?? 0} · y {clip.transform?.y ?? 0}</small>}
                   {clip.transitionIn && <small>dissolve {(clip.transitionIn.durationMs / 1000).toFixed(1)}s</small>}
                   {(clip.fades?.inMs || clip.fades?.outMs) && <small>fade {(clip.fades?.inMs ?? 0) / 1000}s in · {(clip.fades?.outMs ?? 0) / 1000}s out</small>}
+                  {audioTrackTypes.has(track.type) && typeof asset?.metadata.waveformPath === 'string' && <WaveformImage path={asset.metadata.waveformPath} workerUrl={workerUrl} workerToken={workerToken} workerConnected={workerConnected} alt={`${String(asset.metadata.name ?? asset.id)} waveform`} />}
                   <div className="clipActions">
                     <button disabled={track.locked} onClick={() => apply({ type: 'move-clip', trackId: track.id, clipId: clip.id, startMs: Math.max(0, clip.startMs - 1000) })}>← 1s</button>
                     <button disabled={track.locked} onClick={() => apply({ type: 'move-clip', trackId: track.id, clipId: clip.id, startMs: clip.startMs + 1000 })}>1s →</button>

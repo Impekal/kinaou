@@ -186,7 +186,7 @@ export function createMacWorkerHandshake(input: {
     name: input.name ?? 'KINAOU Mac Worker',
     platform: 'darwin',
     version: input.version,
-    capabilities: ['filesystem', 'ffmpeg', 'media-probe', 'asset-upload', 'media-proxy', 'media-thumbnail'],
+    capabilities: ['filesystem', 'ffmpeg', 'media-probe', 'asset-upload', 'media-proxy', 'media-thumbnail', 'media-waveform'],
     managedRoots: [normalizeAbsoluteRoot(input.managedRoot)],
     ...(input.ffmpegVersion ? { ffmpegVersion: input.ffmpegVersion } : {}),
     ...(input.ffprobeVersion ? { ffprobeVersion: input.ffprobeVersion } : {})

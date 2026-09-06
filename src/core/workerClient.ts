@@ -83,6 +83,20 @@ export class WorkerClient {
     return response.blob()
   }
 
+  async generateWaveform(path: string): Promise<{ path: string; sizeBytes: number }> {
+    const payload = await this.request('/assets/waveform', { method: 'POST', body: JSON.stringify({ path }) })
+    if (payload?.ok !== true || payload?.type !== 'media-waveform' || typeof payload.result?.path !== 'string' || !payload.result.path.startsWith('KINAOU/Cache/Waveforms/') || typeof payload.result.sizeBytes !== 'number') throw new Error('Invalid worker waveform response')
+    return payload.result
+  }
+
+  async loadWaveform(path: string): Promise<Blob> {
+    if (!path.startsWith('KINAOU/Cache/Waveforms/') || !path.endsWith('.png')) throw new Error('Invalid managed waveform path')
+    const response = await this.fetchImpl(`${this.baseUrl}/media?path=${encodeURIComponent(path)}`, { headers: { authorization: `Bearer ${this.token}` } })
+    if (!response.ok) throw new Error(`Worker media request failed with HTTP ${response.status}`)
+    if (!(response.headers.get('content-type') ?? '').startsWith('image/png')) throw new Error('Worker returned an invalid waveform media type')
+    return response.blob()
+  }
+
   async startRender(plan: RenderPlan): Promise<RenderJobRecord> {
     const payload = await this.request('/render', { method: 'POST', body: JSON.stringify({ plan }) })
     if (payload?.ok !== true || payload?.type !== 'render-job') throw new Error('Invalid worker render job response')
