@@ -20,7 +20,7 @@ describe('worker client', () => {
       const headers = new Headers(init?.headers)
       seen.push({ url, auth: headers.get('authorization') })
       if (url.endsWith('/health')) {
-        return jsonResponse({ ok: true, type: 'health', handshake: { workerId: 'mac-1', name: 'Mac Worker', platform: 'darwin', version: '0.1.0', capabilities: ['filesystem', 'ffmpeg', 'media-probe'], managedRoots: ['/Volumes/Media/KINAOU'] } })
+        return jsonResponse({ ok: true, type: 'health', handshake: { workerId: 'mac-1', name: 'Mac Worker', platform: 'darwin', version: '0.4.0', capabilities: ['filesystem', 'ffmpeg', 'media-probe', 'asset-upload'], managedRoots: ['/Volumes/Media/KINAOU'] } })
       }
       return jsonResponse({ ok: true, type: 'probe-media', result: { path: '/Volumes/Media/KINAOU/Assets/demo.mp4', durationMs: 4200, sizeBytes: 1234, width: 1920, height: 1080, videoCodec: 'h264' } })
     }
@@ -32,6 +32,33 @@ describe('worker client', () => {
     expect(health.workerId).toBe('mac-1')
     expect(probe.durationMs).toBe(4200)
     expect(seen.every((item) => item.auth === 'Bearer secret')).toBe(true)
+  })
+
+  it('streams an explicitly selected browser blob with auth and encoded filename', async () => {
+    let seenHeaders = new Headers()
+    let seenBody: BodyInit | null | undefined
+    const fetchImpl: typeof fetch = async (_input, init) => {
+      seenHeaders = new Headers(init?.headers)
+      seenBody = init?.body
+      return jsonResponse({ ok: true, type: 'asset-upload', result: { managedPath: 'KINAOU/Assets/id_My Clip.mp4', name: 'My Clip.mp4', sizeBytes: 3 } }, 201)
+    }
+    const client = new WorkerClient({ baseUrl: 'http://localhost:43117', token: 'secret', fetchImpl })
+    const blob = new Blob(['abc'], { type: 'video/mp4' })
+    const result = await client.importAsset(blob, 'My Clip.mp4')
+
+    expect(result.managedPath).toBe('KINAOU/Assets/id_My Clip.mp4')
+    expect(seenHeaders.get('authorization')).toBe('Bearer secret')
+    expect(seenHeaders.get('x-kinaou-filename')).toBe('My%20Clip.mp4')
+    expect(seenHeaders.get('content-type')).toBe('video/mp4')
+    expect(seenBody).toBe(blob)
+  })
+
+  it('rejects malformed upload responses and surfaces worker errors', async () => {
+    const malformed = new WorkerClient({ baseUrl: 'http://localhost:43117', token: 'secret', fetchImpl: async () => jsonResponse({ ok: true, type: 'asset-upload', result: { managedPath: '../bad', name: 'bad', sizeBytes: 1 } }, 201) })
+    await expect(malformed.importAsset(new Blob(['x']), 'x.bin')).rejects.toThrow(/path/)
+
+    const failing = new WorkerClient({ baseUrl: 'http://localhost:43117', token: 'secret', fetchImpl: async () => jsonResponse({ ok: false, error: { code: 'UPLOAD_TOO_LARGE', message: 'too large' } }, 413) })
+    await expect(failing.importAsset(new Blob(['x']), 'x.bin')).rejects.toThrow('too large')
   })
 
   it('surfaces worker errors instead of pretending success', async () => {
