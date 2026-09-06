@@ -112,6 +112,9 @@ export function buildCompositeFilter(plan: RenderPlan): CompositeFilter {
     if (audioTrackTypes.has(clip.trackType)) audios.push({ index, clip })
   })
 
+  // Higher track indexes are composited later, therefore appear above lower tracks.
+  visuals.sort((a, b) => a.clip.trackIndex - b.clip.trackIndex || a.clip.startMs - b.clip.startMs || a.clip.clipId.localeCompare(b.clip.clipId))
+
   let currentVideo = 'base'
   visuals.forEach(({ index, clip }, visualIndex) => {
     const prepared = `v${visualIndex}`
@@ -156,7 +159,7 @@ export function createMacWorkerHandshake(input: {
     name: input.name ?? 'KINAOU Mac Worker',
     platform: 'darwin',
     version: input.version,
-    capabilities: ['filesystem', 'ffmpeg', 'media-probe'],
+    capabilities: ['filesystem', 'ffmpeg', 'media-probe', 'asset-upload'],
     managedRoots: [normalizeAbsoluteRoot(input.managedRoot)],
     ...(input.ffmpegVersion ? { ffmpegVersion: input.ffmpegVersion } : {}),
     ...(input.ffprobeVersion ? { ffprobeVersion: input.ffprobeVersion } : {})
