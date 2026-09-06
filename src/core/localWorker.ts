@@ -124,8 +124,9 @@ export function buildCompositeFilter(plan: RenderPlan, subtitleAbsolutePath?: st
     const output = `vo${visualIndex}`
     const start = seconds(clip.startMs)
     const end = seconds(clip.startMs + clip.durationMs)
-    parts.push(`[${index}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black,setpts=PTS-STARTPTS+${start}/TB[${prepared}]`)
-    parts.push(`[${currentVideo}][${prepared}]overlay=0:0:enable='between(t,${start},${end})'[${output}]`)
+    const transform = clip.transform
+    parts.push(`[${index}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,crop=iw-${transform.cropLeft}-${transform.cropRight}:ih-${transform.cropTop}-${transform.cropBottom}:${transform.cropLeft}:${transform.cropTop},scale=iw*${transform.scale}:ih*${transform.scale},setpts=PTS-STARTPTS+${start}/TB[${prepared}]`)
+    parts.push(`[${currentVideo}][${prepared}]overlay=(W-w)/2${signedOffset(transform.x)}:(H-h)/2${signedOffset(transform.y)}:enable='between(t,${start},${end})'[${output}]`)
     currentVideo = output
   })
 
@@ -154,6 +155,8 @@ export function buildCompositeFilter(plan: RenderPlan, subtitleAbsolutePath?: st
 function seconds(ms: number): string {
   return (ms / 1000).toFixed(3)
 }
+
+function signedOffset(value: number): string { return value < 0 ? String(value) : `+${value}` }
 
 export function createMacWorkerHandshake(input: {
   workerId: string

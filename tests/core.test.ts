@@ -39,6 +39,17 @@ describe('project engine', () => {
     expect(project.tracks.map((track) => track.id)).toEqual(['lower', 'upper'])
     expect(() => applyTimelineOperation(project, { type: 'reorder-track', trackId: 'lower', toIndex: 2 })).toThrow(/out of range/)
   })
+
+  it('stores validated non-destructive clip transforms', () => {
+    let project = createProject('Transform')
+    const track = trackSchema.parse({ id: 'video', type: 'video', name: 'Video' })
+    const clip = clipSchema.parse({ id: 'clip', assetId: 'asset', startMs: 0, durationMs: 1000 })
+    project = applyTimelineOperation(project, { type: 'add-track', track })
+    project = applyTimelineOperation(project, { type: 'add-clip', trackId: track.id, clip })
+    const transform = { x: 20, y: -10, scale: 1.2, cropLeft: 1, cropTop: 2, cropRight: 3, cropBottom: 4 }
+    expect(applyTimelineOperation(project, { type: 'set-clip-transform', trackId: track.id, clipId: clip.id, transform }).tracks[0].clips[0].transform).toEqual(transform)
+    expect(() => applyTimelineOperation(project, { type: 'set-clip-transform', trackId: track.id, clipId: clip.id, transform: { ...transform, scale: 5 } })).toThrow(/scale/)
+  })
 })
 
 describe('storage safety boundary', () => {

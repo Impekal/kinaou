@@ -16,7 +16,16 @@ export const clipSchema = z.object({
   durationMs: z.number().int().positive(),
   sourceOffsetMs: z.number().int().nonnegative().default(0),
   gain: z.number().default(1),
-  speed: z.number().positive().default(1)
+  speed: z.number().positive().default(1),
+  transform: z.object({
+    x: z.number().finite().default(0),
+    y: z.number().finite().default(0),
+    scale: z.number().min(0.1).max(4).default(1),
+    cropLeft: z.number().int().nonnegative().default(0),
+    cropTop: z.number().int().nonnegative().default(0),
+    cropRight: z.number().int().nonnegative().default(0),
+    cropBottom: z.number().int().nonnegative().default(0)
+  }).optional()
 })
 
 export const trackSchema = z.object({
