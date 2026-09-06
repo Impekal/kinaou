@@ -42,7 +42,7 @@ Safety rule: only paths below the configured KINAOU root may be created/moved/de
 ## Repository
 Repo: `Impekal/kinaou`
 Default branch: `main`
-Current main SHA after PR #10: `22589ca9ca6f9ed9ed53c8799e6865f075c41976`
+Current main SHA after PR #11: `576dc633a5987bf819ccb79f0cc0754414587691`
 
 ## Merged slices
 - **PR #1** — foundation. Main `0230448aad6ee49e98118ab196b91f2b20e8ca8a`. React/Vite/TS, project schema, non-destructive timeline, storage safety, versioning, jobs, model registry, CI.
@@ -52,56 +52,61 @@ Current main SHA after PR #10: `22589ca9ca6f9ed9ed53c8799e6865f075c41976`
 - **PR #5** — startable Mac worker. Main `3677d3994a143da9f88442eb004fe278dd31dfe7`. Authenticated localhost Node worker, real ffprobe, first real ffmpeg, `shell:false`, KINAOU-only paths.
 - **PR #6** — PWA worker bridge. Main `c71efbc1eb7d176abdd08b264ecd39acdde0e82d`. WorkerClient, in-memory token, managed media import.
 - **PR #7** — visible worker + Assets UI. Main `92e6069547a79e9d62e220edb0e2794ad8fb360c`. Worker Test Connection/capabilities, real managed media probe/import. Final gate 28/28 + build + worker syntax green.
-- **PR #8** — async render jobs + multi-track compositor. Main `7d2cc05b975d77057dc6a95b79fe30e0f0ef376e`. queued/running/succeeded/failed/cancelled jobs, progress, status, exact cancel, loopback CORS, visual layering, voice/dialog/music/SFX mixing. Speed != 1 explicitly blocked. Push + PR gates green.
-- **PR #9** — visible Studio render lifecycle. Main `48bd07bd5b04125b7d7d98a26d680ec42fe5bea1`. Safe output naming, readiness, start/poll/cancel/result/retry UI. Unsupported caption tracks, planning/external/offline assets and speed changes blocked. Push + PR gates green.
-- **PR #10** — real media placement + timeline controls. Main `22589ca9ca6f9ed9ed53c8799e6865f075c41976`. Managed assets can be placed on user-selected compatible tracks; video/audio duration from probe, still image defaults 5s, append-at-track-end; offline/unmanaged/incompatible media blocked. TimelineEditor adds mute/unmute, lock/unlock, move, trim, remove and bounded audio gain. Locked tracks enforce edit refusal. Push + PR gates fully green.
+- **PR #8** — async render jobs + multi-track compositor. Main `7d2cc05b975d77057dc6a95b79fe30e0f0ef376e`. queued/running/succeeded/failed/cancelled jobs, progress/status/cancel, visual layering and voice/dialog/music/SFX mixing. Speed != 1 explicitly blocked. Push + PR gates green.
+- **PR #9** — visible Studio render lifecycle. Main `48bd07bd5b04125b7d7d98a26d680ec42fe5bea1`. Safe output naming, readiness, start/poll/cancel/result/retry UI. Unsupported captions, planning/external/offline assets and speed changes blocked. Push + PR gates green.
+- **PR #10** — real media placement + timeline controls. Main `22589ca9ca6f9ed9ed53c8799e6865f075c41976`. Managed asset → compatible selected track; probe duration/still defaults; mute/lock/move/trim/remove/audio gain. Locked-track enforcement. Push + PR gates green.
+- **PR #11** — secure browser file import + deterministic visual z-order. Main `576dc633a5987bf819ccb79f0cc0754414587691`. Explicit browser File/Blob streaming to authenticated worker; worker receives bytes, never arbitrary source path. Upload writes `.part` under `KINAOU/Temp/Uploads`, enforces configurable size limit, sanitizes/collision-proofs destination, atomically renames to `KINAOU/Assets`, cleans failures, then PWA probes/registers asset. Worker advertises `asset-upload`. Native `node:test` worker security tests were separated from Vitest discovery. RenderPlan now carries `trackIndex`; higher visual track indexes composite later/on top independent of clip start order. Final push + PR gates: Vitest + native worker tests + production build + worker syntax all green.
 
 ## Important modules
 - `src/core/project.ts` — project/assets/tracks/clips/storyboard schema.
 - `src/core/timeline.ts` — immutable edit operations incl. track state and clip gain.
 - `src/core/timelinePlacement.ts` — safe compatible real-asset placement.
 - `src/core/storage.ts` / `persistence.ts` — storage safety + persistent project metadata.
-- `src/core/render.ts` / `renderJobs.ts` / `renderUi.ts` — RenderPlan, job lifecycle, readiness/output helpers.
-- `src/core/localWorker.ts` — safe path mapping, ffprobe parsing, compositor planning.
-- `src/core/workerClient.ts` / `workerProtocol.ts` — authenticated localhost bridge.
+- `src/core/render.ts` / `renderJobs.ts` / `renderUi.ts` — RenderPlan, trackIndex, job lifecycle, readiness/output helpers.
+- `src/core/localWorker.ts` — safe path mapping, ffprobe parsing, deterministic compositor planning.
+- `src/core/workerClient.ts` / `workerProtocol.ts` — authenticated localhost bridge incl. asset upload/render lifecycle.
+- `src/core/assetUpload.ts` — browser upload response validation.
 - `src/core/mediaImport.ts` — probed media → managed project asset.
+- `src/components/AssetUploadPanel.tsx` — explicit browser file chooser → upload → probe → register.
 - `src/components/TimelineEditor.tsx` — real timeline controls.
 - `src/components/AssetPlacementControl.tsx` — compatible track chooser + Add to timeline.
 - `src/components/RenderPanel.tsx` — real render start/progress/cancel/result.
-- `worker/mac-worker.mjs` — actual local ffprobe/FFmpeg runtime.
+- `worker/asset-upload.mjs` — safe filename/temp/final upload paths.
+- `worker/mac-worker.mjs` — actual local upload/ffprobe/FFmpeg runtime.
 - `src/App.tsx` — Projects/Create/Studio/Assets/Settings shell; unfinished sections are not faked.
 
 ## Current real end-to-end path
 1. Create/reopen persistent project.
 2. Connect authenticated localhost worker.
-3. Probe/register media already inside `KINAOU/Assets`.
-4. Choose a compatible timeline track and place the real media.
-5. Move/trim/mute/lock clips/tracks; adjust audio gain.
-6. Render basic multi-track visual/audio composition to `KINAOU/Renders`.
-7. Watch progress, cancel, see failure/result, retry as new job.
+3. Select video/audio/image explicitly in browser OR probe an existing managed asset.
+4. Worker streams selected file safely into `KINAOU/Assets`; PWA auto-probes and registers it.
+5. Choose compatible timeline track and place asset.
+6. Move/trim/mute/lock; adjust audio gain.
+7. Render deterministic multi-track visual/audio composition to `KINAOU/Renders` with explicit z-order.
+8. Watch progress, cancel, see failure/result, retry as new job.
 
 ## Current limitations
-- User still must manually put source files into `KINAOU/Assets`; no secure browser file upload/copy yet.
 - Caption/subtitle tracks are not rendered yet.
-- Visual z-order is not yet an explicit track-order contract.
 - No transitions, crop/position/keyframes, fades/automation or exact speed retiming.
 - No thumbnails/waveforms/proxies.
 - No real local AI model execution yet; Director/AI Editor remain intentionally non-functional UI slots.
+- Local worker has not yet been run against the user's actual Mac/SSD; repository behavior is CI-tested, local hardware execution remains a later USER ACTION.
 
 ## Current next milestone
-Build **secure explicit browser-file import into `KINAOU/Assets` + deterministic track z-order**.
+Build **real caption/subtitle creation + render support**.
 Immediate plan:
-1. explicit user-selected browser File only; never arbitrary filesystem path access,
-2. localhost worker raw streaming upload endpoint,
-3. sanitize/collision-proof destination names under `KINAOU/Assets`,
-4. stream to temporary managed file then atomic rename; cleanup failed uploads,
-5. return managed path, auto-probe and register asset,
-6. visible Assets file chooser/import progress/error,
-7. add track index/z-order to RenderPlan and deterministic compositor order,
-8. then caption rendering.
+1. structured caption assets stored as project metadata rather than arbitrary external files,
+2. caption creation/edit UI on Caption track,
+3. caption clips participate in RenderPlan without requiring `KINAOU/Assets` file URI,
+4. worker generates temporary managed ASS subtitle file under `KINAOU/Temp`,
+5. safe ASS escaping/timing,
+6. FFmpeg burns captions after visual composition,
+7. cleanup temp subtitle file on success/failure/cancel,
+8. remove Caption-track render blocker,
+9. tests for Unicode/punctuation/multiline captions and timing.
 
 ## Later roadmap
-Studio fidelity: captions → z-order/reorder → transitions → retiming → fades/automation → transform/keyframes → proxies.
+Studio fidelity: captions → transitions → retiming → fades/automation → transform/keyframes → proxies.
 AI creation: DirectorPlan schema → local LLM adapter → script/storyboard/scenes → STT/TTS → image/video adapters → AI Editor structured proposals/diffs/undo.
 Advanced: Avatar, Audio Studio, browser/app capture, commentary/reaction/duo, long-to-short, content factory, trend/opportunity, platform adaptation, official-API publishing, analytics/learning loop.
 
