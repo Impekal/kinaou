@@ -23,6 +23,7 @@ Long-term flow: Discover → Research → Understand → Script → Direct → G
 10. Start hardware: MacBook Pro M2 Pro, 16 GB unified memory, 512 GB SSD. New hardware is not a prerequisite.
 11. Long videos are scene/asset compositions; individual scenes can be regenerated.
 12. Preferred UI is web/PWA; trusted filesystem/FFmpeg/model execution is delegated to localhost worker/desktop bridge.
+13. The app is private and non-commercial. Optimize freely for that use case, prefer capable local/open components, retain model/voice provenance, and do not implement license or terms circumvention.
 
 ## Storage
 ```text
@@ -42,7 +43,7 @@ Safety rule: only paths below the configured KINAOU root may be created/moved/de
 ## Repository
 Repo: `Impekal/kinaou`
 Default branch: `main`
-Current main SHA after PR #51: `8abcc5802187f6dfc7857f424e66af5ac1b97454`
+Current main SHA after PR #53: `f41b7951ffbdf5b0f893a0ada7ce4b9e1fd40cd5`
 
 ## Merged slices
 - **PR #1** — foundation. Main `0230448aad6ee49e98118ab196b91f2b20e8ca8a`. React/Vite/TS, project schema, non-destructive timeline, storage safety, versioning, jobs, model registry, CI.
@@ -78,9 +79,10 @@ Current main SHA after PR #51: `8abcc5802187f6dfc7857f424e66af5ac1b97454`
 - **PR #47** — reviewed transcript segments to real captions. Main `e5a543946d41c55cafb8c493d75ee52dbcebdbd5`. Caption Studio discovers only structurally valid transcript assets, exposes every timestamped segment for explicit selection, and creates caption assets/clips at the original STT times. Each caption retains transcript, segment and whisper.cpp attribution; corrupt selections and locked tracks are rejected before mutation, and an automatic Version History snapshot makes each batch reversible. Final gate: 74/74 Vitest + 16/16 native worker tests + production build + worker syntax green.
 - **PR #49** — safe local Piper TTS contract. Main `7a61c359643c7a051cb0047362303fc7c88fc8d5`. Voice discovery accepts only ONNX models with adjacent configuration under `KINAOU/Models`; synthesis text is trimmed and bounded, temporary text and generated WAV targets stay in managed directories, and the current Piper file-input command is constructed without a shell. UI remains hidden until cancellable execution exists. Final gate: 74/74 Vitest + 19/19 native worker tests + production build + syntax green.
 - **PR #51** — cancellable local Piper TTS jobs. Main `8abcc5802187f6dfc7857f424e66af5ac1b97454`. The worker advertises text-to-speech only when Piper, ffprobe and a managed configured ONNX voice are available; authenticated endpoints discover voices and start/poll/cancel jobs. Piper runs shell-free from a managed temporary UTF-8 text file, successful WAV output is probed and retained under `KINAOU/Assets/GeneratedVoice`, while temporary text and incomplete audio are removed after failure or cancellation. Final gate: 76/76 Vitest + 19/19 native worker tests + production build + worker syntax green.
+- **PR #53** — real local Piper Audio Studio workflow. Main `f41b7951ffbdf5b0f893a0ada7ce4b9e1fd40cd5`. Audio is now functional: it detects managed Piper voices, starts/polls/cancels synthesis, displays honest availability and progress, registers successful WAVs exactly once with adapter/voice/job/source-text attribution, and exposes explicit compatible timeline placement. Final gate: 78/78 Vitest + 19/19 native worker tests + production build + worker syntax green.
 
 ## CI incident record (2026-09-06)
-The repeated GitHub “all jobs failed” emails did not indicate a broken `main`. CI was configured with `push.branches: ['**']`, so every intermediate commit on every feature branch immediately triggered a full run; opening a PR triggered another run for the same head. A PR #11 work-in-progress sequence produced 13 consecutive red push runs while native `node:test` coverage was temporarily being discovered by Vitest; the final feature head, PR gate, merge commit and documentation commit were green. Earlier isolated failures were normal pre-fix commits: the initial CSS side-effect import lacked Vite types, the Worker UI used nested probe fields not present in its type, and the compositor test still expected complex plans to be rejected after support was added. All were corrected before their PRs merged. There are no open feature PRs after PR #51.
+The repeated GitHub “all jobs failed” emails did not indicate a broken `main`. CI was configured with `push.branches: ['**']`, so every intermediate commit on every feature branch immediately triggered a full run; opening a PR triggered another run for the same head. A PR #11 work-in-progress sequence produced 13 consecutive red push runs while native `node:test` coverage was temporarily being discovered by Vitest; the final feature head, PR gate, merge commit and documentation commit were green. Earlier isolated failures were normal pre-fix commits: the initial CSS side-effect import lacked Vite types, the Worker UI used nested probe fields not present in its type, and the compositor test still expected complex plans to be rejected after support was added. All were corrected before their PRs merged. There are no open feature PRs after PR #53.
 
 ## Important modules
 - `src/core/project.ts` — project/assets/tracks/clips/storyboard schema.
@@ -132,10 +134,10 @@ The repeated GitHub “all jobs failed” emails did not indicate a broken `main
 ## Current next milestone
 Build the first **Director/AI foundation with local and open adapters**.
 Immediate plan:
-1. expose Piper voice/text selection, progress and cancellation in Audio Studio,
-2. persist generated voice as an attributable managed audio asset,
-3. enable explicit placement of generated voice on the voice track,
-4. build AI Editor proposals as structured reviewable diffs with Version History safety.
+1. build AI Editor proposals as structured reviewable diffs with Version History safety,
+2. apply only explicitly accepted operations to selected clips/ranges,
+3. add local image-generation adapter discovery and managed jobs,
+4. add local video-generation adapter discovery and managed jobs.
 
 ## Later roadmap
 Studio fidelity baseline complete: transforms/reorder → transitions → fades/automation → retiming → proxies/thumbnails/waveforms → composed preview → persistent Version History.
