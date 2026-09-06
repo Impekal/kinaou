@@ -27,6 +27,7 @@ p { color: #a8b0c0; line-height: 1.65; }
 .status { border: 1px solid #303646; border-radius: 999px; padding: 8px 11px; color: #b8c0d0; font-size: 10px; letter-spacing: .1em; white-space: nowrap; }
 .status.online { color: #a8f0c3; border-color: #315b42; background: rgba(47, 127, 78, .12); }
 .card { background: rgba(20, 23, 32, .88); border: 1px solid #282d3b; border-radius: 18px; box-shadow: 0 22px 70px rgba(0,0,0,.18); }
+.cardBody { padding: 0 20px 20px; }
 .hero { padding: 34px; display: grid; grid-template-columns: 1.05fr .95fr; gap: 36px; align-items: center; }
 .stack { display: grid; gap: 18px; }
 .projectGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
@@ -39,16 +40,21 @@ input, select, textarea { width: 100%; border: 1px solid #333949; border-radius:
 textarea { min-height: 130px; resize: vertical; }
 input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0 0 0 3px rgba(117,100,236,.12); }
 .primary { border: 0; border-radius: 11px; padding: 12px 16px; background: linear-gradient(135deg, #6e5de9, #9d62ff); color: white; font-weight: 800; }
+.secondaryButton { border: 1px solid #454d62; border-radius: 9px; padding: 9px 11px; background: #181d28; color: #d8deeb; font-weight: 700; }
 .emptyState { padding: 32px; }
 .timeline { overflow: hidden; }
-.trackRow { display: grid; grid-template-columns: 170px 1fr; min-height: 118px; border-bottom: 1px solid #292e3a; }
+.trackRow { display: grid; grid-template-columns: 190px 1fr; min-height: 118px; border-bottom: 1px solid #292e3a; transition: opacity .15s ease; }
 .trackRow:last-child { border-bottom: 0; }
+.trackRow.mutedTrack { opacity: .58; }
 .trackLabel { padding: 14px; background: #11141c; display: grid; align-content: center; gap: 4px; }
 .trackLabel small { color: #7d8699; text-transform: uppercase; font-size: 10px; }
-.trackLabel button { margin-top: 8px; border: 1px solid #303646; background: #191e29; color: #b9c1d2; border-radius: 8px; padding: 6px 8px; font-size: 10px; }
+.trackLabel button { border: 1px solid #303646; background: #191e29; color: #b9c1d2; border-radius: 8px; padding: 6px 8px; font-size: 10px; }
+.trackControls { display: flex; gap: 5px; margin-top: 7px; }
+.trackControls + button { margin-top: 4px; }
 .trackLane { min-width: 0; padding: 14px; display: flex; align-items: center; gap: 8px; overflow-x: auto; background-image: linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px); background-size: 50px 100%; }
 .laneHint { color: #565f71; font-size: 12px; }
 .clip { flex: 0 0 auto; min-height: 76px; padding: 11px; border: 1px solid #6959d9; border-radius: 10px; background: linear-gradient(135deg, rgba(83,67,181,.45), rgba(43,39,75,.8)); display: grid; gap: 5px; }
+.clip.lockedClip { border-color: #4a5060; filter: saturate(.55); }
 .clip small { color: #b7b0e4; }
 .clipActions { display: flex; gap: 5px; flex-wrap: wrap; }
 .clipActions button { border: 0; background: rgba(0,0,0,.28); color: #dedaf7; border-radius: 6px; padding: 5px 7px; font-size: 9px; }
@@ -70,11 +76,15 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .probeGrid span { display: grid; gap: 4px; padding: 13px; background: #10131a; border: 1px solid #282e3b; border-radius: 10px; color: #7f899c; font-size: 10px; text-transform: uppercase; }
 .probeGrid strong { color: #e5e9f2; font-size: 14px; text-transform: none; }
 .assetList { display: grid; }
-.assetRow { display: grid; grid-template-columns: minmax(160px, .8fr) minmax(220px, 1.5fr) auto; gap: 16px; align-items: center; padding: 15px 20px; border-top: 1px solid #282d3b; }
+.assetRow { display: grid; grid-template-columns: minmax(150px, .7fr) minmax(190px, 1.2fr) auto; gap: 16px; align-items: center; padding: 15px 20px; border-top: 1px solid #282d3b; }
+.assetRowWithPlacement { grid-template-columns: minmax(150px, .7fr) minmax(190px, 1.2fr) auto minmax(240px, 1fr); }
 .assetRow:first-child { margin-top: 14px; }
 .assetRow > div { display: grid; gap: 4px; }
 .assetRow small { color: #7d8699; }
 .assetRow code { color: #b8bfd0; overflow-wrap: anywhere; }
+.assetPlacement { display: grid !important; grid-template-columns: minmax(110px, 1fr) auto; gap: 7px !important; }
+.assetPlacement select { padding: 8px; font-size: 11px; }
+.assetPlacementHint { color: #6f788b; font-size: 10px; }
 .badge { border: 1px solid #315b42; color: #a8f0c3; border-radius: 999px; padding: 6px 8px; font-size: 9px; }
 .badge.offline { border-color: #65333a; color: #f0aeb6; }
 .workerCard { padding: 24px; }
@@ -90,6 +100,9 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .renderActions { justify-content: flex-start; }
 .dangerButton { border: 1px solid #6d343c; border-radius: 11px; padding: 11px 15px; background: rgba(132, 42, 54, .12); color: #f0aeb6; font-weight: 700; }
 
+@media (max-width: 1050px) {
+  .assetRowWithPlacement { grid-template-columns: 1fr 1fr; }
+}
 @media (max-width: 850px) {
   .shell { grid-template-columns: 1fr; }
   .sidebar { position: static; height: auto; border-right: 0; border-bottom: 1px solid #20242f; }
@@ -97,6 +110,6 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
   .navItem { white-space: nowrap; }
   .main { padding: 20px; }
   .hero, .settingsPanel { grid-template-columns: 1fr; }
-  .trackRow { grid-template-columns: 120px 1fr; }
-  .assetRow { grid-template-columns: 1fr; }
+  .trackRow { grid-template-columns: 130px 1fr; }
+  .assetRow, .assetRowWithPlacement { grid-template-columns: 1fr; }
 }
