@@ -42,7 +42,7 @@ Safety rule: only paths below the configured KINAOU root may be created/moved/de
 ## Repository
 Repo: `Impekal/kinaou`
 Default branch: `main`
-Current main SHA after PR #35: `b4aa43996bb729e0ff191d50a0f3ef2c541718c9`
+Current main SHA after PR #37: `aa8ee9bec52a03a01c6592264cdee48019449211`
 
 ## Merged slices
 - **PR #1** — foundation. Main `0230448aad6ee49e98118ab196b91f2b20e8ca8a`. React/Vite/TS, project schema, non-destructive timeline, storage safety, versioning, jobs, model registry, CI.
@@ -70,9 +70,10 @@ Current main SHA after PR #35: `b4aa43996bb729e0ff191d50a0f3ef2c541718c9`
 - **PR #31** — managed audio waveforms. Main `01d4afd6ce669a5fe2374f29ead47977e5dad144`. Worker uses FFmpeg `showwavespic` to render deterministic mono amplitude PNGs under `KINAOU/Cache/Waveforms`, advertises `media-waveform`, and serves them only through the authenticated preview route. Audio/video assets persist the association; Assets displays it and audio timeline clips render the waveform. Final gate: 60/60 Vitest + 9/9 native worker tests + production build + worker syntax green.
 - **PR #33** — composed timeline preview with scrubbing. Main `0e86028db388fbc551039f4c3f5f8cf2021ff7e1`. Render plans explicitly distinguish `export` and `preview`; the worker enforces purpose/path pairing, uses the real compositor at 960×540 for preview jobs under `KINAOU/Cache/Previews`, and exposes the result only through authenticated preview media transport. Studio polls progress and provides video playback plus a precise playhead slider. Original media and full export semantics remain unchanged. Final gate: 62/62 Vitest + 9/9 native worker tests + production build + worker syntax green.
 - **PR #35** — persistent reversible Version History UI. Main `b4aa43996bb729e0ff191d50a0f3ef2c541718c9`. Studio creates, lists, restores and deletes named project snapshots persisted alongside the project in local storage. Restores first capture the current project as an automatic safety version, stored payloads are schema-validated and corrupt entries are ignored, and retention is capped. Final gate: 64/64 Vitest + 9/9 native worker tests + production build + worker syntax green.
+- **PR #37** — validated DirectorPlan review/apply workflow. Main `aa8ee9bec52a03a01c6592264cdee48019449211`. A bounded versioned schema validates script, unique scenes, media requirements and human/local-model provenance. Director exposes real JSON validation and scene review, applies accepted script/storyboard data to project truth only after review, persists the source plan, and creates an automatic safety version first. It explicitly does not claim model generation. Final gate: 67/67 Vitest + 9/9 native worker tests + production build + worker syntax green.
 
 ## CI incident record (2026-09-06)
-The repeated GitHub “all jobs failed” emails did not indicate a broken `main`. CI was configured with `push.branches: ['**']`, so every intermediate commit on every feature branch immediately triggered a full run; opening a PR triggered another run for the same head. A PR #11 work-in-progress sequence produced 13 consecutive red push runs while native `node:test` coverage was temporarily being discovered by Vitest; the final feature head, PR gate, merge commit and documentation commit were green. Earlier isolated failures were normal pre-fix commits: the initial CSS side-effect import lacked Vite types, the Worker UI used nested probe fields not present in its type, and the compositor test still expected complex plans to be rejected after support was added. All were corrected before their PRs merged. There are no open feature PRs after PR #35.
+The repeated GitHub “all jobs failed” emails did not indicate a broken `main`. CI was configured with `push.branches: ['**']`, so every intermediate commit on every feature branch immediately triggered a full run; opening a PR triggered another run for the same head. A PR #11 work-in-progress sequence produced 13 consecutive red push runs while native `node:test` coverage was temporarily being discovered by Vitest; the final feature head, PR gate, merge commit and documentation commit were green. Earlier isolated failures were normal pre-fix commits: the initial CSS side-effect import lacked Vite types, the Worker UI used nested probe fields not present in its type, and the compositor test still expected complex plans to be rejected after support was added. All were corrected before their PRs merged. There are no open feature PRs after PR #37.
 
 ## Important modules
 - `src/core/project.ts` — project/assets/tracks/clips/storyboard schema.
@@ -90,6 +91,7 @@ The repeated GitHub “all jobs failed” emails did not indicate a broken `main
 - `src/components/AssetPlacementControl.tsx` — compatible track chooser + Add to timeline.
 - `src/components/RenderPanel.tsx` — real render start/progress/cancel/result.
 - `src/core/versioning.ts` / `src/components/VersionHistoryPanel.tsx` — persistent named snapshots and reversible Studio restore controls.
+- `src/core/director.ts` / `src/components/DirectorPanel.tsx` — validated DirectorPlan contract and explicit review/apply UI.
 - `worker/asset-upload.mjs` — safe filename/temp/final upload paths.
 - `worker/captions.mjs` — deterministic ASS generation, escaping and managed temp paths.
 - `worker/proxies.mjs` / `src/components/VideoProxyControl.tsx` — deterministic managed video proxy generation and association.
@@ -108,21 +110,22 @@ The repeated GitHub “all jobs failed” emails did not indicate a broken `main
 9. Generate/play managed source proxies, thumbnails and waveforms while retaining originals as render sources.
 10. Render the composed timeline into managed 540p preview cache and scrub its real output, or export full quality to `KINAOU/Renders`.
 11. Create named project versions, inspect their summaries, and restore any snapshot reversibly through an automatic pre-restore safety version.
-12. Watch render progress, cancel, see failure/result, retry as new job; worker cleans caption temp files in every terminal path.
+12. Validate and review an attributable DirectorPlan, then apply its script/storyboard with an automatic pre-apply safety version.
+13. Watch render progress, cancel, see failure/result, retry as new job; worker cleans caption temp files in every terminal path.
 
 ## Current limitations
 - Only dissolve-in transitions are supported; fade automation is limited to bounded clip-edge envelopes. No keyframes. Position/scale/crop are currently static per clip.
 - Preview is render-then-play rather than frame-live; changes require refreshing the composed preview.
-- No real local AI model execution yet; Director/AI Editor remain intentionally non-functional UI slots while their typed plan and capability contracts are built.
+- No real local AI model execution yet; Director accepts and applies valid human/local-model output but cannot invoke a local model adapter yet. AI Editor remains an intentionally non-functional UI slot.
 - Local worker has not yet been run against the user's actual Mac/SSD; repository behavior is CI-tested, local hardware execution remains a later USER ACTION.
 
 ## Current next milestone
 Build the first **Director/AI foundation with local and open adapters**.
 Immediate plan:
-1. define a validated, versioned DirectorPlan schema for structured scripts, storyboard scenes and required media,
-2. add an explicit local-LLM capability/adapter contract without claiming a model is available,
-3. persist accepted plans non-destructively and expose review/apply controls,
-4. add local STT/TTS adapter contracts only where worker capability detection and safe job semantics can be implemented and tested.
+1. add an explicit local-LLM capability/adapter contract without claiming a model is available,
+2. connect Director generation only to a detected open local runtime and validate every returned plan,
+3. add local STT/TTS adapter contracts only where worker capability detection and safe job semantics can be implemented and tested,
+4. build AI Editor proposals as structured reviewable diffs with Version History safety.
 
 ## Later roadmap
 Studio fidelity baseline complete: transforms/reorder → transitions → fades/automation → retiming → proxies/thumbnails/waveforms → composed preview → persistent Version History.
