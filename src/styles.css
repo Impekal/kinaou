@@ -111,6 +111,8 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .directorPanel, .directorCurrent { padding: 24px; display: grid; gap: 16px; }
 .directorPanel textarea { min-height: 220px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 .directorActions { display: flex; gap: 10px; flex-wrap: wrap; }
+.localDirector { display: grid; gap: 12px; padding-bottom: 16px; border-bottom: 1px solid #292f3d; }
+.localDirector textarea { min-height: 100px; font-family: inherit; font-size: inherit; }
 .directorReview { display: grid; gap: 14px; border-top: 1px solid #292f3d; padding-top: 16px; }
 .directorReview > div { display: grid; gap: 5px; }
 .directorReview small { color: #7d8699; }

@@ -69,6 +69,20 @@ describe('worker client', () => {
     })
     await expect(client.probe('KINAOU/Assets/demo.mp4')).rejects.toThrow('ffprobe is not available')
   })
+
+  it('lists local models and returns Director output through the authenticated worker', async () => {
+    let calls = 0
+    const client = new WorkerClient({ baseUrl: 'http://localhost:43117', token: 'secret', fetchImpl: async (input, init) => {
+      calls += 1
+      expect(new Headers(init?.headers).get('authorization')).toBe('Bearer secret')
+      if (String(input).endsWith('/models/local')) return jsonResponse({ ok: true, type: 'local-models', models: [{ id: 'qwen:7b', sizeBytes: 42 }] })
+      expect(JSON.parse(String(init?.body))).toEqual({ model: 'qwen:7b', brief: 'Harbour film' })
+      return jsonResponse({ ok: true, type: 'director-plan', plan: { schemaVersion: 1 } })
+    } })
+    expect(await client.listLocalModels()).toEqual([{ id: 'qwen:7b', sizeBytes: 42 }])
+    expect(await client.generateDirectorPlan('qwen:7b', 'Harbour film')).toEqual({ schemaVersion: 1 })
+    expect(calls).toBe(2)
+  })
 })
 
 describe('probed media import', () => {

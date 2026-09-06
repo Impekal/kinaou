@@ -54,6 +54,18 @@ export class WorkerClient {
     return payload.result as MediaProbeResult
   }
 
+  async listLocalModels(): Promise<Array<{ id: string; sizeBytes: number }>> {
+    const payload = await this.request('/models/local', { method: 'GET' })
+    if (payload?.ok !== true || payload?.type !== 'local-models' || !Array.isArray(payload.models)) throw new Error('Invalid local model response')
+    return payload.models.filter((model: unknown): model is { id: string; sizeBytes: number } => Boolean(model && typeof (model as any).id === 'string' && typeof (model as any).sizeBytes === 'number'))
+  }
+
+  async generateDirectorPlan(model: string, brief: string): Promise<unknown> {
+    const payload = await this.request('/director/generate', { method: 'POST', body: JSON.stringify({ model, brief }) })
+    if (payload?.ok !== true || payload?.type !== 'director-plan') throw new Error('Invalid Director response')
+    return payload.plan
+  }
+
   async generateVideoProxy(path: string): Promise<MediaProxyResult> {
     const payload = await this.request('/assets/proxy', { method: 'POST', body: JSON.stringify({ path }) })
     if (payload?.ok !== true || payload?.type !== 'media-proxy' || typeof payload.result?.path !== 'string' || !payload.result.path.startsWith('KINAOU/Cache/Proxies/')) throw new Error('Invalid worker proxy response')
