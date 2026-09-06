@@ -151,7 +151,7 @@ export function App() {
           </div>
         </section>}
 
-        {section === 'Director' && (project ? <DirectorPanel project={project} history={versionHistory} onProjectChange={persistProject} /> : <section className="card emptyState">Create or open a project first.</section>)}
+        {section === 'Director' && (project ? <DirectorPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">Create or open a project first.</section>)}
 
         {section === 'Studio' && <section className="stack">
           {!project ? <div className="card emptyState">Create or open a project first.</div> : <>

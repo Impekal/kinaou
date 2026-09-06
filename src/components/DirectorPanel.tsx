@@ -2,17 +2,40 @@ import { useState } from 'react'
 import { applyDirectorPlan, parseDirectorPlan, type DirectorPlan } from '../core/director'
 import type { KinaouProject } from '../core/project'
 import type { PersistentVersionHistory } from '../core/versioning'
+import { WorkerClient } from '../core/workerClient'
 
 interface Props {
   project: KinaouProject
   history: PersistentVersionHistory
+  workerUrl: string
+  workerToken: string
+  workerConnected: boolean
+  workerCapabilities: string[]
   onProjectChange: (project: KinaouProject) => void
 }
 
-export function DirectorPanel({ project, history, onProjectChange }: Props) {
+export function DirectorPanel({ project, history, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange }: Props) {
   const [source, setSource] = useState('')
   const [reviewed, setReviewed] = useState<DirectorPlan | null>(null)
   const [message, setMessage] = useState('')
+  const [models, setModels] = useState<Array<{ id: string; sizeBytes: number }>>([])
+  const [model, setModel] = useState('')
+  const [brief, setBrief] = useState(String((project.metadata.sourceInput as { content?: unknown } | undefined)?.content ?? ''))
+  const [busy, setBusy] = useState(false)
+
+  async function loadModels() {
+    setBusy(true); setMessage('')
+    try { const next = await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).listLocalModels(); setModels(next); setModel(next[0]?.id ?? ''); setMessage(next.length ? 'Installed local models loaded.' : 'Ollama is reachable, but no local models are installed.') }
+    catch (error) { setMessage(error instanceof Error ? error.message : 'Could not load local models.') }
+    finally { setBusy(false) }
+  }
+
+  async function generate() {
+    setBusy(true); setMessage(''); setReviewed(null)
+    try { const plan = parseDirectorPlan(await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).generateDirectorPlan(model, brief)); setReviewed(plan); setSource(JSON.stringify(plan, null, 2)); setMessage('Local model output passed KINAOU validation. Review it before applying.') }
+    catch (error) { setMessage(error instanceof Error ? error.message : 'Local generation failed.') }
+    finally { setBusy(false) }
+  }
 
   function review() {
     try {
@@ -39,6 +62,7 @@ export function DirectorPanel({ project, history, onProjectChange }: Props) {
   return <section className="stack">
     <div className="sectionLead"><div><div className="eyebrow">STRUCTURED DIRECTION</div><h2>Director</h2><p>Review a versioned plan from a human or local model before it changes the project.</p></div><span className="status">NO CLOUD REQUIRED</span></div>
     <div className="card directorPanel">
+      <div className="localDirector"><label>Creative brief<textarea value={brief} onChange={(event) => setBrief(event.target.value)} /></label><label>Installed Ollama model<select value={model} onChange={(event) => setModel(event.target.value)}><option value="">Select a detected model</option>{models.map((item) => <option key={item.id} value={item.id}>{item.id} · {(item.sizeBytes / 1024 / 1024 / 1024).toFixed(1)} GB</option>)}</select></label><div className="directorActions"><button className="secondaryButton" disabled={busy || !workerConnected || !workerCapabilities.includes('local-llm')} onClick={loadModels}>Detect local models</button><button className="primary" disabled={busy || !model || !brief.trim()} onClick={generate}>{busy ? 'Working locally…' : 'Generate plan locally'}</button></div></div>
       <label>DirectorPlan JSON<textarea value={source} onChange={(event) => { setSource(event.target.value); setReviewed(null); setMessage('') }} placeholder='{"schemaVersion":1,"title":"…","objective":"…","script":"…","scenes":[…],"provenance":{"kind":"manual"}}' /></label>
       <div className="directorActions"><button className="secondaryButton" disabled={!source.trim()} onClick={review}>Validate and review</button>{reviewed && <button className="primary" onClick={apply}>Apply reviewed plan</button>}</div>
       {message && <div className={reviewed ? 'note' : 'warning'}>{message}</div>}

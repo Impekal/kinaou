@@ -9,6 +9,7 @@ import crypto from 'node:crypto'
 import { managedUploadPaths } from './asset-upload.mjs'
 import { buildAssDocument, captionTempPaths, escapeSubtitleFilterPath } from './captions.mjs'
 import { buildProxyArgs, buildThumbnailArgs, buildWaveformArgs, previewMediaType, proxyRelativePath, thumbnailRelativePath, waveformRelativePath } from './proxies.mjs'
+import { generateDirectorPlan, listOllamaModels, normalizeOllamaUrl } from './ollama.mjs'
 
 const HOST = '127.0.0.1'
 const PORT = Number(process.env.KINAOU_WORKER_PORT ?? 43117)
@@ -17,6 +18,7 @@ const MANAGED_ROOT = normalizeRoot(process.env.KINAOU_MANAGED_ROOT ?? '')
 const WORKER_ID = process.env.KINAOU_WORKER_ID ?? `mac-${crypto.randomUUID()}`
 const MAX_UPLOAD_BYTES = Number(process.env.KINAOU_MAX_UPLOAD_BYTES ?? 250 * 1024 * 1024 * 1024)
 const VERSION = '0.6.0'
+const OLLAMA_URL = normalizeOllamaUrl(process.env.KINAOU_OLLAMA_URL)
 const renderJobs = new Map()
 const visualTrackTypes = new Set(['video', 'broll', 'image', 'avatar', 'overlay'])
 const audioTrackTypes = new Set(['voice', 'dialog', 'music', 'sfx'])
@@ -64,6 +66,7 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === 'GET' && request.url === '/health') {
+      const localModels = await listOllamaModels(OLLAMA_URL).catch(() => [])
       return send(response, 200, {
         ok: true,
         type: 'health',
@@ -72,7 +75,7 @@ const server = http.createServer(async (request, response) => {
           name: 'KINAOU Mac Worker',
           platform: process.platform,
           version: VERSION,
-          capabilities: ['filesystem', 'ffmpeg', 'media-probe', 'asset-upload', 'media-proxy', 'media-thumbnail', 'media-waveform'],
+          capabilities: ['filesystem', 'ffmpeg', 'media-probe', 'asset-upload', 'media-proxy', 'media-thumbnail', 'media-waveform', ...(localModels.length ? ['local-llm', 'director-plan'] : [])],
           managedRoots: [MANAGED_ROOT],
           ffmpegVersion: versions.ffmpeg,
           ffprobeVersion: versions.ffprobe
@@ -83,6 +86,19 @@ const server = http.createServer(async (request, response) => {
     if (request.method === 'POST' && request.url === '/assets/import') {
       const result = await importAssetStream(request)
       return send(response, 201, { ok: true, type: 'asset-upload', result })
+    }
+
+    if (request.method === 'GET' && request.url === '/models/local') {
+      const models = await listOllamaModels(OLLAMA_URL)
+      return send(response, 200, { ok: true, type: 'local-models', models })
+    }
+
+    if (request.method === 'POST' && request.url === '/director/generate') {
+      const body = await readJson(request)
+      const localModels = await listOllamaModels(OLLAMA_URL).catch(() => [])
+      if (!localModels.some((item) => item.id === body.model)) throw capabilityError('Requested local model is not installed')
+      const plan = await generateDirectorPlan(OLLAMA_URL, body.model, body.brief)
+      return send(response, 200, { ok: true, type: 'director-plan', plan })
     }
 
     if (request.method === 'POST' && request.url === '/probe') {
