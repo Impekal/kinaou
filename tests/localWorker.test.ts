@@ -63,6 +63,18 @@ describe('local Mac worker contract', () => {
     expect(command.args).toContain('[aout]')
   })
 
+  it('uses track order as deterministic visual z-order even when clip start times differ', () => {
+    const base = createProject('Z order')
+    const background = assetSchema.parse({ id: 'bg', kind: 'video', uri: 'KINAOU/Assets/bg.mp4', managed: true, offline: false, metadata: {} })
+    const foreground = assetSchema.parse({ id: 'fg', kind: 'image', uri: 'KINAOU/Assets/fg.png', managed: true, offline: false, metadata: {} })
+    const lowerTrack = trackSchema.parse({ id: 'lower', type: 'video', name: 'Background', clips: [clipSchema.parse({ id: 'bgc', assetId: background.id, startMs: 2000, durationMs: 5000 })] })
+    const upperTrack = trackSchema.parse({ id: 'upper', type: 'overlay', name: 'Foreground', clips: [clipSchema.parse({ id: 'fgc', assetId: foreground.id, startMs: 0, durationMs: 7000 })] })
+    const plan = createRenderPlan({ ...base, assets: [background, foreground], tracks: [lowerTrack, upperTrack] }, preview1080pPreset, 'KINAOU/Renders/z.mp4')
+    expect(plan.clips.map((clip) => clip.trackIndex)).toEqual([1, 0])
+    const graph = buildCompositeFilter(plan).graph
+    expect(graph.indexOf('[1:v]scale')).toBeLessThan(graph.indexOf('[0:v]scale'))
+  })
+
   it('rejects speed changes until compositor timing supports them exactly', () => {
     const base = createProject('Speed')
     const asset = assetSchema.parse({ id: 'asset-1', kind: 'video', uri: 'KINAOU/Assets/demo.mp4', managed: true, offline: false, metadata: {} })
@@ -73,9 +85,9 @@ describe('local Mac worker contract', () => {
   })
 
   it('advertises the real local capabilities intended for the Mac worker', () => {
-    const handshake = createMacWorkerHandshake({ workerId: 'mac-1', version: '0.3.0', managedRoot: '/Volumes/Media/KINAOU', ffmpegVersion: '7.1' })
+    const handshake = createMacWorkerHandshake({ workerId: 'mac-1', version: '0.4.0', managedRoot: '/Volumes/Media/KINAOU', ffmpegVersion: '7.1' })
     expect(handshake.platform).toBe('darwin')
-    expect(handshake.capabilities).toEqual(expect.arrayContaining(['filesystem', 'ffmpeg', 'media-probe']))
+    expect(handshake.capabilities).toEqual(expect.arrayContaining(['filesystem', 'ffmpeg', 'media-probe', 'asset-upload']))
     expect(handshake.managedRoots).toEqual(['/Volumes/Media/KINAOU'])
   })
 })
