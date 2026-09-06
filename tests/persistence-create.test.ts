@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createProjectFromInput } from '../src/core/create'
 import { ProjectRepository, StorageSettingsRepository, type KeyValueStore } from '../src/core/persistence'
 import { configureWorkspaceRoot, defaultStorageSettings, parseStorageSettings, storageTarget } from '../src/core/storage'
+import { PersistentVersionHistory } from '../src/core/versioning'
 
 class MemoryStore implements KeyValueStore {
   private values = new Map<string, string>()
@@ -39,6 +40,33 @@ describe('project persistence', () => {
     repository.remove(project.id)
     expect(repository.load(project.id)).toBeNull()
     expect(repository.list()).toEqual([])
+  })
+})
+
+describe('persistent version history', () => {
+  it('persists named snapshots and makes restore reversible', () => {
+    const store = new MemoryStore()
+    const now = () => new Date('2026-09-06T12:00:00.000Z')
+    const history = new PersistentVersionHistory(store, 100, now)
+    const original = createProjectFromInput({ title: 'Original', kind: 'idea', content: 'First' }, new Date('2026-09-06T10:00:00.000Z'))
+    const target = history.snapshot(original, 'First cut', 'user')
+    const changed = { ...original, title: 'Changed', updatedAt: '2026-09-06T11:00:00.000Z' }
+    const restored = new PersistentVersionHistory(store, 100, now).restoreReversibly(changed, target.id)
+    expect(restored.project.title).toBe('Original')
+    expect(restored.project.metadata.restoredFromVersionId).toBe(target.id)
+    expect(history.list(original.id)).toHaveLength(2)
+    expect(history.list(original.id).at(-1)?.label).toBe('Before restore: First cut')
+  })
+
+  it('caps history, ignores corrupt entries and deletes only an exact snapshot', () => {
+    const store = new MemoryStore()
+    const history = new PersistentVersionHistory(store, 2)
+    const project = createProjectFromInput({ title: 'History', kind: 'idea', content: '' })
+    history.snapshot(project, 'One'); history.snapshot(project, 'Two'); const third = history.snapshot(project, 'Three')
+    expect(history.list(project.id).map((item) => item.label)).toEqual(['Two', 'Three'])
+    history.delete(project.id, third.id)
+    expect(history.list(project.id).map((item) => item.label)).toEqual(['Two'])
+    expect(() => history.delete(project.id, 'missing')).toThrow(/not found/)
   })
 })
 
