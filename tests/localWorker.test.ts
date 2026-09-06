@@ -85,6 +85,16 @@ describe('local Mac worker contract', () => {
     expect(graph).toContain('overlay=(W-w)/2+120:(H-h)/2-40')
   })
 
+  it('renders dissolve transitions as alpha fades before timeline overlay', () => {
+    const base = createProject('Dissolve')
+    const asset = assetSchema.parse({ id: 'asset-1', kind: 'video', uri: 'KINAOU/Assets/demo.mp4', managed: true, metadata: {} })
+    const clip = clipSchema.parse({ id: 'clip-1', assetId: asset.id, startMs: 2000, durationMs: 3000, transitionIn: { type: 'dissolve', durationMs: 750 } })
+    const track = trackSchema.parse({ id: 'track-1', type: 'video', name: 'Video', clips: [clip] })
+    const graph = buildCompositeFilter(createRenderPlan({ ...base, assets: [asset], tracks: [track] }, preview1080pPreset, 'KINAOU/Renders/dissolve.mp4')).graph
+    expect(graph).toContain('format=rgba,fade=t=in:st=0:d=0.750:alpha=1,setpts=PTS-STARTPTS+2.000/TB')
+    expect(graph).toContain("enable='between(t,2.000,5.000)'")
+  })
+
   it('rejects speed changes until compositor timing supports them exactly', () => {
     const base = createProject('Speed')
     const asset = assetSchema.parse({ id: 'asset-1', kind: 'video', uri: 'KINAOU/Assets/demo.mp4', managed: true, offline: false, metadata: {} })

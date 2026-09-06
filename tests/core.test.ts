@@ -50,6 +50,18 @@ describe('project engine', () => {
     expect(applyTimelineOperation(project, { type: 'set-clip-transform', trackId: track.id, clipId: clip.id, transform }).tracks[0].clips[0].transform).toEqual(transform)
     expect(() => applyTimelineOperation(project, { type: 'set-clip-transform', trackId: track.id, clipId: clip.id, transform: { ...transform, scale: 5 } })).toThrow(/scale/)
   })
+
+  it('stores and removes a bounded dissolve transition', () => {
+    let project = createProject('Transition')
+    const track = trackSchema.parse({ id: 'video', type: 'video', name: 'Video' })
+    const clip = clipSchema.parse({ id: 'clip', assetId: 'asset', startMs: 0, durationMs: 1000 })
+    project = applyTimelineOperation(project, { type: 'add-track', track })
+    project = applyTimelineOperation(project, { type: 'add-clip', trackId: track.id, clip })
+    project = applyTimelineOperation(project, { type: 'set-clip-transition', trackId: track.id, clipId: clip.id, transitionIn: { type: 'dissolve', durationMs: 500 } })
+    expect(project.tracks[0].clips[0].transitionIn).toEqual({ type: 'dissolve', durationMs: 500 })
+    expect(() => applyTimelineOperation(project, { type: 'set-clip-transition', trackId: track.id, clipId: clip.id, transitionIn: { type: 'dissolve', durationMs: 1100 } })).toThrow(/fit the clip/)
+    expect(applyTimelineOperation(project, { type: 'set-clip-transition', trackId: track.id, clipId: clip.id }).tracks[0].clips[0].transitionIn).toBeUndefined()
+  })
 })
 
 describe('storage safety boundary', () => {

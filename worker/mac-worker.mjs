@@ -268,6 +268,7 @@ function validateRenderPlan(plan) {
     const transform = clip.transform
     if (!transform || ![transform.x, transform.y, transform.scale, transform.cropLeft, transform.cropTop, transform.cropRight, transform.cropBottom].every(Number.isFinite)) throw new Error('Invalid clip transform')
     if (transform.scale < 0.1 || transform.scale > 4 || ![transform.cropLeft, transform.cropTop, transform.cropRight, transform.cropBottom].every((value) => Number.isInteger(value) && value >= 0)) throw new Error('Invalid clip transform range')
+    if (clip.transitionIn && (clip.transitionIn.type !== 'dissolve' || !Number.isInteger(clip.transitionIn.durationMs) || clip.transitionIn.durationMs < 100 || clip.transitionIn.durationMs > Math.min(5000, clip.durationMs))) throw new Error('Invalid dissolve transition')
     if (clip.asset?.kind === 'caption') {
       if (clip.trackType !== 'caption' || typeof clip.asset.metadata?.text !== 'string' || !clip.asset.metadata.text.trim()) throw new Error('Invalid caption clip')
     } else requireManagedRelativePath(clip.asset?.uri)
@@ -400,7 +401,8 @@ function buildCompositeArgs(plan, mediaClips, inputPaths, outputPath, subtitlePa
     const start = seconds(clip.startMs)
     const end = seconds(clip.startMs + clip.durationMs)
     const transform = clip.transform
-    parts.push(`[${index}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,crop=iw-${transform.cropLeft}-${transform.cropRight}:ih-${transform.cropTop}-${transform.cropBottom}:${transform.cropLeft}:${transform.cropTop},scale=iw*${transform.scale}:ih*${transform.scale},setpts=PTS-STARTPTS+${start}/TB[${prepared}]`)
+    const dissolve = clip.transitionIn ? `,format=rgba,fade=t=in:st=0:d=${seconds(clip.transitionIn.durationMs)}:alpha=1` : ''
+    parts.push(`[${index}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,crop=iw-${transform.cropLeft}-${transform.cropRight}:ih-${transform.cropTop}-${transform.cropBottom}:${transform.cropLeft}:${transform.cropTop},scale=iw*${transform.scale}:ih*${transform.scale}${dissolve},setpts=PTS-STARTPTS+${start}/TB[${prepared}]`)
     parts.push(`[${currentVideo}][${prepared}]overlay=(W-w)/2${signedOffset(transform.x)}:(H-h)/2${signedOffset(transform.y)}:enable='between(t,${start},${end})'[${output}]`)
     currentVideo = output
   })

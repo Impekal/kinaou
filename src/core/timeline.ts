@@ -12,6 +12,7 @@ export type TimelineOperation =
   | { type: 'trim-clip'; trackId: string; clipId: string; startMs: number; durationMs: number; sourceOffsetMs: number }
   | { type: 'set-clip-gain'; trackId: string; clipId: string; gain: number }
   | { type: 'set-clip-transform'; trackId: string; clipId: string; transform: NonNullable<TimelineClip['transform']> }
+  | { type: 'set-clip-transition'; trackId: string; clipId: string; transitionIn?: NonNullable<TimelineClip['transitionIn']> }
 
 function updateTrack(project: KinaouProject, trackId: string, update: (track: TimelineTrack) => TimelineTrack): KinaouProject {
   let found = false
@@ -96,5 +97,14 @@ export function applyTimelineOperation(project: KinaouProject, operation: Timeli
       if (![parsed.cropLeft, parsed.cropTop, parsed.cropRight, parsed.cropBottom].every((value) => Number.isInteger(value) && value >= 0)) throw new Error('Clip crop must use non-negative integer pixels')
       return updateUnlockedTrack(project, operation.trackId, (track) => updateExistingClip(track, operation.clipId, (clip) => ({ ...clip, transform: { ...parsed } })))
     }
+    case 'set-clip-transition':
+      return updateUnlockedTrack(project, operation.trackId, (track) => updateExistingClip(track, operation.clipId, (clip) => {
+        if (!operation.transitionIn) {
+          const { transitionIn: _removed, ...rest } = clip
+          return rest
+        }
+        if (operation.transitionIn.type !== 'dissolve' || !Number.isInteger(operation.transitionIn.durationMs) || operation.transitionIn.durationMs < 100 || operation.transitionIn.durationMs > Math.min(5000, clip.durationMs)) throw new Error('Dissolve duration must fit the clip and be between 100ms and 5000ms')
+        return { ...clip, transitionIn: { ...operation.transitionIn } }
+      }))
   }
 }
