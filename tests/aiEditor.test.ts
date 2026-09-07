@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyAiEditorProposal, describeAiEdit, parseAiEditorProposal } from '../src/core/aiEditor'
+import { applyAiEditorProposal, buildAiEditorContext, describeAiEdit, parseAiEditorProposal } from '../src/core/aiEditor'
 import { createProjectFromInput } from '../src/core/create'
 
 function fixture() {
@@ -27,5 +27,11 @@ describe('AI Editor proposals', () => {
     expect(() => describeAiEdit(project, { ...valid.operations[0], edit: { ...valid.operations[0].edit, clipId: 'missing' } } as never)).toThrow(/target/i)
     expect(() => parseAiEditorProposal({ ...valid, operations: [valid.operations[0], valid.operations[0]] })).toThrow(/unique/i)
     expect(project.tracks.find((track) => track.id === trackId)!.clips[0].startMs).toBe(0)
+  })
+  it('builds a bounded context without asset URIs or unrelated metadata', () => {
+    const context = buildAiEditorContext(fixture())
+    expect(context.tracks.flatMap((track) => track.clips)[0].asset).toMatchObject({ id: 'audio', kind: 'audio' })
+    expect(JSON.stringify(context)).not.toContain('KINAOU/Assets')
+    expect(JSON.stringify(context)).not.toContain('durationMs":5000')
   })
 })

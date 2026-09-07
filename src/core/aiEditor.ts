@@ -26,6 +26,12 @@ export const aiEditorProposalSchema = z.object({
 export type AiEditorProposal = z.infer<typeof aiEditorProposalSchema>
 export function parseAiEditorProposal(value: unknown): AiEditorProposal { return aiEditorProposalSchema.parse(value) }
 
+export function buildAiEditorContext(project: KinaouProject) {
+  const clipCount = project.tracks.reduce((total, track) => total + track.clips.length, 0)
+  if (clipCount > 500) throw new Error('AI Editor context is limited to 500 clips')
+  return { projectId: project.id, title: project.title, tracks: project.tracks.map((track) => ({ id: track.id, type: track.type, name: track.name, locked: track.locked, clips: track.clips.map((clip) => { const asset = project.assets.find((item) => item.id === clip.assetId); return { id: clip.id, asset: { id: asset?.id, kind: asset?.kind, name: String(asset?.metadata.name ?? asset?.id ?? 'missing'), ...(asset?.kind === 'caption' ? { text: String(asset.metadata.text ?? '') } : {}) }, startMs: clip.startMs, durationMs: clip.durationMs, sourceOffsetMs: clip.sourceOffsetMs, gain: clip.gain, speed: clip.speed, fades: clip.fades ?? { inMs: 0, outMs: 0 } } }) })) }
+}
+
 function findClip(project: KinaouProject, trackId: string, clipId: string) {
   const track = project.tracks.find((item) => item.id === trackId)
   const clip = track?.clips.find((item) => item.id === clipId)

@@ -127,6 +127,8 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .aiEditorPanel { padding: 24px; display: grid; gap: 14px; }
 .aiEditorPanel p { margin-bottom: 0; }
 .aiEditorPanel textarea { min-height: 180px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.localAiEditor { display: grid; grid-template-columns: 1fr minmax(180px, .35fr); gap: 10px; padding-bottom: 14px; border-bottom: 1px solid #292f3d; }
+.localAiEditor .directorActions { grid-column: 1 / -1; }
 .aiDiffs { display: grid; gap: 8px; }
 .aiDiffs label { display: grid; grid-template-columns: auto 1fr; align-items: start; padding: 11px; border: 1px solid #303646; border-radius: 9px; background: #10131a; }
 .aiDiffs input { width: auto; }
@@ -178,4 +180,6 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
   .trackRow { grid-template-columns: 130px 1fr; }
   .assetRow, .assetRowWithPlacement { grid-template-columns: 1fr; }
   .generatedVoices > div:not(.eyebrow) { grid-template-columns: 1fr; }
+  .localAiEditor { grid-template-columns: 1fr; }
+  .localAiEditor .directorActions { grid-column: auto; }
 }
