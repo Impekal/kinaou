@@ -70,6 +70,34 @@ describe('worker client', () => {
     await expect(client.probe('KINAOU/Assets/demo.mp4')).rejects.toThrow('ffprobe is not available')
   })
 
+  it('starts, polls and cancels managed image jobs through the authenticated worker', async () => {
+    const provenance = { kind: 'local-model', adapterId: 'comfyui', templateId: 'ui-sdxl', seed: 7, width: null, height: null, positivePrompt: 'app screen', negativePrompt: '' }
+    const base = { id: 'img-1', state: 'queued', progress: 0, createdAt: 'x', updatedAt: 'x', templatePath: 'KINAOU/Models/ComfyUI/Workflows/ui.json', provenance }
+    const client = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl: async (input, init) => {
+      const url = String(input)
+      expect(new Headers(init?.headers).get('authorization')).toBe('Bearer secret')
+      if (url.endsWith('/image/templates')) return jsonResponse({ ok: true, type: 'image-templates', comfyui: { available: true, version: '0.3.40' }, templates: [{ path: base.templatePath, id: 'ui-sdxl', label: 'UI SDXL', supportsNegativePrompt: true, supportsWidth: false, supportsHeight: false }] })
+      if (url.endsWith('/image/jobs')) {
+        expect(JSON.parse(String(init?.body))).toEqual({ templatePath: base.templatePath, positivePrompt: 'app screen', seed: 7 })
+        return jsonResponse({ ok: true, type: 'image-job', job: base }, 202)
+      }
+      if (url.endsWith('/cancel')) return jsonResponse({ ok: true, type: 'image-job', job: { ...base, state: 'cancelled' } })
+      return jsonResponse({ ok: true, type: 'image-job', job: { ...base, state: 'succeeded', progress: 1, imagePath: 'KINAOU/Assets/GeneratedImages/img-1.png', sizeBytes: 2048 } })
+    } })
+    const availability = await client.imageGenerationAvailability()
+    expect(availability.comfyui.version).toBe('0.3.40')
+    expect(availability.templates).toHaveLength(1)
+    expect((await client.startImageJob({ templatePath: base.templatePath, positivePrompt: 'app screen', seed: 7 })).state).toBe('queued')
+    expect((await client.imageJobStatus('img-1')).imagePath).toBe('KINAOU/Assets/GeneratedImages/img-1.png')
+    expect((await client.cancelImageJob('img-1')).state).toBe('cancelled')
+  })
+
+  it('rejects image job results that leave managed generated storage', async () => {
+    const provenance = { kind: 'local-model', adapterId: 'comfyui', templateId: 'ui-sdxl', seed: 7, width: null, height: null, positivePrompt: 'app screen', negativePrompt: '' }
+    const client = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl: async () => jsonResponse({ ok: true, type: 'image-job', job: { id: 'img-1', state: 'succeeded', progress: 1, createdAt: 'x', updatedAt: 'x', templatePath: 'KINAOU/Models/ComfyUI/Workflows/ui.json', provenance, imagePath: 'KINAOU/Renders/escape.png', sizeBytes: 1 } }) })
+    await expect(client.imageJobStatus('img-1')).rejects.toThrow(/completed/)
+  })
+
   it('lists local models and returns Director output through the authenticated worker', async () => {
     let calls = 0
     const client = new WorkerClient({ baseUrl: 'http://localhost:43117', token: 'secret', fetchImpl: async (input, init) => {

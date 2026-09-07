@@ -1,6 +1,11 @@
 const MAX_PROMPT_LENGTH = 20_000
 const MAX_WORKFLOW_BYTES = 1_000_000
 const BINDING_KEYS = ['positivePrompt', 'negativePrompt', 'seed', 'width', 'height']
+const IMAGE_EXTENSIONS = ['png', 'jpg', 'webp']
+const OUTPUT_FILENAME_PATTERN = /^[\w()][\w ().-]*\.(png|jpg|jpeg|webp)$/i
+
+export const MAX_WORKFLOW_FILE_BYTES = 2_000_000
+export const MAX_GENERATED_IMAGE_BYTES = 100 * 1024 * 1024
 
 function isRecord(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -87,4 +92,76 @@ export function buildComfyPromptRequest(template, parameters, clientId) {
   if (typeof clientId !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(clientId)) throw new Error('Invalid ComfyUI client ID')
   const result = materializeComfyWorkflow(template, parameters)
   return { body: { prompt: result.workflow, client_id: clientId }, provenance: result.provenance }
+}
+
+export async function detectComfyUi(baseUrl, fetchImpl = fetch) {
+  const url = normalizeComfyUrl(baseUrl)
+  try {
+    const response = await fetchImpl(`${url}/system_stats`, { signal: AbortSignal.timeout(1500) })
+    if (!response.ok) return { available: false }
+    const payload = await response.json()
+    const version = typeof payload?.system?.comfyui_version === 'string' ? payload.system.comfyui_version : undefined
+    return { available: true, ...(version ? { version } : {}) }
+  } catch {
+    return { available: false }
+  }
+}
+
+export function parseComfyPromptResponse(payload) {
+  if (!isRecord(payload)) throw new Error('Invalid ComfyUI prompt response')
+  if (isRecord(payload.node_errors) && Object.keys(payload.node_errors).length) throw new Error(`ComfyUI rejected workflow nodes: ${Object.keys(payload.node_errors).join(', ')}`)
+  if (typeof payload.prompt_id !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(payload.prompt_id)) throw new Error('ComfyUI returned an invalid prompt ID')
+  return payload.prompt_id
+}
+
+export function comfyHistoryStatus(payload, promptId) {
+  if (!isRecord(payload)) throw new Error('Invalid ComfyUI history response')
+  const entry = payload[promptId]
+  if (!isRecord(entry)) return { phase: 'waiting' }
+  const status = isRecord(entry.status) ? entry.status : {}
+  if (status.status_str === 'error') {
+    const messages = Array.isArray(status.messages) ? status.messages : []
+    const failure = messages.find((message) => Array.isArray(message) && message[0] === 'execution_error')
+    const detail = isRecord(failure?.[1]) && typeof failure[1].exception_message === 'string' ? failure[1].exception_message : 'ComfyUI reported an execution error'
+    return { phase: 'failed', message: detail }
+  }
+  if (status.completed !== true) return { phase: 'waiting' }
+  const images = []
+  for (const output of Object.values(isRecord(entry.outputs) ? entry.outputs : {})) {
+    if (!isRecord(output) || !Array.isArray(output.images)) continue
+    for (const image of output.images) {
+      if (isRecord(image) && image.type === 'output' && typeof image.filename === 'string') images.push({ filename: image.filename, subfolder: typeof image.subfolder === 'string' ? image.subfolder : '', type: 'output' })
+    }
+  }
+  if (!images.length) return { phase: 'failed', message: 'ComfyUI completed without a saved output image' }
+  return { phase: 'completed', images }
+}
+
+export function comfyQueuePhase(payload, promptId) {
+  if (!isRecord(payload)) return 'absent'
+  const contains = (list) => Array.isArray(list) && list.some((entry) => Array.isArray(entry) && entry[1] === promptId)
+  if (contains(payload.queue_running)) return 'running'
+  if (contains(payload.queue_pending)) return 'pending'
+  return 'absent'
+}
+
+export function comfyImageQuery(image) {
+  if (!isRecord(image) || image.type !== 'output') throw new Error('Only ComfyUI output images may be retrieved')
+  if (typeof image.filename !== 'string' || image.filename.length > 200 || !OUTPUT_FILENAME_PATTERN.test(image.filename)) throw new Error('ComfyUI reported an unsupported output image filename')
+  const subfolder = image.subfolder ?? ''
+  if (typeof subfolder !== 'string' || subfolder.length > 200 || subfolder.includes('..') || subfolder.includes('\\') || subfolder.startsWith('/')) throw new Error('ComfyUI reported an invalid output subfolder')
+  return new URLSearchParams({ filename: image.filename, subfolder, type: 'output' }).toString()
+}
+
+export function generatedImageExtensionFor(filename) {
+  const match = /\.(png|jpg|jpeg|webp)$/i.exec(String(filename))
+  if (!match) throw new Error('Unsupported generated image extension')
+  const extension = match[1].toLowerCase()
+  return extension === 'jpeg' ? 'jpg' : extension
+}
+
+export function comfyTempImageRelativePath(jobId, extension) {
+  if (!/^[a-zA-Z0-9-]+$/.test(jobId)) throw new Error('Invalid image job ID')
+  if (!IMAGE_EXTENSIONS.includes(extension)) throw new Error('Unsupported generated image extension')
+  return `KINAOU/Temp/GeneratedImages/${jobId}.${extension}.part`
 }

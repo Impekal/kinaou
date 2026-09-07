@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildComfyPromptRequest, comfyWorkflowRelativePaths, generatedImageRelativePath, materializeComfyWorkflow, normalizeComfyUrl, validateComfyTemplate } from './comfyui.mjs'
+import { buildComfyPromptRequest, comfyHistoryStatus, comfyImageQuery, comfyQueuePhase, comfyTempImageRelativePath, comfyWorkflowRelativePaths, detectComfyUi, generatedImageExtensionFor, generatedImageRelativePath, materializeComfyWorkflow, normalizeComfyUrl, parseComfyPromptResponse, validateComfyTemplate } from './comfyui.mjs'
 
 const template = {
   schemaVersion: 1,
@@ -50,6 +50,53 @@ test('materializes a copy without mutating the stored workflow', () => {
   assert.equal(result.workflow['5'].inputs.height, 1080)
   assert.equal(template.workflow['6'].inputs.text, 'old prompt')
   assert.deepEqual(result.provenance, { kind: 'local-model', adapterId: 'comfyui', templateId: 'ui-screenshot-sdxl', seed: 42, width: 1920, height: 1080 })
+})
+
+test('detects only a reachable localhost ComfyUI and reports its version', async () => {
+  const ok = await detectComfyUi('http://127.0.0.1:8188', async (url) => {
+    assert.equal(url, 'http://127.0.0.1:8188/system_stats')
+    return { ok: true, json: async () => ({ system: { comfyui_version: '0.3.40' } }) }
+  })
+  assert.deepEqual(ok, { available: true, version: '0.3.40' })
+  assert.deepEqual(await detectComfyUi('http://127.0.0.1:8188', async () => ({ ok: false })), { available: false })
+  assert.deepEqual(await detectComfyUi('http://127.0.0.1:8188', async () => { throw new Error('refused') }), { available: false })
+  await assert.rejects(detectComfyUi('http://10.0.0.5:8188', async () => ({ ok: true, json: async () => ({}) })), /localhost/)
+})
+
+test('accepts only well-formed prompt IDs and surfaces node validation errors', () => {
+  assert.equal(parseComfyPromptResponse({ prompt_id: 'abc-123', node_errors: {} }), 'abc-123')
+  assert.throws(() => parseComfyPromptResponse({ prompt_id: 'abc-123', node_errors: { 3: { errors: [] } } }), /rejected workflow nodes: 3/)
+  assert.throws(() => parseComfyPromptResponse({ prompt_id: '../evil' }), /invalid prompt ID/)
+  assert.throws(() => parseComfyPromptResponse({}), /invalid prompt ID/)
+})
+
+test('reads history phases and collects only saved output images', () => {
+  assert.deepEqual(comfyHistoryStatus({}, 'p1'), { phase: 'waiting' })
+  assert.deepEqual(comfyHistoryStatus({ p1: { status: { completed: false } } }, 'p1'), { phase: 'waiting' })
+  const completed = comfyHistoryStatus({ p1: { status: { completed: true }, outputs: { 9: { images: [{ filename: 'ComfyUI_00001_.png', subfolder: '', type: 'output' }, { filename: 'preview.png', type: 'temp' }] } } } }, 'p1')
+  assert.deepEqual(completed, { phase: 'completed', images: [{ filename: 'ComfyUI_00001_.png', subfolder: '', type: 'output' }] })
+  assert.equal(comfyHistoryStatus({ p1: { status: { completed: true }, outputs: {} } }, 'p1').phase, 'failed')
+  const failed = comfyHistoryStatus({ p1: { status: { status_str: 'error', completed: false, messages: [['execution_error', { exception_message: 'CUDA out of memory' }]] } } }, 'p1')
+  assert.deepEqual(failed, { phase: 'failed', message: 'CUDA out of memory' })
+})
+
+test('finds the prompt in running or pending queues', () => {
+  const queue = { queue_running: [[0, 'run-1', {}]], queue_pending: [[1, 'pend-2', {}]] }
+  assert.equal(comfyQueuePhase(queue, 'run-1'), 'running')
+  assert.equal(comfyQueuePhase(queue, 'pend-2'), 'pending')
+  assert.equal(comfyQueuePhase(queue, 'gone-3'), 'absent')
+  assert.equal(comfyQueuePhase(null, 'run-1'), 'absent')
+})
+
+test('builds only safe output view queries and managed temp paths', () => {
+  assert.equal(comfyImageQuery({ filename: 'ComfyUI_00001_.png', subfolder: '', type: 'output' }), 'filename=ComfyUI_00001_.png&subfolder=&type=output')
+  assert.throws(() => comfyImageQuery({ filename: '../secret.png', subfolder: '', type: 'output' }), /filename/)
+  assert.throws(() => comfyImageQuery({ filename: 'a.png', subfolder: '../up', type: 'output' }), /subfolder/)
+  assert.throws(() => comfyImageQuery({ filename: 'a.png', subfolder: '', type: 'temp' }), /output images/)
+  assert.equal(generatedImageExtensionFor('image.JPEG'), 'jpg')
+  assert.throws(() => generatedImageExtensionFor('archive.zip'), /extension/)
+  assert.equal(comfyTempImageRelativePath('job-1', 'png'), 'KINAOU/Temp/GeneratedImages/job-1.png.part')
+  assert.throws(() => comfyTempImageRelativePath('../job', 'png'), /job ID/)
 })
 
 test('bounds prompts, seed and dimensions before queueing', () => {

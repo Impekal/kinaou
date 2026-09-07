@@ -21,6 +21,14 @@ This worker is the trusted local bridge between the KINAOU web/PWA UI and macOS 
 
 Local AI modules also define tested contracts for Ollama, whisper.cpp, Piper and ComfyUI. ComfyUI templates are API-format JSON wrappers stored below `KINAOU/Models/ComfyUI/Workflows`; they explicitly bind the prompt, seed and optional dimensions that KINAOU may replace. Execution endpoints are exposed only after their cancellable managed job lifecycle is complete.
 
+Image generation runs against a locally installed ComfyUI instance on a loopback HTTP endpoint (`KINAOU_COMFYUI_URL`, default `http://127.0.0.1:8188`):
+
+- `GET /image/templates` — honest availability (is ComfyUI reachable, which managed templates exist).
+- `POST /image/jobs` — bind a managed template copy, submit it, poll history/queue.
+- `GET /image/jobs/:id` / `POST /image/jobs/:id/cancel` — status polling and cancellation; pending prompts are deleted from the ComfyUI queue, a running own prompt is interrupted.
+
+Finished images are downloaded from ComfyUI, written to a managed temp `.part` file and atomically renamed into `KINAOU/Assets/GeneratedImages`; failures and cancellations remove partial data. The worker never installs ComfyUI or downloads models itself.
+
 Complex/multi-track rendering is not claimed yet and is rejected until compositor support is implemented.
 
 ## Local prerequisites
