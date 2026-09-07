@@ -124,6 +124,13 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .generatedVoices > div:not(.eyebrow) { display: grid; grid-template-columns: 1fr minmax(260px, .8fr); gap: 14px; align-items: center; border-top: 1px solid #292f3d; padding-top: 10px; }
 .generatedVoices span { display: grid; gap: 4px; }
 .generatedVoices small { color: #7d8699; }
+.imageStudio { padding: 24px; display: grid; gap: 14px; }
+.imageStudio .formRow { display: flex; gap: 14px; align-items: end; flex-wrap: wrap; }
+.imageStudio .formRow label { display: grid; gap: 6px; }
+.generatedImages { padding: 24px; display: grid; gap: 10px; }
+.generatedImages > div:not(.eyebrow) { display: grid; grid-template-columns: 1fr minmax(260px, .8fr); gap: 14px; align-items: center; border-top: 1px solid #292f3d; padding-top: 10px; }
+.generatedImages span { display: grid; gap: 4px; }
+.generatedImages small { color: #7d8699; }
 .aiEditorPanel { padding: 24px; display: grid; gap: 14px; }
 .aiEditorPanel p { margin-bottom: 0; }
 .aiEditorPanel textarea { min-height: 180px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
@@ -179,7 +186,7 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
   .versionRow { align-items: flex-start; flex-direction: column; }
   .trackRow { grid-template-columns: 130px 1fr; }
   .assetRow, .assetRowWithPlacement { grid-template-columns: 1fr; }
-  .generatedVoices > div:not(.eyebrow) { grid-template-columns: 1fr; }
+  .generatedVoices > div:not(.eyebrow), .generatedImages > div:not(.eyebrow) { grid-template-columns: 1fr; }
   .localAiEditor { grid-template-columns: 1fr; }
   .localAiEditor .directorActions { grid-column: auto; }
 }
