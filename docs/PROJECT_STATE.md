@@ -43,7 +43,7 @@ Safety rule: only paths below the configured KINAOU root may be created/moved/de
 ## Repository
 Repo: `Impekal/kinaou`
 Default branch: `main`
-Current main SHA after PR #63: `fc7aeabd97b8949fa8d26f8591caaae1dff73173`
+Current main SHA after PR #65: `848ec85084b05dede299c95c7f15e8898a9a66fb`
 
 ## Merged slices
 - **PR #1** — foundation. Main `0230448aad6ee49e98118ab196b91f2b20e8ca8a`. React/Vite/TS, project schema, non-destructive timeline, storage safety, versioning, jobs, model registry, CI.
@@ -83,6 +83,7 @@ Current main SHA after PR #63: `fc7aeabd97b8949fa8d26f8591caaae1dff73173`
 - **PR #55** — reviewable reversible AI Editor proposals. Main `7eb89e40554c47c0767bee4cc1f7c9404d0ac623`. A bounded versioned schema supports safe move, trim, gain, speed, fade and caption-text edits. Studio validates every referenced target, shows concrete before/after values, requires explicit per-operation selection, applies only the chosen subset, records accepted proposal provenance and creates an automatic Version History safety snapshot. No model output is claimed yet. Final gate: 80/80 Vitest + 19/19 native worker tests + production build + worker syntax green.
 - **PR #57** — local Ollama AI Editor generation. Main `bd8559adc12963532b43ba18cb2674944780aa87`. Studio sends only a bounded sanitized timeline context without media URIs or unrelated metadata to the localhost adapter, requests schema-constrained operations at temperature zero, overwrites claimed provenance with trusted model/adapter identity, and revalidates every returned target before showing the existing per-operation diff/review flow. Final gate: 81/81 Vitest + 20/20 native worker tests + production build + worker syntax green.
 - **PR #59** — safe local ComfyUI workflow contract. Main `841cd00742db19d4003e6c727cb359683333fc85`. Only loopback HTTP endpoints and API-format JSON wrappers below `KINAOU/Models/ComfyUI/Workflows` are accepted. Templates explicitly declare which prompt, seed and optional dimension inputs KINAOU may replace; workflows are copied before binding, parameters are bounded, and generated-image destinations are reserved below `KINAOU/Assets/GeneratedImages`. Runtime/UI remain hidden until cancellable managed execution exists. Final gate: 81/81 Vitest + 25/25 native worker tests + production build + syntax green.
+- **PR #65** — explicit reversible storyboard scene fulfillment. Main `848ec85084b05dede299c95c7f15e8898a9a66fb`. Storyboard entries carry an optional fulfilling `assetId` (backward compatible). Assignment accepts only existing online image/video assets, same-asset re-assignment is a no-op, and replacing a fulfilled scene requires an explicit replace action that first stores an automatic Version History safety snapshot. Unassigned images remain available as alternatives, clearing a scene never deletes the asset, and the Image Studio fulfillment overview shows each scene's honest state including a missing assigned asset. Final gate: 93/93 Vitest + 30/30 native worker tests + production build + worker syntax green.
 - **PR #63** — real Image Studio with attributable generated image assets. Main `fc7aeabd97b8949fa8d26f8591caaae1dff73173`. Images is now a functional section: honest availability (worker connection, ComfyUI reachability with version, count of valid managed templates, explicit message about what is missing), template-driven inputs (negative prompt and dimensions appear only when the template binds them), user-controlled seed with randomize, start/progress/cancel against the worker job endpoints. Each successful output is registered exactly once (idempotent by URI) as a managed image asset with durable structured provenance — generated flag, adapter, template id/path, seed, dimensions, prompts, job id, generation timestamp, MIME/size — labelled GENERATED (never a real screen capture), and placed only through the existing explicit `AssetPlacementControl`. Final gate: 89/89 Vitest + 30/30 native worker tests + production build + worker syntax green.
 - **PR #61** — cancellable managed ComfyUI image generation jobs. Main `93554f67eaff3f79aa4906a4855b7a3f243a5de5`. The worker detects a locally installed ComfyUI through `/system_stats` on the normalized loopback endpoint only, lists size-bounded valid managed templates with honest availability, and runs real jobs: managed-set-validated template, bounded binding, submission to `/prompt`, history/queue polling with an overall timeout and coarse progress. Cancellation is immediate locally and best-effort remotely (own pending prompt deleted from the queue, own running prompt interrupted, foreign prompts untouched). Output images are downloaded size-bounded through a strictly validated `/view` query, written to managed temp `.part` files and atomically renamed into `KINAOU/Assets/GeneratedImages`; failure/cancel removes partial data. Trusted adapter/template/seed/dimension/prompt provenance is stamped server-side; `image-generation` is advertised only when ComfyUI and at least one valid template exist. The PWA WorkerClient validates availability, job state, provenance and managed result paths. No UI yet. Final gate: 87/87 Vitest + 30/30 native worker tests + production build + worker syntax green.
 
@@ -110,6 +111,7 @@ The repeated GitHub “all jobs failed” emails did not indicate a broken `main
 - `worker/comfyui.mjs` — localhost-only ComfyUI URL, managed workflow-template binding, generated-image path contract, discovery/history/queue/view runtime helpers.
 - `src/core/imageJobs.ts` — typed image-generation availability, cancellable job state and trusted provenance parsing.
 - `src/core/generatedImages.ts` / `src/components/ImageStudioPanel.tsx` — once-only provenance-preserving asset registration and the visible local Image Studio workflow.
+- `src/core/storyboardFulfillment.ts` — explicit assign/replace/clear of scene-fulfilling visual assets.
 - `worker/whisper.mjs` / `src/core/sttJobs.ts` — managed whisper.cpp execution contract and typed cancellable job/result state.
 - `src/components/SttPanel.tsx` / `src/core/transcripts.ts` — visible STT lifecycle and attributable transcript asset registration.
 - `worker/asset-upload.mjs` — safe filename/temp/final upload paths.
@@ -133,11 +135,12 @@ The repeated GitHub “all jobs failed” emails did not indicate a broken `main
 12. Detect an installed local Ollama model, generate a schema-bound DirectorPlan, validate/review it, then apply its script/storyboard with an automatic pre-apply safety version.
 13. Watch render progress, cancel, see failure/result, retry as new job; worker cleans caption temp files in every terminal path.
 14. Check honest local ComfyUI availability, generate images from managed workflow templates with prompt/seed/dimension control, cancel mid-run, and get each success registered once as a provenance-carrying GENERATED asset with explicit timeline placement.
+15. Explicitly assign a generated visual to the storyboard scene it fulfils, replace a fulfilled scene only through an explicit action backed by an automatic safety version, keep alternatives, and clear assignments without losing assets.
 
 ## Current limitations
 - Only dissolve-in transitions are supported; fade automation is limited to bounded clip-edge envelopes. No keyframes. Position/scale/crop are currently static per clip.
 - Preview is render-then-play rather than frame-live; changes require refreshing the composed preview.
-- Local Director and AI Editor generation through Ollama, STT through whisper.cpp, TTS through Piper and image generation through ComfyUI are real but require their open runtimes/models already installed on the user's Mac. Generated images register as attributable assets with explicit timeline placement, but storyboard-scene fulfillment (which image fulfils which scene, replace vs. keep alternative) is not modeled yet; no local video adapter yet.
+- Local Director and AI Editor generation through Ollama, STT through whisper.cpp, TTS through Piper and image generation through ComfyUI are real but require their open runtimes/models already installed on the user's Mac. Generated images register as attributable assets with explicit timeline placement and storyboard-scene fulfillment; no local video adapter yet.
 - Browser/app visuals have two deliberately distinct future paths: real capture of explicitly authorized apps/sites using macOS screen-recording permission, and locally generated UI mockups/storyboard frames carrying prompt/model/seed provenance. Generated visuals must never be presented as evidence of a real screen state.
 - Local worker has not yet been run against the user's actual Mac/SSD; repository behavior is CI-tested, local hardware execution remains a later USER ACTION.
 
@@ -146,8 +149,8 @@ Build the first **Director/AI foundation with local and open adapters**.
 Immediate plan:
 1. ~~complete local ComfyUI discovery and cancellable managed image jobs~~ (done, PR #61),
 2. ~~register generated images with prompt/model/seed provenance in a visible Image Studio workflow with explicit timeline placement~~ (done, PR #63),
-3. explicit storyboard-scene fulfillment for generated visuals (assign/replace/keep-alternative, reversible via Version History),
-4. add local video-generation adapter discovery and managed jobs,
+3. ~~explicit storyboard-scene fulfillment for generated visuals~~ (done, PR #65),
+4. add local video-generation adapter discovery and managed jobs (capability-based, no hard-wired engine),
 5. register generated scenes non-destructively and retain replace/regenerate history.
 
 ## Later roadmap
