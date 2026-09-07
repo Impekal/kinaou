@@ -122,6 +122,29 @@ describe('worker client', () => {
     await expect(client.imageJobStatus('img-1')).rejects.toThrow(/completed/)
   })
 
+  it('starts, polls, stops and cancels real screen capture jobs', async () => {
+    const provenance = { kind: 'real-capture', adapterId: 'macos-screencapture', displayId: 1, delaySeconds: 0, region: null, requestedDurationMs: 30000 }
+    const base = { id: 'cap-1', kind: 'recording', state: 'running', progress: 0.2, createdAt: 'x', updatedAt: 'x', provenance }
+    const seen: string[] = []
+    const client = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl: async (input, init) => {
+      const url = String(input)
+      seen.push(url)
+      expect(new Headers(init?.headers).get('authorization')).toBe('Bearer secret')
+      if (url.endsWith('/capture/jobs')) {
+        expect(JSON.parse(String(init?.body))).toEqual({ kind: 'recording', durationMs: 30000 })
+        return jsonResponse({ ok: true, type: 'capture-job', job: base }, 202)
+      }
+      if (url.endsWith('/stop')) return jsonResponse({ ok: true, type: 'capture-job', job: { ...base, state: 'succeeded', progress: 1, capturePath: 'KINAOU/Assets/Captures/cap-1.mov', sizeBytes: 9000, durationMs: 8000 } })
+      if (url.endsWith('/cancel')) return jsonResponse({ ok: true, type: 'capture-job', job: { ...base, state: 'cancelled' } })
+      return jsonResponse({ ok: true, type: 'capture-job', job: base })
+    } })
+    expect((await client.startCapture({ kind: 'recording', durationMs: 30000 })).state).toBe('running')
+    expect((await client.captureStatus('cap-1')).progress).toBe(0.2)
+    expect((await client.stopCapture('cap-1')).durationMs).toBe(8000)
+    expect((await client.cancelCapture('cap-1')).state).toBe('cancelled')
+    expect(seen).toHaveLength(4)
+  })
+
   it('lists local models and returns Director output through the authenticated worker', async () => {
     let calls = 0
     const client = new WorkerClient({ baseUrl: 'http://localhost:43117', token: 'secret', fetchImpl: async (input, init) => {
