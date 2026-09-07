@@ -31,6 +31,13 @@ Finished images are downloaded from ComfyUI, written to a managed temp `.part` f
 
 Video generation is capability-based rather than engine-hard-wired: a managed workflow template that declares `"mediaType": "video"` is served through the mirrored `GET /video/templates` and `/video/jobs` endpoints, its `mp4`/`webm`/`mov` output is streamed size-bounded into `KINAOU/Assets/GeneratedVideo`, and each success is probed with ffprobe so the job result carries a real duration. All downloads (image and video) stream through a size limiter to a `.part` file before the atomic rename.
 
+Real screen capture (`screen-capture` capability, macOS only) uses the built-in `/usr/sbin/screencapture` tool, spawned shell-free, and is strictly separated from generated visuals:
+
+- `POST /capture/jobs` — an explicit user-initiated screenshot (optional 0–10s delay, display or bounded region) or screen recording (1–600s maximum, stoppable early). Captures are never started by AI flows.
+- `GET /capture/jobs/:id`, `POST /capture/jobs/:id/stop` (finalize a recording early), `POST /capture/jobs/:id/cancel` (discard).
+- Output is written to `KINAOU/Temp/Captures` and atomically renamed into `KINAOU/Assets/Captures`; recordings are ffprobe-probed for a real duration; failures and cancellations remove partial data.
+- Every result carries `real-capture` provenance (method, display, region, delay, requested duration). macOS gates the content behind its Screen Recording permission (System Settings → Privacy & Security) for the process running this worker; the worker reports honestly when a capture produced no usable file.
+
 Complex/multi-track rendering is not claimed yet and is rejected until compositor support is implemented.
 
 ## Local prerequisites

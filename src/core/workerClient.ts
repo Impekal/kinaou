@@ -6,6 +6,7 @@ import { parseSttJob, type SttJobRecord } from './sttJobs'
 import { parseTtsJob, type TtsJobRecord } from './ttsJobs'
 import { parseImageGenerationAvailability, parseImageJob, type ImageGenerationAvailability, type ImageJobParameters, type ImageJobRecord } from './imageJobs'
 import { parseVideoJob, type VideoJobRecord } from './videoJobs'
+import { parseCaptureJob, type CaptureJobRecord, type CaptureRequest } from './captureJobs'
 
 export interface WorkerClientOptions {
   baseUrl: string
@@ -169,6 +170,30 @@ export class WorkerClient {
     const payload = await this.request(`/video/jobs/${encodeURIComponent(jobId)}/cancel`, { method: 'POST' })
     if (payload?.ok !== true || payload?.type !== 'video-job') throw new Error('Invalid video job cancellation response')
     return parseVideoJob(payload.job)
+  }
+
+  async startCapture(request: CaptureRequest): Promise<CaptureJobRecord> {
+    const payload = await this.request('/capture/jobs', { method: 'POST', body: JSON.stringify(request) })
+    if (payload?.ok !== true || payload?.type !== 'capture-job') throw new Error('Invalid capture start response')
+    return parseCaptureJob(payload.job)
+  }
+
+  async captureStatus(jobId: string): Promise<CaptureJobRecord> {
+    const payload = await this.request(`/capture/jobs/${encodeURIComponent(jobId)}`, { method: 'GET' })
+    if (payload?.ok !== true || payload?.type !== 'capture-job') throw new Error('Invalid capture status response')
+    return parseCaptureJob(payload.job)
+  }
+
+  async stopCapture(jobId: string): Promise<CaptureJobRecord> {
+    const payload = await this.request(`/capture/jobs/${encodeURIComponent(jobId)}/stop`, { method: 'POST' })
+    if (payload?.ok !== true || payload?.type !== 'capture-job') throw new Error('Invalid capture stop response')
+    return parseCaptureJob(payload.job)
+  }
+
+  async cancelCapture(jobId: string): Promise<CaptureJobRecord> {
+    const payload = await this.request(`/capture/jobs/${encodeURIComponent(jobId)}/cancel`, { method: 'POST' })
+    if (payload?.ok !== true || payload?.type !== 'capture-job') throw new Error('Invalid capture cancellation response')
+    return parseCaptureJob(payload.job)
   }
 
   async generateVideoProxy(path: string): Promise<MediaProxyResult> {

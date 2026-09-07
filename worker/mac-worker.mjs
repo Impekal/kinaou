@@ -13,6 +13,7 @@ import { generateAiEditorProposal, generateDirectorPlan, listOllamaModels, norma
 import { MAX_GENERATED_IMAGE_BYTES, MAX_GENERATED_VIDEO_BYTES, MAX_WORKFLOW_FILE_BYTES, buildComfyPromptRequest, comfyHistoryStatus, comfyOutputQuery, comfyQueuePhase, comfyTempImageRelativePath, comfyTempVideoRelativePath, comfyWorkflowRelativePaths, detectComfyUi, generatedMediaExtensionFor, generatedImageRelativePath, generatedVideoRelativePath, normalizeComfyUrl, parseComfyPromptResponse, pickComfyOutputForMediaType, templateMediaType, validateComfyTemplate } from './comfyui.mjs'
 import { buildSttCommands, normalizeWhisperTranscript, sttPaths, whisperModelRelativePaths } from './whisper.mjs'
 import { buildPiperCommand, piperVoiceRelativePaths, ttsPaths, validateTtsText } from './piper.mjs'
+import { DEFAULT_SCREENCAPTURE_PATH, buildCaptureCommand, buildCaptureProvenance, captureAssetRelativePath, captureTempRelativePath, validateCaptureRequest } from './capture.mjs'
 
 const HOST = '127.0.0.1'
 const PORT = Number(process.env.KINAOU_WORKER_PORT ?? 43117)
@@ -20,17 +21,19 @@ const TOKEN = process.env.KINAOU_WORKER_TOKEN ?? crypto.randomBytes(24).toString
 const MANAGED_ROOT = normalizeRoot(process.env.KINAOU_MANAGED_ROOT ?? '')
 const WORKER_ID = process.env.KINAOU_WORKER_ID ?? `mac-${crypto.randomUUID()}`
 const MAX_UPLOAD_BYTES = Number(process.env.KINAOU_MAX_UPLOAD_BYTES ?? 250 * 1024 * 1024 * 1024)
-const VERSION = '0.8.0'
+const VERSION = '0.9.0'
 const OLLAMA_URL = normalizeOllamaUrl(process.env.KINAOU_OLLAMA_URL)
 const WHISPER_CLI = process.env.KINAOU_WHISPER_CLI ?? ''
 const PIPER_CLI = process.env.KINAOU_PIPER_CLI ?? ''
 const COMFYUI_URL = normalizeComfyUrl(process.env.KINAOU_COMFYUI_URL)
+const SCREENCAPTURE_PATH = process.env.KINAOU_SCREENCAPTURE ?? DEFAULT_SCREENCAPTURE_PATH
 const COMFYUI_POLL_MS = Number(process.env.KINAOU_COMFYUI_POLL_MS ?? 750)
 const COMFYUI_JOB_TIMEOUT_MS = Number(process.env.KINAOU_COMFYUI_JOB_TIMEOUT_MS ?? 20 * 60_000)
 const renderJobs = new Map()
 const sttJobs = new Map()
 const ttsJobs = new Map()
 const generationJobs = new Map()
+const captureJobs = new Map()
 const visualTrackTypes = new Set(['video', 'broll', 'image', 'avatar', 'overlay'])
 const audioTrackTypes = new Set(['voice', 'dialog', 'music', 'sfx'])
 
@@ -84,6 +87,7 @@ const server = http.createServer(async (request, response) => {
       const comfyTemplates = comfy.available ? await listComfyTemplates() : []
       const hasImageTemplates = comfyTemplates.some((template) => template.mediaType === 'image')
       const hasVideoTemplates = comfyTemplates.some((template) => template.mediaType === 'video')
+      const captureAvailable = await screencaptureAvailable()
       return send(response, 200, {
         ok: true,
         type: 'health',
@@ -92,7 +96,7 @@ const server = http.createServer(async (request, response) => {
           name: 'KINAOU Mac Worker',
           platform: process.platform,
           version: VERSION,
-          capabilities: ['filesystem', 'ffmpeg', 'media-probe', 'asset-upload', 'media-proxy', 'media-thumbnail', 'media-waveform', ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(PIPER_CLI && piperVoices.length && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : [])],
+          capabilities: ['filesystem', 'ffmpeg', 'media-probe', 'asset-upload', 'media-proxy', 'media-thumbnail', 'media-waveform', ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(PIPER_CLI && piperVoices.length && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : [])],
           managedRoots: [MANAGED_ROOT],
           ffmpegVersion: versions.ffmpeg,
           ffprobeVersion: versions.ffprobe
@@ -181,6 +185,21 @@ const server = http.createServer(async (request, response) => {
       const job = requireGenerationJob(decodeURIComponent(generationCancelMatch[2]), generationCancelMatch[1])
       cancelGenerationJob(job)
       return send(response, 200, { ok: true, type: `${generationCancelMatch[1]}-job`, job: publicGenerationJob(job) })
+    }
+
+    if (request.method === 'POST' && request.url === '/capture/jobs') {
+      const job = await createCaptureJob(await readJson(request))
+      queueMicrotask(() => executeCaptureJob(job.id).catch(() => {}))
+      return send(response, 202, { ok: true, type: 'capture-job', job: publicCaptureJob(job) })
+    }
+    const captureStatusMatch = request.url?.match(/^\/capture\/jobs\/([^/]+)$/)
+    if (request.method === 'GET' && captureStatusMatch) return send(response, 200, { ok: true, type: 'capture-job', job: publicCaptureJob(requireCaptureJob(decodeURIComponent(captureStatusMatch[1]))) })
+    const captureActionMatch = request.url?.match(/^\/capture\/jobs\/([^/]+)\/(stop|cancel)$/)
+    if (request.method === 'POST' && captureActionMatch) {
+      const job = requireCaptureJob(decodeURIComponent(captureActionMatch[1]))
+      if (captureActionMatch[2] === 'stop') stopCaptureJob(job)
+      else cancelCaptureJob(job)
+      return send(response, 200, { ok: true, type: 'capture-job', job: publicCaptureJob(job) })
     }
 
     if (request.method === 'POST' && request.url === '/probe') {
@@ -891,6 +910,105 @@ function cancelGenerationJob(job) {
       else if (phase === 'running') await fetch(`${COMFYUI_URL}/interrupt`, { method: 'POST', signal: AbortSignal.timeout(15_000) })
     } catch { /* best-effort remote cancellation; the local job is already terminal */ }
   })
+}
+
+async function screencaptureAvailable() {
+  if (process.platform !== 'darwin') return false
+  try { await access(SCREENCAPTURE_PATH); return true } catch { return false }
+}
+
+async function createCaptureJob(input) {
+  if (!(await screencaptureAvailable())) throw capabilityError('Screen capture requires macOS with the screencapture tool available')
+  const request = validateCaptureRequest(input)
+  if (request.kind === 'recording' && !versions.ffprobe) throw capabilityError('ffprobe is required for screen recordings')
+  const now = new Date().toISOString()
+  const job = { id: crypto.randomUUID(), request, state: 'queued', progress: 0, createdAt: now, updatedAt: now, provenance: buildCaptureProvenance(request), child: null, tempPath: null, stopRequested: false, startedAtMs: null }
+  captureJobs.set(job.id, job)
+  return job
+}
+
+function requireCaptureJob(id) {
+  const job = captureJobs.get(id)
+  if (!job) { const error = new Error('Capture job not found'); error.code = 'NOT_FOUND'; throw error }
+  return job
+}
+
+function publicCaptureJob(job) {
+  let progress = job.progress
+  if (job.state === 'running' && job.request.kind === 'recording' && job.startedAtMs) {
+    progress = Math.max(progress, Math.min(0.95, (Date.now() - job.startedAtMs) / job.request.durationMs))
+  }
+  return {
+    id: job.id, kind: job.request.kind, state: job.state, progress, createdAt: job.createdAt, updatedAt: job.updatedAt, provenance: job.provenance,
+    ...(job.capturePath ? { capturePath: job.capturePath, sizeBytes: job.sizeBytes, ...(job.durationMs !== undefined ? { durationMs: job.durationMs } : {}), ...(job.width !== undefined ? { width: job.width, height: job.height } : {}) } : {}),
+    ...(job.error ? { error: job.error } : {})
+  }
+}
+
+function touchCaptureJob(job) { job.updatedAt = new Date().toISOString() }
+
+async function executeCaptureJob(id) {
+  const job = captureJobs.get(id)
+  if (!job || job.state === 'cancelled') return
+  job.state = 'running'; job.progress = 0.05; touchCaptureJob(job)
+  try {
+    const tempAbsolute = resolveManaged(captureTempRelativePath(job.id, job.request.kind))
+    const finalRelative = captureAssetRelativePath(job.id, job.request.kind)
+    const finalAbsolute = resolveManaged(finalRelative)
+    await mkdir(path.dirname(tempAbsolute), { recursive: true })
+    await mkdir(path.dirname(finalAbsolute), { recursive: true })
+    job.tempPath = tempAbsolute
+    job.startedAtMs = Date.now()
+    const command = buildCaptureCommand({ screencapturePath: SCREENCAPTURE_PATH, request: job.request, targetPath: tempAbsolute })
+    await runCaptureProcess(job, command)
+    if (job.state === 'cancelled') return
+    const info = await stat(tempAbsolute).catch(() => null)
+    if (!info || !info.size) throw processFailed('Capture produced no file — check System Settings → Privacy & Security → Screen Recording for the process running the KINAOU worker')
+    if (job.request.kind === 'recording') {
+      const probe = await probeMedia(tempAbsolute)
+      if (!probe.durationMs || probe.durationMs <= 0) throw processFailed('Recorded video has no readable duration')
+      job.durationMs = probe.durationMs
+      job.width = probe.width
+      job.height = probe.height
+    }
+    if (job.state === 'cancelled') return
+    await rename(tempAbsolute, finalAbsolute)
+    job.tempPath = null
+    job.state = 'succeeded'; job.progress = 1; job.capturePath = finalRelative; job.sizeBytes = info.size
+    touchCaptureJob(job)
+  } catch (error) {
+    if (job.state !== 'cancelled') { job.state = 'failed'; job.error = error instanceof Error ? error.message : String(error); touchCaptureJob(job) }
+  } finally {
+    if (job.tempPath) { await unlink(job.tempPath).catch(() => {}); job.tempPath = null }
+  }
+}
+
+function runCaptureProcess(job, command) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command.executable, command.args, { shell: false, stdio: ['ignore', 'ignore', 'pipe'] })
+    job.child = child
+    let stderr = ''
+    child.stderr.on('data', (data) => { stderr += data.toString() })
+    child.on('error', reject)
+    child.on('close', (code) => {
+      job.child = null
+      if (code === 0 || job.state === 'cancelled' || job.stopRequested) return resolve()
+      reject(processFailed(`screencapture exited with code ${code}: ${stderr.trim()}`))
+    })
+  })
+}
+
+function stopCaptureJob(job) {
+  if (job.request.kind !== 'recording') throw new Error('Only screen recordings can be stopped early')
+  if (['succeeded', 'failed', 'cancelled'].includes(job.state)) return
+  job.stopRequested = true; touchCaptureJob(job)
+  if (job.child && !job.child.killed) job.child.kill('SIGINT')
+}
+
+function cancelCaptureJob(job) {
+  if (['succeeded', 'failed', 'cancelled'].includes(job.state)) return
+  job.state = 'cancelled'; touchCaptureJob(job)
+  if (job.child && !job.child.killed) job.child.kill('SIGINT')
 }
 
 async function comfyJson(pathname, init) {
