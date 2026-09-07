@@ -124,6 +124,14 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .generatedVoices > div:not(.eyebrow) { display: grid; grid-template-columns: 1fr minmax(260px, .8fr); gap: 14px; align-items: center; border-top: 1px solid #292f3d; padding-top: 10px; }
 .generatedVoices span { display: grid; gap: 4px; }
 .generatedVoices small { color: #7d8699; }
+.aiEditorPanel { padding: 24px; display: grid; gap: 14px; }
+.aiEditorPanel p { margin-bottom: 0; }
+.aiEditorPanel textarea { min-height: 180px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.aiDiffs { display: grid; gap: 8px; }
+.aiDiffs label { display: grid; grid-template-columns: auto 1fr; align-items: start; padding: 11px; border: 1px solid #303646; border-radius: 9px; background: #10131a; }
+.aiDiffs input { width: auto; }
+.aiDiffs span { display: grid; gap: 4px; }
+.aiDiffs small { color: #8f98aa; font-weight: 400; }
 .directorReview { display: grid; gap: 14px; border-top: 1px solid #292f3d; padding-top: 16px; }
 .directorReview > div { display: grid; gap: 5px; }
 .directorReview small { color: #7d8699; }
