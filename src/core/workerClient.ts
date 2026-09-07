@@ -4,6 +4,7 @@ import type { RenderPlan } from './render'
 import { parseRenderJob, type RenderJobRecord } from './renderJobs'
 import { parseSttJob, type SttJobRecord } from './sttJobs'
 import { parseTtsJob, type TtsJobRecord } from './ttsJobs'
+import { parseImageGenerationAvailability, parseImageJob, type ImageGenerationAvailability, type ImageJobParameters, type ImageJobRecord } from './imageJobs'
 
 export interface WorkerClientOptions {
   baseUrl: string
@@ -117,6 +118,30 @@ export class WorkerClient {
     const payload = await this.request(`/tts/jobs/${encodeURIComponent(jobId)}/cancel`, { method: 'POST' })
     if (payload?.ok !== true || payload?.type !== 'tts-job') throw new Error('Invalid TTS cancellation response')
     return parseTtsJob(payload.job)
+  }
+
+  async imageGenerationAvailability(): Promise<ImageGenerationAvailability> {
+    const payload = await this.request('/image/templates', { method: 'GET' })
+    if (payload?.ok !== true || payload?.type !== 'image-templates') throw new Error('Invalid image template response')
+    return parseImageGenerationAvailability(payload)
+  }
+
+  async startImageJob(parameters: ImageJobParameters): Promise<ImageJobRecord> {
+    const payload = await this.request('/image/jobs', { method: 'POST', body: JSON.stringify(parameters) })
+    if (payload?.ok !== true || payload?.type !== 'image-job') throw new Error('Invalid image job start response')
+    return parseImageJob(payload.job)
+  }
+
+  async imageJobStatus(jobId: string): Promise<ImageJobRecord> {
+    const payload = await this.request(`/image/jobs/${encodeURIComponent(jobId)}`, { method: 'GET' })
+    if (payload?.ok !== true || payload?.type !== 'image-job') throw new Error('Invalid image job status response')
+    return parseImageJob(payload.job)
+  }
+
+  async cancelImageJob(jobId: string): Promise<ImageJobRecord> {
+    const payload = await this.request(`/image/jobs/${encodeURIComponent(jobId)}/cancel`, { method: 'POST' })
+    if (payload?.ok !== true || payload?.type !== 'image-job') throw new Error('Invalid image job cancellation response')
+    return parseImageJob(payload.job)
   }
 
   async generateVideoProxy(path: string): Promise<MediaProxyResult> {

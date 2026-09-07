@@ -10,6 +10,7 @@ import { managedUploadPaths } from './asset-upload.mjs'
 import { buildAssDocument, captionTempPaths, escapeSubtitleFilterPath } from './captions.mjs'
 import { buildProxyArgs, buildThumbnailArgs, buildWaveformArgs, previewMediaType, proxyRelativePath, thumbnailRelativePath, waveformRelativePath } from './proxies.mjs'
 import { generateAiEditorProposal, generateDirectorPlan, listOllamaModels, normalizeOllamaUrl } from './ollama.mjs'
+import { MAX_GENERATED_IMAGE_BYTES, MAX_WORKFLOW_FILE_BYTES, buildComfyPromptRequest, comfyHistoryStatus, comfyImageQuery, comfyQueuePhase, comfyTempImageRelativePath, comfyWorkflowRelativePaths, detectComfyUi, generatedImageExtensionFor, generatedImageRelativePath, normalizeComfyUrl, parseComfyPromptResponse, validateComfyTemplate } from './comfyui.mjs'
 import { buildSttCommands, normalizeWhisperTranscript, sttPaths, whisperModelRelativePaths } from './whisper.mjs'
 import { buildPiperCommand, piperVoiceRelativePaths, ttsPaths, validateTtsText } from './piper.mjs'
 
@@ -19,13 +20,17 @@ const TOKEN = process.env.KINAOU_WORKER_TOKEN ?? crypto.randomBytes(24).toString
 const MANAGED_ROOT = normalizeRoot(process.env.KINAOU_MANAGED_ROOT ?? '')
 const WORKER_ID = process.env.KINAOU_WORKER_ID ?? `mac-${crypto.randomUUID()}`
 const MAX_UPLOAD_BYTES = Number(process.env.KINAOU_MAX_UPLOAD_BYTES ?? 250 * 1024 * 1024 * 1024)
-const VERSION = '0.6.0'
+const VERSION = '0.7.0'
 const OLLAMA_URL = normalizeOllamaUrl(process.env.KINAOU_OLLAMA_URL)
 const WHISPER_CLI = process.env.KINAOU_WHISPER_CLI ?? ''
 const PIPER_CLI = process.env.KINAOU_PIPER_CLI ?? ''
+const COMFYUI_URL = normalizeComfyUrl(process.env.KINAOU_COMFYUI_URL)
+const COMFYUI_POLL_MS = Number(process.env.KINAOU_COMFYUI_POLL_MS ?? 750)
+const COMFYUI_JOB_TIMEOUT_MS = Number(process.env.KINAOU_COMFYUI_JOB_TIMEOUT_MS ?? 20 * 60_000)
 const renderJobs = new Map()
 const sttJobs = new Map()
 const ttsJobs = new Map()
+const imageJobs = new Map()
 const visualTrackTypes = new Set(['video', 'broll', 'image', 'avatar', 'overlay'])
 const audioTrackTypes = new Set(['voice', 'dialog', 'music', 'sfx'])
 
@@ -75,6 +80,8 @@ const server = http.createServer(async (request, response) => {
       const localModels = await listOllamaModels(OLLAMA_URL).catch(() => [])
       const whisperModels = await listWhisperModels()
       const piperVoices = await listPiperVoices()
+      const comfy = await detectComfyUi(COMFYUI_URL)
+      const comfyTemplates = comfy.available ? await listComfyTemplates() : []
       return send(response, 200, {
         ok: true,
         type: 'health',
@@ -83,7 +90,7 @@ const server = http.createServer(async (request, response) => {
           name: 'KINAOU Mac Worker',
           platform: process.platform,
           version: VERSION,
-          capabilities: ['filesystem', 'ffmpeg', 'media-probe', 'asset-upload', 'media-proxy', 'media-thumbnail', 'media-waveform', ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(PIPER_CLI && piperVoices.length && versions.ffprobe ? ['text-to-speech'] : [])],
+          capabilities: ['filesystem', 'ffmpeg', 'media-probe', 'asset-upload', 'media-proxy', 'media-thumbnail', 'media-waveform', ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(PIPER_CLI && piperVoices.length && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && comfyTemplates.length ? ['image-generation'] : [])],
           managedRoots: [MANAGED_ROOT],
           ffmpegVersion: versions.ffmpeg,
           ffprobeVersion: versions.ffprobe
@@ -148,6 +155,24 @@ const server = http.createServer(async (request, response) => {
     if (request.method === 'POST' && ttsCancelMatch) {
       const job = requireTtsJob(decodeURIComponent(ttsCancelMatch[1])); cancelTtsJob(job)
       return send(response, 200, { ok: true, type: 'tts-job', job: publicTtsJob(job) })
+    }
+
+    if (request.method === 'GET' && request.url === '/image/templates') {
+      const comfyui = await detectComfyUi(COMFYUI_URL)
+      return send(response, 200, { ok: true, type: 'image-templates', comfyui, templates: await listComfyTemplates() })
+    }
+    if (request.method === 'POST' && request.url === '/image/jobs') {
+      const job = await createImageJob(await readJson(request))
+      queueMicrotask(() => executeImageJob(job.id).catch(() => {}))
+      return send(response, 202, { ok: true, type: 'image-job', job: publicImageJob(job) })
+    }
+    const imageStatusMatch = request.url?.match(/^\/image\/jobs\/([^/]+)$/)
+    if (request.method === 'GET' && imageStatusMatch) return send(response, 200, { ok: true, type: 'image-job', job: publicImageJob(requireImageJob(decodeURIComponent(imageStatusMatch[1]))) })
+    const imageCancelMatch = request.url?.match(/^\/image\/jobs\/([^/]+)\/cancel$/)
+    if (request.method === 'POST' && imageCancelMatch) {
+      const job = requireImageJob(decodeURIComponent(imageCancelMatch[1]))
+      cancelImageJob(job)
+      return send(response, 200, { ok: true, type: 'image-job', job: publicImageJob(job) })
     }
 
     if (request.method === 'POST' && request.url === '/probe') {
@@ -712,6 +737,147 @@ function cancelTtsJob(job) {
   job.state = 'cancelled'; touchTtsJob(job)
   if (job.child && !job.child.killed) job.child.kill('SIGTERM')
 }
+
+async function listComfyTemplates() {
+  let entries
+  try { entries = await readdir(resolveManaged('KINAOU/Models/ComfyUI/Workflows'), { withFileTypes: true }) } catch { return [] }
+  const templates = []
+  for (const relativePath of comfyWorkflowRelativePaths(entries)) {
+    try {
+      const absolutePath = resolveManaged(relativePath)
+      if ((await stat(absolutePath)).size > MAX_WORKFLOW_FILE_BYTES) continue
+      const template = validateComfyTemplate(JSON.parse(await readFile(absolutePath, 'utf8')))
+      templates.push({ path: relativePath, id: template.id, label: template.label, supportsNegativePrompt: Boolean(template.bindings.negativePrompt), supportsWidth: Boolean(template.bindings.width), supportsHeight: Boolean(template.bindings.height) })
+    } catch { /* an unreadable or invalid template file must not break discovery of the valid ones */ }
+  }
+  return templates
+}
+
+async function createImageJob(input) {
+  if (!(await detectComfyUi(COMFYUI_URL)).available) throw capabilityError('ComfyUI is not reachable on the configured localhost endpoint')
+  const templatePath = requireManagedRelativePath(input?.templatePath)
+  if (!templatePath.startsWith('KINAOU/Models/ComfyUI/Workflows/')) throw unauthorizedPath('ComfyUI templates must stay inside KINAOU/Models/ComfyUI/Workflows')
+  const templates = await listComfyTemplates()
+  if (!templates.some((template) => template.path === templatePath)) throw capabilityError('Requested ComfyUI workflow template is not available')
+  const template = JSON.parse(await readFile(resolveManaged(templatePath), 'utf8'))
+  const id = crypto.randomUUID()
+  const request = buildComfyPromptRequest(template, { positivePrompt: input.positivePrompt, negativePrompt: input.negativePrompt, seed: input.seed, width: input.width, height: input.height }, id)
+  const now = new Date().toISOString()
+  const job = {
+    id, state: 'queued', progress: 0, createdAt: now, updatedAt: now, templatePath,
+    request: request.body, promptId: null, tempPath: null, missingPolls: 0,
+    provenance: { ...request.provenance, positivePrompt: String(input.positivePrompt).trim(), negativePrompt: typeof input.negativePrompt === 'string' ? input.negativePrompt.trim() : '' }
+  }
+  imageJobs.set(job.id, job)
+  return job
+}
+
+function requireImageJob(id) {
+  const job = imageJobs.get(id)
+  if (!job) { const error = new Error('Image job not found'); error.code = 'NOT_FOUND'; throw error }
+  return job
+}
+
+function publicImageJob(job) {
+  return { id: job.id, state: job.state, progress: job.progress, createdAt: job.createdAt, updatedAt: job.updatedAt, templatePath: job.templatePath, provenance: job.provenance, ...(job.imagePath ? { imagePath: job.imagePath, sizeBytes: job.sizeBytes } : {}), ...(job.error ? { error: job.error } : {}) }
+}
+
+function touchImageJob(job) { job.updatedAt = new Date().toISOString() }
+
+async function executeImageJob(id) {
+  const job = requireImageJob(id)
+  if (job.state === 'cancelled') return
+  job.state = 'running'; job.progress = 0.05; touchImageJob(job)
+  try {
+    const submitted = await comfyJson('/prompt', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(job.request) })
+    job.promptId = parseComfyPromptResponse(submitted)
+    job.progress = 0.1; touchImageJob(job)
+    const images = await waitForComfyImages(job)
+    if (job.state === 'cancelled') return
+    const image = images[0]
+    const extension = generatedImageExtensionFor(image.filename)
+    const bytes = await downloadComfyImage(image)
+    if (job.state === 'cancelled') return
+    const tempAbsolute = resolveManaged(comfyTempImageRelativePath(job.id, extension))
+    const finalRelative = generatedImageRelativePath(job.id, extension)
+    const finalAbsolute = resolveManaged(finalRelative)
+    await mkdir(path.dirname(tempAbsolute), { recursive: true })
+    await mkdir(path.dirname(finalAbsolute), { recursive: true })
+    job.tempPath = tempAbsolute
+    await writeFile(tempAbsolute, bytes, { flag: 'wx' })
+    if (job.state === 'cancelled') return
+    await rename(tempAbsolute, finalAbsolute)
+    job.tempPath = null
+    job.state = 'succeeded'; job.progress = 1; job.imagePath = finalRelative; job.sizeBytes = bytes.length
+    touchImageJob(job)
+  } catch (error) {
+    if (job.state !== 'cancelled') { job.state = 'failed'; job.error = error instanceof Error ? error.message : String(error); touchImageJob(job) }
+  } finally {
+    if (job.tempPath) { await unlink(job.tempPath).catch(() => {}); job.tempPath = null }
+  }
+}
+
+async function waitForComfyImages(job) {
+  const deadline = Date.now() + COMFYUI_JOB_TIMEOUT_MS
+  while (true) {
+    if (job.state === 'cancelled') return []
+    const status = comfyHistoryStatus(await comfyJson(`/history/${job.promptId}`, { method: 'GET' }), job.promptId)
+    if (status.phase === 'completed') return status.images
+    if (status.phase === 'failed') throw processFailed(status.message)
+    const queue = await comfyJson('/queue', { method: 'GET' }).catch(() => null)
+    if (queue) {
+      const phase = comfyQueuePhase(queue, job.promptId)
+      if (phase === 'running') { job.missingPolls = 0; job.progress = Math.max(job.progress, 0.5) }
+      else if (phase === 'pending') { job.missingPolls = 0; job.progress = Math.max(job.progress, 0.15) }
+      else if ((job.missingPolls += 1) > 5) throw processFailed('ComfyUI no longer reports the submitted prompt')
+      touchImageJob(job)
+    }
+    if (Date.now() > deadline) throw processFailed('ComfyUI image generation timed out')
+    await sleep(COMFYUI_POLL_MS)
+  }
+}
+
+async function downloadComfyImage(image) {
+  const response = await fetch(`${COMFYUI_URL}/view?${comfyImageQuery(image)}`, { signal: AbortSignal.timeout(60_000) })
+  if (!response.ok) throw processFailed(`ComfyUI image download failed with HTTP ${response.status}`)
+  const declared = Number(response.headers.get('content-length') ?? 0)
+  if (Number.isFinite(declared) && declared > MAX_GENERATED_IMAGE_BYTES) throw processFailed('Generated image exceeds the size limit')
+  const bytes = Buffer.from(await response.arrayBuffer())
+  if (!bytes.length || bytes.length > MAX_GENERATED_IMAGE_BYTES) throw processFailed('Generated image is empty or exceeds the size limit')
+  return bytes
+}
+
+function cancelImageJob(job) {
+  if (['succeeded', 'failed', 'cancelled'].includes(job.state)) return
+  job.state = 'cancelled'; touchImageJob(job)
+  const promptId = job.promptId
+  if (!promptId) return
+  queueMicrotask(async () => {
+    try {
+      const phase = comfyQueuePhase(await comfyJson('/queue', { method: 'GET' }), promptId)
+      if (phase === 'pending') await comfyJson('/queue', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ delete: [promptId] }) })
+      else if (phase === 'running') await fetch(`${COMFYUI_URL}/interrupt`, { method: 'POST', signal: AbortSignal.timeout(15_000) })
+    } catch { /* best-effort remote cancellation; the local job is already terminal */ }
+  })
+}
+
+async function comfyJson(pathname, init) {
+  const response = await fetch(`${COMFYUI_URL}${pathname}`, { ...init, signal: AbortSignal.timeout(15_000) })
+  const payload = await response.json().catch(() => null)
+  if (!response.ok) {
+    const message = typeof payload?.error === 'string' ? payload.error : typeof payload?.error?.message === 'string' ? payload.error.message : `ComfyUI request failed with HTTP ${response.status}`
+    throw processFailed(message)
+  }
+  return payload
+}
+
+function processFailed(message) {
+  const error = new Error(message)
+  error.code = 'PROCESS_FAILED'
+  return error
+}
+
+function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)) }
 
 function capabilityError(message) {
   const error = new Error(message)
