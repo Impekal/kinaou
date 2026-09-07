@@ -9,7 +9,7 @@ import crypto from 'node:crypto'
 import { managedUploadPaths } from './asset-upload.mjs'
 import { buildAssDocument, captionTempPaths, escapeSubtitleFilterPath } from './captions.mjs'
 import { buildProxyArgs, buildThumbnailArgs, buildWaveformArgs, previewMediaType, proxyRelativePath, thumbnailRelativePath, waveformRelativePath } from './proxies.mjs'
-import { generateDirectorPlan, listOllamaModels, normalizeOllamaUrl } from './ollama.mjs'
+import { generateAiEditorProposal, generateDirectorPlan, listOllamaModels, normalizeOllamaUrl } from './ollama.mjs'
 import { buildSttCommands, normalizeWhisperTranscript, sttPaths, whisperModelRelativePaths } from './whisper.mjs'
 import { buildPiperCommand, piperVoiceRelativePaths, ttsPaths, validateTtsText } from './piper.mjs'
 
@@ -107,6 +107,13 @@ const server = http.createServer(async (request, response) => {
       if (!localModels.some((item) => item.id === body.model)) throw capabilityError('Requested local model is not installed')
       const plan = await generateDirectorPlan(OLLAMA_URL, body.model, body.brief)
       return send(response, 200, { ok: true, type: 'director-plan', plan })
+    }
+
+    if (request.method === 'POST' && request.url === '/ai-editor/generate') {
+      const body = await readJson(request)
+      const localModels = await listOllamaModels(OLLAMA_URL).catch(() => [])
+      if (!localModels.some((item) => item.id === body.model)) throw capabilityError('Requested local model is not installed')
+      return send(response, 200, { ok: true, type: 'ai-editor-proposal', proposal: await generateAiEditorProposal(OLLAMA_URL, body.model, body.instruction, body.context) })
     }
 
     if (request.method === 'GET' && request.url === '/stt/models') {

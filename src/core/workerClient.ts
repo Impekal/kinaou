@@ -68,6 +68,12 @@ export class WorkerClient {
     return payload.plan
   }
 
+  async generateAiEditorProposal(model: string, instruction: string, context: unknown): Promise<unknown> {
+    const payload = await this.request('/ai-editor/generate', { method: 'POST', body: JSON.stringify({ model, instruction, context }) })
+    if (payload?.ok !== true || payload?.type !== 'ai-editor-proposal') throw new Error('Invalid AI Editor response')
+    return payload.proposal
+  }
+
   async listSttModels(): Promise<string[]> {
     const payload = await this.request('/stt/models', { method: 'GET' })
     if (payload?.ok !== true || payload?.type !== 'stt-models' || !Array.isArray(payload.models) || !payload.models.every((item: unknown) => typeof item === 'string' && item.startsWith('KINAOU/Models/'))) throw new Error('Invalid STT model response')

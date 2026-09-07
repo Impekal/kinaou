@@ -163,7 +163,7 @@ export function App() {
             <StudioProxyPreview project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} />
             <TimelinePreview project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} />
             <VersionHistoryPanel project={project} history={versionHistory} onProjectChange={persistProject} />
-            <AiEditorPanel project={project} history={versionHistory} onProjectChange={persistProject} />
+            <AiEditorPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
             <TimelineEditor project={project} onProjectChange={persistProject} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} />
             <CaptionEditor project={project} history={versionHistory} onProjectChange={persistProject} />
             <RenderPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} />
