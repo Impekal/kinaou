@@ -14,6 +14,7 @@ import { DirectorPanel } from './components/DirectorPanel'
 import { SttPanel } from './components/SttPanel'
 import { AudioStudioPanel } from './components/AudioStudioPanel'
 import { ImageStudioPanel } from './components/ImageStudioPanel'
+import { VideoStudioPanel } from './components/VideoStudioPanel'
 import { AiEditorPanel } from './components/AiEditorPanel'
 import { createProjectFromInput, type CreationInputKind } from './core/create'
 import { importProbedMedia, type ImportableMediaKind } from './core/mediaImport'
@@ -24,7 +25,7 @@ import { WorkerClient } from './core/workerClient'
 import type { MediaProbeResult, WorkerHandshake } from './core/workerProtocol'
 import { PersistentVersionHistory } from './core/versioning'
 
-const nav = ['Projects', 'Create', 'Director', 'Studio', 'Assets', 'Avatar', 'Audio', 'Images', 'Publish', 'Analytics', 'Settings']
+const nav = ['Projects', 'Create', 'Director', 'Studio', 'Assets', 'Avatar', 'Audio', 'Images', 'Video', 'Publish', 'Analytics', 'Settings']
 const storageAreas = ['models', 'projects', 'assets', 'cache', 'temp', 'renders', 'archive'] as const
 
 export function App() {
@@ -158,6 +159,7 @@ export function App() {
         {section === 'Director' && (project ? <DirectorPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">Create or open a project first.</section>)}
         {section === 'Audio' && (project ? <AudioStudioPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">Create or open a project first.</section>)}
         {section === 'Images' && (project ? <ImageStudioPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">Create or open a project first.</section>)}
+        {section === 'Video' && (project ? <VideoStudioPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">Create or open a project first.</section>)}
 
         {section === 'Studio' && <section className="stack">
           {!project ? <div className="card emptyState">Create or open a project first.</div> : <>
@@ -201,7 +203,7 @@ export function App() {
           <div className="card"><div className="eyebrow">MANAGED TARGETS</div><ul className="paths">{storageAreas.map((area) => <li key={area}><span>{area}</span><code>{storageTarget(storage, area)}</code></li>)}</ul><div className="note">{storage.backend === 'desktop-worker' ? 'External filesystem profile configured. Real media access is available when the local worker is running and authenticated.' : 'Browser mode stores project metadata locally. Heavy media should use the desktop worker / external SSD adapter.'}</div></div>
         </section>}
 
-        {!['Projects', 'Create', 'Director', 'Studio', 'Assets', 'Audio', 'Images', 'Settings'].includes(section) && <section className="card emptyState"><div className="eyebrow">{section.toUpperCase()}</div><h2>Engine slot reserved</h2><p>This area is intentionally not presented as functional until its underlying engine exists.</p></section>}
+        {!['Projects', 'Create', 'Director', 'Studio', 'Assets', 'Audio', 'Images', 'Video', 'Settings'].includes(section) && <section className="card emptyState"><div className="eyebrow">{section.toUpperCase()}</div><h2>Engine slot reserved</h2><p>This area is intentionally not presented as functional until its underlying engine exists.</p></section>}
       </main>
     </div>
   )
