@@ -43,7 +43,7 @@ Safety rule: only paths below the configured KINAOU root may be created/moved/de
 ## Repository
 Repo: `Impekal/kinaou`
 Default branch: `main`
-Current main SHA after PR #55: `7eb89e40554c47c0767bee4cc1f7c9404d0ac623`
+Current main SHA after PR #57: `bd8559adc12963532b43ba18cb2674944780aa87`
 
 ## Merged slices
 - **PR #1** — foundation. Main `0230448aad6ee49e98118ab196b91f2b20e8ca8a`. React/Vite/TS, project schema, non-destructive timeline, storage safety, versioning, jobs, model registry, CI.
@@ -81,9 +81,10 @@ Current main SHA after PR #55: `7eb89e40554c47c0767bee4cc1f7c9404d0ac623`
 - **PR #51** — cancellable local Piper TTS jobs. Main `8abcc5802187f6dfc7857f424e66af5ac1b97454`. The worker advertises text-to-speech only when Piper, ffprobe and a managed configured ONNX voice are available; authenticated endpoints discover voices and start/poll/cancel jobs. Piper runs shell-free from a managed temporary UTF-8 text file, successful WAV output is probed and retained under `KINAOU/Assets/GeneratedVoice`, while temporary text and incomplete audio are removed after failure or cancellation. Final gate: 76/76 Vitest + 19/19 native worker tests + production build + worker syntax green.
 - **PR #53** — real local Piper Audio Studio workflow. Main `f41b7951ffbdf5b0f893a0ada7ce4b9e1fd40cd5`. Audio is now functional: it detects managed Piper voices, starts/polls/cancels synthesis, displays honest availability and progress, registers successful WAVs exactly once with adapter/voice/job/source-text attribution, and exposes explicit compatible timeline placement. Final gate: 78/78 Vitest + 19/19 native worker tests + production build + worker syntax green.
 - **PR #55** — reviewable reversible AI Editor proposals. Main `7eb89e40554c47c0767bee4cc1f7c9404d0ac623`. A bounded versioned schema supports safe move, trim, gain, speed, fade and caption-text edits. Studio validates every referenced target, shows concrete before/after values, requires explicit per-operation selection, applies only the chosen subset, records accepted proposal provenance and creates an automatic Version History safety snapshot. No model output is claimed yet. Final gate: 80/80 Vitest + 19/19 native worker tests + production build + worker syntax green.
+- **PR #57** — local Ollama AI Editor generation. Main `bd8559adc12963532b43ba18cb2674944780aa87`. Studio sends only a bounded sanitized timeline context without media URIs or unrelated metadata to the localhost adapter, requests schema-constrained operations at temperature zero, overwrites claimed provenance with trusted model/adapter identity, and revalidates every returned target before showing the existing per-operation diff/review flow. Final gate: 81/81 Vitest + 20/20 native worker tests + production build + worker syntax green.
 
 ## CI incident record (2026-09-06)
-The repeated GitHub “all jobs failed” emails did not indicate a broken `main`. CI was configured with `push.branches: ['**']`, so every intermediate commit on every feature branch immediately triggered a full run; opening a PR triggered another run for the same head. A PR #11 work-in-progress sequence produced 13 consecutive red push runs while native `node:test` coverage was temporarily being discovered by Vitest; the final feature head, PR gate, merge commit and documentation commit were green. Earlier isolated failures were normal pre-fix commits: the initial CSS side-effect import lacked Vite types, the Worker UI used nested probe fields not present in its type, and the compositor test still expected complex plans to be rejected after support was added. All were corrected before their PRs merged. There are no open feature PRs after PR #55.
+The repeated GitHub “all jobs failed” emails did not indicate a broken `main`. CI was configured with `push.branches: ['**']`, so every intermediate commit on every feature branch immediately triggered a full run; opening a PR triggered another run for the same head. A PR #11 work-in-progress sequence produced 13 consecutive red push runs while native `node:test` coverage was temporarily being discovered by Vitest; the final feature head, PR gate, merge commit and documentation commit were green. Earlier isolated failures were normal pre-fix commits: the initial CSS side-effect import lacked Vite types, the Worker UI used nested probe fields not present in its type, and the compositor test still expected complex plans to be rejected after support was added. All were corrected before their PRs merged. There are no open feature PRs after PR #57.
 
 ## Important modules
 - `src/core/project.ts` — project/assets/tracks/clips/storyboard schema.
@@ -129,16 +130,16 @@ The repeated GitHub “all jobs failed” emails did not indicate a broken `main
 ## Current limitations
 - Only dissolve-in transitions are supported; fade automation is limited to bounded clip-edge envelopes. No keyframes. Position/scale/crop are currently static per clip.
 - Preview is render-then-play rather than frame-live; changes require refreshing the composed preview.
-- Local Director generation through Ollama, STT through whisper.cpp and TTS through Piper are real but require their open runtimes/models already installed on the user's Mac. No image/video local adapters yet. AI Editor can review/apply structured proposals but cannot request them from a local model yet.
+- Local Director and AI Editor generation through Ollama, STT through whisper.cpp and TTS through Piper are real but require their open runtimes/models already installed on the user's Mac. No image/video local adapters yet.
 - Local worker has not yet been run against the user's actual Mac/SSD; repository behavior is CI-tested, local hardware execution remains a later USER ACTION.
 
 ## Current next milestone
 Build the first **Director/AI foundation with local and open adapters**.
 Immediate plan:
-1. generate AI Editor proposals through a detected local Ollama model using only a bounded project/timeline context,
-2. revalidate every returned operation and retain model provenance before review,
-3. add local image-generation adapter discovery and managed jobs,
-4. add local video-generation adapter discovery and managed jobs.
+1. add local image-generation adapter discovery and managed jobs,
+2. register generated images with prompt/model/seed provenance and explicit storyboard/timeline placement,
+3. add local video-generation adapter discovery and managed jobs,
+4. register generated scenes non-destructively and retain replace/regenerate history.
 
 ## Later roadmap
 Studio fidelity baseline complete: transforms/reorder → transitions → fades/automation → retiming → proxies/thumbnails/waveforms → composed preview → persistent Version History.
