@@ -13,6 +13,7 @@ import { VersionHistoryPanel } from './components/VersionHistoryPanel'
 import { DirectorPanel } from './components/DirectorPanel'
 import { SttPanel } from './components/SttPanel'
 import { AudioStudioPanel } from './components/AudioStudioPanel'
+import { AiEditorPanel } from './components/AiEditorPanel'
 import { createProjectFromInput, type CreationInputKind } from './core/create'
 import { importProbedMedia, type ImportableMediaKind } from './core/mediaImport'
 import { ProjectRepository, StorageSettingsRepository } from './core/persistence'
@@ -162,6 +163,7 @@ export function App() {
             <StudioProxyPreview project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} />
             <TimelinePreview project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} />
             <VersionHistoryPanel project={project} history={versionHistory} onProjectChange={persistProject} />
+            <AiEditorPanel project={project} history={versionHistory} onProjectChange={persistProject} />
             <TimelineEditor project={project} onProjectChange={persistProject} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} />
             <CaptionEditor project={project} history={versionHistory} onProjectChange={persistProject} />
             <RenderPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} />
