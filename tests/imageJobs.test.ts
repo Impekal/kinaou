@@ -27,11 +27,12 @@ describe('image jobs', () => {
   it('parses honest availability with managed template descriptors', () => {
     const availability = parseImageGenerationAvailability({
       comfyui: { available: true, version: '0.3.40' },
-      templates: [{ path: 'KINAOU/Models/ComfyUI/Workflows/ui.json', id: 'ui-sdxl', label: 'UI SDXL', supportsNegativePrompt: true, supportsWidth: true, supportsHeight: true }]
+      templates: [{ path: 'KINAOU/Models/ComfyUI/Workflows/ui.json', id: 'ui-sdxl', label: 'UI SDXL', mediaType: 'image', supportsNegativePrompt: true, supportsWidth: true, supportsHeight: true }]
     })
     expect(availability.comfyui.available).toBe(true)
     expect(availability.templates[0].id).toBe('ui-sdxl')
     expect(parseImageGenerationAvailability({ comfyui: { available: false }, templates: [] }).templates).toHaveLength(0)
-    expect(() => parseImageGenerationAvailability({ comfyui: { available: true }, templates: [{ path: '/etc/x.json', id: 'x', label: 'x', supportsNegativePrompt: false, supportsWidth: false, supportsHeight: false }] })).toThrow(/template path/)
+    expect(() => parseImageGenerationAvailability({ comfyui: { available: true }, templates: [{ path: '/etc/x.json', id: 'x', label: 'x', mediaType: 'image', supportsNegativePrompt: false, supportsWidth: false, supportsHeight: false }] })).toThrow(/template path/)
+    expect(() => parseImageGenerationAvailability({ comfyui: { available: true }, templates: [{ path: 'KINAOU/Models/ComfyUI/Workflows/x.json', id: 'x', label: 'x', mediaType: 'audio', supportsNegativePrompt: false, supportsWidth: false, supportsHeight: false }] })).toThrow(/media type/)
   })
 })

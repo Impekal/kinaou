@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildComfyPromptRequest, comfyHistoryStatus, comfyImageQuery, comfyQueuePhase, comfyTempImageRelativePath, comfyWorkflowRelativePaths, detectComfyUi, generatedImageExtensionFor, generatedImageRelativePath, materializeComfyWorkflow, normalizeComfyUrl, parseComfyPromptResponse, validateComfyTemplate } from './comfyui.mjs'
+import { buildComfyPromptRequest, comfyHistoryStatus, comfyOutputQuery, comfyQueuePhase, comfyTempImageRelativePath, comfyTempVideoRelativePath, comfyWorkflowRelativePaths, detectComfyUi, generatedMediaExtensionFor, generatedImageRelativePath, generatedVideoRelativePath, materializeComfyWorkflow, normalizeComfyUrl, parseComfyPromptResponse, pickComfyOutputForMediaType, templateMediaType, validateComfyTemplate } from './comfyui.mjs'
 
 const template = {
   schemaVersion: 1,
@@ -70,14 +70,35 @@ test('accepts only well-formed prompt IDs and surfaces node validation errors', 
   assert.throws(() => parseComfyPromptResponse({}), /invalid prompt ID/)
 })
 
-test('reads history phases and collects only saved output images', () => {
+test('reads history phases and collects only saved outputs', () => {
   assert.deepEqual(comfyHistoryStatus({}, 'p1'), { phase: 'waiting' })
   assert.deepEqual(comfyHistoryStatus({ p1: { status: { completed: false } } }, 'p1'), { phase: 'waiting' })
   const completed = comfyHistoryStatus({ p1: { status: { completed: true }, outputs: { 9: { images: [{ filename: 'ComfyUI_00001_.png', subfolder: '', type: 'output' }, { filename: 'preview.png', type: 'temp' }] } } } }, 'p1')
-  assert.deepEqual(completed, { phase: 'completed', images: [{ filename: 'ComfyUI_00001_.png', subfolder: '', type: 'output' }] })
+  assert.deepEqual(completed, { phase: 'completed', outputs: [{ filename: 'ComfyUI_00001_.png', subfolder: '', type: 'output' }] })
   assert.equal(comfyHistoryStatus({ p1: { status: { completed: true }, outputs: {} } }, 'p1').phase, 'failed')
   const failed = comfyHistoryStatus({ p1: { status: { status_str: 'error', completed: false, messages: [['execution_error', { exception_message: 'CUDA out of memory' }]] } } }, 'p1')
   assert.deepEqual(failed, { phase: 'failed', message: 'CUDA out of memory' })
+})
+
+test('collects video outputs and picks the matching media type', () => {
+  const status = comfyHistoryStatus({ p1: { status: { completed: true }, outputs: { 8: { gifs: [{ filename: 'scene_00001.mp4', subfolder: 'video', type: 'output' }] }, 9: { images: [{ filename: 'poster.png', subfolder: '', type: 'output' }] } } } }, 'p1')
+  assert.equal(status.phase, 'completed')
+  assert.equal(status.outputs.length, 2)
+  assert.equal(pickComfyOutputForMediaType(status.outputs, 'video').filename, 'scene_00001.mp4')
+  assert.equal(pickComfyOutputForMediaType(status.outputs, 'image').filename, 'poster.png')
+  assert.throws(() => pickComfyOutputForMediaType([{ filename: 'poster.png' }], 'video'), /video output/)
+})
+
+test('declares explicit template media types and managed video destinations', () => {
+  assert.equal(templateMediaType(template), 'image')
+  assert.equal(templateMediaType({ ...template, mediaType: 'video' }), 'video')
+  assert.equal(validateComfyTemplate({ ...template, mediaType: 'video' }).mediaType, 'video')
+  assert.throws(() => validateComfyTemplate({ ...template, mediaType: 'audio' }), /media type/)
+  assert.equal(generatedVideoRelativePath('job-7', 'mp4'), 'KINAOU/Assets/GeneratedVideo/job-7.mp4')
+  assert.equal(comfyTempVideoRelativePath('job-7', 'mp4'), 'KINAOU/Temp/GeneratedVideo/job-7.mp4.part')
+  assert.throws(() => generatedVideoRelativePath('../bad', 'mp4'), /job ID/)
+  assert.equal(generatedMediaExtensionFor('clip.MOV', 'video'), 'mov')
+  assert.throws(() => generatedMediaExtensionFor('clip.mp4', 'image'), /image extension/)
 })
 
 test('finds the prompt in running or pending queues', () => {
@@ -89,12 +110,13 @@ test('finds the prompt in running or pending queues', () => {
 })
 
 test('builds only safe output view queries and managed temp paths', () => {
-  assert.equal(comfyImageQuery({ filename: 'ComfyUI_00001_.png', subfolder: '', type: 'output' }), 'filename=ComfyUI_00001_.png&subfolder=&type=output')
-  assert.throws(() => comfyImageQuery({ filename: '../secret.png', subfolder: '', type: 'output' }), /filename/)
-  assert.throws(() => comfyImageQuery({ filename: 'a.png', subfolder: '../up', type: 'output' }), /subfolder/)
-  assert.throws(() => comfyImageQuery({ filename: 'a.png', subfolder: '', type: 'temp' }), /output images/)
-  assert.equal(generatedImageExtensionFor('image.JPEG'), 'jpg')
-  assert.throws(() => generatedImageExtensionFor('archive.zip'), /extension/)
+  assert.equal(comfyOutputQuery({ filename: 'ComfyUI_00001_.png', subfolder: '', type: 'output' }), 'filename=ComfyUI_00001_.png&subfolder=&type=output')
+  assert.equal(comfyOutputQuery({ filename: 'scene.mp4', subfolder: 'video', type: 'output' }), 'filename=scene.mp4&subfolder=video&type=output')
+  assert.throws(() => comfyOutputQuery({ filename: '../secret.png', subfolder: '', type: 'output' }), /filename/)
+  assert.throws(() => comfyOutputQuery({ filename: 'a.png', subfolder: '../up', type: 'output' }), /subfolder/)
+  assert.throws(() => comfyOutputQuery({ filename: 'a.png', subfolder: '', type: 'temp' }), /output files/)
+  assert.equal(generatedMediaExtensionFor('image.JPEG'), 'jpg')
+  assert.throws(() => generatedMediaExtensionFor('archive.zip'), /extension/)
   assert.equal(comfyTempImageRelativePath('job-1', 'png'), 'KINAOU/Temp/GeneratedImages/job-1.png.part')
   assert.throws(() => comfyTempImageRelativePath('../job', 'png'), /job ID/)
 })

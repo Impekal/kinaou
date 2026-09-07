@@ -4,6 +4,7 @@ export interface ImageGenerationProvenance {
   kind: 'local-model'
   adapterId: 'comfyui'
   templateId: string
+  mediaType?: 'image' | 'video'
   seed: number
   width: number | null
   height: number | null
@@ -28,6 +29,7 @@ export interface ComfyTemplateDescriptor {
   path: string
   id: string
   label: string
+  mediaType: 'image' | 'video'
   supportsNegativePrompt: boolean
   supportsWidth: boolean
   supportsHeight: boolean
@@ -54,6 +56,7 @@ export function parseImageGenerationProvenance(value: unknown): ImageGenerationP
   if (!value || typeof value !== 'object') throw new Error('Invalid image generation provenance')
   const provenance = value as Partial<ImageGenerationProvenance>
   if (provenance.kind !== 'local-model' || provenance.adapterId !== 'comfyui' || typeof provenance.templateId !== 'string' || !provenance.templateId) throw new Error('Invalid image generation provenance identity')
+  if (provenance.mediaType !== undefined && !['image', 'video'].includes(provenance.mediaType)) throw new Error('Invalid image generation provenance media type')
   if (!Number.isSafeInteger(provenance.seed) || (provenance.seed as number) < 0) throw new Error('Invalid image generation provenance seed')
   for (const dimension of [provenance.width, provenance.height]) if (dimension !== null && !Number.isInteger(dimension)) throw new Error('Invalid image generation provenance dimensions')
   if (typeof provenance.positivePrompt !== 'string' || !provenance.positivePrompt.trim() || typeof provenance.negativePrompt !== 'string') throw new Error('Invalid image generation provenance prompts')
@@ -81,6 +84,7 @@ export function parseImageGenerationAvailability(value: unknown): ImageGeneratio
     const template = entry as Partial<ComfyTemplateDescriptor>
     if (typeof template?.path !== 'string' || !template.path.startsWith(TEMPLATE_PREFIX)) throw new Error('Invalid ComfyUI template path')
     if (typeof template.id !== 'string' || !template.id || typeof template.label !== 'string' || !template.label) throw new Error('Invalid ComfyUI template identity')
+    if (!['image', 'video'].includes(String(template.mediaType))) throw new Error('Invalid ComfyUI template media type')
     if (![template.supportsNegativePrompt, template.supportsWidth, template.supportsHeight].every((flag) => typeof flag === 'boolean')) throw new Error('Invalid ComfyUI template capability flags')
     return template as ComfyTemplateDescriptor
   })
