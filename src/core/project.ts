@@ -56,7 +56,8 @@ export const projectSchema = z.object({
     id: z.string().min(1),
     title: z.string().min(1),
     description: z.string().default(''),
-    durationMs: z.number().int().positive()
+    durationMs: z.number().int().positive(),
+    assetId: z.string().min(1).optional()
   })).default([]),
   assets: z.array(assetSchema).default([]),
   tracks: z.array(trackSchema).default([]),
