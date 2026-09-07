@@ -960,7 +960,12 @@ async function executeCaptureJob(id) {
     job.tempPath = tempAbsolute
     job.startedAtMs = Date.now()
     const command = buildCaptureCommand({ screencapturePath: SCREENCAPTURE_PATH, request: job.request, targetPath: tempAbsolute })
-    await runCaptureProcess(job, command)
+    try {
+      await runCaptureProcess(job, command)
+    } catch (error) {
+      if (job.request.interactive && error?.code === 'PROCESS_FAILED') throw processFailed('Interactive selection was cancelled on the Mac screen')
+      throw error
+    }
     if (job.state === 'cancelled') return
     const info = await stat(tempAbsolute).catch(() => null)
     if (!info || !info.size) throw processFailed('Capture produced no file — check System Settings → Privacy & Security → Screen Recording for the process running the KINAOU worker')

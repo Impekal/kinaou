@@ -12,6 +12,7 @@ const terminal = new Set(['succeeded', 'failed', 'cancelled'])
 
 export function CapturePanel({ project, history, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange }: Props) {
   const [kind, setKind] = useState<'screenshot' | 'recording'>('screenshot')
+  const [selection, setSelection] = useState<'display' | 'interactive'>('display')
   const [displayId, setDisplayId] = useState('1')
   const [delaySeconds, setDelaySeconds] = useState('3')
   const [durationSeconds, setDurationSeconds] = useState('60')
@@ -38,15 +39,18 @@ export function CapturePanel({ project, history, workerUrl, workerToken, workerC
   const displayValid = Number.isInteger(displayValue) && displayValue >= 1 && displayValue <= 16
   const delayValid = Number.isInteger(delayValue) && delayValue >= 0 && delayValue <= 10
   const durationValid = Number.isInteger(durationValue) && durationValue >= 1 && durationValue <= 600
+  const interactive = kind === 'screenshot' && selection === 'interactive'
   const available = workerConnected && workerCapabilities.includes('screen-capture')
   const running = Boolean(job && !terminal.has(job.state))
-  const canStart = available && displayValid && (kind === 'screenshot' ? delayValid : durationValid) && !running
+  const canStart = available && !running && (interactive || (displayValid && (kind === 'screenshot' ? delayValid : durationValid)))
 
   async function start() {
     setError('')
-    const request: CaptureRequest = kind === 'screenshot'
-      ? { kind, displayId: displayValue, delaySeconds: delayValue }
-      : { kind, displayId: displayValue, durationMs: durationValue * 1000 }
+    const request: CaptureRequest = interactive
+      ? { kind: 'screenshot', interactive: true }
+      : kind === 'screenshot'
+        ? { kind, displayId: displayValue, delaySeconds: delayValue }
+        : { kind, displayId: displayValue, durationMs: durationValue * 1000 }
     try { setJob(await client().startCapture(request)) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Capture failed to start') }
   }
 
@@ -61,13 +65,14 @@ export function CapturePanel({ project, history, workerUrl, workerToken, workerC
       {!available && <p className="cardBody">Screen capture requires a connected worker on macOS with the built-in screencapture tool. {workerConnected ? 'The connected worker does not advertise screen-capture.' : 'Connect the worker in Settings first.'}</p>}
       <div className="formRow">
         <label>Type<select value={kind} onChange={(event) => setKind(event.target.value as 'screenshot' | 'recording')}><option value="screenshot">Screenshot</option><option value="recording">Screen recording</option></select></label>
-        <label>Display<input value={displayId} onChange={(event) => setDisplayId(event.target.value)} inputMode="numeric" /></label>
-        {kind === 'screenshot' && <label>Delay (s)<input value={delaySeconds} onChange={(event) => setDelaySeconds(event.target.value)} inputMode="numeric" /></label>}
+        {kind === 'screenshot' && <label>Target<select value={selection} onChange={(event) => setSelection(event.target.value as 'display' | 'interactive')}><option value="display">Entire display</option><option value="interactive">Pick window or area on screen</option></select></label>}
+        {!interactive && <label>Display<input value={displayId} onChange={(event) => setDisplayId(event.target.value)} inputMode="numeric" /></label>}
+        {kind === 'screenshot' && !interactive && <label>Delay (s)<input value={delaySeconds} onChange={(event) => setDelaySeconds(event.target.value)} inputMode="numeric" /></label>}
         {kind === 'recording' && <label>Max duration (s)<input value={durationSeconds} onChange={(event) => setDurationSeconds(event.target.value)} inputMode="numeric" /></label>}
       </div>
-      <p className="cardBody">{kind === 'screenshot' ? 'The delay gives you time to bring the window you want to capture to the front.' : 'The recording stops automatically at the maximum duration; Stop keeps what was recorded so far, Discard deletes it.'}</p>
+      <p className="cardBody">{interactive ? 'Your Mac cursor becomes a crosshair: drag an area, or press Space and click a window. Escape cancels without capturing.' : kind === 'screenshot' ? 'The delay gives you time to bring the window you want to capture to the front.' : 'The recording stops automatically at the maximum duration; Stop keeps what was recorded so far, Discard deletes it.'}</p>
       <div className="directorActions">
-        <button className="primary" disabled={!canStart} onClick={start}>{kind === 'screenshot' ? 'Capture screenshot' : 'Start recording'}</button>
+        <button className="primary" disabled={!canStart} onClick={start}>{interactive ? 'Select on screen & capture' : kind === 'screenshot' ? 'Capture screenshot' : 'Start recording'}</button>
         {running && job?.kind === 'recording' && <button className="secondaryButton" onClick={stop}>Stop &amp; keep</button>}
         {running && <button className="dangerButton" onClick={cancel}>Discard</button>}
       </div>
