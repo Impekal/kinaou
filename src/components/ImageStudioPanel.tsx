@@ -2,15 +2,43 @@ import { useEffect, useRef, useState } from 'react'
 import { AssetPlacementControl } from './AssetPlacementControl'
 import { registerGeneratedImage } from '../core/generatedImages'
 import type { ImageGenerationAvailability, ImageJobRecord } from '../core/imageJobs'
-import type { KinaouProject } from '../core/project'
+import type { KinaouAsset, KinaouProject } from '../core/project'
+import { assignAssetToScene, clearSceneAssignment } from '../core/storyboardFulfillment'
+import type { PersistentVersionHistory } from '../core/versioning'
 import { WorkerClient } from '../core/workerClient'
 
-interface Props { project: KinaouProject; workerUrl: string; workerToken: string; workerConnected: boolean; workerCapabilities: string[]; onProjectChange: (project: KinaouProject) => void }
+interface Props { project: KinaouProject; history: PersistentVersionHistory; workerUrl: string; workerToken: string; workerConnected: boolean; workerCapabilities: string[]; onProjectChange: (project: KinaouProject) => void }
 const terminal = new Set(['succeeded', 'failed', 'cancelled'])
 
 function randomSeed(): number { return Math.floor(Math.random() * 2 ** 31) }
 
-export function ImageStudioPanel({ project, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange }: Props) {
+interface SceneControlProps { project: KinaouProject; history: PersistentVersionHistory; asset: KinaouAsset; onProjectChange: (project: KinaouProject) => void; onError: (message: string) => void }
+
+function SceneFulfillmentControl({ project, history, asset, onProjectChange, onError }: SceneControlProps) {
+  const [sceneId, setSceneId] = useState('')
+  if (!project.storyboard.length) return <span className="assetPlacementHint">No storyboard scenes yet</span>
+  const scene = project.storyboard.find((entry) => entry.id === sceneId) ?? null
+  const occupied = Boolean(scene?.assetId && scene.assetId !== asset.id)
+  const fulfilled = scene?.assetId === asset.id
+
+  function apply() {
+    if (!scene) return
+    try {
+      if (occupied) history.snapshot(project, `Before scene visual replace: ${scene.title}`, 'system')
+      onProjectChange(assignAssetToScene(project, scene.id, asset.id, { replace: occupied }))
+    } catch (cause) { onError(cause instanceof Error ? cause.message : 'Scene fulfillment failed') }
+  }
+
+  return <div className="assetPlacement">
+    <select aria-label={`Storyboard scene for ${String(asset.metadata.name ?? asset.id)}`} value={sceneId} onChange={(event) => setSceneId(event.target.value)}>
+      <option value="">Choose scene…</option>
+      {project.storyboard.map((entry) => <option key={entry.id} value={entry.id}>{entry.title}{entry.assetId ? ' · fulfilled' : ''}</option>)}
+    </select>
+    <button className="secondaryButton" disabled={!scene || fulfilled} onClick={apply}>{fulfilled ? 'Scene fulfilled' : occupied ? 'Replace scene visual' : 'Fulfill scene'}</button>
+  </div>
+}
+
+export function ImageStudioPanel({ project, history, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange }: Props) {
   const [availability, setAvailability] = useState<ImageGenerationAvailability | null>(null)
   const [templatePath, setTemplatePath] = useState('')
   const [positivePrompt, setPositivePrompt] = useState('')
@@ -92,6 +120,10 @@ export function ImageStudioPanel({ project, workerUrl, workerToken, workerConnec
       {job && <div className="sttJob"><div><strong>{job.state}</strong><span>{Math.round(job.progress * 100)}%</span></div><div className="progressTrack"><div className="progressFill" style={{ width: `${job.progress * 100}%` }} /></div>{job.imagePath && <small>{job.imagePath} · seed {job.provenance.seed}</small>}{job.state === 'failed' && job.error && <small>{job.error}</small>}</div>}
       {error && <div className="errorBox">{error}</div>}
     </div>
-    {generated.length > 0 && <div className="card generatedImages"><div className="eyebrow">GENERATED IMAGE ASSETS</div>{generated.map((asset) => <div key={asset.id}><span><strong>{String(asset.metadata.name)}</strong><small>GENERATED · seed {String(asset.metadata.seed)} · {String(asset.metadata.templateId)}</small></span><AssetPlacementControl project={project} asset={asset} onProjectChange={onProjectChange} /></div>)}</div>}
+    {generated.length > 0 && <div className="card generatedImages"><div className="eyebrow">GENERATED IMAGE ASSETS</div><p className="cardBody">Fulfilling a scene never deletes anything: an unassigned image simply stays available as an alternative, and replacing a scene visual first stores an automatic safety version.</p>{generated.map((asset) => <div key={asset.id}><span><strong>{String(asset.metadata.name)}</strong><small>GENERATED · seed {String(asset.metadata.seed)} · {String(asset.metadata.templateId)}</small></span><div className="stackControls"><SceneFulfillmentControl project={project} history={history} asset={asset} onProjectChange={onProjectChange} onError={setError} /><AssetPlacementControl project={project} asset={asset} onProjectChange={onProjectChange} /></div></div>)}</div>}
+    {project.storyboard.length > 0 && <div className="card storyboardFulfillment"><div className="eyebrow">STORYBOARD FULFILLMENT</div>{project.storyboard.map((scene) => {
+      const assigned = project.assets.find((asset) => asset.id === scene.assetId)
+      return <div key={scene.id}><span><strong>{scene.title}</strong><small>{(scene.durationMs / 1000).toFixed(1)}s · {assigned ? `fulfilled by ${String(assigned.metadata.name ?? assigned.id)}` : scene.assetId ? 'assigned asset is missing from the project' : 'unfulfilled'}</small></span>{scene.assetId && <button className="secondaryButton" onClick={() => { try { onProjectChange(clearSceneAssignment(project, scene.id)) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Clearing the scene failed') } }}>Clear</button>}</div>
+    })}</div>}
   </section>
 }
