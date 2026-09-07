@@ -29,6 +29,8 @@ Image generation runs against a locally installed ComfyUI instance on a loopback
 
 Finished images are downloaded from ComfyUI, written to a managed temp `.part` file and atomically renamed into `KINAOU/Assets/GeneratedImages`; failures and cancellations remove partial data. The worker never installs ComfyUI or downloads models itself.
 
+Video generation is capability-based rather than engine-hard-wired: a managed workflow template that declares `"mediaType": "video"` is served through the mirrored `GET /video/templates` and `/video/jobs` endpoints, its `mp4`/`webm`/`mov` output is streamed size-bounded into `KINAOU/Assets/GeneratedVideo`, and each success is probed with ffprobe so the job result carries a real duration. All downloads (image and video) stream through a size limiter to a `.part` file before the atomic rename.
+
 Complex/multi-track rendering is not claimed yet and is rejected until compositor support is implemented.
 
 ## Local prerequisites

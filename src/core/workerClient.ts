@@ -5,6 +5,7 @@ import { parseRenderJob, type RenderJobRecord } from './renderJobs'
 import { parseSttJob, type SttJobRecord } from './sttJobs'
 import { parseTtsJob, type TtsJobRecord } from './ttsJobs'
 import { parseImageGenerationAvailability, parseImageJob, type ImageGenerationAvailability, type ImageJobParameters, type ImageJobRecord } from './imageJobs'
+import { parseVideoJob, type VideoJobRecord } from './videoJobs'
 
 export interface WorkerClientOptions {
   baseUrl: string
@@ -142,6 +143,32 @@ export class WorkerClient {
     const payload = await this.request(`/image/jobs/${encodeURIComponent(jobId)}/cancel`, { method: 'POST' })
     if (payload?.ok !== true || payload?.type !== 'image-job') throw new Error('Invalid image job cancellation response')
     return parseImageJob(payload.job)
+  }
+
+  async videoGenerationAvailability(): Promise<ImageGenerationAvailability> {
+    const payload = await this.request('/video/templates', { method: 'GET' })
+    if (payload?.ok !== true || payload?.type !== 'video-templates') throw new Error('Invalid video template response')
+    const availability = parseImageGenerationAvailability(payload)
+    if (availability.templates.some((template) => template.mediaType !== 'video')) throw new Error('Invalid video template media type')
+    return availability
+  }
+
+  async startVideoJob(parameters: ImageJobParameters): Promise<VideoJobRecord> {
+    const payload = await this.request('/video/jobs', { method: 'POST', body: JSON.stringify(parameters) })
+    if (payload?.ok !== true || payload?.type !== 'video-job') throw new Error('Invalid video job start response')
+    return parseVideoJob(payload.job)
+  }
+
+  async videoJobStatus(jobId: string): Promise<VideoJobRecord> {
+    const payload = await this.request(`/video/jobs/${encodeURIComponent(jobId)}`, { method: 'GET' })
+    if (payload?.ok !== true || payload?.type !== 'video-job') throw new Error('Invalid video job status response')
+    return parseVideoJob(payload.job)
+  }
+
+  async cancelVideoJob(jobId: string): Promise<VideoJobRecord> {
+    const payload = await this.request(`/video/jobs/${encodeURIComponent(jobId)}/cancel`, { method: 'POST' })
+    if (payload?.ok !== true || payload?.type !== 'video-job') throw new Error('Invalid video job cancellation response')
+    return parseVideoJob(payload.job)
   }
 
   async generateVideoProxy(path: string): Promise<MediaProxyResult> {

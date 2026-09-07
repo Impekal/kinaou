@@ -76,7 +76,7 @@ describe('worker client', () => {
     const client = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl: async (input, init) => {
       const url = String(input)
       expect(new Headers(init?.headers).get('authorization')).toBe('Bearer secret')
-      if (url.endsWith('/image/templates')) return jsonResponse({ ok: true, type: 'image-templates', comfyui: { available: true, version: '0.3.40' }, templates: [{ path: base.templatePath, id: 'ui-sdxl', label: 'UI SDXL', supportsNegativePrompt: true, supportsWidth: false, supportsHeight: false }] })
+      if (url.endsWith('/image/templates')) return jsonResponse({ ok: true, type: 'image-templates', comfyui: { available: true, version: '0.3.40' }, templates: [{ path: base.templatePath, id: 'ui-sdxl', label: 'UI SDXL', mediaType: 'image', supportsNegativePrompt: true, supportsWidth: false, supportsHeight: false }] })
       if (url.endsWith('/image/jobs')) {
         expect(JSON.parse(String(init?.body))).toEqual({ templatePath: base.templatePath, positivePrompt: 'app screen', seed: 7 })
         return jsonResponse({ ok: true, type: 'image-job', job: base }, 202)
@@ -90,6 +90,30 @@ describe('worker client', () => {
     expect((await client.startImageJob({ templatePath: base.templatePath, positivePrompt: 'app screen', seed: 7 })).state).toBe('queued')
     expect((await client.imageJobStatus('img-1')).imagePath).toBe('KINAOU/Assets/GeneratedImages/img-1.png')
     expect((await client.cancelImageJob('img-1')).state).toBe('cancelled')
+  })
+
+  it('starts, polls and cancels managed video generation jobs', async () => {
+    const provenance = { kind: 'local-model', adapterId: 'comfyui', templateId: 'scene-video', mediaType: 'video', seed: 3, width: null, height: null, positivePrompt: 'harbour at dawn', negativePrompt: '' }
+    const base = { id: 'vid-1', state: 'queued', progress: 0, createdAt: 'x', updatedAt: 'x', templatePath: 'KINAOU/Models/ComfyUI/Workflows/video.json', provenance }
+    const client = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl: async (input, init) => {
+      const url = String(input)
+      if (url.endsWith('/video/templates')) return jsonResponse({ ok: true, type: 'video-templates', comfyui: { available: true }, templates: [{ path: base.templatePath, id: 'scene-video', label: 'Scene video', mediaType: 'video', supportsNegativePrompt: false, supportsWidth: false, supportsHeight: false }] })
+      if (url.endsWith('/video/jobs')) {
+        expect(JSON.parse(String(init?.body))).toEqual({ templatePath: base.templatePath, positivePrompt: 'harbour at dawn', seed: 3 })
+        return jsonResponse({ ok: true, type: 'video-job', job: base }, 202)
+      }
+      if (url.endsWith('/cancel')) return jsonResponse({ ok: true, type: 'video-job', job: { ...base, state: 'cancelled' } })
+      return jsonResponse({ ok: true, type: 'video-job', job: { ...base, state: 'succeeded', progress: 1, videoPath: 'KINAOU/Assets/GeneratedVideo/vid-1.mp4', sizeBytes: 9000, durationMs: 4000 } })
+    } })
+    expect((await client.videoGenerationAvailability()).templates[0].mediaType).toBe('video')
+    expect((await client.startVideoJob({ templatePath: base.templatePath, positivePrompt: 'harbour at dawn', seed: 3 })).state).toBe('queued')
+    expect((await client.videoJobStatus('vid-1')).durationMs).toBe(4000)
+    expect((await client.cancelVideoJob('vid-1')).state).toBe('cancelled')
+  })
+
+  it('rejects image templates on the video availability endpoint', async () => {
+    const client = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl: async () => jsonResponse({ ok: true, type: 'video-templates', comfyui: { available: true }, templates: [{ path: 'KINAOU/Models/ComfyUI/Workflows/ui.json', id: 'ui', label: 'UI', mediaType: 'image', supportsNegativePrompt: false, supportsWidth: false, supportsHeight: false }] }) })
+    await expect(client.videoGenerationAvailability()).rejects.toThrow(/media type/)
   })
 
   it('rejects image job results that leave managed generated storage', async () => {

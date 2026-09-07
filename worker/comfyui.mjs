@@ -2,10 +2,13 @@ const MAX_PROMPT_LENGTH = 20_000
 const MAX_WORKFLOW_BYTES = 1_000_000
 const BINDING_KEYS = ['positivePrompt', 'negativePrompt', 'seed', 'width', 'height']
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'webp']
-const OUTPUT_FILENAME_PATTERN = /^[\w()][\w ().-]*\.(png|jpg|jpeg|webp)$/i
+const VIDEO_EXTENSIONS = ['mp4', 'webm', 'mov']
+const OUTPUT_FILENAME_PATTERN = /^[\w()][\w ().-]*\.(png|jpg|jpeg|webp|mp4|webm|mov)$/i
+const EXTENSION_PATTERNS = { image: /\.(png|jpg|jpeg|webp)$/i, video: /\.(mp4|webm|mov)$/i }
 
 export const MAX_WORKFLOW_FILE_BYTES = 2_000_000
 export const MAX_GENERATED_IMAGE_BYTES = 100 * 1024 * 1024
+export const MAX_GENERATED_VIDEO_BYTES = 2 * 1024 * 1024 * 1024
 
 function isRecord(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -28,12 +31,23 @@ export function comfyWorkflowRelativePaths(entries) {
 
 export function generatedImageRelativePath(jobId, extension = 'png') {
   if (!/^[a-zA-Z0-9-]+$/.test(jobId)) throw new Error('Invalid image job ID')
-  if (!['png', 'jpg', 'webp'].includes(extension)) throw new Error('Unsupported generated image extension')
+  if (!IMAGE_EXTENSIONS.includes(extension)) throw new Error('Unsupported generated image extension')
   return `KINAOU/Assets/GeneratedImages/${jobId}.${extension}`
+}
+
+export function generatedVideoRelativePath(jobId, extension = 'mp4') {
+  if (!/^[a-zA-Z0-9-]+$/.test(jobId)) throw new Error('Invalid video job ID')
+  if (!VIDEO_EXTENSIONS.includes(extension)) throw new Error('Unsupported generated video extension')
+  return `KINAOU/Assets/GeneratedVideo/${jobId}.${extension}`
+}
+
+export function templateMediaType(template) {
+  return template.mediaType === 'video' ? 'video' : 'image'
 }
 
 export function validateComfyTemplate(value) {
   if (!isRecord(value) || value.schemaVersion !== 1) throw new Error('Invalid ComfyUI template schema')
+  if (value.mediaType !== undefined && !['image', 'video'].includes(value.mediaType)) throw new Error('Invalid ComfyUI template media type')
   if (typeof value.id !== 'string' || !/^[a-zA-Z0-9][\w.-]{0,99}$/.test(value.id)) throw new Error('Invalid ComfyUI template ID')
   if (typeof value.label !== 'string' || !value.label.trim() || value.label.length > 200) throw new Error('Invalid ComfyUI template label')
   if (!isRecord(value.workflow) || !Object.keys(value.workflow).length) throw new Error('ComfyUI workflow is required')
@@ -126,15 +140,26 @@ export function comfyHistoryStatus(payload, promptId) {
     return { phase: 'failed', message: detail }
   }
   if (status.completed !== true) return { phase: 'waiting' }
-  const images = []
-  for (const output of Object.values(isRecord(entry.outputs) ? entry.outputs : {})) {
-    if (!isRecord(output) || !Array.isArray(output.images)) continue
-    for (const image of output.images) {
-      if (isRecord(image) && image.type === 'output' && typeof image.filename === 'string') images.push({ filename: image.filename, subfolder: typeof image.subfolder === 'string' ? image.subfolder : '', type: 'output' })
+  const outputs = []
+  for (const node of Object.values(isRecord(entry.outputs) ? entry.outputs : {})) {
+    if (!isRecord(node)) continue
+    for (const key of ['images', 'videos', 'gifs']) {
+      if (!Array.isArray(node[key])) continue
+      for (const item of node[key]) {
+        if (isRecord(item) && item.type === 'output' && typeof item.filename === 'string') outputs.push({ filename: item.filename, subfolder: typeof item.subfolder === 'string' ? item.subfolder : '', type: 'output' })
+      }
     }
   }
-  if (!images.length) return { phase: 'failed', message: 'ComfyUI completed without a saved output image' }
-  return { phase: 'completed', images }
+  if (!outputs.length) return { phase: 'failed', message: 'ComfyUI completed without a saved output' }
+  return { phase: 'completed', outputs }
+}
+
+export function pickComfyOutputForMediaType(outputs, mediaType) {
+  const pattern = EXTENSION_PATTERNS[mediaType]
+  if (!pattern) throw new Error('Unsupported generation media type')
+  const match = (Array.isArray(outputs) ? outputs : []).find((output) => pattern.test(String(output?.filename)))
+  if (!match) throw new Error(`ComfyUI completed without a saved ${mediaType} output`)
+  return match
 }
 
 export function comfyQueuePhase(payload, promptId) {
@@ -145,17 +170,19 @@ export function comfyQueuePhase(payload, promptId) {
   return 'absent'
 }
 
-export function comfyImageQuery(image) {
-  if (!isRecord(image) || image.type !== 'output') throw new Error('Only ComfyUI output images may be retrieved')
-  if (typeof image.filename !== 'string' || image.filename.length > 200 || !OUTPUT_FILENAME_PATTERN.test(image.filename)) throw new Error('ComfyUI reported an unsupported output image filename')
-  const subfolder = image.subfolder ?? ''
+export function comfyOutputQuery(output) {
+  if (!isRecord(output) || output.type !== 'output') throw new Error('Only ComfyUI output files may be retrieved')
+  if (typeof output.filename !== 'string' || output.filename.length > 200 || !OUTPUT_FILENAME_PATTERN.test(output.filename)) throw new Error('ComfyUI reported an unsupported output filename')
+  const subfolder = output.subfolder ?? ''
   if (typeof subfolder !== 'string' || subfolder.length > 200 || subfolder.includes('..') || subfolder.includes('\\') || subfolder.startsWith('/')) throw new Error('ComfyUI reported an invalid output subfolder')
-  return new URLSearchParams({ filename: image.filename, subfolder, type: 'output' }).toString()
+  return new URLSearchParams({ filename: output.filename, subfolder, type: 'output' }).toString()
 }
 
-export function generatedImageExtensionFor(filename) {
-  const match = /\.(png|jpg|jpeg|webp)$/i.exec(String(filename))
-  if (!match) throw new Error('Unsupported generated image extension')
+export function generatedMediaExtensionFor(filename, mediaType = 'image') {
+  const pattern = EXTENSION_PATTERNS[mediaType]
+  if (!pattern) throw new Error('Unsupported generation media type')
+  const match = pattern.exec(String(filename))
+  if (!match) throw new Error(`Unsupported generated ${mediaType} extension`)
   const extension = match[1].toLowerCase()
   return extension === 'jpeg' ? 'jpg' : extension
 }
@@ -164,4 +191,10 @@ export function comfyTempImageRelativePath(jobId, extension) {
   if (!/^[a-zA-Z0-9-]+$/.test(jobId)) throw new Error('Invalid image job ID')
   if (!IMAGE_EXTENSIONS.includes(extension)) throw new Error('Unsupported generated image extension')
   return `KINAOU/Temp/GeneratedImages/${jobId}.${extension}.part`
+}
+
+export function comfyTempVideoRelativePath(jobId, extension) {
+  if (!/^[a-zA-Z0-9-]+$/.test(jobId)) throw new Error('Invalid video job ID')
+  if (!VIDEO_EXTENSIONS.includes(extension)) throw new Error('Unsupported generated video extension')
+  return `KINAOU/Temp/GeneratedVideo/${jobId}.${extension}.part`
 }
