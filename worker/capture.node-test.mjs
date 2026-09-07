@@ -3,8 +3,12 @@ import assert from 'node:assert/strict'
 import { buildCaptureCommand, buildCaptureProvenance, captureAssetRelativePath, captureTempRelativePath, validateCaptureRequest } from './capture.mjs'
 
 test('validates and bounds capture requests', () => {
-  assert.deepEqual(validateCaptureRequest({ kind: 'screenshot' }), { kind: 'screenshot', displayId: 1, delaySeconds: 0, region: null })
-  assert.deepEqual(validateCaptureRequest({ kind: 'recording', durationMs: 30_000, displayId: 2 }), { kind: 'recording', displayId: 2, delaySeconds: 0, region: null, durationMs: 30_000 })
+  assert.deepEqual(validateCaptureRequest({ kind: 'screenshot' }), { kind: 'screenshot', displayId: 1, delaySeconds: 0, region: null, interactive: false })
+  assert.deepEqual(validateCaptureRequest({ kind: 'recording', durationMs: 30_000, displayId: 2 }), { kind: 'recording', displayId: 2, delaySeconds: 0, region: null, interactive: false, durationMs: 30_000 })
+  assert.equal(validateCaptureRequest({ kind: 'screenshot', interactive: true }).interactive, true)
+  assert.throws(() => validateCaptureRequest({ kind: 'recording', durationMs: 30_000, interactive: true }), /only supported for screenshots/)
+  assert.throws(() => validateCaptureRequest({ kind: 'screenshot', interactive: true, delaySeconds: 3 }), /does not take a delay/)
+  assert.throws(() => validateCaptureRequest({ kind: 'screenshot', interactive: true, region: { x: 0, y: 0, width: 100, height: 100 } }), /mutually exclusive/)
   assert.throws(() => validateCaptureRequest({ kind: 'window' }), /screenshot or recording/)
   assert.throws(() => validateCaptureRequest({ kind: 'screenshot', displayId: 0 }), /display/)
   assert.throws(() => validateCaptureRequest({ kind: 'screenshot', delaySeconds: 11 }), /delay/)
@@ -30,12 +34,15 @@ test('builds shell-free screencapture commands for screenshots and recordings', 
   assert.deepEqual(region.args, ['-x', '-t', 'png', '-R', '10,20,800,600', '/tmp/cap.png'])
   const recording = buildCaptureCommand({ request: { kind: 'recording', durationMs: 90_000 }, targetPath: '/tmp/cap.mov' })
   assert.deepEqual(recording.args, ['-x', '-v', '-V', '90', '-D', '1', '/tmp/cap.mov'])
+  const interactive = buildCaptureCommand({ request: { kind: 'screenshot', interactive: true }, targetPath: '/tmp/cap.png' })
+  assert.deepEqual(interactive.args, ['-x', '-t', 'png', '-i', '/tmp/cap.png'])
   assert.throws(() => buildCaptureCommand({ request: { kind: 'screenshot' }, targetPath: 'relative.png' }), /absolute/)
   assert.throws(() => buildCaptureCommand({ screencapturePath: 'screencapture', request: { kind: 'screenshot' }, targetPath: '/tmp/cap.png' }), /absolute/)
 })
 
 test('stamps real-capture provenance distinct from generated visuals', () => {
   const provenance = buildCaptureProvenance({ kind: 'recording', durationMs: 30_000, region: { x: 0, y: 0, width: 1280, height: 720 } })
-  assert.deepEqual(provenance, { kind: 'real-capture', adapterId: 'macos-screencapture', displayId: 1, delaySeconds: 0, region: { x: 0, y: 0, width: 1280, height: 720 }, requestedDurationMs: 30_000 })
+  assert.deepEqual(provenance, { kind: 'real-capture', adapterId: 'macos-screencapture', displayId: 1, delaySeconds: 0, region: { x: 0, y: 0, width: 1280, height: 720 }, interactive: false, requestedDurationMs: 30_000 })
   assert.equal(buildCaptureProvenance({ kind: 'screenshot' }).requestedDurationMs, null)
+  assert.equal(buildCaptureProvenance({ kind: 'screenshot', interactive: true }).interactive, true)
 })
