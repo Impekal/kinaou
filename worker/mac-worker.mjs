@@ -13,7 +13,7 @@ import { generateAiEditorProposal, generateDirectorPlan, listOllamaModels, norma
 import { MAX_GENERATED_IMAGE_BYTES, MAX_GENERATED_VIDEO_BYTES, MAX_WORKFLOW_FILE_BYTES, buildComfyPromptRequest, comfyHistoryStatus, comfyOutputQuery, comfyQueuePhase, comfyTempImageRelativePath, comfyTempVideoRelativePath, comfyWorkflowRelativePaths, detectComfyUi, generatedMediaExtensionFor, generatedImageRelativePath, generatedVideoRelativePath, normalizeComfyUrl, parseComfyPromptResponse, pickComfyOutputForMediaType, templateMediaType, validateComfyTemplate } from './comfyui.mjs'
 import { buildSttCommands, normalizeWhisperTranscript, sttPaths, whisperModelRelativePaths } from './whisper.mjs'
 import { buildPiperCommand, piperVoiceRelativePaths, ttsPaths, validateTtsText } from './piper.mjs'
-import { DEFAULT_SCREENCAPTURE_PATH, buildCaptureCommand, buildCaptureProvenance, captureAssetRelativePath, captureTempRelativePath, validateCaptureRequest } from './capture.mjs'
+import { DEFAULT_OSASCRIPT_PATH, DEFAULT_SCREENCAPTURE_PATH, buildAppActivateCommand, buildAppWindowBoundsCommand, buildCaptureCommand, buildCaptureProvenance, captureAssetRelativePath, captureTempRelativePath, parseAppWindowBounds, validateCaptureRequest } from './capture.mjs'
 import { buildWebCaptureCommand, buildWebCaptureProvenance, validateWebCaptureRequest, webCaptureBrowserCandidates, webCapturePaths } from './webcapture.mjs'
 
 const HOST = '127.0.0.1'
@@ -28,6 +28,8 @@ const WHISPER_CLI = process.env.KINAOU_WHISPER_CLI ?? ''
 const PIPER_CLI = process.env.KINAOU_PIPER_CLI ?? ''
 const COMFYUI_URL = normalizeComfyUrl(process.env.KINAOU_COMFYUI_URL)
 const SCREENCAPTURE_PATH = process.env.KINAOU_SCREENCAPTURE ?? DEFAULT_SCREENCAPTURE_PATH
+const OSASCRIPT_PATH = process.env.KINAOU_OSASCRIPT ?? DEFAULT_OSASCRIPT_PATH
+const APP_ACTIVATE_WAIT_MS = Number(process.env.KINAOU_APP_ACTIVATE_WAIT_MS ?? 1500)
 const COMFYUI_POLL_MS = Number(process.env.KINAOU_COMFYUI_POLL_MS ?? 750)
 const COMFYUI_JOB_TIMEOUT_MS = Number(process.env.KINAOU_COMFYUI_JOB_TIMEOUT_MS ?? 20 * 60_000)
 const renderJobs = new Map()
@@ -981,8 +983,14 @@ async function executeCaptureJob(id) {
     await mkdir(path.dirname(tempAbsolute), { recursive: true })
     await mkdir(path.dirname(finalAbsolute), { recursive: true })
     job.tempPath = tempAbsolute
+    let resolvedRegion = null
+    if (job.request.appName) {
+      resolvedRegion = await resolveAppWindowRegion(job)
+      if (job.state === 'cancelled') return
+      job.provenance = { ...job.provenance, resolvedRegion }
+    }
     job.startedAtMs = Date.now()
-    const command = buildCaptureCommand({ screencapturePath: SCREENCAPTURE_PATH, request: job.request, targetPath: tempAbsolute })
+    const command = buildCaptureCommand({ screencapturePath: SCREENCAPTURE_PATH, request: job.request, targetPath: tempAbsolute, resolvedRegion })
     try {
       await runCaptureProcess(job, command)
     } catch (error) {
@@ -1024,6 +1032,23 @@ function runCaptureProcess(job, command) {
       reject(processFailed(`screencapture exited with code ${code}: ${stderr.trim()}`))
     })
   })
+}
+
+async function resolveAppWindowRegion(job) {
+  const appName = job.request.appName
+  try {
+    await run(OSASCRIPT_PATH, buildAppActivateCommand(appName, OSASCRIPT_PATH).args)
+    if (job.state === 'cancelled') return null
+    await sleep(APP_ACTIVATE_WAIT_MS)
+    if (job.state === 'cancelled') return null
+    const { stdout } = await run(OSASCRIPT_PATH, buildAppWindowBoundsCommand(appName, OSASCRIPT_PATH).args)
+    return parseAppWindowBounds(stdout)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (/-1743|not authori[sz]ed|not allowed assistive|osascript is not allowed/i.test(message)) throw processFailed('macOS denied controlling apps — allow the process running the KINAOU worker under System Settings → Privacy & Security → Automation and Accessibility, then retry')
+    if (/can.t get|doesn.t understand|front window|process|-1728|-600|find application/i.test(message)) throw processFailed(`No capturable window was found for "${appName}" — is the app installed and running with an open window?`)
+    throw error
+  }
 }
 
 function stopCaptureJob(job) {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { parseCaptureJob } from '../src/core/captureJobs'
 
 describe('capture jobs', () => {
-  const provenance = { kind: 'real-capture', adapterId: 'macos-screencapture', displayId: 1, delaySeconds: 0, region: null, interactive: false, requestedDurationMs: null }
+  const provenance = { kind: 'real-capture', adapterId: 'macos-screencapture', displayId: 1, delaySeconds: 0, region: null, interactive: false, appName: null, requestedDurationMs: null }
   const base = { id: 'cap-1', kind: 'screenshot', state: 'running', progress: 0.5, createdAt: 'x', updatedAt: 'x', provenance }
 
   it('parses active and completed capture jobs with real-capture provenance', () => {

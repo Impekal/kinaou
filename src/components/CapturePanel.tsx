@@ -77,7 +77,8 @@ function WebCaptureCard({ project, workerConnected, workerCapabilities, client, 
 
 export function CapturePanel({ project, history, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange }: Props) {
   const [kind, setKind] = useState<'screenshot' | 'recording'>('screenshot')
-  const [selection, setSelection] = useState<'display' | 'interactive'>('display')
+  const [selection, setSelection] = useState<'display' | 'interactive' | 'app'>('display')
+  const [appName, setAppName] = useState('')
   const [displayId, setDisplayId] = useState('1')
   const [delaySeconds, setDelaySeconds] = useState('3')
   const [durationSeconds, setDurationSeconds] = useState('60')
@@ -105,17 +106,21 @@ export function CapturePanel({ project, history, workerUrl, workerToken, workerC
   const delayValid = Number.isInteger(delayValue) && delayValue >= 0 && delayValue <= 10
   const durationValid = Number.isInteger(durationValue) && durationValue >= 1 && durationValue <= 600
   const interactive = kind === 'screenshot' && selection === 'interactive'
+  const appTarget = selection === 'app'
   const available = workerConnected && workerCapabilities.includes('screen-capture')
   const running = Boolean(job && !terminal.has(job.state))
-  const canStart = available && !running && (interactive || (displayValid && (kind === 'screenshot' ? delayValid : durationValid)))
+  const durationOk = kind === 'screenshot' || durationValid
+  const canStart = available && !running && (interactive || (appTarget ? Boolean(appName.trim()) && durationOk : displayValid && (kind === 'screenshot' ? delayValid : durationValid)))
 
   async function start() {
     setError('')
     const request: CaptureRequest = interactive
       ? { kind: 'screenshot', interactive: true }
-      : kind === 'screenshot'
-        ? { kind, displayId: displayValue, delaySeconds: delayValue }
-        : { kind, displayId: displayValue, durationMs: durationValue * 1000 }
+      : appTarget
+        ? { kind, appName: appName.trim(), ...(kind === 'recording' ? { durationMs: durationValue * 1000 } : {}) }
+        : kind === 'screenshot'
+          ? { kind, displayId: displayValue, delaySeconds: delayValue }
+          : { kind, displayId: displayValue, durationMs: durationValue * 1000 }
     try { setJob(await client().startCapture(request)) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Capture failed to start') }
   }
 
@@ -129,13 +134,14 @@ export function CapturePanel({ project, history, workerUrl, workerToken, workerC
     <div className="card imageStudio">
       {!available && <p className="cardBody">Screen capture requires a connected worker on macOS with the built-in screencapture tool. {workerConnected ? 'The connected worker does not advertise screen-capture.' : 'Connect the worker in Settings first.'}</p>}
       <div className="formRow">
-        <label>Type<select value={kind} onChange={(event) => setKind(event.target.value as 'screenshot' | 'recording')}><option value="screenshot">Screenshot</option><option value="recording">Screen recording</option></select></label>
-        {kind === 'screenshot' && <label>Target<select value={selection} onChange={(event) => setSelection(event.target.value as 'display' | 'interactive')}><option value="display">Entire display</option><option value="interactive">Pick window or area on screen</option></select></label>}
-        {!interactive && <label>Display<input value={displayId} onChange={(event) => setDisplayId(event.target.value)} inputMode="numeric" /></label>}
-        {kind === 'screenshot' && !interactive && <label>Delay (s)<input value={delaySeconds} onChange={(event) => setDelaySeconds(event.target.value)} inputMode="numeric" /></label>}
+        <label>Type<select value={kind} onChange={(event) => { const next = event.target.value as 'screenshot' | 'recording'; setKind(next); if (next === 'recording' && selection === 'interactive') setSelection('display') }}><option value="screenshot">Screenshot</option><option value="recording">Screen recording</option></select></label>
+        <label>Target<select value={selection} onChange={(event) => setSelection(event.target.value as 'display' | 'interactive' | 'app')}><option value="display">Entire display</option>{kind === 'screenshot' && <option value="interactive">Pick window or area on screen</option>}<option value="app">App window by name</option></select></label>
+        {appTarget && <label>App name<input value={appName} onChange={(event) => setAppName(event.target.value)} placeholder="e.g. Firefox" /></label>}
+        {!interactive && !appTarget && <label>Display<input value={displayId} onChange={(event) => setDisplayId(event.target.value)} inputMode="numeric" /></label>}
+        {kind === 'screenshot' && !interactive && !appTarget && <label>Delay (s)<input value={delaySeconds} onChange={(event) => setDelaySeconds(event.target.value)} inputMode="numeric" /></label>}
         {kind === 'recording' && <label>Max duration (s)<input value={durationSeconds} onChange={(event) => setDurationSeconds(event.target.value)} inputMode="numeric" /></label>}
       </div>
-      <p className="cardBody">{interactive ? 'Your Mac cursor becomes a crosshair: drag an area, or press Space and click a window. Escape cancels without capturing.' : kind === 'screenshot' ? 'The delay gives you time to bring the window you want to capture to the front.' : 'The recording stops automatically at the maximum duration; Stop keeps what was recorded so far, Discard deletes it.'}</p>
+      <p className="cardBody">{interactive ? 'Your Mac cursor becomes a crosshair: drag an area, or press Space and click a window. Escape cancels without capturing.' : appTarget ? 'KINAOU brings the named app to the front (launching it if needed), reads its front window position via System Events, and captures exactly that window region. macOS asks once for Automation/Accessibility permission.' : kind === 'screenshot' ? 'The delay gives you time to bring the window you want to capture to the front.' : 'The recording stops automatically at the maximum duration; Stop keeps what was recorded so far, Discard deletes it.'}</p>
       <div className="directorActions">
         <button className="primary" disabled={!canStart} onClick={start}>{interactive ? 'Select on screen & capture' : kind === 'screenshot' ? 'Capture screenshot' : 'Start recording'}</button>
         {running && job?.kind === 'recording' && <button className="secondaryButton" onClick={stop}>Stop &amp; keep</button>}
@@ -145,6 +151,6 @@ export function CapturePanel({ project, history, workerUrl, workerToken, workerC
       {error && <div className="errorBox">{error}</div>}
     </div>
     <WebCaptureCard project={project} workerConnected={workerConnected} workerCapabilities={workerCapabilities} client={client} onProjectChange={onProjectChange} />
-    {captured.length > 0 && <div className="card generatedImages"><div className="eyebrow">CAPTURED MEDIA</div><p className="cardBody">These are real captures with capture provenance — kept strictly apart from generated visuals.</p>{captured.map((asset) => <div key={asset.id}><span><strong>{String(asset.metadata.name)}</strong><small>REAL CAPTURE · {asset.metadata.captureMethod === 'headless-browser' ? String(asset.metadata.url) : `display ${String(asset.metadata.displayId)}`}{asset.metadata.durationMs ? ` · ${(Number(asset.metadata.durationMs) / 1000).toFixed(2)}s` : ''}</small></span><div className="stackControls"><SceneFulfillmentControl project={project} history={history} asset={asset} onProjectChange={onProjectChange} onError={setError} /><AssetPlacementControl project={project} asset={asset} onProjectChange={onProjectChange} /></div></div>)}</div>}
+    {captured.length > 0 && <div className="card generatedImages"><div className="eyebrow">CAPTURED MEDIA</div><p className="cardBody">These are real captures with capture provenance — kept strictly apart from generated visuals.</p>{captured.map((asset) => <div key={asset.id}><span><strong>{String(asset.metadata.name)}</strong><small>REAL CAPTURE · {asset.metadata.captureMethod === 'headless-browser' ? String(asset.metadata.url) : asset.metadata.appName ? `app ${String(asset.metadata.appName)}` : `display ${String(asset.metadata.displayId)}`}{asset.metadata.durationMs ? ` · ${(Number(asset.metadata.durationMs) / 1000).toFixed(2)}s` : ''}</small></span><div className="stackControls"><SceneFulfillmentControl project={project} history={history} asset={asset} onProjectChange={onProjectChange} onError={setError} /><AssetPlacementControl project={project} asset={asset} onProjectChange={onProjectChange} /></div></div>)}</div>}
   </section>
 }
