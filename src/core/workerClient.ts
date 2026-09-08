@@ -28,7 +28,7 @@ export class WorkerClient {
     if (!options.token.trim()) throw new Error('Worker token is required')
     this.baseUrl = url.toString().replace(/\/$/, '')
     this.token = options.token
-    this.fetchImpl = options.fetchImpl ?? fetch
+    this.fetchImpl = options.fetchImpl ?? ((input, init) => fetch(input, init))
   }
 
   async health(): Promise<WorkerHandshake> {
