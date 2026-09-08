@@ -1,7 +1,7 @@
 import http from 'node:http'
 import { spawn } from 'node:child_process'
 import { createReadStream, createWriteStream } from 'node:fs'
-import { access, mkdir, readdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises'
+import { access, mkdir, readdir, readFile, rename, rm, stat, unlink, writeFile } from 'node:fs/promises'
 import { Readable, Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import path from 'node:path'
@@ -14,6 +14,7 @@ import { MAX_GENERATED_IMAGE_BYTES, MAX_GENERATED_VIDEO_BYTES, MAX_WORKFLOW_FILE
 import { buildSttCommands, normalizeWhisperTranscript, sttPaths, whisperModelRelativePaths } from './whisper.mjs'
 import { buildPiperCommand, piperVoiceRelativePaths, ttsPaths, validateTtsText } from './piper.mjs'
 import { DEFAULT_SCREENCAPTURE_PATH, buildCaptureCommand, buildCaptureProvenance, captureAssetRelativePath, captureTempRelativePath, validateCaptureRequest } from './capture.mjs'
+import { buildWebCaptureCommand, buildWebCaptureProvenance, validateWebCaptureRequest, webCaptureBrowserCandidates, webCapturePaths } from './webcapture.mjs'
 
 const HOST = '127.0.0.1'
 const PORT = Number(process.env.KINAOU_WORKER_PORT ?? 43117)
@@ -32,8 +33,11 @@ const COMFYUI_JOB_TIMEOUT_MS = Number(process.env.KINAOU_COMFYUI_JOB_TIMEOUT_MS 
 const renderJobs = new Map()
 const sttJobs = new Map()
 const ttsJobs = new Map()
+const WEBCAPTURE_TIMEOUT_MS = Number(process.env.KINAOU_WEBCAPTURE_TIMEOUT_MS ?? 120_000)
 const generationJobs = new Map()
 const captureJobs = new Map()
+const webCaptureJobs = new Map()
+const browserVersions = new Map()
 const visualTrackTypes = new Set(['video', 'broll', 'image', 'avatar', 'overlay'])
 const audioTrackTypes = new Set(['voice', 'dialog', 'music', 'sfx'])
 
@@ -88,6 +92,7 @@ const server = http.createServer(async (request, response) => {
       const hasImageTemplates = comfyTemplates.some((template) => template.mediaType === 'image')
       const hasVideoTemplates = comfyTemplates.some((template) => template.mediaType === 'video')
       const captureAvailable = await screencaptureAvailable()
+      const webBrowsers = await listWebCaptureBrowsers()
       return send(response, 200, {
         ok: true,
         type: 'health',
@@ -96,7 +101,7 @@ const server = http.createServer(async (request, response) => {
           name: 'KINAOU Mac Worker',
           platform: process.platform,
           version: VERSION,
-          capabilities: ['filesystem', 'ffmpeg', 'media-probe', 'asset-upload', 'media-proxy', 'media-thumbnail', 'media-waveform', ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(PIPER_CLI && piperVoices.length && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : [])],
+          capabilities: ['filesystem', 'ffmpeg', 'media-probe', 'asset-upload', 'media-proxy', 'media-thumbnail', 'media-waveform', ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(PIPER_CLI && piperVoices.length && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : [])],
           managedRoots: [MANAGED_ROOT],
           ffmpegVersion: versions.ffmpeg,
           ffprobeVersion: versions.ffprobe
@@ -200,6 +205,24 @@ const server = http.createServer(async (request, response) => {
       if (captureActionMatch[2] === 'stop') stopCaptureJob(job)
       else cancelCaptureJob(job)
       return send(response, 200, { ok: true, type: 'capture-job', job: publicCaptureJob(job) })
+    }
+
+    if (request.method === 'GET' && request.url === '/webcapture/browsers') {
+      const browsers = await listWebCaptureBrowsers()
+      return send(response, 200, { ok: true, type: 'web-capture-browsers', browsers: browsers.map(({ id, engine, label, version }) => ({ id, engine, label, ...(version ? { version } : {}) })) })
+    }
+    if (request.method === 'POST' && request.url === '/webcapture/jobs') {
+      const job = await createWebCaptureJob(await readJson(request))
+      queueMicrotask(() => executeWebCaptureJob(job.id).catch(() => {}))
+      return send(response, 202, { ok: true, type: 'web-capture-job', job: publicWebCaptureJob(job) })
+    }
+    const webCaptureStatusMatch = request.url?.match(/^\/webcapture\/jobs\/([^/]+)$/)
+    if (request.method === 'GET' && webCaptureStatusMatch) return send(response, 200, { ok: true, type: 'web-capture-job', job: publicWebCaptureJob(requireWebCaptureJob(decodeURIComponent(webCaptureStatusMatch[1]))) })
+    const webCaptureCancelMatch = request.url?.match(/^\/webcapture\/jobs\/([^/]+)\/cancel$/)
+    if (request.method === 'POST' && webCaptureCancelMatch) {
+      const job = requireWebCaptureJob(decodeURIComponent(webCaptureCancelMatch[1]))
+      cancelWebCaptureJob(job)
+      return send(response, 200, { ok: true, type: 'web-capture-job', job: publicWebCaptureJob(job) })
     }
 
     if (request.method === 'POST' && request.url === '/probe') {
@@ -1014,6 +1037,97 @@ function cancelCaptureJob(job) {
   if (['succeeded', 'failed', 'cancelled'].includes(job.state)) return
   job.state = 'cancelled'; touchCaptureJob(job)
   if (job.child && !job.child.killed) job.child.kill('SIGINT')
+}
+
+async function listWebCaptureBrowsers() {
+  const browsers = []
+  for (const candidate of webCaptureBrowserCandidates(process.env)) {
+    try {
+      await access(candidate.path)
+      if (!browserVersions.has(candidate.path)) {
+        const version = await run(candidate.path, ['--version']).then(({ stdout }) => stdout.split('\n')[0]?.trim() || undefined).catch(() => undefined)
+        browserVersions.set(candidate.path, version)
+      }
+      browsers.push({ ...candidate, version: browserVersions.get(candidate.path) })
+    } catch { /* browser not installed — discovery stays honest without it */ }
+  }
+  return browsers
+}
+
+async function createWebCaptureJob(input) {
+  const browsers = await listWebCaptureBrowsers()
+  if (!browsers.length) throw capabilityError('No supported local browser (Chrome, Chromium or Firefox) was found for web capture')
+  const request = validateWebCaptureRequest(input, browsers)
+  const browser = browsers.find((candidate) => candidate.id === request.browserId)
+  const now = new Date().toISOString()
+  const job = { id: crypto.randomUUID(), request, browserPath: browser.path, state: 'queued', progress: 0, createdAt: now, updatedAt: now, provenance: buildWebCaptureProvenance(request, browser.version), child: null, timedOut: false }
+  webCaptureJobs.set(job.id, job)
+  return job
+}
+
+function requireWebCaptureJob(id) {
+  const job = webCaptureJobs.get(id)
+  if (!job) { const error = new Error('Web capture job not found'); error.code = 'NOT_FOUND'; throw error }
+  return job
+}
+
+function publicWebCaptureJob(job) {
+  return { id: job.id, state: job.state, progress: job.progress, createdAt: job.createdAt, updatedAt: job.updatedAt, provenance: job.provenance, ...(job.imagePath ? { imagePath: job.imagePath, sizeBytes: job.sizeBytes } : {}), ...(job.error ? { error: job.error } : {}) }
+}
+
+function touchWebCaptureJob(job) { job.updatedAt = new Date().toISOString() }
+
+async function executeWebCaptureJob(id) {
+  const job = webCaptureJobs.get(id)
+  if (!job || job.state === 'cancelled') return
+  job.state = 'running'; job.progress = 0.1; touchWebCaptureJob(job)
+  const relative = webCapturePaths(job.id)
+  const tempImage = resolveManaged(relative.image)
+  const profileDir = resolveManaged(relative.profile)
+  const finalAbsolute = resolveManaged(relative.asset)
+  try {
+    await mkdir(path.dirname(tempImage), { recursive: true })
+    await mkdir(profileDir, { recursive: true })
+    await mkdir(path.dirname(finalAbsolute), { recursive: true })
+    const command = buildWebCaptureCommand({ browserPath: job.browserPath, request: job.request, targetPath: tempImage, profilePath: profileDir })
+    await runWebCaptureProcess(job, command)
+    if (job.state === 'cancelled') return
+    const info = await stat(tempImage).catch(() => null)
+    if (!info || !info.size) throw processFailed('The browser produced no screenshot for this URL')
+    await rename(tempImage, finalAbsolute)
+    job.state = 'succeeded'; job.progress = 1; job.imagePath = relative.asset; job.sizeBytes = info.size
+    touchWebCaptureJob(job)
+  } catch (error) {
+    if (job.state !== 'cancelled') { job.state = 'failed'; job.error = error instanceof Error ? error.message : String(error); touchWebCaptureJob(job) }
+  } finally {
+    await unlink(tempImage).catch(() => {})
+    await rm(profileDir, { recursive: true, force: true }).catch(() => {})
+  }
+}
+
+function runWebCaptureProcess(job, command) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command.executable, command.args, { shell: false, stdio: ['ignore', 'ignore', 'pipe'] })
+    job.child = child
+    let stderr = ''
+    const timer = setTimeout(() => { job.timedOut = true; if (!child.killed) child.kill('SIGTERM') }, WEBCAPTURE_TIMEOUT_MS)
+    child.stderr.on('data', (data) => { stderr += data.toString() })
+    child.on('error', (error) => { clearTimeout(timer); reject(error) })
+    child.on('close', (code) => {
+      clearTimeout(timer)
+      job.child = null
+      if (job.state === 'cancelled') return resolve()
+      if (job.timedOut) return reject(processFailed('Web capture timed out before the page produced a screenshot'))
+      if (code === 0) return resolve()
+      reject(processFailed(`Browser exited with code ${code}: ${stderr.trim().slice(0, 500)}`))
+    })
+  })
+}
+
+function cancelWebCaptureJob(job) {
+  if (['succeeded', 'failed', 'cancelled'].includes(job.state)) return
+  job.state = 'cancelled'; touchWebCaptureJob(job)
+  if (job.child && !job.child.killed) job.child.kill('SIGTERM')
 }
 
 async function comfyJson(pathname, init) {
