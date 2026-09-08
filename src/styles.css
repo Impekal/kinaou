@@ -129,6 +129,10 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .imageStudio .formRow label { display: grid; gap: 6px; }
 .generatedImages { padding: 24px; display: grid; gap: 10px; }
 .generatedImages .stackControls { display: grid; gap: 8px; }
+.mediaPlanItems { display: grid; gap: 10px; }
+.mediaPlanItem { display: grid; gap: 4px; border-top: 1px solid #292f3d; padding-top: 10px; }
+.mediaPlanItem small { color: #7d8699; }
+.mediaPlanItem .errorText { color: #e0655a; }
 .storyboardFulfillment { padding: 24px; display: grid; gap: 10px; }
 .storyboardFulfillment > div:not(.eyebrow) { display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center; border-top: 1px solid #292f3d; padding-top: 10px; }
 .storyboardFulfillment span { display: grid; gap: 4px; }

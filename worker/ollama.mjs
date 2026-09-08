@@ -43,6 +43,44 @@ export async function generateAiEditorProposal(baseUrl, model, instruction, cont
   return proposal
 }
 
+export async function generateMediaAcquisitionPlan(baseUrl, model, context, fetchImpl = fetch) {
+  if (typeof model !== 'string' || !model.trim()) throw new Error('Local model is required')
+  const contextJson = JSON.stringify(context)
+  if (contextJson.length > 200_000) throw new Error('Media plan context is too large')
+  const response = await fetchImpl(`${normalizeOllamaUrl(baseUrl)}/api/generate`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(10 * 60_000),
+    body: JSON.stringify({
+      model: model.trim(), stream: false, options: { temperature: 0 }, format: mediaAcquisitionJsonSchema(),
+      prompt: `For each storyboard scene below, propose how KINAOU should obtain its visual. Use exactly one item per scene that needs a visual, referencing the scene's exact id. Prefer "web-capture" with one concrete public https URL when the scene shows a real website; "app-capture" with the exact macOS application name when it shows a real desktop app; "generate-image" with a concrete visual prompt for illustrative or fictional visuals. Give a short rationale per item. Return only the schema.\nScenes: ${contextJson}`
+    })
+  })
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(typeof payload.error === 'string' ? payload.error : `Ollama generation failed with HTTP ${response.status}`)
+  if (typeof payload.response !== 'string') throw new Error('Ollama returned no structured response')
+  const plan = JSON.parse(payload.response)
+  plan.provenance = { kind: 'local-model', adapterId: 'ollama', modelId: model.trim() }
+  return plan
+}
+
+function mediaAcquisitionJsonSchema() {
+  const item = (kind, properties, required) => ({ type: 'object', properties: { kind: { const: kind }, sceneId: { type: 'string' }, rationale: { type: 'string' }, ...properties }, required: ['kind', 'sceneId', 'rationale', ...required] })
+  return {
+    type: 'object',
+    required: ['schemaVersion', 'items'],
+    properties: {
+      schemaVersion: { const: 1 },
+      items: {
+        type: 'array', minItems: 1, maxItems: 100,
+        items: { oneOf: [
+          item('web-capture', { url: { type: 'string' } }, ['url']),
+          item('app-capture', { appName: { type: 'string' } }, ['appName']),
+          item('generate-image', { positivePrompt: { type: 'string' }, negativePrompt: { type: 'string' } }, ['positivePrompt'])
+        ] }
+      }
+    }
+  }
+}
+
 function aiEditorJsonSchema() {
   const target = { trackId: { type: 'string' }, clipId: { type: 'string' } }
   const edit = (type, properties, required = []) => ({ type: 'object', properties: { type: { const: type }, ...target, ...properties }, required: ['type', 'trackId', 'clipId', ...required] })

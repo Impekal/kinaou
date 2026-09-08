@@ -9,7 +9,7 @@ import crypto from 'node:crypto'
 import { managedUploadPaths } from './asset-upload.mjs'
 import { buildAssDocument, captionTempPaths, escapeSubtitleFilterPath } from './captions.mjs'
 import { buildProxyArgs, buildThumbnailArgs, buildWaveformArgs, previewMediaType, proxyRelativePath, thumbnailRelativePath, waveformRelativePath } from './proxies.mjs'
-import { generateAiEditorProposal, generateDirectorPlan, listOllamaModels, normalizeOllamaUrl } from './ollama.mjs'
+import { generateAiEditorProposal, generateDirectorPlan, generateMediaAcquisitionPlan, listOllamaModels, normalizeOllamaUrl } from './ollama.mjs'
 import { MAX_GENERATED_IMAGE_BYTES, MAX_GENERATED_VIDEO_BYTES, MAX_WORKFLOW_FILE_BYTES, buildComfyPromptRequest, comfyHistoryStatus, comfyOutputQuery, comfyQueuePhase, comfyTempImageRelativePath, comfyTempVideoRelativePath, comfyWorkflowRelativePaths, detectComfyUi, generatedMediaExtensionFor, generatedImageRelativePath, generatedVideoRelativePath, normalizeComfyUrl, parseComfyPromptResponse, pickComfyOutputForMediaType, templateMediaType, validateComfyTemplate } from './comfyui.mjs'
 import { buildSttCommands, normalizeWhisperTranscript, sttPaths, whisperModelRelativePaths } from './whisper.mjs'
 import { buildPiperCommand, piperVoiceRelativePaths, ttsPaths, validateTtsText } from './piper.mjs'
@@ -134,6 +134,13 @@ const server = http.createServer(async (request, response) => {
       const localModels = await listOllamaModels(OLLAMA_URL).catch(() => [])
       if (!localModels.some((item) => item.id === body.model)) throw capabilityError('Requested local model is not installed')
       return send(response, 200, { ok: true, type: 'ai-editor-proposal', proposal: await generateAiEditorProposal(OLLAMA_URL, body.model, body.instruction, body.context) })
+    }
+
+    if (request.method === 'POST' && request.url === '/media-plan/generate') {
+      const body = await readJson(request)
+      const localModels = await listOllamaModels(OLLAMA_URL).catch(() => [])
+      if (!localModels.some((item) => item.id === body.model)) throw capabilityError('Requested local model is not installed')
+      return send(response, 200, { ok: true, type: 'media-plan', plan: await generateMediaAcquisitionPlan(OLLAMA_URL, body.model, body.context) })
     }
 
     if (request.method === 'GET' && request.url === '/stt/models') {
