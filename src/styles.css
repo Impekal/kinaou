@@ -130,7 +130,9 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .generatedImages { padding: 24px; display: grid; gap: 10px; }
 .generatedImages .stackControls { display: grid; gap: 8px; }
 .mediaPlanItems { display: grid; gap: 10px; }
-.mediaPlanItem { display: grid; gap: 4px; border-top: 1px solid #292f3d; padding-top: 10px; }
+.mediaPlanItem { display: grid; gap: 6px; border-top: 1px solid #292f3d; padding-top: 10px; }
+.mediaPlanItem .formRow { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+.mediaPlanItem .formRow label { display: grid; gap: 4px; }
 .mediaPlanItem small { color: #7d8699; }
 .mediaPlanItem .errorText { color: #e0655a; }
 .storyboardFulfillment { padding: 24px; display: grid; gap: 10px; }
