@@ -38,6 +38,12 @@ Real screen capture (`screen-capture` capability, macOS only) uses the built-in 
 - Output is written to `KINAOU/Temp/Captures` and atomically renamed into `KINAOU/Assets/Captures`; recordings are ffprobe-probed for a real duration; failures and cancellations remove partial data.
 - Every result carries `real-capture` provenance (method, display, region, delay, requested duration). macOS gates the content behind its Screen Recording permission (System Settings → Privacy & Security) for the process running this worker; the worker reports honestly when a capture produced no usable file.
 
+Website capture (`web-capture` capability) takes real, reproducible screenshots of web pages through an already-installed local browser — nothing is downloaded by KINAOU:
+
+- Discovery checks the standard macOS install paths for Chrome, Chromium and Firefox plus `KINAOU_CHROMIUM`/`KINAOU_FIREFOX` overrides, and reports each browser's real version.
+- `POST /webcapture/jobs` renders exactly the explicitly entered credential-free http(s) URL headless in an isolated temporary profile under `KINAOU/Temp/WebCaptures`, with a bounded viewport, a timeout, and cancellation; the browser fetches that page (and its own subresources) from the network — nothing else.
+- The PNG is atomically renamed into `KINAOU/Assets/WebCaptures`, the temporary profile is always removed, and the result carries `real-capture` provenance with URL, browser, version and viewport, so a web capture stays distinct from both generated visuals and screen captures.
+
 Complex/multi-track rendering is not claimed yet and is rejected until compositor support is implemented.
 
 ## Local prerequisites

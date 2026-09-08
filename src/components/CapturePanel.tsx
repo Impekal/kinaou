@@ -5,10 +5,75 @@ import { registerCapturedMedia } from '../core/capturedMedia'
 import type { CaptureJobRecord, CaptureRequest } from '../core/captureJobs'
 import type { KinaouProject } from '../core/project'
 import type { PersistentVersionHistory } from '../core/versioning'
+import { registerWebCapture } from '../core/webCaptures'
+import type { WebCaptureBrowser, WebCaptureJobRecord } from '../core/webCaptureJobs'
 import { WorkerClient } from '../core/workerClient'
 
 interface Props { project: KinaouProject; history: PersistentVersionHistory; workerUrl: string; workerToken: string; workerConnected: boolean; workerCapabilities: string[]; onProjectChange: (project: KinaouProject) => void }
 const terminal = new Set(['succeeded', 'failed', 'cancelled'])
+
+interface WebCardProps { project: KinaouProject; workerConnected: boolean; workerCapabilities: string[]; client: () => WorkerClient; onProjectChange: (project: KinaouProject) => void }
+
+function WebCaptureCard({ project, workerConnected, workerCapabilities, client, onProjectChange }: WebCardProps) {
+  const [browsers, setBrowsers] = useState<WebCaptureBrowser[]>([])
+  const [browserId, setBrowserId] = useState('')
+  const [url, setUrl] = useState('')
+  const [width, setWidth] = useState('1280')
+  const [height, setHeight] = useState('800')
+  const [job, setJob] = useState<WebCaptureJobRecord | null>(null)
+  const [error, setError] = useState('')
+  const registered = useRef(new Set<string>())
+
+  useEffect(() => {
+    if (!job || terminal.has(job.state)) return
+    const timer = window.setTimeout(async () => { try { setJob(await client().webCaptureStatus(job.id)) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Web capture status failed') } }, 750)
+    return () => window.clearTimeout(timer)
+  }, [job])
+
+  useEffect(() => {
+    if (job?.state !== 'succeeded' || registered.current.has(job.id)) return
+    registered.current.add(job.id)
+    try { onProjectChange(registerWebCapture(project, job)) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Web capture registration failed') }
+  }, [job, project, onProjectChange])
+
+  async function detect() {
+    setError('')
+    try {
+      const next = await client().listWebCaptureBrowsers()
+      setBrowsers(next)
+      setBrowserId(next[0]?.id ?? '')
+      if (!next.length) setError('No supported local browser (Chrome, Chromium or Firefox) was found on the worker machine.')
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Browser detection failed') }
+  }
+
+  const widthValue = Number(width)
+  const heightValue = Number(height)
+  const dimensionsValid = [widthValue, heightValue].every((dimension) => Number.isInteger(dimension) && dimension >= 320 && dimension <= 4096)
+  const available = workerConnected && workerCapabilities.includes('web-capture')
+  const running = Boolean(job && !terminal.has(job.state))
+  const canStart = available && Boolean(browserId) && /^https?:\/\//.test(url.trim()) && dimensionsValid && !running
+
+  async function start() {
+    setError('')
+    try { setJob(await client().startWebCapture({ browserId, url: url.trim(), width: widthValue, height: heightValue })) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Web capture failed to start') }
+  }
+
+  async function cancel() { if (job) try { setJob(await client().cancelWebCapture(job.id)) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Web capture cancellation failed') } }
+
+  return <div className="card imageStudio">
+    <div><div className="eyebrow">WEBSITE CAPTURE</div><h3>Real screenshot of a web page</h3><p className="cardBody">A locally installed browser renders exactly the URL you enter, headless, and KINAOU keeps the real screenshot with URL/browser provenance. The browser will fetch this page (and its own resources) from the network — nothing else. Reproducible: run it again anytime.</p></div>
+    <div className="directorActions"><button className="secondaryButton" disabled={!workerConnected || running} onClick={detect}>Detect browsers</button>{browsers.length > 0 && <small>{browsers.length} local browser{browsers.length === 1 ? '' : 's'} found</small>}</div>
+    <label>Browser<select value={browserId} onChange={(event) => setBrowserId(event.target.value)}><option value="">Detect browsers first</option>{browsers.map((browser) => <option key={browser.id} value={browser.id}>{browser.label}{browser.version ? ` · ${browser.version}` : ''}</option>)}</select></label>
+    <label>Page URL<input value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://example.org/docs" /></label>
+    <div className="formRow">
+      <label>Width<input value={width} onChange={(event) => setWidth(event.target.value)} inputMode="numeric" /></label>
+      <label>Height<input value={height} onChange={(event) => setHeight(event.target.value)} inputMode="numeric" /></label>
+    </div>
+    <div className="directorActions"><button className="primary" disabled={!canStart} onClick={start}>Capture web page</button>{running && <button className="dangerButton" onClick={cancel}>Cancel</button>}</div>
+    {job && <div className="sttJob"><div><strong>{job.state}</strong><span>{Math.round(job.progress * 100)}%</span></div><div className="progressTrack"><div className="progressFill" style={{ width: `${job.progress * 100}%` }} /></div>{job.imagePath && <small>{job.imagePath} · {job.provenance.url}</small>}{job.state === 'failed' && job.error && <small>{job.error}</small>}</div>}
+    {error && <div className="errorBox">{error}</div>}
+  </div>
+}
 
 export function CapturePanel({ project, history, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange }: Props) {
   const [kind, setKind] = useState<'screenshot' | 'recording'>('screenshot')
@@ -57,7 +122,7 @@ export function CapturePanel({ project, history, workerUrl, workerToken, workerC
   async function stop() { if (job) try { setJob(await client().stopCapture(job.id)) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Capture stop failed') } }
   async function cancel() { if (job) try { setJob(await client().cancelCapture(job.id)) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Capture cancellation failed') } }
 
-  const captured = project.assets.filter((asset) => asset.metadata.captured === true && asset.metadata.captureMethod === 'macos-screencapture')
+  const captured = project.assets.filter((asset) => asset.metadata.captured === true)
 
   return <section className="stack">
     <div className="sectionLead"><div><div className="eyebrow">REAL SCREEN CAPTURE</div><h2>Capture</h2><p>Records your actual screen — nothing is generated. Every capture starts only when you explicitly click, and macOS asks once for Screen Recording permission for the process running the worker.</p></div><span className={available ? 'status online' : 'status'}>{available ? 'CAPTURE AVAILABLE' : 'NOT AVAILABLE'}</span></div>
@@ -79,6 +144,7 @@ export function CapturePanel({ project, history, workerUrl, workerToken, workerC
       {job && <div className="sttJob"><div><strong>{job.state}</strong><span>{Math.round(job.progress * 100)}%</span></div><div className="progressTrack"><div className="progressFill" style={{ width: `${job.progress * 100}%` }} /></div>{job.capturePath && <small>{job.capturePath}{job.durationMs ? ` · ${(job.durationMs / 1000).toFixed(2)}s` : ''}</small>}{job.state === 'failed' && job.error && <small>{job.error}</small>}</div>}
       {error && <div className="errorBox">{error}</div>}
     </div>
-    {captured.length > 0 && <div className="card generatedImages"><div className="eyebrow">CAPTURED MEDIA</div><p className="cardBody">These are real captures of your screen with capture provenance — kept strictly apart from generated visuals.</p>{captured.map((asset) => <div key={asset.id}><span><strong>{String(asset.metadata.name)}</strong><small>REAL CAPTURE · display {String(asset.metadata.displayId)}{asset.metadata.durationMs ? ` · ${(Number(asset.metadata.durationMs) / 1000).toFixed(2)}s` : ''}</small></span><div className="stackControls"><SceneFulfillmentControl project={project} history={history} asset={asset} onProjectChange={onProjectChange} onError={setError} /><AssetPlacementControl project={project} asset={asset} onProjectChange={onProjectChange} /></div></div>)}</div>}
+    <WebCaptureCard project={project} workerConnected={workerConnected} workerCapabilities={workerCapabilities} client={client} onProjectChange={onProjectChange} />
+    {captured.length > 0 && <div className="card generatedImages"><div className="eyebrow">CAPTURED MEDIA</div><p className="cardBody">These are real captures with capture provenance — kept strictly apart from generated visuals.</p>{captured.map((asset) => <div key={asset.id}><span><strong>{String(asset.metadata.name)}</strong><small>REAL CAPTURE · {asset.metadata.captureMethod === 'headless-browser' ? String(asset.metadata.url) : `display ${String(asset.metadata.displayId)}`}{asset.metadata.durationMs ? ` · ${(Number(asset.metadata.durationMs) / 1000).toFixed(2)}s` : ''}</small></span><div className="stackControls"><SceneFulfillmentControl project={project} history={history} asset={asset} onProjectChange={onProjectChange} onError={setError} /><AssetPlacementControl project={project} asset={asset} onProjectChange={onProjectChange} /></div></div>)}</div>}
   </section>
 }

@@ -7,6 +7,7 @@ import { parseTtsJob, type TtsJobRecord } from './ttsJobs'
 import { parseImageGenerationAvailability, parseImageJob, type ImageGenerationAvailability, type ImageJobParameters, type ImageJobRecord } from './imageJobs'
 import { parseVideoJob, type VideoJobRecord } from './videoJobs'
 import { parseCaptureJob, type CaptureJobRecord, type CaptureRequest } from './captureJobs'
+import { parseWebCaptureBrowsers, parseWebCaptureJob, type WebCaptureBrowser, type WebCaptureJobRecord, type WebCaptureRequest } from './webCaptureJobs'
 
 export interface WorkerClientOptions {
   baseUrl: string
@@ -194,6 +195,30 @@ export class WorkerClient {
     const payload = await this.request(`/capture/jobs/${encodeURIComponent(jobId)}/cancel`, { method: 'POST' })
     if (payload?.ok !== true || payload?.type !== 'capture-job') throw new Error('Invalid capture cancellation response')
     return parseCaptureJob(payload.job)
+  }
+
+  async listWebCaptureBrowsers(): Promise<WebCaptureBrowser[]> {
+    const payload = await this.request('/webcapture/browsers', { method: 'GET' })
+    if (payload?.ok !== true || payload?.type !== 'web-capture-browsers') throw new Error('Invalid web capture browser response')
+    return parseWebCaptureBrowsers(payload.browsers)
+  }
+
+  async startWebCapture(request: WebCaptureRequest): Promise<WebCaptureJobRecord> {
+    const payload = await this.request('/webcapture/jobs', { method: 'POST', body: JSON.stringify(request) })
+    if (payload?.ok !== true || payload?.type !== 'web-capture-job') throw new Error('Invalid web capture start response')
+    return parseWebCaptureJob(payload.job)
+  }
+
+  async webCaptureStatus(jobId: string): Promise<WebCaptureJobRecord> {
+    const payload = await this.request(`/webcapture/jobs/${encodeURIComponent(jobId)}`, { method: 'GET' })
+    if (payload?.ok !== true || payload?.type !== 'web-capture-job') throw new Error('Invalid web capture status response')
+    return parseWebCaptureJob(payload.job)
+  }
+
+  async cancelWebCapture(jobId: string): Promise<WebCaptureJobRecord> {
+    const payload = await this.request(`/webcapture/jobs/${encodeURIComponent(jobId)}/cancel`, { method: 'POST' })
+    if (payload?.ok !== true || payload?.type !== 'web-capture-job') throw new Error('Invalid web capture cancellation response')
+    return parseWebCaptureJob(payload.job)
   }
 
   async generateVideoProxy(path: string): Promise<MediaProxyResult> {
