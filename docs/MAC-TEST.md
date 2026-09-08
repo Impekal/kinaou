@@ -1,0 +1,100 @@
+# KINAOU — Real Mac Execution Test
+
+This is the ordered checklist for the first run on real hardware (MacBook Pro M2 Pro, external SSD). Each stage is independently valuable — stop at any point and report what you saw. Nothing here downloads models or software silently: every install is an explicit step you run yourself, and every optional runtime simply shows as "not available" until you add it.
+
+Pre-flight status: the complete worker job pipeline (authentication, honest capability errors, browser discovery, a full web-capture job with managed output, cancellation with temp cleanup) was already executed end-to-end against the real worker in the development sandbox and passed. What only your Mac can verify is everything touching macOS itself: screencapture, TCC permissions, FFmpeg rendering on your files, and the optional AI runtimes.
+
+## Stage 0 — Prerequisites
+
+```bash
+node --version    # need 22+
+git --version
+```
+
+Install FFmpeg if missing (free, open source):
+
+```bash
+brew install ffmpeg
+ffmpeg -version && ffprobe -version
+```
+
+Plug in the external SSD and create the dedicated KINAOU directory (KINAOU never touches anything else on the SSD):
+
+```bash
+mkdir -p /Volumes/<YOUR_SSD>/KINAOU
+```
+
+## Stage 1 — Start PWA and worker
+
+Terminal A (PWA):
+
+```bash
+git clone https://github.com/Impekal/kinaou && cd kinaou   # or git pull in an existing clone
+npm ci
+npm run dev        # → http://localhost:5173
+```
+
+Terminal B (worker):
+
+```bash
+cd kinaou
+export KINAOU_MANAGED_ROOT="/Volumes/<YOUR_SSD>/KINAOU"
+node worker/mac-worker.mjs
+```
+
+The worker prints a one-time token (or set `KINAOU_WORKER_TOKEN` yourself). In the PWA: **Settings → Local worker** → URL `http://127.0.0.1:43117`, paste the token, **Test connection**.
+
+**Expect:** capability chips `filesystem, ffmpeg, media-probe, asset-upload, media-proxy, media-thumbnail, media-waveform`, plus `screen-capture` (macOS) and `web-capture` if Chrome/Chromium/Firefox is installed. AI chips (`local-llm`, `speech-to-text`, `text-to-speech`, `image-generation`, `video-generation`) appear only when their runtime is installed — their absence is correct, not a bug.
+
+## Stage 2 — Core media path (no AI needed)
+
+1. Create a project.
+2. **Assets** → import a video file through the browser chooser → it should land in `KINAOU/Assets`, get probed and registered automatically.
+3. Place it on a compatible track, trim/move it, adjust gain/speed/fades.
+4. **Studio** → render an export → check the MP4 in `KINAOU/Renders`; generate the composed preview and scrub it.
+5. Generate proxy, thumbnail and waveform for the asset.
+6. Create a version snapshot, change something, restore the snapshot.
+
+## Stage 3 — Real screen capture (macOS permissions)
+
+1. **Capture** → Screenshot, Entire display, 3 s delay → on the first capture macOS asks for **Screen Recording** permission for the terminal app running the worker. Grant it, then **quit and restart the worker** (macOS applies this permission only to newly started processes) and capture again.
+2. Screenshot with **Pick window or area on screen** (crosshair; Space selects a window; Escape cancels — expect the honest "cancelled on screen" error when you escape).
+3. Screenshot with **App window by name** (e.g. `Safari`): first use triggers **Automation** (and possibly **Accessibility**) prompts — grant, restart the worker if it still fails, retry.
+4. Screen recording with a 60 s maximum → **Stop & keep** after a few seconds → the recording should register with its real duration.
+
+**Expect:** files in `KINAOU/Assets/Captures`, assets labelled REAL CAPTURE, honest error messages naming the System Settings pane whenever a permission is missing.
+
+## Stage 4 — Website capture
+
+Needs any installed Chrome, Chromium or Firefox (or point `KINAOU_CHROMIUM`/`KINAOU_FIREFOX` at a binary).
+
+**Capture → Website capture** → Detect browsers → capture `https://example.org` → expect a real PNG in `KINAOU/Assets/WebCaptures` with URL/browser/version provenance on the asset.
+
+## Stage 5 — Optional local AI runtimes (each independent)
+
+- **Ollama** (Director, AI Editor, Media Plan): install Ollama, pull a model that fits 16 GB (e.g. `ollama pull llama3.1:8b`). Director → detect models → generate a plan → review → apply.
+- **Scene Media Plan** (needs Ollama + storyboard): try both modes — "Plan & acquire automatically" and "Propose plan for review" (edit an item, add one, remove one, then Validate & run). Check the automatic "Before media acquisition run" version afterwards.
+- **whisper.cpp** (STT): set `KINAOU_WHISPER_CLI=/absolute/path/to/whisper-cli` and put a `ggml-*.bin` model into `KINAOU/Models`. Assets → transcribe → transcript asset → Captions from segments.
+- **Piper** (TTS): set `KINAOU_PIPER_CLI=/absolute/path/to/piper` and put a voice (`*.onnx` + `*.onnx.json`) into `KINAOU/Models`. Audio → detect voices → generate → place on timeline.
+- **ComfyUI** (image/video generation): run ComfyUI on `http://127.0.0.1:8188` with your models, and put at least one API-format template wrapper into `KINAOU/Models/ComfyUI/Workflows` (JSON with `schemaVersion: 1`, `id`, `label`, optional `"mediaType": "video"`, `workflow` in ComfyUI API format, and `bindings` naming which node inputs KINAOU may set — `positivePrompt` required; `negativePrompt`/`seed`/`width`/`height` optional). Images/Video → Check availability → generate → asset with prompt/seed provenance.
+
+## Stage 6 — The full loop
+
+Project "How to use X" → Director plan → Media plan (either mode) → storyboard fulfillment check → timeline arrangement → captions/voice if configured → render. That is the complete Discover → Direct → Generate → Edit → Export path on real hardware.
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| Worker exits at start: managed root error | `KINAOU_MANAGED_ROOT` must exist and the directory must be named exactly `KINAOU` |
+| Screenshots show only the wallpaper / "Capture produced no file" | Grant Screen Recording to the terminal running the worker, then restart the worker |
+| App capture fails with an authorization message | System Settings → Privacy & Security → Automation + Accessibility for the worker's terminal; restart the worker |
+| "No supported local browser" for web capture | Install Chrome/Chromium/Firefox or set `KINAOU_CHROMIUM`/`KINAOU_FIREFOX` |
+| Port 43117 already in use | Set `KINAOU_WORKER_PORT` and use that URL in Settings |
+| Lost the token | Restart the worker (a new one-time token is printed) or set `KINAOU_WORKER_TOKEN` |
+
+## What to report back
+
+1. The capability chips shown after Test connection.
+2. Which stages were green.
+3. For anything red: the exact error text shown in the PWA and the worker's terminal output.

@@ -191,6 +191,7 @@ For every meaningful slice: verify main → feature branch → implement real be
 
 ## USER ACTIONS AT END
 No user action blocks independent repository work now. The external SSD is NOT needed for remote development — it becomes relevant only for the real Mac execution test below.
+The ordered step-by-step test checklist lives in `docs/MAC-TEST.md`. The worker job pipeline (auth, honest capability errors, browser discovery, a full web-capture job with managed output and cancellation cleanup) already passed an end-to-end smoke test against the real worker in the development sandbox; the Mac test verifies the macOS-only parts (screencapture, TCC permissions, FFmpeg on real media, optional AI runtimes).
 A later real Mac execution test requires:
 1. Node.js 22+ and FFmpeg/ffprobe in PATH.
 2. The external SSD plugged in with a dedicated `KINAOU` directory; launch the worker with `KINAOU_MANAGED_ROOT` plus a token.
