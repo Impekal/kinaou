@@ -40,9 +40,17 @@ export function webCapturePaths(jobId) {
   if (!/^[a-zA-Z0-9-]+$/.test(jobId)) throw new Error('Invalid web capture job ID')
   return {
     image: `KINAOU/Temp/WebCaptures/${jobId}.png`,
-    profile: `KINAOU/Temp/WebCaptures/${jobId}-profile`,
     asset: `KINAOU/Assets/WebCaptures/${jobId}.png`
   }
+}
+
+// Browser profiles need symlink support (Chrome's SingletonLock, Firefox's lock),
+// which exFAT/FAT external drives don't provide — so the throwaway profile lives
+// in the machine-local temp directory, never inside the managed root.
+export function webCaptureProfileDirectory(jobId, tempRoot) {
+  if (!/^[a-zA-Z0-9-]+$/.test(jobId)) throw new Error('Invalid web capture job ID')
+  if (typeof tempRoot !== 'string' || !path.isAbsolute(tempRoot)) throw new Error('Temp root must be an absolute path')
+  return path.join(tempRoot, `kinaou-webcapture-${jobId}-profile`)
 }
 
 export function buildWebCaptureCommand({ browserPath, request, targetPath, profilePath }) {

@@ -14,7 +14,8 @@ import { MAX_GENERATED_IMAGE_BYTES, MAX_GENERATED_VIDEO_BYTES, MAX_WORKFLOW_FILE
 import { buildSttCommands, normalizeWhisperTranscript, sttPaths, whisperModelRelativePaths } from './whisper.mjs'
 import { buildPiperCommand, piperVoiceRelativePaths, ttsPaths, validateTtsText } from './piper.mjs'
 import { DEFAULT_OSASCRIPT_PATH, DEFAULT_SCREENCAPTURE_PATH, buildAppActivateCommand, buildAppWindowBoundsCommand, buildCaptureCommand, buildCaptureProvenance, captureAssetRelativePath, captureTempRelativePath, parseAppWindowBounds, validateCaptureRequest } from './capture.mjs'
-import { buildWebCaptureCommand, buildWebCaptureProvenance, validateWebCaptureRequest, webCaptureBrowserCandidates, webCapturePaths } from './webcapture.mjs'
+import os from 'node:os'
+import { buildWebCaptureCommand, buildWebCaptureProvenance, validateWebCaptureRequest, webCaptureBrowserCandidates, webCaptureProfileDirectory, webCapturePaths } from './webcapture.mjs'
 
 const HOST = '127.0.0.1'
 const PORT = Number(process.env.KINAOU_WORKER_PORT ?? 43117)
@@ -1114,8 +1115,8 @@ async function executeWebCaptureJob(id) {
   if (!job || job.state === 'cancelled') return
   job.state = 'running'; job.progress = 0.1; touchWebCaptureJob(job)
   const relative = webCapturePaths(job.id)
+  const profileDir = webCaptureProfileDirectory(job.id, os.tmpdir())
   const tempImage = resolveManaged(relative.image)
-  const profileDir = resolveManaged(relative.profile)
   const finalAbsolute = resolveManaged(relative.asset)
   try {
     await mkdir(path.dirname(tempImage), { recursive: true })

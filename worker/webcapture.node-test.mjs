@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildWebCaptureCommand, buildWebCaptureProvenance, validateWebCaptureRequest, validateWebCaptureUrl, webCaptureBrowserCandidates, webCapturePaths } from './webcapture.mjs'
+import { buildWebCaptureCommand, buildWebCaptureProvenance, validateWebCaptureRequest, validateWebCaptureUrl, webCaptureBrowserCandidates, webCaptureProfileDirectory, webCapturePaths } from './webcapture.mjs'
 
 const browsers = [
   { id: 'chrome', engine: 'chromium', label: 'Google Chrome', path: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' },
@@ -22,8 +22,11 @@ test('validates web capture requests against actually available browsers', () =>
 })
 
 test('creates only managed web capture paths and honors env-configured browsers', () => {
-  assert.deepEqual(webCapturePaths('web-1'), { image: 'KINAOU/Temp/WebCaptures/web-1.png', profile: 'KINAOU/Temp/WebCaptures/web-1-profile', asset: 'KINAOU/Assets/WebCaptures/web-1.png' })
+  assert.deepEqual(webCapturePaths('web-1'), { image: 'KINAOU/Temp/WebCaptures/web-1.png', asset: 'KINAOU/Assets/WebCaptures/web-1.png' })
   assert.throws(() => webCapturePaths('../evil'), /job ID/)
+  assert.equal(webCaptureProfileDirectory('web-1', '/tmp'), '/tmp/kinaou-webcapture-web-1-profile')
+  assert.throws(() => webCaptureProfileDirectory('../evil', '/tmp'), /job ID/)
+  assert.throws(() => webCaptureProfileDirectory('web-1', 'relative'), /absolute/)
   const candidates = webCaptureBrowserCandidates({ KINAOU_CHROMIUM: '/opt/pw-browsers/chromium', KINAOU_FIREFOX: 'relative/firefox' })
   assert.equal(candidates[0].id, 'custom-chromium')
   assert.ok(!candidates.some((candidate) => candidate.path === 'relative/firefox'))
