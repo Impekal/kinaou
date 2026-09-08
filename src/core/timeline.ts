@@ -1,5 +1,12 @@
-import type { KinaouProject, TimelineClip, TimelineTrack } from './project'
+import type { KinaouAsset, KinaouProject, TimelineClip, TimelineTrack } from './project'
 import { touchProject } from './project'
+
+export function clipSpeedFitsSource(asset: KinaouAsset | undefined, clip: TimelineClip, speed: number): boolean {
+  if (!asset || asset.kind === 'image' || asset.kind === 'caption') return true
+  const assetDuration = typeof asset.metadata.durationMs === 'number' ? asset.metadata.durationMs : undefined
+  if (assetDuration === undefined) return true
+  return clip.sourceOffsetMs + clip.durationMs * speed <= assetDuration + 1
+}
 
 export type TimelineOperation =
   | { type: 'add-track'; track: TimelineTrack }

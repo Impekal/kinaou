@@ -1,4 +1,5 @@
 import type { KinaouProject } from './project'
+import { clipSpeedFitsSource } from './timeline'
 
 const renderableTrackTypes = new Set(['video', 'broll', 'image', 'avatar', 'overlay', 'voice', 'dialog', 'music', 'sfx', 'caption'])
 
@@ -31,6 +32,15 @@ export function renderReadiness(project: KinaouProject): { ready: boolean; reaso
     }
     if (!asset.managed || !asset.uri.startsWith('KINAOU/Assets/')) {
       return { ready: false, reason: 'Replace planning/external clips with managed KINAOU/Assets media before rendering.' }
+    }
+  }
+
+  for (const track of activeTracks) {
+    for (const clip of track.clips) {
+      const asset = project.assets.find((item) => item.id === clip.assetId)
+      if (!clipSpeedFitsSource(asset, clip, clip.speed)) {
+        return { ready: false, reason: `A ${clip.speed}× clip on "${track.name}" needs more source media than its asset has. Lower the speed, shorten the clip, or use Speed reset.` }
+      }
     }
   }
   return { ready: true }

@@ -9,7 +9,14 @@ const terminal = new Set(['succeeded', 'failed', 'cancelled'])
 
 export function TimelinePreview({ project, workerUrl, workerToken, workerConnected }: { project: KinaouProject; workerUrl: string; workerToken: string; workerConnected: boolean }) {
   const readiness = useMemo(() => renderReadiness(project), [project])
-  const plan = useMemo(() => readiness.ready ? createTimelinePreviewPlan(project) : null, [project, readiness.ready])
+  const plan = useMemo(() => {
+    if (!readiness.ready) return null
+    try {
+      return createTimelinePreviewPlan(project)
+    } catch {
+      return null
+    }
+  }, [project, readiness.ready])
   const videoRef = useRef<HTMLVideoElement>(null)
   const [job, setJob] = useState<RenderJobRecord | null>(null)
   const [url, setUrl] = useState('')
@@ -46,8 +53,9 @@ export function TimelinePreview({ project, workerUrl, workerToken, workerConnect
   const busy = job && !terminal.has(job.state)
   const durationSeconds = (plan?.durationMs ?? 0) / 1000
   return <section className="card timelinePreview">
-    <div className="sectionLead"><div><div className="eyebrow">COMPOSED PREVIEW</div><h3>Timeline preview</h3><p>Renders the actual timeline at 960×540 into managed cache. Export still uses original media and the full preset.</p></div><button className="secondaryButton" disabled={!readiness.ready || !workerConnected || Boolean(busy)} onClick={renderPreview}>{busy ? `Rendering ${Math.round((job?.progress ?? 0) * 100)}%` : url ? 'Refresh preview' : 'Render preview'}</button></div>
+    <div className="sectionLead"><div><div className="eyebrow">COMPOSED PREVIEW</div><h3>Timeline preview</h3><p>Renders the actual timeline at 960×540 into managed cache. Export still uses original media and the full preset.</p></div><button className="secondaryButton" disabled={!readiness.ready || !plan || !workerConnected || Boolean(busy)} onClick={renderPreview}>{busy ? `Rendering ${Math.round((job?.progress ?? 0) * 100)}%` : url ? 'Refresh preview' : 'Render preview'}</button></div>
     {!readiness.ready && <div className="warning">{readiness.reason}</div>}
+    {readiness.ready && !plan && <div className="warning">The current timeline cannot be turned into a render plan. Undo the last timeline change or adjust the affected clip.</div>}
     {job?.error && <div className="errorBox">{job.error}</div>}{error && <div className="errorBox">{error}</div>}
     {url && <><video ref={videoRef} className="proxyVideo" src={url} controls preload="metadata" onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)} /><label>Playhead {currentTime.toFixed(2)}s<input type="range" min="0" max={durationSeconds} step="0.01" value={currentTime} onChange={(event) => { const value = Number(event.target.value); setCurrentTime(value); if (videoRef.current) videoRef.current.currentTime = value }} /></label></>}
   </section>
