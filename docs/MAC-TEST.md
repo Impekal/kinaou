@@ -4,10 +4,14 @@ This is the ordered checklist for the first run on real hardware (MacBook Pro M2
 
 Pre-flight status: the complete worker job pipeline (authentication, honest capability errors, browser discovery, a full web-capture job with managed output, cancellation with temp cleanup) was already executed end-to-end against the real worker in the development sandbox and passed. What only your Mac can verify is everything touching macOS itself: screencapture, TCC permissions, FFmpeg rendering on your files, and the optional AI runtimes.
 
+> Paste tip: run the code blocks exactly as written. They intentionally contain no `#` comments — the default macOS zsh does not accept interactive comments and errors on pasted `#` lines.
+
 ## Stage 0 — Prerequisites
 
+Check Node.js (22+ required) and git:
+
 ```bash
-node --version    # need 22+
+node --version
 git --version
 ```
 
@@ -26,15 +30,21 @@ mkdir -p /Volumes/<YOUR_SSD>/KINAOU
 
 ## Stage 1 — Start PWA and worker
 
-Terminal A (PWA):
+The PWA and the worker are two long-running processes: each needs its own terminal window (⌘N), and both must stay running the whole time.
+
+Terminal A (PWA) — first run:
 
 ```bash
-git clone https://github.com/Impekal/kinaou && cd kinaou   # or git pull in an existing clone
+git clone https://github.com/Impekal/kinaou && cd kinaou
 npm ci
-npm run dev        # → http://localhost:5173
+npm run dev
 ```
 
-Terminal B (worker):
+(Existing clone instead: `cd kinaou && git pull && npm ci && npm run dev`.)
+
+The dev server serves the PWA at **http://localhost:4173**. Leave this terminal running.
+
+Terminal B (worker) — a separate window:
 
 ```bash
 cd kinaou
@@ -90,8 +100,10 @@ Project "How to use X" → Director plan → Media plan (either mode) → storyb
 | Screenshots show only the wallpaper / "Capture produced no file" | Grant Screen Recording to the terminal running the worker, then restart the worker |
 | App capture fails with an authorization message | System Settings → Privacy & Security → Automation + Accessibility for the worker's terminal; restart the worker |
 | "No supported local browser" for web capture | Install Chrome/Chromium/Firefox or set `KINAOU_CHROMIUM`/`KINAOU_FIREFOX` |
-| Port 43117 already in use | Set `KINAOU_WORKER_PORT` and use that URL in Settings |
-| Lost the token | Restart the worker (a new one-time token is printed) or set `KINAOU_WORKER_TOKEN` |
+| Worker exits with `EADDRINUSE: address already in use 127.0.0.1:43117` | An earlier worker is still running (often in another terminal window). Kill it with `kill $(lsof -ti :43117)`, verify `lsof -ti :43117` prints nothing, then start the worker again. Alternatively set `KINAOU_WORKER_PORT` and use that URL in Settings |
+| Lost the token | Restart the worker (a new one-time token is printed) or set `KINAOU_WORKER_TOKEN`. Every restart invalidates the previous token — paste the new one in Settings |
+| "Invalid worker health response" after Test connection | The Settings URL points at the wrong server (e.g. the Vite dev server). The worker URL is `http://127.0.0.1:43117`, not `http://localhost:4173` |
+| `http://localhost:4173` shows a different app | A previously installed PWA/service worker from another project is hijacking the port. Clear the site data / cache for `localhost:4173` in the browser and reload |
 
 ## What to report back
 
