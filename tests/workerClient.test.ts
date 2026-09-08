@@ -13,6 +13,23 @@ describe('worker client', () => {
     expect(() => new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: '' })).toThrow(/token/)
   })
 
+  it('never calls the global fetch bound to the client instance (browser Window.fetch rule)', async () => {
+    const original = globalThis.fetch
+    const seen: unknown[] = []
+    globalThis.fetch = function (this: unknown) {
+      seen.push(this)
+      return Promise.resolve(jsonResponse({ ok: false, error: { code: 'UNKNOWN', message: 'stub' } }, 500))
+    } as typeof fetch
+    try {
+      const client = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret' })
+      await client.health().catch(() => {})
+      expect(seen).toHaveLength(1)
+      expect(seen[0] === undefined || seen[0] === globalThis).toBe(true)
+    } finally {
+      globalThis.fetch = original
+    }
+  })
+
   it('sends bearer auth and parses health/probe responses', async () => {
     const seen: Array<{ url: string; auth: string | null }> = []
     const fetchImpl: typeof fetch = async (input, init) => {
