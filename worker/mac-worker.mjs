@@ -1123,7 +1123,7 @@ async function executeWebCaptureJob(id) {
     await mkdir(profileDir, { recursive: true })
     await mkdir(path.dirname(finalAbsolute), { recursive: true })
     const command = buildWebCaptureCommand({ browserPath: job.browserPath, request: job.request, targetPath: tempImage, profilePath: profileDir })
-    await runWebCaptureProcess(job, command)
+    await runWebCaptureProcess(job, command, tempImage)
     if (job.state === 'cancelled') return
     const info = await stat(tempImage).catch(() => null)
     if (!info || !info.size) throw processFailed('The browser produced no screenshot for this URL')
@@ -1138,21 +1138,48 @@ async function executeWebCaptureJob(id) {
   }
 }
 
-function runWebCaptureProcess(job, command) {
+function runWebCaptureProcess(job, command, targetPath) {
   return new Promise((resolve, reject) => {
     const child = spawn(command.executable, command.args, { shell: false, stdio: ['ignore', 'ignore', 'pipe'] })
     job.child = child
     let stderr = ''
-    const timer = setTimeout(() => { job.timedOut = true; if (!child.killed) child.kill('SIGTERM') }, WEBCAPTURE_TIMEOUT_MS)
+    let settled = false
+    const finish = (error) => {
+      if (settled) return
+      settled = true
+      clearInterval(filePoll)
+      clearTimeout(timeoutTimer)
+      if (error) reject(error)
+      else resolve()
+    }
+    // Some browsers write the screenshot and then linger instead of exiting; the
+    // finished, size-stable file is the completion signal — the exit code is not.
+    let lastSize = -1
+    let stablePolls = 0
+    const filePoll = setInterval(async () => {
+      try {
+        const info = await stat(targetPath)
+        if (info.size > 0 && info.size === lastSize) {
+          if ((stablePolls += 1) >= 2) {
+            if (!child.killed) child.kill('SIGTERM')
+            finish()
+          }
+        } else { stablePolls = 0; lastSize = info.size }
+      } catch { lastSize = -1; stablePolls = 0 }
+    }, 750)
+    const timeoutTimer = setTimeout(() => {
+      job.timedOut = true
+      if (!child.killed) child.kill('SIGTERM')
+      finish(processFailed('Web capture timed out before the page produced a screenshot'))
+    }, WEBCAPTURE_TIMEOUT_MS)
+    const hardKill = setTimeout(() => { try { child.kill('SIGKILL') } catch { /* already gone */ } }, WEBCAPTURE_TIMEOUT_MS + 10_000)
     child.stderr.on('data', (data) => { stderr += data.toString() })
-    child.on('error', (error) => { clearTimeout(timer); reject(error) })
+    child.on('error', (error) => { clearTimeout(hardKill); finish(error) })
     child.on('close', (code) => {
-      clearTimeout(timer)
+      clearTimeout(hardKill)
       job.child = null
-      if (job.state === 'cancelled') return resolve()
-      if (job.timedOut) return reject(processFailed('Web capture timed out before the page produced a screenshot'))
-      if (code === 0) return resolve()
-      reject(processFailed(`Browser exited with code ${code}: ${stderr.trim().slice(0, 500)}`))
+      if (job.state === 'cancelled' || code === 0) return finish()
+      finish(processFailed(`Browser exited with code ${code}: ${stderr.trim().slice(0, 500)}`))
     })
   })
 }

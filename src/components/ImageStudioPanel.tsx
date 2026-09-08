@@ -28,7 +28,7 @@ export function ImageStudioPanel({ project, history, workerUrl, workerToken, wor
 
   useEffect(() => {
     if (!job || terminal.has(job.state)) return
-    const timer = window.setTimeout(async () => { try { setJob(await client().imageJobStatus(job.id)) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Image status failed') } }, 750)
+    const timer = window.setTimeout(async () => { try { setJob(await client().imageJobStatus(job.id)) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Image status failed'); setJob((previous) => previous ? { ...previous } : previous) } }, 750)
     return () => window.clearTimeout(timer)
   }, [job, workerUrl, workerToken])
 

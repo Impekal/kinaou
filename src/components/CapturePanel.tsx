@@ -26,7 +26,7 @@ function WebCaptureCard({ project, workerConnected, workerCapabilities, client, 
 
   useEffect(() => {
     if (!job || terminal.has(job.state)) return
-    const timer = window.setTimeout(async () => { try { setJob(await client().webCaptureStatus(job.id)) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Web capture status failed') } }, 750)
+    const timer = window.setTimeout(async () => { try { setJob(await client().webCaptureStatus(job.id)) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Web capture status failed'); setJob((previous) => previous ? { ...previous } : previous) } }, 750)
     return () => window.clearTimeout(timer)
   }, [job])
 
@@ -89,7 +89,7 @@ export function CapturePanel({ project, history, workerUrl, workerToken, workerC
 
   useEffect(() => {
     if (!job || terminal.has(job.state)) return
-    const timer = window.setTimeout(async () => { try { setJob(await client().captureStatus(job.id)) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Capture status failed') } }, 750)
+    const timer = window.setTimeout(async () => { try { setJob(await client().captureStatus(job.id)) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Capture status failed'); setJob((previous) => previous ? { ...previous } : previous) } }, 750)
     return () => window.clearTimeout(timer)
   }, [job, workerUrl, workerToken])
 

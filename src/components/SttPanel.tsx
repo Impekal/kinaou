@@ -21,7 +21,7 @@ export function SttPanel({ project, workerUrl, workerToken, workerConnected, wor
   useEffect(() => {
     if (!job || terminal.has(job.state)) return
     const timer = window.setTimeout(async () => {
-      try { setJob(await client().sttStatus(job.id)) } catch (cause) { setError(cause instanceof Error ? cause.message : 'STT status failed') }
+      try { setJob(await client().sttStatus(job.id)) } catch (cause) { setError(cause instanceof Error ? cause.message : 'STT status failed'); setJob((previous) => previous ? { ...previous } : previous) }
     }, 750)
     return () => window.clearTimeout(timer)
   }, [job, workerUrl, workerToken])

@@ -20,7 +20,7 @@ export function AudioStudioPanel({ project, workerUrl, workerToken, workerConnec
 
   useEffect(() => {
     if (!job || terminal.has(job.state)) return
-    const timer = window.setTimeout(async () => { try { setJob(await client().ttsStatus(job.id)) } catch (cause) { setError(cause instanceof Error ? cause.message : 'TTS status failed') } }, 750)
+    const timer = window.setTimeout(async () => { try { setJob(await client().ttsStatus(job.id)) } catch (cause) { setError(cause instanceof Error ? cause.message : 'TTS status failed'); setJob((previous) => previous ? { ...previous } : previous) } }, 750)
     return () => window.clearTimeout(timer)
   }, [job, workerUrl, workerToken])
 
