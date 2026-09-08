@@ -4,23 +4,24 @@ import { registerGeneratedImage } from '../core/generatedImages'
 import { registerWebCapture } from '../core/webCaptures'
 import { assignAssetToScene } from '../core/storyboardFulfillment'
 import { describeAcquisitionItem, parseMediaAcquisitionPlan, type MediaAcquisitionItem, type MediaAcquisitionPlan } from '../core/mediaAcquisition'
-import type { KinaouProject } from '../core/project'
+import { parseProject, touchProject, type KinaouProject } from '../core/project'
+import type { PersistentVersionHistory } from '../core/versioning'
 import { WorkerClient } from '../core/workerClient'
 
-interface Props { project: KinaouProject; workerUrl: string; workerToken: string; workerConnected: boolean; workerCapabilities: string[]; onProjectChange: (project: KinaouProject) => void }
-interface ItemRun { status: 'running' | 'succeeded' | 'failed' | 'skipped'; message?: string }
+interface Props { project: KinaouProject; history: PersistentVersionHistory; workerUrl: string; workerToken: string; workerConnected: boolean; workerCapabilities: string[]; onProjectChange: (project: KinaouProject) => void }
+interface ItemRun { status: 'running' | 'succeeded' | 'failed'; message?: string }
 
 const terminal = new Set(['succeeded', 'failed', 'cancelled'])
 const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms))
 function randomSeed(): number { return Math.floor(Math.random() * 2 ** 31) }
 
-export function MediaPlanPanel({ project, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange }: Props) {
+export function MediaPlanPanel({ project, history, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange }: Props) {
   const [models, setModels] = useState<Array<{ id: string }>>([])
   const [model, setModel] = useState('')
   const [plan, setPlan] = useState<MediaAcquisitionPlan | null>(null)
-  const [selected, setSelected] = useState<Record<number, boolean>>({})
   const [runs, setRuns] = useState<Record<number, ItemRun>>({})
   const [busy, setBusy] = useState(false)
+  const [finished, setFinished] = useState(false)
   const [error, setError] = useState('')
   const projectRef = useRef(project)
   projectRef.current = project
@@ -34,18 +35,6 @@ export function MediaPlanPanel({ project, workerUrl, workerToken, workerConnecte
       setModel(next[0]?.id ?? '')
       if (!next.length) setError('No installed local Ollama model was found.')
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Model discovery failed') }
-  }
-
-  async function propose() {
-    setError(''); setPlan(null); setRuns({}); setBusy(true)
-    try {
-      const context = { title: project.title, scenes: project.storyboard.map((scene) => ({ id: scene.id, title: scene.title, description: scene.description })) }
-      const raw = await client().generateMediaAcquisitionPlan(model, context)
-      const validated = parseMediaAcquisitionPlan(raw, projectRef.current)
-      setPlan(validated)
-      setSelected(Object.fromEntries(validated.items.map((_item, index) => [index, true])))
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Media plan generation failed') }
-    finally { setBusy(false) }
   }
 
   async function pollUntilTerminal<T extends { id: string; state: string }>(job: T, status: (id: string) => Promise<T>): Promise<T> {
@@ -86,53 +75,65 @@ export function MediaPlanPanel({ project, workerUrl, workerToken, workerConnecte
     return { project: registerGeneratedImage(current, job), uri: job.imagePath }
   }
 
-  async function runApproved() {
-    if (!plan) return
-    setBusy(true); setError('')
-    let current = projectRef.current
-    for (const [index, item] of plan.items.entries()) {
-      if (!selected[index]) { setRuns((previous) => ({ ...previous, [index]: { status: 'skipped' } })); continue }
-      setRuns((previous) => ({ ...previous, [index]: { status: 'running' } }))
-      try {
-        const result = await acquire(item, current)
-        current = result.project
-        const asset = current.assets.find((candidate) => candidate.uri === result.uri)
-        const scene = current.storyboard.find((candidate) => candidate.id === item.sceneId)
-        let message = 'acquired'
-        if (asset && scene && !scene.assetId) { current = assignAssetToScene(current, item.sceneId, asset.id); message = 'acquired and assigned to its scene' }
-        else if (asset) message = 'acquired; kept as alternative because the scene is already fulfilled'
-        onProjectChange(current)
-        setRuns((previous) => ({ ...previous, [index]: { status: 'succeeded', message } }))
-      } catch (cause) {
-        setRuns((previous) => ({ ...previous, [index]: { status: 'failed', message: cause instanceof Error ? cause.message : 'Acquisition failed' } }))
+  async function planAndAcquire() {
+    setError(''); setPlan(null); setRuns({}); setFinished(false); setBusy(true)
+    try {
+      const context = { title: project.title, scenes: project.storyboard.map((scene) => ({ id: scene.id, title: scene.title, description: scene.description })) }
+      const raw = await client().generateMediaAcquisitionPlan(model, context)
+      const validated = parseMediaAcquisitionPlan(raw, projectRef.current)
+      setPlan(validated)
+      history.snapshot(projectRef.current, 'Before media acquisition run', 'system')
+      let current = projectRef.current
+      const results: Array<{ sceneId: string; summary: string; status: string; message?: string }> = []
+      for (const [index, item] of validated.items.entries()) {
+        setRuns((previous) => ({ ...previous, [index]: { status: 'running' } }))
+        try {
+          const result = await acquire(item, current)
+          current = result.project
+          const asset = current.assets.find((candidate) => candidate.uri === result.uri)
+          const scene = current.storyboard.find((candidate) => candidate.id === item.sceneId)
+          let message = 'acquired'
+          if (asset && scene && !scene.assetId) { current = assignAssetToScene(current, item.sceneId, asset.id); message = 'acquired and assigned to its scene' }
+          else if (asset) message = 'acquired; kept as alternative because the scene is already fulfilled'
+          onProjectChange(current)
+          setRuns((previous) => ({ ...previous, [index]: { status: 'succeeded', message } }))
+          results.push({ sceneId: item.sceneId, summary: describeAcquisitionItem(item), status: 'succeeded', message })
+        } catch (cause) {
+          const message = cause instanceof Error ? cause.message : 'Acquisition failed'
+          setRuns((previous) => ({ ...previous, [index]: { status: 'failed', message } }))
+          results.push({ sceneId: item.sceneId, summary: describeAcquisitionItem(item), status: 'failed', message })
+        }
       }
-    }
-    setBusy(false)
+      current = parseProject(touchProject({ ...current, metadata: { ...current.metadata, mediaAcquisition: { plan: validated, completedAt: new Date().toISOString(), results } } }))
+      onProjectChange(current)
+      setFinished(true)
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Media acquisition failed') }
+    finally { setBusy(false) }
   }
 
   const available = workerConnected && workerCapabilities.includes('local-llm')
   const hasScenes = project.storyboard.length > 0
 
   return <div className="card imageStudio">
-    <div><div className="eyebrow">SCENE MEDIA PLAN</div><h3>Let KINAOU gather the visuals</h3><p className="cardBody">The local model proposes, per storyboard scene, whether to capture a real website, capture a real app window, or generate an illustrative image — with concrete URLs, app names and prompts. You review the plan once; approved items then run fully automatically: capture, register with provenance, and fill each still-empty scene. Nothing is ever replaced automatically.</p></div>
+    <div><div className="eyebrow">SCENE MEDIA PLAN</div><h3>Let KINAOU gather the visuals</h3><p className="cardBody">The local model decides per storyboard scene how to obtain its visual — capture a real website, capture a real app window, or generate an illustrative image — and KINAOU acquires everything immediately. You review the results: every item below shows what was fetched from where, each asset keeps its full provenance, only still-empty scenes are filled, and an automatic safety version taken before the run makes the whole acquisition reversible in one restore.</p></div>
     {!hasScenes && <p className="cardBody">Apply a Director plan first — the media plan works from the storyboard scenes.</p>}
     <div className="directorActions">
       <button className="secondaryButton" disabled={!available || busy} onClick={detectModels}>Detect local models</button>
       <select value={model} onChange={(event) => setModel(event.target.value)}><option value="">Detect models first</option>{models.map((entry) => <option key={entry.id} value={entry.id}>{entry.id}</option>)}</select>
-      <button className="primary" disabled={!available || !model || !hasScenes || busy} onClick={propose}>Propose media plan locally</button>
+      <button className="primary" disabled={!available || !model || !hasScenes || busy} onClick={planAndAcquire}>{busy ? 'Acquiring…' : 'Plan & acquire automatically'}</button>
     </div>
     {plan && <div className="mediaPlanItems">
       {plan.items.map((item, index) => {
         const scene = project.storyboard.find((candidate) => candidate.id === item.sceneId)
         const run = runs[index]
         return <div key={index} className="mediaPlanItem">
-          <label><input type="checkbox" checked={selected[index] ?? false} disabled={busy} onChange={(event) => setSelected((previous) => ({ ...previous, [index]: event.target.checked }))} /> <strong>{scene?.title ?? item.sceneId}</strong></label>
+          <strong>{scene?.title ?? item.sceneId}</strong>
           <span>{describeAcquisitionItem(item)}</span>
           <small>{item.rationale}</small>
           {run && <small className={run.status === 'failed' ? 'errorText' : ''}>{run.status}{run.message ? ` · ${run.message}` : ''}</small>}
         </div>
       })}
-      <div className="directorActions"><button className="primary" disabled={busy || !plan.items.some((_item, index) => selected[index])} onClick={runApproved}>{busy ? 'Running…' : 'Run approved items'}</button></div>
+      {finished && <p className="cardBody">Done. Review the results above and in the storyboard fulfillment overview — clear or replace any scene visual there, or restore the automatic "Before media acquisition run" version to undo everything.</p>}
     </div>}
     {error && <div className="errorBox">{error}</div>}
   </div>
