@@ -317,6 +317,16 @@ const server = http.createServer(async (request, response) => {
   }
 })
 
+server.on('error', (error) => {
+  if (error?.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} on ${HOST} is already in use — most likely an earlier KINAOU worker is still running (possibly in another terminal window).`)
+    console.error(`Stop it with: kill $(lsof -ti :${PORT})   (verify with: lsof -ti :${PORT} — no output means the port is free), then start this worker again.`)
+    console.error('Alternatively run this worker on another port via KINAOU_WORKER_PORT and use that URL in Settings.')
+    process.exit(1)
+  }
+  throw error
+})
+
 server.listen(PORT, HOST, () => {
   console.log(`KINAOU Mac Worker ${VERSION} listening on http://${HOST}:${PORT}`)
   console.log(`Managed root: ${MANAGED_ROOT}`)
