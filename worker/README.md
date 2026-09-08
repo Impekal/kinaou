@@ -39,6 +39,8 @@ Real screen capture (`screen-capture` capability, macOS only) uses the built-in 
 - Every result carries `real-capture` provenance (method, display, region, delay, requested duration). macOS gates the content behind its Screen Recording permission (System Settings → Privacy & Security) for the process running this worker; the worker reports honestly when a capture produced no usable file.
 - App-window capture by name: the worker activates the named app (launching it if needed) through `osascript` with the app name passed as `argv` — never interpolated into the AppleScript — reads the front window bounds via System Events, and captures exactly that region (screenshot or recording). Requires the macOS Automation/Accessibility permissions; denial and missing windows surface as honest dedicated errors, and the resolved window region is recorded in the provenance.
 
+`POST /media-plan/generate` asks the local Ollama model to propose, per storyboard scene, how to obtain its visual (web-capture URL, app-capture name, or generate-image prompt) as a bounded structured plan. The worker only generates the proposal; every network fetch or app activation happens later, item by item, only after the user approved the reviewed plan in the PWA.
+
 Website capture (`web-capture` capability) takes real, reproducible screenshots of web pages through an already-installed local browser — nothing is downloaded by KINAOU:
 
 - Discovery checks the standard macOS install paths for Chrome, Chromium and Firefox plus `KINAOU_CHROMIUM`/`KINAOU_FIREFOX` overrides, and reports each browser's real version.

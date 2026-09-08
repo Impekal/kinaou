@@ -16,6 +16,7 @@ import { AudioStudioPanel } from './components/AudioStudioPanel'
 import { ImageStudioPanel } from './components/ImageStudioPanel'
 import { VideoStudioPanel } from './components/VideoStudioPanel'
 import { CapturePanel } from './components/CapturePanel'
+import { MediaPlanPanel } from './components/MediaPlanPanel'
 import { AiEditorPanel } from './components/AiEditorPanel'
 import { createProjectFromInput, type CreationInputKind } from './core/create'
 import { importProbedMedia, type ImportableMediaKind } from './core/mediaImport'
@@ -157,7 +158,7 @@ export function App() {
           </div>
         </section>}
 
-        {section === 'Director' && (project ? <DirectorPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">Create or open a project first.</section>)}
+        {section === 'Director' && (project ? <section className="stack"><DirectorPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /><MediaPlanPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /></section> : <section className="card emptyState">Create or open a project first.</section>)}
         {section === 'Audio' && (project ? <AudioStudioPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">Create or open a project first.</section>)}
         {section === 'Images' && (project ? <ImageStudioPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">Create or open a project first.</section>)}
         {section === 'Video' && (project ? <VideoStudioPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">Create or open a project first.</section>)}
