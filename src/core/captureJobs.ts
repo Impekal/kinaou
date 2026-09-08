@@ -10,6 +10,8 @@ export interface RealCaptureProvenance {
   delaySeconds: number
   region: CaptureRegion | null
   interactive: boolean
+  appName: string | null
+  resolvedRegion?: CaptureRegion
   requestedDurationMs: number | null
 }
 
@@ -35,6 +37,7 @@ export interface CaptureRequest {
   delaySeconds?: number
   region?: CaptureRegion
   interactive?: boolean
+  appName?: string
   durationMs?: number
 }
 
@@ -45,9 +48,11 @@ export function parseRealCaptureProvenance(value: unknown): RealCaptureProvenanc
   const provenance = value as Partial<RealCaptureProvenance>
   if (provenance.kind !== 'real-capture' || provenance.adapterId !== 'macos-screencapture') throw new Error('Invalid capture provenance identity')
   if (!Number.isInteger(provenance.displayId) || (provenance.displayId as number) < 1 || !Number.isInteger(provenance.delaySeconds) || (provenance.delaySeconds as number) < 0 || typeof provenance.interactive !== 'boolean') throw new Error('Invalid capture provenance target')
-  if (provenance.region !== null) {
-    const region = provenance.region as Partial<CaptureRegion> | undefined
-    if (!region || ![region.x, region.y, region.width, region.height].every(Number.isInteger)) throw new Error('Invalid capture provenance region')
+  if (provenance.appName !== null && (typeof provenance.appName !== 'string' || !provenance.appName)) throw new Error('Invalid capture provenance app name')
+  for (const region of [provenance.region, provenance.resolvedRegion]) {
+    if (region === null || region === undefined) continue
+    const candidate = region as Partial<CaptureRegion>
+    if (![candidate.x, candidate.y, candidate.width, candidate.height].every(Number.isInteger)) throw new Error('Invalid capture provenance region')
   }
   if (provenance.requestedDurationMs !== null && (!Number.isInteger(provenance.requestedDurationMs) || (provenance.requestedDurationMs as number) <= 0)) throw new Error('Invalid capture provenance duration')
   return provenance as RealCaptureProvenance

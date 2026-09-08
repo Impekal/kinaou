@@ -123,7 +123,7 @@ describe('worker client', () => {
   })
 
   it('starts, polls, stops and cancels real screen capture jobs', async () => {
-    const provenance = { kind: 'real-capture', adapterId: 'macos-screencapture', displayId: 1, delaySeconds: 0, region: null, interactive: false, requestedDurationMs: 30000 }
+    const provenance = { kind: 'real-capture', adapterId: 'macos-screencapture', displayId: 1, delaySeconds: 0, region: null, interactive: false, appName: null, requestedDurationMs: 30000 }
     const base = { id: 'cap-1', kind: 'recording', state: 'running', progress: 0.2, createdAt: 'x', updatedAt: 'x', provenance }
     const seen: string[] = []
     const client = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl: async (input, init) => {

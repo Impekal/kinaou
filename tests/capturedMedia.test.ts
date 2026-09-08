@@ -4,7 +4,7 @@ import { registerCapturedMedia } from '../src/core/capturedMedia'
 import type { CaptureJobRecord } from '../src/core/captureJobs'
 
 describe('captured media assets', () => {
-  const provenance = { kind: 'real-capture' as const, adapterId: 'macos-screencapture' as const, displayId: 1, delaySeconds: 3, region: null, interactive: false, requestedDurationMs: null }
+  const provenance = { kind: 'real-capture' as const, adapterId: 'macos-screencapture' as const, displayId: 1, delaySeconds: 3, region: null, interactive: false, appName: null, requestedDurationMs: null }
   const screenshot: CaptureJobRecord = { id: 'cap-1', kind: 'screenshot', state: 'succeeded', progress: 1, createdAt: '2026-09-08T10:00:00.000Z', updatedAt: '2026-09-08T10:00:05.000Z', provenance, capturePath: 'KINAOU/Assets/Captures/cap-1.png', sizeBytes: 2048, width: 2560, height: 1600 }
   const recording: CaptureJobRecord = { id: 'cap-2', kind: 'recording', state: 'succeeded', progress: 1, createdAt: 'x', updatedAt: '2026-09-08T10:02:00.000Z', provenance: { ...provenance, delaySeconds: 0, requestedDurationMs: 60000 }, capturePath: 'KINAOU/Assets/Captures/cap-2.mov', sizeBytes: 9000, durationMs: 42000 }
 

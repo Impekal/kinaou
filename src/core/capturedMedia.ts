@@ -22,6 +22,7 @@ export function registerCapturedMedia(project: KinaouProject, job: CaptureJobRec
       captureJobId: job.id,
       displayId: provenance.displayId,
       region: provenance.region,
+      ...(provenance.appName ? { appName: provenance.appName } : {}),
       capturedAt: job.updatedAt
     }
   }] }))

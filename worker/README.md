@@ -37,6 +37,7 @@ Real screen capture (`screen-capture` capability, macOS only) uses the built-in 
 - `GET /capture/jobs/:id`, `POST /capture/jobs/:id/stop` (finalize a recording early), `POST /capture/jobs/:id/cancel` (discard).
 - Output is written to `KINAOU/Temp/Captures` and atomically renamed into `KINAOU/Assets/Captures`; recordings are ffprobe-probed for a real duration; failures and cancellations remove partial data.
 - Every result carries `real-capture` provenance (method, display, region, delay, requested duration). macOS gates the content behind its Screen Recording permission (System Settings → Privacy & Security) for the process running this worker; the worker reports honestly when a capture produced no usable file.
+- App-window capture by name: the worker activates the named app (launching it if needed) through `osascript` with the app name passed as `argv` — never interpolated into the AppleScript — reads the front window bounds via System Events, and captures exactly that region (screenshot or recording). Requires the macOS Automation/Accessibility permissions; denial and missing windows surface as honest dedicated errors, and the resolved window region is recorded in the provenance.
 
 Website capture (`web-capture` capability) takes real, reproducible screenshots of web pages through an already-installed local browser — nothing is downloaded by KINAOU:
 
