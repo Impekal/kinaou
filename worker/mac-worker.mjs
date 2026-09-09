@@ -308,6 +308,65 @@ const server = http.createServer(async (request, response) => {
       return send(response, 200, { ok: true, type: 'asset-availability', results })
     }
 
+    if (request.method === 'POST' && request.url === '/projects/save') {
+      const body = await readJson(request)
+      const backup = validateProjectBackupPayload(body.project)
+      const serialized = JSON.stringify(backup, null, 2)
+      if (Buffer.byteLength(serialized, 'utf8') > MAX_PROJECT_BACKUP_BYTES) throw new Error('Project backup exceeds the 5 MB size limit')
+      const relativePath = projectBackupRelativePath(backup.id)
+      const absolutePath = resolveManaged(relativePath)
+      await mkdir(path.dirname(absolutePath), { recursive: true })
+      const tempPath = `${absolutePath}.part`
+      try {
+        await writeFile(tempPath, serialized, 'utf8')
+        await rename(tempPath, absolutePath)
+      } catch (error) {
+        await rm(tempPath, { force: true }).catch(() => {})
+        throw error
+      }
+      const info = await stat(absolutePath)
+      return send(response, 201, { ok: true, type: 'project-backup-saved', result: { path: relativePath, sizeBytes: info.size } })
+    }
+
+    if (request.method === 'GET' && request.url === '/projects/backups') {
+      const absoluteDir = resolveManaged('KINAOU/Projects')
+      let names = []
+      try { names = await readdir(absoluteDir) } catch { names = [] }
+      const backups = []
+      for (const name of names.sort()) {
+        if (backups.length >= 200) break
+        if (!/^[A-Za-z0-9-]{1,64}\.json$/.test(name)) continue
+        const absolutePath = path.join(absoluteDir, name)
+        let info
+        try { info = await stat(absolutePath) } catch { continue }
+        if (!info.isFile() || info.size <= 0 || info.size > MAX_PROJECT_BACKUP_BYTES) continue
+        try {
+          const parsed = JSON.parse(await readFile(absolutePath, 'utf8'))
+          backups.push({
+            id: name.slice(0, -'.json'.length),
+            path: `KINAOU/Projects/${name}`,
+            sizeBytes: info.size,
+            modifiedAt: info.mtime.toISOString(),
+            title: typeof parsed?.title === 'string' ? parsed.title.slice(0, 200) : null,
+            updatedAt: typeof parsed?.updatedAt === 'string' ? parsed.updatedAt : null
+          })
+        } catch {
+          continue
+        }
+      }
+      return send(response, 200, { ok: true, type: 'project-backups', backups })
+    }
+
+    if (request.method === 'POST' && request.url === '/projects/restore') {
+      const body = await readJson(request)
+      const relativePath = projectBackupRelativePath(requireBackupId(body.id))
+      const absolutePath = resolveManaged(relativePath)
+      const info = await stat(absolutePath)
+      if (!info.isFile() || info.size > MAX_PROJECT_BACKUP_BYTES) throw new Error('Project backup is missing or exceeds the size limit')
+      const project = JSON.parse(await readFile(absolutePath, 'utf8'))
+      return send(response, 200, { ok: true, type: 'project-backup', project })
+    }
+
     if (request.method === 'POST' && request.url === '/render') {
       const body = await readJson(request)
       const plan = validateRenderPlan(body.plan)
@@ -434,6 +493,25 @@ async function assertManagedRootExists(root) {
   const info = await stat(root)
   if (!info.isDirectory()) throw new Error('KINAOU_MANAGED_ROOT must be a directory')
   if (path.basename(root) !== 'KINAOU') throw new Error('KINAOU_MANAGED_ROOT must point to a directory named KINAOU')
+}
+
+const MAX_PROJECT_BACKUP_BYTES = 5 * 1024 * 1024
+
+function requireBackupId(value) {
+  if (typeof value !== 'string' || !/^[A-Za-z0-9-]{1,64}$/.test(value)) throw new Error('Invalid project backup id')
+  return value
+}
+
+function projectBackupRelativePath(id) {
+  return `KINAOU/Projects/${requireBackupId(id)}.json`
+}
+
+function validateProjectBackupPayload(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Project backup payload must be an object')
+  requireBackupId(value.id)
+  if (typeof value.title !== 'string' || !value.title.trim()) throw new Error('Project backup requires a title')
+  if (typeof value.updatedAt !== 'string' || !value.updatedAt.trim()) throw new Error('Project backup requires updatedAt')
+  return value
 }
 
 function requireManagedRelativePath(value) {

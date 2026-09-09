@@ -18,11 +18,12 @@ import { ImageStudioPanel } from './components/ImageStudioPanel'
 import { VideoStudioPanel } from './components/VideoStudioPanel'
 import { CapturePanel } from './components/CapturePanel'
 import { MediaPlanPanel } from './components/MediaPlanPanel'
+import { ProjectBackupPanel } from './components/ProjectBackupPanel'
 import { AiEditorPanel } from './components/AiEditorPanel'
 import { createProjectFromInput, type CreationInputKind } from './core/create'
 import { importProbedMedia, type ImportableMediaKind } from './core/mediaImport'
 import { ProjectRepository, StorageSettingsRepository } from './core/persistence'
-import type { KinaouProject } from './core/project'
+import { parseProject, type KinaouProject } from './core/project'
 import { configureWorkspaceRoot, storageTarget, type StorageBackend, type StorageSettings } from './core/storage'
 import { WorkerClient } from './core/workerClient'
 import type { MediaProbeResult, WorkerHandshake } from './core/workerProtocol'
@@ -117,6 +118,13 @@ export function App() {
     }
   }
 
+  function restoreBackupProject(payload: unknown) {
+    const parsed = parseProject(payload)
+    const existing = projectRepo.load(parsed.id)
+    if (existing) versionHistory.snapshot(existing, 'Before drive restore', 'system')
+    persistProject(parsed)
+  }
+
   function addProbedAssetToProject() {
     if (!project || !assetProbe) return
     const next = importProbedMedia(project, {
@@ -148,6 +156,7 @@ export function App() {
         {section === 'Projects' && <section className="stack">
           <div className="sectionLead"><div><div className="eyebrow">PROJECT LIBRARY</div><h2>Your work survives reloads</h2></div><button className="primary" onClick={() => setSection('Create')}>New project</button></div>
           {projects.length === 0 ? <div className="card emptyState">No saved projects yet.</div> : <div className="projectGrid">{projects.map((item) => <button className="projectCard card" key={item.id} onClick={() => openProject(item)}><div className="eyebrow">{String((item.metadata.sourceInput as { kind?: string } | undefined)?.kind ?? 'project')}</div><h3>{item.title}</h3><p>{item.tracks.length} tracks · {item.assets.length} assets</p><small>Updated {new Date(item.updatedAt).toLocaleString()}</small></button>)}</div>}
+          <ProjectBackupPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} onRestore={restoreBackupProject} />
         </section>}
 
         {section === 'Create' && <section className="hero card createPanel">
