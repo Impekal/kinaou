@@ -30,6 +30,27 @@ describe('worker client', () => {
     }
   })
 
+  it('parses availability responses and drops malformed entries', async () => {
+    const fetchImpl: typeof fetch = async (input, init) => {
+      expect(String(input)).toContain('/assets/availability')
+      expect(JSON.parse(String(init?.body))).toEqual({ paths: ['KINAOU/Assets/a.mp4', 'KINAOU/Assets/b.png'] })
+      return jsonResponse({ ok: true, type: 'asset-availability', results: [
+        { path: 'KINAOU/Assets/a.mp4', available: true },
+        { path: 'KINAOU/Assets/b.png', available: false },
+        { path: 42, available: 'yes' }
+      ] })
+    }
+    const client = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl })
+    expect(await client.assetAvailability(['KINAOU/Assets/a.mp4', 'KINAOU/Assets/b.png'])).toEqual([
+      { path: 'KINAOU/Assets/a.mp4', available: true },
+      { path: 'KINAOU/Assets/b.png', available: false }
+    ])
+    expect(await client.assetAvailability([])).toEqual([])
+
+    const invalid = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl: async () => jsonResponse({ ok: true, type: 'asset-availability', results: 'nope' }) })
+    await expect(invalid.assetAvailability(['KINAOU/Assets/a.mp4'])).rejects.toThrow(/availability/)
+  })
+
   it('sends bearer auth and parses health/probe responses', async () => {
     const seen: Array<{ url: string; auth: string | null }> = []
     const fetchImpl: typeof fetch = async (input, init) => {

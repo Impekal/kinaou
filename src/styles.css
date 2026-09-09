@@ -87,6 +87,7 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .assetPlacementHint { color: #6f788b; font-size: 10px; }
 .assetPlacementError { grid-column: 1 / -1; font-size: 10px; }
 .errorBoundary { margin: 60px auto; max-width: 640px; display: grid; gap: 14px; padding: 28px; }
+.availabilityPanel { padding: 24px 28px; display: grid; gap: 12px; }
 .proxyControl { margin-top: 8px; display: grid; gap: 5px; }
 .proxyControl code { font-size: 10px; }
 .inlineError { color: #f0aeb6 !important; }

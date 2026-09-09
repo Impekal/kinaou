@@ -60,6 +60,14 @@ export class WorkerClient {
     return payload.result as MediaProbeResult
   }
 
+  async assetAvailability(paths: string[]): Promise<Array<{ path: string; available: boolean }>> {
+    if (!paths.length) return []
+    const payload = await this.request('/assets/availability', { method: 'POST', body: JSON.stringify({ paths }) })
+    if (payload?.ok !== true || payload?.type !== 'asset-availability' || !Array.isArray(payload.results)) throw new Error('Invalid worker availability response')
+    return payload.results.filter((entry: unknown): entry is { path: string; available: boolean } =>
+      Boolean(entry && typeof (entry as { path?: unknown }).path === 'string' && typeof (entry as { available?: unknown }).available === 'boolean'))
+  }
+
   async listLocalModels(): Promise<Array<{ id: string; sizeBytes: number }>> {
     const payload = await this.request('/models/local', { method: 'GET' })
     if (payload?.ok !== true || payload?.type !== 'local-models' || !Array.isArray(payload.models)) throw new Error('Invalid local model response')
