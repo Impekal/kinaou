@@ -64,6 +64,7 @@ The worker prints a one-time token (or set `KINAOU_WORKER_TOKEN` yourself). In t
 4. **Studio** → render an export → check the MP4 in `KINAOU/Renders`; generate the composed preview and scrub it.
 5. Generate proxy, thumbnail and waveform for the asset.
 6. Create a version snapshot, change something, restore the snapshot.
+7. Drive resilience: eject/unplug the SSD → **Assets → Check media availability** → managed assets show OFFLINE and are blocked from rendering/placement with honest reasons. Replug the SSD, run the check again → AVAILABLE. Nothing is deleted or modified either way.
 
 ## Stage 3 — Real screen capture (macOS permissions)
 
