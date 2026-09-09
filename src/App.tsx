@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { AssetPlacementControl } from './components/AssetPlacementControl'
+import { AssetAvailabilityControl } from './components/AssetAvailabilityControl'
 import { AssetUploadPanel } from './components/AssetUploadPanel'
 import { CaptionEditor } from './components/CaptionEditor'
 import { RenderPanel } from './components/RenderPanel'
@@ -183,6 +184,7 @@ export function App() {
           {!project ? <div className="card emptyState">Create or open a project before importing media.</div> : <>
             <SttPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
             <AssetUploadPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
+            <AssetAvailabilityControl project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} onProjectChange={persistProject} />
             <div className="card settingsPanel">
               <div><div className="eyebrow">PROBE EXISTING MANAGED MEDIA</div><h3>Inspect a file already inside KINAOU/Assets</h3><p>The worker resolves only managed paths under the configured KINAOU root.</p></div>
               <div className="formStack">

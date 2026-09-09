@@ -289,6 +289,25 @@ const server = http.createServer(async (request, response) => {
       return send(response, 201, { ok: true, type: 'media-waveform', result: { path: outputRelativePath, sizeBytes: info.size } })
     }
 
+    if (request.method === 'POST' && request.url === '/assets/availability') {
+      const body = await readJson(request)
+      if (!Array.isArray(body.paths) || body.paths.length === 0 || body.paths.length > 1000) throw new Error('paths must be a non-empty array of at most 1000 managed paths')
+      const results = []
+      for (const entry of body.paths) {
+        const relativePath = requireManagedRelativePath(entry)
+        const absolutePath = resolveManaged(relativePath)
+        let available = false
+        try {
+          const info = await stat(absolutePath)
+          available = info.isFile() && info.size > 0
+        } catch {
+          available = false
+        }
+        results.push({ path: relativePath, available })
+      }
+      return send(response, 200, { ok: true, type: 'asset-availability', results })
+    }
+
     if (request.method === 'POST' && request.url === '/render') {
       const body = await readJson(request)
       const plan = validateRenderPlan(body.plan)
