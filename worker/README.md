@@ -13,11 +13,26 @@ This worker is the trusted local bridge between the KINAOU web/PWA UI and macOS 
 - Existing folders/files outside the selected `KINAOU` directory are out of scope and must never be touched.
 - Local model adapters accept loopback HTTP endpoints only; cloud URLs and credentials in adapter URLs are rejected.
 
-## Current capabilities
+## Endpoint overview
 
-- `GET /health` — capability/version handshake.
+Core filesystem/media (advertised honestly per detected tool — `ffmpeg`/`media-probe` chips exist only when FFmpeg/ffprobe are actually in PATH):
+
+- `GET /health` — capability/version handshake with honest chips.
 - `POST /probe` — real ffprobe metadata extraction for an existing managed asset.
-- `POST /render` — deliberately narrow first render execution: exactly one timeline clip starting at 0.
+- `POST /assets/import` — browser-streamed upload into `KINAOU/Assets` (size-bounded `.part` + atomic rename; the worker never reads arbitrary source paths).
+- `POST /assets/availability` — per-path real file presence for managed assets, so the PWA can mark media OFFLINE after a drive disconnect and back online after reconnect.
+- `POST /assets/proxy` / `POST /assets/thumbnail` / `POST /assets/waveform` — deterministic managed derivatives under `KINAOU/Cache`.
+- `GET /media?path=…` — authenticated streaming of managed originals and generated previews.
+- `POST /render`, `GET /render/jobs/:id`, cancel — the real multi-track FFmpeg compositor: visual layering by track order, audio mixing, caption burn-in, transforms, dissolves, fades and 0.25–4× retiming, for full exports to `KINAOU/Renders` and 540p previews to `KINAOU/Cache/Previews`.
+- `POST /projects/save` / `GET /projects/backups` / `POST /projects/restore` — durable project JSON backups under `KINAOU/Projects` (atomic writes, strict ids, size-bounded).
+
+Local AI adapters (all loopback-only, nothing downloaded by KINAOU):
+
+- `GET /models/local`, `POST /director/generate`, `POST /ai-editor/generate`, `POST /media-plan/generate` — Ollama discovery and schema-structured generation at temperature 0.
+- `GET /stt/models`, `POST /stt/jobs` (+status/cancel) — whisper.cpp transcription of managed media.
+- `GET /tts/voices`, `POST /tts/jobs` (+status/cancel) — Piper synthesis into `KINAOU/Assets/GeneratedVoice`.
+- `GET /image/templates`, `POST /image/jobs`, `GET /video/templates`, `POST /video/jobs` (+status/cancel) — ComfyUI generation via managed workflow templates.
+- `POST /capture/jobs` (+status/stop/cancel) and `GET /webcapture/browsers`, `POST /webcapture/jobs` (+status/cancel) — real screen and website captures, detailed below.
 
 Local AI modules also define tested contracts for Ollama, whisper.cpp, Piper and ComfyUI. ComfyUI templates are API-format JSON wrappers stored below `KINAOU/Models/ComfyUI/Workflows`; they explicitly bind the prompt, seed and optional dimensions that KINAOU may replace. Execution endpoints are exposed only after their cancellable managed job lifecycle is complete.
 
@@ -47,7 +62,6 @@ Website capture (`web-capture` capability) takes real, reproducible screenshots 
 - `POST /webcapture/jobs` renders exactly the explicitly entered credential-free http(s) URL headless in an isolated temporary profile under `KINAOU/Temp/WebCaptures`, with a bounded viewport, a timeout, and cancellation; the browser fetches that page (and its own subresources) from the network — nothing else.
 - The PNG is atomically renamed into `KINAOU/Assets/WebCaptures`, the temporary profile is always removed, and the result carries `real-capture` provenance with URL, browser, version and viewport, so a web capture stays distinct from both generated visuals and screen captures.
 
-Complex/multi-track rendering is not claimed yet and is rejected until compositor support is implemented.
 
 ## Local prerequisites
 
