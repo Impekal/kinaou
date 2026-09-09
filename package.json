@@ -12,12 +12,13 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
-    "vite": "latest",
     "react": "latest",
     "react-dom": "latest",
+    "vite": "latest",
     "zod": "latest"
   },
   "devDependencies": {
+    "@types/node": "^26.5.0",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "typescript": "latest",

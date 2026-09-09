@@ -104,6 +104,8 @@ Project "How to use X" → Director plan → Media plan (either mode) → storyb
 | Lost the token | Restart the worker (a new one-time token is printed) or set `KINAOU_WORKER_TOKEN`. Every restart invalidates the previous token — paste the new one in Settings |
 | "Invalid worker health response" after Test connection | The Settings URL points at the wrong server (e.g. the Vite dev server). The worker URL is `http://127.0.0.1:43117`, not `http://localhost:4173` |
 | `http://localhost:4173` shows a different app | A previously installed PWA/service worker from another project is hijacking the port. Clear the site data / cache for `localhost:4173` in the browser and reload |
+| `npm run dev` fails with "Port 4173 is already in use" | An earlier dev server is still running in another terminal window and would serve stale code. Stop it with `kill $(lsof -ti :4173)`, then start the dev server again. Never run the app on a fallback port — projects are stored per browser origin and only exist under `localhost:4173` |
+| Unsure whether the browser runs the current code | The sidebar shows `build <commit> · served since <time>`. After `git pull`, restart the dev server and hard-reload (⌘⇧R) until the commit matches `git -C ~/kinaou log --oneline -1` |
 
 ## What to report back
 

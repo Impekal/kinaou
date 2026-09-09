@@ -88,6 +88,8 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .assetPlacementError { grid-column: 1 / -1; font-size: 10px; }
 .errorBoundary { margin: 60px auto; max-width: 640px; display: grid; gap: 14px; padding: 28px; }
 .availabilityPanel { padding: 24px 28px; display: grid; gap: 12px; }
+.sidebar { display: flex; flex-direction: column; }
+.buildInfo { margin-top: auto; padding-top: 20px; color: #5d6578; font-size: 10px; letter-spacing: .04em; }
 .proxyControl { margin-top: 8px; display: grid; gap: 5px; }
 .proxyControl code { font-size: 10px; }
 .inlineError { color: #f0aeb6 !important; }

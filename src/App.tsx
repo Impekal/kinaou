@@ -136,6 +136,7 @@ export function App() {
         <div className="brand">KINAOU</div>
         <div className="tagline">AI does the work. You stay in control.</div>
         <nav>{nav.map((item) => <button key={item} className={item === section ? 'navItem active' : 'navItem'} onClick={() => setSection(item)}>{item}</button>)}</nav>
+        <div className="buildInfo" title="Code state this page is actually running. After a git pull, restart the dev server and hard-reload until this matches the repository.">build {typeof __KINAOU_COMMIT__ === 'undefined' ? 'unknown' : __KINAOU_COMMIT__}{typeof __KINAOU_STARTED__ === 'undefined' ? '' : ` · served since ${new Date(__KINAOU_STARTED__).toLocaleTimeString()}`}</div>
       </aside>
 
       <main className="main">
