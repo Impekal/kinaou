@@ -60,6 +60,27 @@ export class WorkerClient {
     return payload.result as MediaProbeResult
   }
 
+  async saveProjectBackup(project: unknown): Promise<{ path: string; sizeBytes: number }> {
+    const payload = await this.request('/projects/save', { method: 'POST', body: JSON.stringify({ project }) })
+    if (payload?.ok !== true || payload?.type !== 'project-backup-saved' || typeof payload.result?.path !== 'string' || !payload.result.path.startsWith('KINAOU/Projects/') || typeof payload.result.sizeBytes !== 'number') throw new Error('Invalid worker project backup response')
+    return payload.result
+  }
+
+  async listProjectBackups(): Promise<Array<{ id: string; path: string; sizeBytes: number; modifiedAt: string; title: string | null; updatedAt: string | null }>> {
+    const payload = await this.request('/projects/backups', { method: 'GET' })
+    if (payload?.ok !== true || payload?.type !== 'project-backups' || !Array.isArray(payload.backups)) throw new Error('Invalid worker backup list response')
+    return payload.backups.filter((entry: unknown): entry is { id: string; path: string; sizeBytes: number; modifiedAt: string; title: string | null; updatedAt: string | null } => {
+      const candidate = entry as { id?: unknown; path?: unknown; sizeBytes?: unknown; modifiedAt?: unknown } | null
+      return Boolean(candidate && typeof candidate.id === 'string' && typeof candidate.path === 'string' && typeof candidate.sizeBytes === 'number' && typeof candidate.modifiedAt === 'string')
+    })
+  }
+
+  async loadProjectBackup(id: string): Promise<unknown> {
+    const payload = await this.request('/projects/restore', { method: 'POST', body: JSON.stringify({ id }) })
+    if (payload?.ok !== true || payload?.type !== 'project-backup' || payload.project === undefined || payload.project === null) throw new Error('Invalid worker backup response')
+    return payload.project
+  }
+
   async assetAvailability(paths: string[]): Promise<Array<{ path: string; available: boolean }>> {
     if (!paths.length) return []
     const payload = await this.request('/assets/availability', { method: 'POST', body: JSON.stringify({ paths }) })

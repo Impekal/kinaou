@@ -30,6 +30,31 @@ describe('worker client', () => {
     }
   })
 
+  it('parses project backup save/list/restore responses strictly', async () => {
+    const fetchImpl: typeof fetch = async (input, init) => {
+      const url = String(input)
+      if (url.endsWith('/projects/save')) {
+        expect(JSON.parse(String(init?.body)).project.id).toBe('p1')
+        return jsonResponse({ ok: true, type: 'project-backup-saved', result: { path: 'KINAOU/Projects/p1.json', sizeBytes: 512 } })
+      }
+      if (url.endsWith('/projects/backups')) {
+        return jsonResponse({ ok: true, type: 'project-backups', backups: [
+          { id: 'p1', path: 'KINAOU/Projects/p1.json', sizeBytes: 512, modifiedAt: '2026-09-09T00:00:00.000Z', title: 'Demo', updatedAt: '2026-09-08T22:00:00.000Z' },
+          { id: 42 }
+        ] })
+      }
+      expect(JSON.parse(String(init?.body))).toEqual({ id: 'p1' })
+      return jsonResponse({ ok: true, type: 'project-backup', project: { id: 'p1', title: 'Demo' } })
+    }
+    const client = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl })
+    expect(await client.saveProjectBackup({ id: 'p1' })).toEqual({ path: 'KINAOU/Projects/p1.json', sizeBytes: 512 })
+    expect((await client.listProjectBackups()).map((entry) => entry.id)).toEqual(['p1'])
+    expect(await client.loadProjectBackup('p1')).toEqual({ id: 'p1', title: 'Demo' })
+
+    const badPath = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl: async () => jsonResponse({ ok: true, type: 'project-backup-saved', result: { path: 'KINAOU/Assets/x.json', sizeBytes: 1 } }) })
+    await expect(badPath.saveProjectBackup({ id: 'p1' })).rejects.toThrow(/backup/)
+  })
+
   it('parses availability responses and drops malformed entries', async () => {
     const fetchImpl: typeof fetch = async (input, init) => {
       expect(String(input)).toContain('/assets/availability')
