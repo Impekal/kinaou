@@ -1,4 +1,4 @@
-import type { KinaouAsset, KinaouProject } from './project'
+import { touchProject, type KinaouAsset, type KinaouProject } from './project'
 import { assertSafeManagedPath } from './storage'
 import type { WorkerCapability } from './workers'
 
@@ -10,6 +10,12 @@ export interface RenderPreset {
   fps: number
   videoCodec: 'h264' | 'hevc'
   audioCodec: 'aac'
+  /**
+   * How source material meets a canvas of a different aspect ratio.
+   * `contain` (default) keeps every pixel and letterboxes; `cover` fills the
+   * frame and centre-crops what does not fit — what vertical platforms expect.
+   */
+  fit?: 'contain' | 'cover'
 }
 
 export interface RenderClipStep {
@@ -49,6 +55,55 @@ export const preview1080pPreset: RenderPreset = {
 }
 
 export const timelinePreviewPreset: RenderPreset = { ...preview1080pPreset, name: 'Timeline Preview 540p', width: 960, height: 540 }
+
+export type TargetFormat = 'landscape' | 'vertical' | 'square'
+
+export interface FormatProfile {
+  id: TargetFormat
+  label: string
+  aspect: string
+  note: string
+  export: RenderPreset
+  preview: RenderPreset
+}
+
+export const formatProfiles: Record<TargetFormat, FormatProfile> = {
+  landscape: {
+    id: 'landscape',
+    label: 'Landscape',
+    aspect: '16:9',
+    note: 'YouTube, presentations, desktop screen recordings.',
+    export: preview1080pPreset,
+    preview: timelinePreviewPreset
+  },
+  vertical: {
+    id: 'vertical',
+    label: 'Vertical',
+    aspect: '9:16',
+    note: 'Shorts, Reels, TikTok. Wide material is centre-cropped to fill the frame.',
+    export: { ...preview1080pPreset, name: 'Vertical 1080×1920', width: 1080, height: 1920, fit: 'cover' },
+    preview: { ...preview1080pPreset, name: 'Vertical Preview 540×960', width: 540, height: 960, fit: 'cover' }
+  },
+  square: {
+    id: 'square',
+    label: 'Square',
+    aspect: '1:1',
+    note: 'Feed posts. Wide material is centre-cropped to fill the frame.',
+    export: { ...preview1080pPreset, name: 'Square 1080×1080', width: 1080, height: 1080, fit: 'cover' },
+    preview: { ...preview1080pPreset, name: 'Square Preview 720×720', width: 720, height: 720, fit: 'cover' }
+  }
+}
+
+export function projectTargetFormat(project: KinaouProject): TargetFormat {
+  const stored = project.metadata.targetFormat
+  return stored === 'vertical' || stored === 'square' ? stored : 'landscape'
+}
+
+export function setProjectTargetFormat(project: KinaouProject, format: TargetFormat): KinaouProject {
+  if (!formatProfiles[format]) throw new Error(`Unknown target format: ${format}`)
+  if (projectTargetFormat(project) === format) return project
+  return touchProject({ ...project, metadata: { ...project.metadata, targetFormat: format } })
+}
 
 export function createRenderPlan(project: KinaouProject, preset: RenderPreset, outputRelativePath: string): RenderPlan {
   const safeOutput = assertSafeManagedPath(outputRelativePath)
@@ -106,5 +161,5 @@ export function createRenderPlan(project: KinaouProject, preset: RenderPreset, o
 export function createTimelinePreviewPlan(project: KinaouProject): RenderPlan {
   const id = project.id.replace(/[^a-zA-Z0-9-]/g, '').slice(0, 80)
   if (!id) throw new Error('Project id cannot form a preview path')
-  return createRenderPlan(project, timelinePreviewPreset, `KINAOU/Cache/Previews/${id}.mp4`)
+  return createRenderPlan(project, formatProfiles[projectTargetFormat(project)].preview, `KINAOU/Cache/Previews/${id}.mp4`)
 }

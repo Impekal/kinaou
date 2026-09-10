@@ -104,6 +104,11 @@ export interface CompositeFilter {
 export function buildCompositeFilter(plan: RenderPlan, subtitleAbsolutePath?: string): CompositeFilter {
   const width = plan.preset.width
   const height = plan.preset.height
+  // contain letterboxes the whole frame; cover fills the canvas and centre-crops
+  // the overflow, which is what vertical/square platform formats expect.
+  const fitFilter = plan.preset.fit === 'cover'
+    ? `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}`
+    : `scale=${width}:${height}:force_original_aspect_ratio=decrease`
   const fps = plan.preset.fps
   const duration = seconds(plan.durationMs)
   const parts: string[] = [`color=c=black:s=${width}x${height}:r=${fps}:d=${duration}[base]`]
@@ -128,7 +133,7 @@ export function buildCompositeFilter(plan: RenderPlan, subtitleAbsolutePath?: st
     const visualFadeIn = clip.transitionIn?.durationMs ?? clip.fades.inMs
     const fadeFilters = visualFadeIn || clip.fades.outMs ? [',format=rgba', ...(visualFadeIn ? [`,fade=t=in:st=0:d=${seconds(visualFadeIn)}:alpha=1`] : []), ...(clip.fades.outMs ? [`,fade=t=out:st=${seconds(clip.durationMs - clip.fades.outMs)}:d=${seconds(clip.fades.outMs)}:alpha=1`] : [])].join('') : ''
     const timing = clip.asset.kind === 'image' || clip.speed === 1 ? 'PTS-STARTPTS' : `(PTS-STARTPTS)/${clip.speed}`
-    parts.push(`[${index}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,crop=iw-${transform.cropLeft}-${transform.cropRight}:ih-${transform.cropTop}-${transform.cropBottom}:${transform.cropLeft}:${transform.cropTop},scale=iw*${transform.scale}:ih*${transform.scale}${fadeFilters},setpts=${timing}+${start}/TB[${prepared}]`)
+    parts.push(`[${index}:v]${fitFilter},crop=iw-${transform.cropLeft}-${transform.cropRight}:ih-${transform.cropTop}-${transform.cropBottom}:${transform.cropLeft}:${transform.cropTop},scale=iw*${transform.scale}:ih*${transform.scale}${fadeFilters},setpts=${timing}+${start}/TB[${prepared}]`)
     parts.push(`[${currentVideo}][${prepared}]overlay=(W-w)/2${signedOffset(transform.x)}:(H-h)/2${signedOffset(transform.y)}:enable='between(t,${start},${end})'[${output}]`)
     currentVideo = output
   })

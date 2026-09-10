@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { KinaouProject } from '../core/project'
-import { createRenderPlan, preview1080pPreset } from '../core/render'
+import { createRenderPlan, formatProfiles, projectTargetFormat, setProjectTargetFormat, type TargetFormat } from '../core/render'
 import type { RenderJobRecord } from '../core/renderJobs'
 import { renderOutputPath, renderReadiness } from '../core/renderUi'
 import { WorkerClient } from '../core/workerClient'
@@ -10,12 +10,15 @@ interface RenderPanelProps {
   workerUrl: string
   workerToken: string
   workerConnected: boolean
+  onProjectChange: (project: KinaouProject) => void
 }
 
 const terminalStates = new Set(['succeeded', 'failed', 'cancelled'])
 
-export function RenderPanel({ project, workerUrl, workerToken, workerConnected }: RenderPanelProps) {
+export function RenderPanel({ project, workerUrl, workerToken, workerConnected, onProjectChange }: RenderPanelProps) {
   const readiness = useMemo(() => renderReadiness(project), [project])
+  const format = projectTargetFormat(project)
+  const profile = formatProfiles[format]
   const [job, setJob] = useState<RenderJobRecord | null>(null)
   const [outputPath, setOutputPath] = useState('')
   const [error, setError] = useState('')
@@ -51,8 +54,8 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected }
     setSubmitting(true)
     setError('')
     try {
-      const path = renderOutputPath(project)
-      const plan = createRenderPlan(project, preview1080pPreset, path)
+      const path = renderOutputPath(project, new Date(), format)
+      const plan = createRenderPlan(project, profile.export, path)
       const next = await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).startRender(plan)
       setOutputPath(path)
       setJob(next)
@@ -83,10 +86,20 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected }
         <div>
           <div className="eyebrow">REAL LOCAL RENDER</div>
           <h3>Render timeline</h3>
-          <p>1080p H.264 is rendered by the authenticated local worker into <code>KINAOU/Renders</code>.</p>
+          <p>{profile.export.name} is rendered by the authenticated local worker into <code>KINAOU/Renders</code>. The format belongs to the project, so the composed preview above shows exactly what you export.</p>
         </div>
         <span className={workerConnected ? 'status online' : 'status'}>{workerConnected ? 'WORKER READY' : 'WORKER OFFLINE'}</span>
       </div>
+
+      <div className="formatChooser" role="group" aria-label="Output format">
+        {(Object.keys(formatProfiles) as TargetFormat[]).map((id) => (
+          <button key={id} className={id === format ? 'formatOption active' : 'formatOption'} disabled={Boolean(busy)} onClick={() => onProjectChange(setProjectTargetFormat(project, id))}>
+            <strong>{formatProfiles[id].label}</strong>
+            <small>{formatProfiles[id].aspect} · {formatProfiles[id].export.width}×{formatProfiles[id].export.height}</small>
+          </button>
+        ))}
+      </div>
+      <p className="cardBody">{profile.note}</p>
 
       {!readiness.ready && <div className="warning">{readiness.reason}</div>}
       {!workerConnected && readiness.ready && <div className="warning">Connect the local worker in Settings before rendering.</div>}

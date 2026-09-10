@@ -3,7 +3,7 @@ import { clipSpeedFitsSource } from './timeline'
 
 const renderableTrackTypes = new Set(['video', 'broll', 'image', 'avatar', 'overlay', 'voice', 'dialog', 'music', 'sfx', 'caption'])
 
-export function renderOutputPath(project: KinaouProject, now = new Date()): string {
+export function renderOutputPath(project: KinaouProject, now = new Date(), variant?: string): string {
   const slug = project.title
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -12,7 +12,8 @@ export function renderOutputPath(project: KinaouProject, now = new Date()): stri
     .replace(/^-+|-+$/g, '')
     .slice(0, 64) || 'kinaou-project'
   const timestamp = now.toISOString().replace(/[:.]/g, '-').replace('T', '_').replace('Z', '')
-  return `KINAOU/Renders/${slug}_${timestamp}.mp4`
+  const suffix = (variant ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '')
+  return `KINAOU/Renders/${slug}${suffix ? `_${suffix}` : ''}_${timestamp}.mp4`
 }
 
 export function renderReadiness(project: KinaouProject): { ready: boolean; reason?: string } {

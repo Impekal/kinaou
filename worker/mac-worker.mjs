@@ -576,6 +576,7 @@ function validateRenderPlan(plan) {
   if (!Array.isArray(plan.clips) || plan.clips.length < 1) throw new Error('Render plan requires at least one clip')
   if (!Number.isFinite(plan.durationMs) || plan.durationMs <= 0) throw new Error('Invalid render duration')
   if (!plan.preset || !Number.isFinite(plan.preset.width) || plan.preset.width <= 0 || !Number.isFinite(plan.preset.height) || plan.preset.height <= 0 || !Number.isFinite(plan.preset.fps) || plan.preset.fps <= 0) throw new Error('Invalid render preset')
+  if (plan.preset.fit !== undefined && plan.preset.fit !== 'contain' && plan.preset.fit !== 'cover') throw new Error('Invalid render preset fit mode')
   requireRenderRelativePath(plan.outputRelativePath)
   if (!['export', 'preview'].includes(plan.purpose)) throw new Error('Invalid render purpose')
   if (plan.purpose === 'export' && !plan.outputRelativePath.startsWith('KINAOU/Renders/')) throw new Error('Export must target KINAOU/Renders')
@@ -707,6 +708,11 @@ function buildCompositeArgs(plan, mediaClips, inputPaths, outputPath, subtitlePa
 
   const width = plan.preset.width
   const height = plan.preset.height
+  // contain letterboxes the whole frame; cover fills the canvas and centre-crops
+  // the overflow, which is what vertical/square platform formats expect.
+  const fitFilter = plan.preset.fit === 'cover'
+    ? `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}`
+    : `scale=${width}:${height}:force_original_aspect_ratio=decrease`
   const fps = plan.preset.fps
   const parts = [`color=c=black:s=${width}x${height}:r=${fps}:d=${seconds(plan.durationMs)}[base]`]
   const visuals = []
@@ -727,7 +733,7 @@ function buildCompositeArgs(plan, mediaClips, inputPaths, outputPath, subtitlePa
     const visualFadeIn = clip.transitionIn?.durationMs ?? clip.fades.inMs
     const fadeFilters = visualFadeIn || clip.fades.outMs ? [',format=rgba', ...(visualFadeIn ? [`,fade=t=in:st=0:d=${seconds(visualFadeIn)}:alpha=1`] : []), ...(clip.fades.outMs ? [`,fade=t=out:st=${seconds(clip.durationMs - clip.fades.outMs)}:d=${seconds(clip.fades.outMs)}:alpha=1`] : [])].join('') : ''
     const timing = clip.asset.kind === 'image' || clip.speed === 1 ? 'PTS-STARTPTS' : `(PTS-STARTPTS)/${clip.speed}`
-    parts.push(`[${index}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,crop=iw-${transform.cropLeft}-${transform.cropRight}:ih-${transform.cropTop}-${transform.cropBottom}:${transform.cropLeft}:${transform.cropTop},scale=iw*${transform.scale}:ih*${transform.scale}${fadeFilters},setpts=${timing}+${start}/TB[${prepared}]`)
+    parts.push(`[${index}:v]${fitFilter},crop=iw-${transform.cropLeft}-${transform.cropRight}:ih-${transform.cropTop}-${transform.cropBottom}:${transform.cropLeft}:${transform.cropTop},scale=iw*${transform.scale}:ih*${transform.scale}${fadeFilters},setpts=${timing}+${start}/TB[${prepared}]`)
     parts.push(`[${currentVideo}][${prepared}]overlay=(W-w)/2${signedOffset(transform.x)}:(H-h)/2${signedOffset(transform.y)}:enable='between(t,${start},${end})'[${output}]`)
     currentVideo = output
   })
