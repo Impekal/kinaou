@@ -14,17 +14,25 @@ const PORT = 43916
 function extractFitLogic(source) {
   const fit = source.match(/const fitFilter = [\s\S]*?force_original_aspect_ratio=decrease`/)
   assert.ok(fit, 'fit filter derivation not found')
-  const visual = source.match(/parts\.push\(`\[\$\{index\}:v\]\$\{fitFilter\}[^\n]*\)/)
+  const visual = source.match(/parts\.push\(`\[\$\{index\}:v\]\$\{framePrefix\(clip\)\}[^\n]*\)/)
   assert.ok(visual, 'visual filter line not found')
-  return { fit: fit[0], visual: visual[0] }
+  const zoom = source.match(/const zoom = clip\.motion === 'zoom-in'[\s\S]*?,1\)`/)
+  assert.ok(zoom, 'motion zoom expression not found')
+  const zoompan = source.match(/return `\$\{fitted\},zoompan=[^\n]*`/)
+  assert.ok(zoompan, 'zoompan filter not found')
+  const letterbox = source.match(/const factor = Math\.min\(width \/ sourceWidth[\s\S]*?\* factor\)\) \}/)
+  assert.ok(letterbox, 'letterboxed size maths not found')
+  return { fit: fit[0], visual: visual[0], zoom: zoom[0], zoompan: zoompan[0], letterbox: letterbox[0] }
 }
 
-test('both compositor implementations derive the fit filter identically', async () => {
+test('both compositor implementations derive the fit and motion filters identically', async () => {
   const worker = extractFitLogic(await readFile(workerScript, 'utf8'))
   const client = extractFitLogic(await readFile(clientCompositor, 'utf8'))
-  assert.equal(worker.fit, client.fit)
-  assert.equal(worker.visual, client.visual)
+  for (const key of ['fit', 'visual', 'zoom', 'zoompan', 'letterbox']) {
+    assert.equal(worker[key], client[key], `${key} drifted between the two compositor implementations`)
+  }
   assert.match(worker.fit, /force_original_aspect_ratio=increase,crop=\$\{width\}:\$\{height\}/)
+  assert.match(worker.zoompan, /s=\$\{target\.w\}x\$\{target\.h\}/)
 })
 
 test('the worker rejects a render plan with an unknown fit mode', async () => {

@@ -1,3 +1,4 @@
+import type { KinaouAsset } from './project'
 import type { RenderPlan, RenderClipStep } from './render'
 import { assertSafeManagedPath, normalizeRelativePath } from './storage'
 import type { MediaProbeResult, WorkerHandshake } from './workerProtocol'
@@ -101,6 +102,18 @@ export interface CompositeFilter {
   audioOutput?: string
 }
 
+
+const MOTION_ZOOM = 0.18
+
+/** The size a still occupies inside the canvas once letterboxed, or null if unknown. */
+function letterboxedSize(asset: KinaouAsset, width: number, height: number): { w: number; h: number } | null {
+  const sourceWidth = Number(asset.metadata.width)
+  const sourceHeight = Number(asset.metadata.height)
+  if (!Number.isFinite(sourceWidth) || !Number.isFinite(sourceHeight) || sourceWidth <= 0 || sourceHeight <= 0) return null
+  const factor = Math.min(width / sourceWidth, height / sourceHeight)
+  return { w: Math.max(2, Math.round(sourceWidth * factor)), h: Math.max(2, Math.round(sourceHeight * factor)) }
+}
+
 export function buildCompositeFilter(plan: RenderPlan, subtitleAbsolutePath?: string): CompositeFilter {
   const width = plan.preset.width
   const height = plan.preset.height
@@ -109,6 +122,21 @@ export function buildCompositeFilter(plan: RenderPlan, subtitleAbsolutePath?: st
   const fitFilter = plan.preset.fit === 'cover'
     ? `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}`
     : `scale=${width}:${height}:force_original_aspect_ratio=decrease`
+  // A still scene can drift slowly instead of sitting perfectly still. zoompan needs a
+  // fixed output size: cover already fills the canvas, while contain must render into
+  // the letterboxed size computed from the source pixels — stretching it would distort.
+  const framePrefix = (clip: RenderClipStep) => {
+    const target = clip.motion && clip.asset.kind === 'image'
+      ? (plan.preset.fit === 'cover' ? { w: width, h: height } : letterboxedSize(clip.asset, width, height))
+      : null
+    if (!target) return fitFilter
+    const frames = Math.max(2, Math.round((clip.durationMs / 1000) * fps))
+    const zoom = clip.motion === 'zoom-in'
+      ? `min(1+${MOTION_ZOOM}*on/${frames},${1 + MOTION_ZOOM})`
+      : `max(${1 + MOTION_ZOOM}-${MOTION_ZOOM}*on/${frames},1)`
+    const fitted = plan.preset.fit === 'cover' ? fitFilter : `scale=${target.w}:${target.h}`
+    return `${fitted},zoompan=z='${zoom}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${frames}:s=${target.w}x${target.h}:fps=${fps}`
+  }
   const fps = plan.preset.fps
   const duration = seconds(plan.durationMs)
   const parts: string[] = [`color=c=black:s=${width}x${height}:r=${fps}:d=${duration}[base]`]
@@ -133,7 +161,7 @@ export function buildCompositeFilter(plan: RenderPlan, subtitleAbsolutePath?: st
     const visualFadeIn = clip.transitionIn?.durationMs ?? clip.fades.inMs
     const fadeFilters = visualFadeIn || clip.fades.outMs ? [',format=rgba', ...(visualFadeIn ? [`,fade=t=in:st=0:d=${seconds(visualFadeIn)}:alpha=1`] : []), ...(clip.fades.outMs ? [`,fade=t=out:st=${seconds(clip.durationMs - clip.fades.outMs)}:d=${seconds(clip.fades.outMs)}:alpha=1`] : [])].join('') : ''
     const timing = clip.asset.kind === 'image' || clip.speed === 1 ? 'PTS-STARTPTS' : `(PTS-STARTPTS)/${clip.speed}`
-    parts.push(`[${index}:v]${fitFilter},crop=iw-${transform.cropLeft}-${transform.cropRight}:ih-${transform.cropTop}-${transform.cropBottom}:${transform.cropLeft}:${transform.cropTop},scale=iw*${transform.scale}:ih*${transform.scale}${fadeFilters},setpts=${timing}+${start}/TB[${prepared}]`)
+    parts.push(`[${index}:v]${framePrefix(clip)},crop=iw-${transform.cropLeft}-${transform.cropRight}:ih-${transform.cropTop}-${transform.cropBottom}:${transform.cropLeft}:${transform.cropTop},scale=iw*${transform.scale}:ih*${transform.scale}${fadeFilters},setpts=${timing}+${start}/TB[${prepared}]`)
     parts.push(`[${currentVideo}][${prepared}]overlay=(W-w)/2${signedOffset(transform.x)}:(H-h)/2${signedOffset(transform.y)}:enable='between(t,${start},${end})'[${output}]`)
     currentVideo = output
   })

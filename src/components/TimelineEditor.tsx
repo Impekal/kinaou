@@ -89,6 +89,7 @@ export function TimelineEditor({ project, onProjectChange, workerUrl, workerToke
                   <small>{(clip.startMs / 1000).toFixed(1)}s · {(clip.durationMs / 1000).toFixed(1)}s{audioTrackTypes.has(track.type) ? ` · gain ${clip.gain.toFixed(1)}` : ''}</small>
                   {(asset?.kind === 'video' || asset?.kind === 'audio') && <small>speed {clip.speed.toFixed(2)}× · source {(clip.durationMs * clip.speed / 1000).toFixed(2)}s</small>}
                   {visualTrackTypes.has(track.type) && <small>scale {(clip.transform?.scale ?? 1).toFixed(1)} · x {clip.transform?.x ?? 0} · y {clip.transform?.y ?? 0}</small>}
+                  {clip.motion && <small>motion {clip.motion === 'zoom-in' ? 'zoom in' : 'zoom out'}</small>}
                   {clip.transitionIn && <small>dissolve {(clip.transitionIn.durationMs / 1000).toFixed(1)}s</small>}
                   {(clip.fades?.inMs || clip.fades?.outMs) && <small>fade {(clip.fades?.inMs ?? 0) / 1000}s in · {(clip.fades?.outMs ?? 0) / 1000}s out</small>}
                   {audioTrackTypes.has(track.type) && typeof asset?.metadata.waveformPath === 'string' && <WaveformImage path={asset.metadata.waveformPath} workerUrl={workerUrl} workerToken={workerToken} workerConnected={workerConnected} alt={`${String(asset.metadata.name ?? asset.id)} waveform`} />}
@@ -107,6 +108,11 @@ export function TimelineEditor({ project, onProjectChange, workerUrl, workerToke
                       const fasterFits = clipSpeedFitsSource(asset, clip, faster)
                       return <><button disabled={track.locked || clip.speed <= 0.25} title="Halves the current playback speed" onClick={() => apply({ type: 'set-clip-speed', trackId: track.id, clipId: clip.id, speed: slower })}>Halve speed → {slower.toFixed(2)}×</button><button disabled={track.locked || clip.speed >= 4 || !fasterFits} title={fasterFits ? 'Doubles the current playback speed' : 'Doubling the speed would need more source media than this asset has'} onClick={() => apply({ type: 'set-clip-speed', trackId: track.id, clipId: clip.id, speed: faster })}>Double speed → {faster.toFixed(2)}×</button><button disabled={track.locked || clip.speed === 1} onClick={() => apply({ type: 'set-clip-speed', trackId: track.id, clipId: clip.id, speed: 1 })}>Speed reset</button></>
                     })()}
+                    {asset?.kind === 'image' && visualTrackTypes.has(track.type) && (['zoom-in', 'zoom-out'] as const).map((motion) => (
+                      <button key={motion} disabled={track.locked} title={motion === 'zoom-in' ? 'Slowly push into the still while it is on screen' : 'Slowly pull back from the still while it is on screen'} onClick={() => apply({ type: 'set-clip-motion', trackId: track.id, clipId: clip.id, motion: clip.motion === motion ? undefined : motion })}>
+                        {clip.motion === motion ? `${motion === 'zoom-in' ? 'Zoom in' : 'Zoom out'} · on` : motion === 'zoom-in' ? 'Zoom in' : 'Zoom out'}
+                      </button>
+                    ))}
                     <button disabled={track.locked} onClick={() => apply({ type: 'remove-clip', trackId: track.id, clipId: clip.id })}>Remove</button>
                   </div>
                 </div>
