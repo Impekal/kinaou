@@ -19,6 +19,7 @@ import { VideoStudioPanel } from './components/VideoStudioPanel'
 import { CapturePanel } from './components/CapturePanel'
 import { MediaPlanPanel } from './components/MediaPlanPanel'
 import { ProjectBackupPanel } from './components/ProjectBackupPanel'
+import { ScriptCaptionsPanel } from './components/ScriptCaptionsPanel'
 import { StoryboardAssemblyPanel } from './components/StoryboardAssemblyPanel'
 import { AiEditorPanel } from './components/AiEditorPanel'
 import { createProjectFromInput, type CreationInputKind } from './core/create'
@@ -184,6 +185,7 @@ export function App() {
             <VersionHistoryPanel project={project} history={versionHistory} onProjectChange={persistProject} />
             <AiEditorPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
             <StoryboardAssemblyPanel project={project} history={versionHistory} onProjectChange={persistProject} />
+            <ScriptCaptionsPanel project={project} history={versionHistory} onProjectChange={persistProject} />
             <TimelineEditor project={project} onProjectChange={persistProject} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} />
             <CaptionEditor project={project} history={versionHistory} onProjectChange={persistProject} />
             <RenderPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} onProjectChange={persistProject} />
