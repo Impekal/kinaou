@@ -32,6 +32,7 @@ export interface RenderClipStep {
   transform: { x: number; y: number; scale: number; cropLeft: number; cropTop: number; cropRight: number; cropBottom: number }
   transitionIn?: { type: 'dissolve'; durationMs: number }
   fades: { inMs: number; outMs: number }
+  motion?: 'zoom-in' | 'zoom-out'
 }
 
 export interface RenderPlan {
@@ -123,6 +124,7 @@ export function createRenderPlan(project: KinaouProject, preset: RenderPreset, o
       if (asset.offline) throw new Error(`Asset offline: ${asset.id}`)
       if (clip.speed < 0.25 || clip.speed > 4) throw new Error(`Unsupported speed for clip ${clip.id}`)
       if ((asset.kind === 'image' || asset.kind === 'caption') && clip.speed !== 1) throw new Error(`Speed retiming is only supported for video and audio clips: ${clip.id}`)
+      if (clip.motion && asset.kind !== 'image') throw new Error(`Scene motion is only supported for still images: ${clip.id}`)
       const sourceDuration = clip.durationMs * clip.speed
       const assetDuration = typeof asset.metadata.durationMs === 'number' ? asset.metadata.durationMs : undefined
       if (asset.kind !== 'image' && asset.kind !== 'caption' && assetDuration !== undefined && clip.sourceOffsetMs + sourceDuration > assetDuration + 1) throw new Error(`Retimed source range exceeds asset duration for clip ${clip.id}`)
@@ -139,6 +141,7 @@ export function createRenderPlan(project: KinaouProject, preset: RenderPreset, o
         speed: clip.speed,
         transform: { x: 0, y: 0, scale: 1, cropLeft: 0, cropTop: 0, cropRight: 0, cropBottom: 0, ...clip.transform },
         ...(clip.transitionIn ? { transitionIn: clip.transitionIn } : {}),
+        ...(clip.motion ? { motion: clip.motion } : {}),
         fades: { inMs: 0, outMs: 0, ...clip.fades }
       })
       durationMs = Math.max(durationMs, clip.startMs + clip.durationMs)

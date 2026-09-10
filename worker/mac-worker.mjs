@@ -587,6 +587,7 @@ function validateRenderPlan(plan) {
     if (!Number.isFinite(clip.durationMs) || clip.durationMs <= 0) throw new Error('Invalid clip duration')
     if (!Number.isFinite(clip.sourceOffsetMs) || clip.sourceOffsetMs < 0) throw new Error('Invalid source offset')
     if (!Number.isFinite(clip.speed) || clip.speed < 0.25 || clip.speed > 4) throw new Error('Invalid clip speed')
+    if (clip.motion !== undefined && clip.motion !== 'zoom-in' && clip.motion !== 'zoom-out') throw new Error('Invalid clip motion')
     if ((clip.asset?.kind === 'image' || clip.asset?.kind === 'caption') && clip.speed !== 1) throw new Error('Speed retiming only supports video and audio')
     const transform = clip.transform
     if (!transform || ![transform.x, transform.y, transform.scale, transform.cropLeft, transform.cropTop, transform.cropRight, transform.cropBottom].every(Number.isFinite)) throw new Error('Invalid clip transform')
@@ -699,6 +700,18 @@ async function executeRenderJob(id) {
   }
 }
 
+
+const MOTION_ZOOM = 0.18
+
+/** The size a still occupies inside the canvas once letterboxed, or null if unknown. */
+function letterboxedSize(asset, width, height) {
+  const sourceWidth = Number(asset.metadata.width)
+  const sourceHeight = Number(asset.metadata.height)
+  if (!Number.isFinite(sourceWidth) || !Number.isFinite(sourceHeight) || sourceWidth <= 0 || sourceHeight <= 0) return null
+  const factor = Math.min(width / sourceWidth, height / sourceHeight)
+  return { w: Math.max(2, Math.round(sourceWidth * factor)), h: Math.max(2, Math.round(sourceHeight * factor)) }
+}
+
 function buildCompositeArgs(plan, mediaClips, inputPaths, outputPath, subtitlePath) {
   const args = ['-y']
   mediaClips.forEach((clip, index) => {
@@ -713,6 +726,21 @@ function buildCompositeArgs(plan, mediaClips, inputPaths, outputPath, subtitlePa
   const fitFilter = plan.preset.fit === 'cover'
     ? `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}`
     : `scale=${width}:${height}:force_original_aspect_ratio=decrease`
+  // A still scene can drift slowly instead of sitting perfectly still. zoompan needs a
+  // fixed output size: cover already fills the canvas, while contain must render into
+  // the letterboxed size computed from the source pixels — stretching it would distort.
+  const framePrefix = (clip) => {
+    const target = clip.motion && clip.asset.kind === 'image'
+      ? (plan.preset.fit === 'cover' ? { w: width, h: height } : letterboxedSize(clip.asset, width, height))
+      : null
+    if (!target) return fitFilter
+    const frames = Math.max(2, Math.round((clip.durationMs / 1000) * fps))
+    const zoom = clip.motion === 'zoom-in'
+      ? `min(1+${MOTION_ZOOM}*on/${frames},${1 + MOTION_ZOOM})`
+      : `max(${1 + MOTION_ZOOM}-${MOTION_ZOOM}*on/${frames},1)`
+    const fitted = plan.preset.fit === 'cover' ? fitFilter : `scale=${target.w}:${target.h}`
+    return `${fitted},zoompan=z='${zoom}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${frames}:s=${target.w}x${target.h}:fps=${fps}`
+  }
   const fps = plan.preset.fps
   const parts = [`color=c=black:s=${width}x${height}:r=${fps}:d=${seconds(plan.durationMs)}[base]`]
   const visuals = []
@@ -733,7 +761,7 @@ function buildCompositeArgs(plan, mediaClips, inputPaths, outputPath, subtitlePa
     const visualFadeIn = clip.transitionIn?.durationMs ?? clip.fades.inMs
     const fadeFilters = visualFadeIn || clip.fades.outMs ? [',format=rgba', ...(visualFadeIn ? [`,fade=t=in:st=0:d=${seconds(visualFadeIn)}:alpha=1`] : []), ...(clip.fades.outMs ? [`,fade=t=out:st=${seconds(clip.durationMs - clip.fades.outMs)}:d=${seconds(clip.fades.outMs)}:alpha=1`] : [])].join('') : ''
     const timing = clip.asset.kind === 'image' || clip.speed === 1 ? 'PTS-STARTPTS' : `(PTS-STARTPTS)/${clip.speed}`
-    parts.push(`[${index}:v]${fitFilter},crop=iw-${transform.cropLeft}-${transform.cropRight}:ih-${transform.cropTop}-${transform.cropBottom}:${transform.cropLeft}:${transform.cropTop},scale=iw*${transform.scale}:ih*${transform.scale}${fadeFilters},setpts=${timing}+${start}/TB[${prepared}]`)
+    parts.push(`[${index}:v]${framePrefix(clip)},crop=iw-${transform.cropLeft}-${transform.cropRight}:ih-${transform.cropTop}-${transform.cropBottom}:${transform.cropLeft}:${transform.cropTop},scale=iw*${transform.scale}:ih*${transform.scale}${fadeFilters},setpts=${timing}+${start}/TB[${prepared}]`)
     parts.push(`[${currentVideo}][${prepared}]overlay=(W-w)/2${signedOffset(transform.x)}:(H-h)/2${signedOffset(transform.y)}:enable='between(t,${start},${end})'[${output}]`)
     currentVideo = output
   })
