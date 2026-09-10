@@ -210,3 +210,7 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .formatOption { display: grid; gap: 3px; text-align: left; padding: 10px 12px; border: 1px solid #313848; border-radius: 10px; background: #141924; color: #cfd6e4; }
 .formatOption small { color: #7d8699; font-size: 10px; }
 .formatOption.active { border-color: #4f7fd6; background: #182338; color: #e8eefb; }
+.assemblyOptions { display: grid; gap: 10px; }
+.optionToggle { grid-template-columns: auto 1fr; align-items: start; gap: 4px 9px; font-weight: 700; color: #cbd1dc; }
+.optionToggle input { width: auto; grid-row: 1; }
+.optionToggle small { grid-column: 2; font-weight: 400; color: #7d8699; }
