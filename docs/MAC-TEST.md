@@ -91,7 +91,14 @@ Needs any installed Chrome, Chromium or Firefox (or point `KINAOU_CHROMIUM`/`KIN
 
 ## Stage 6 — The full loop
 
-Project "How to use X" → Director plan → Media plan (either mode) → storyboard fulfillment check → timeline arrangement → captions/voice if configured → render. That is the complete Discover → Direct → Generate → Edit → Export path on real hardware.
+Project "How to use X" → Director plan → Media plan (either mode) → storyboard fulfillment check → **Studio → Assemble the fulfilled scenes** → **Write captions from the script** → pick the output format → **Start render**. That is the complete Discover → Direct → Generate → Edit → Adapt → Export path on real hardware, without placing a single asset by hand.
+
+What to check along the way:
+
+1. **Assemble** places the scenes in storyboard order, back to back, on the chosen visual track. Running it again must skip everything ("already on …") instead of duplicating clips.
+2. **Captions** appear on the caption track, split at sentence boundaries and aligned to the clips — not to the storyboard's planned durations. Each one stays editable in the Caption Studio; a second run must skip captioned scenes.
+3. **Format** (Landscape / Vertical / Square) belongs to the project: switching it also switches the composed preview, and the choice survives a reload. Render a vertical variant and confirm wide captures are centre-cropped to fill the 9:16 frame rather than letterboxed.
+4. Both actions write an automatic version first, so restoring "Before assembling scenes on the timeline" or "Before writing captions from the script" undoes the whole batch.
 
 ## Troubleshooting
 
