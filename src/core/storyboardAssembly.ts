@@ -10,7 +10,18 @@ export interface AssembledScene {
   startMs: number
   durationMs: number
   trimmedToSource: boolean
+  motion?: 'zoom-in' | 'zoom-out'
+  crossfadeMs?: number
 }
+
+export interface AssemblyOptions {
+  /** Give stills a gentle alternating push so a scene run is not a static slideshow. */
+  motion?: boolean
+  /** Overlap each scene with the previous one and dissolve into it. */
+  crossfade?: boolean
+}
+
+export const CROSSFADE_MS = 500
 
 export interface SkippedScene {
   sceneId: string
@@ -38,7 +49,7 @@ export function fulfilledSceneCount(project: KinaouProject): number {
  * replaced, and a scene whose asset already sits on this track is skipped, so the
  * action can be re-run after new scenes were fulfilled.
  */
-export function assembleTimelineFromStoryboard(project: KinaouProject, trackId: string): AssemblyResult {
+export function assembleTimelineFromStoryboard(project: KinaouProject, trackId: string, options: AssemblyOptions = {}): AssemblyResult {
   const track = project.tracks.find((entry) => entry.id === trackId)
   if (!track) throw new Error(`Timeline track not found: ${trackId}`)
   if (!visualTrackTypes.has(track.type)) throw new Error(`Scenes can only be assembled on a visual track, not on ${track.type}`)
@@ -50,6 +61,7 @@ export function assembleTimelineFromStoryboard(project: KinaouProject, trackId: 
   const alreadyPlaced = new Set(track.clips.map((clip) => clip.assetId))
   let cursorMs = track.clips.reduce((max, clip) => Math.max(max, clip.startMs + clip.durationMs), 0)
   let next = project
+  const hadClips = track.clips.length > 0
 
   for (const scene of project.storyboard) {
     if (!scene.assetId) {
@@ -89,21 +101,38 @@ export function assembleTimelineFromStoryboard(project: KinaouProject, trackId: 
       continue
     }
 
+    // Every scene after the first one starts inside its predecessor and dissolves in,
+    // so the two are on screen together for the overlap — a real cross-dissolve
+    // rather than a fade through the black canvas.
+    const follows = placed.length > 0 || hadClips
+    const crossfadeMs = options.crossfade && follows ? Math.min(CROSSFADE_MS, durationMs) : 0
+    const startMs = Math.max(0, cursorMs - crossfadeMs)
+    // Stills alternate direction so a long run does not feel mechanical.
+    const motion: AssembledScene['motion'] = options.motion && asset.kind === 'image'
+      ? (placed.length % 2 === 0 ? 'zoom-in' : 'zoom-out')
+      : undefined
+
     next = applyTimelineOperation(next, {
       type: 'add-clip',
       trackId,
-      clip: { id: crypto.randomUUID(), assetId: asset.id, startMs: cursorMs, durationMs, sourceOffsetMs: 0, gain: 1, speed: 1 }
+      clip: {
+        id: crypto.randomUUID(), assetId: asset.id, startMs, durationMs, sourceOffsetMs: 0, gain: 1, speed: 1,
+        ...(motion ? { motion } : {}),
+        ...(crossfadeMs ? { transitionIn: { type: 'dissolve' as const, durationMs: crossfadeMs } } : {})
+      }
     })
     placed.push({
       sceneId: scene.id,
       title: scene.title,
       assetId: asset.id,
-      startMs: cursorMs,
+      startMs,
       durationMs,
-      trimmedToSource: durationMs < scene.durationMs
+      trimmedToSource: durationMs < scene.durationMs,
+      ...(motion ? { motion } : {}),
+      ...(crossfadeMs ? { crossfadeMs } : {})
     })
     alreadyPlaced.add(asset.id)
-    cursorMs += durationMs
+    cursorMs = startMs + durationMs
   }
 
   return { project: next, placed, skipped }

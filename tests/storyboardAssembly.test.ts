@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { assetSchema, createProject, trackSchema, type KinaouProject } from '../src/core/project'
-import { assembleTimelineFromStoryboard, assemblyTargetTracks, fulfilledSceneCount } from '../src/core/storyboardAssembly'
+import { CROSSFADE_MS, assembleTimelineFromStoryboard, assemblyTargetTracks, fulfilledSceneCount } from '../src/core/storyboardAssembly'
 
 function image(id: string) {
   return assetSchema.parse({ id, kind: 'image', uri: `KINAOU/Assets/WebCaptures/${id}.png`, managed: true, offline: false, metadata: { name: id } })
@@ -114,5 +114,61 @@ describe('storyboard assembly', () => {
     const result = assembleTimelineFromStoryboard(project, 'video-1')
     expect(result.placed).toEqual([])
     expect(result.project).toBe(project)
+  })
+})
+
+describe('assembly polish options', () => {
+  function threeScenes() {
+    return baseProject({
+      assets: [image('a1'), image('a2'), video('a3', 10_000)],
+      storyboard: [scene('s1', 4000, 'a1'), scene('s2', 4000, 'a2'), scene('s3', 4000, 'a3')]
+    })
+  }
+
+  it('adds nothing unless asked, keeping the plain assembly unchanged', () => {
+    const result = assembleTimelineFromStoryboard(threeScenes(), 'video-1')
+    expect(result.project.tracks[0].clips.every((clip) => !clip.motion && !clip.transitionIn)).toBe(true)
+    expect(result.placed.map((entry) => entry.startMs)).toEqual([0, 4000, 8000])
+  })
+
+  it('alternates gentle motion across stills and leaves video alone', () => {
+    const result = assembleTimelineFromStoryboard(threeScenes(), 'video-1', { motion: true })
+    expect(result.project.tracks[0].clips.map((clip) => clip.motion)).toEqual(['zoom-in', 'zoom-out', undefined])
+    expect(result.placed.map((entry) => entry.motion)).toEqual(['zoom-in', 'zoom-out', undefined])
+  })
+
+  it('overlaps each following scene so the dissolve is a real cross-fade', () => {
+    const result = assembleTimelineFromStoryboard(threeScenes(), 'video-1', { crossfade: true })
+    const clips = result.project.tracks[0].clips
+
+    expect(clips[0].transitionIn).toBeUndefined()
+    expect(clips[1].transitionIn).toEqual({ type: 'dissolve', durationMs: CROSSFADE_MS })
+    // Scene 2 starts inside scene 1, so both are on screen during the dissolve.
+    expect(clips[1].startMs).toBe(4000 - CROSSFADE_MS)
+    expect(clips[1].startMs).toBeLessThan(clips[0].startMs + clips[0].durationMs)
+    expect(clips[2].startMs).toBe(clips[1].startMs + clips[1].durationMs - CROSSFADE_MS)
+  })
+
+  it('never overlaps more than the scene itself lasts', () => {
+    const project = baseProject({
+      assets: [image('a1'), image('a2')],
+      storyboard: [scene('s1', 4000, 'a1'), scene('s2', 300, 'a2')]
+    })
+    const clips = assembleTimelineFromStoryboard(project, 'video-1', { crossfade: true }).project.tracks[0].clips
+    expect(clips[1].transitionIn).toEqual({ type: 'dissolve', durationMs: 300 })
+    expect(clips[1].startMs).toBe(4000 - 300)
+  })
+
+  it('dissolves into whatever already sits on the track', () => {
+    const first = assembleTimelineFromStoryboard(threeScenes(), 'video-1').project
+    const withNewScene = {
+      ...first,
+      assets: [...first.assets, image('a4')],
+      storyboard: [...first.storyboard, scene('s4', 4000, 'a4')]
+    }
+    const result = assembleTimelineFromStoryboard(withNewScene, 'video-1', { crossfade: true })
+    expect(result.placed).toHaveLength(1)
+    expect(result.placed[0].crossfadeMs).toBe(CROSSFADE_MS)
+    expect(result.placed[0].startMs).toBe(12_000 - CROSSFADE_MS)
   })
 })
