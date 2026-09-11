@@ -64,7 +64,10 @@ function sceneClips(project: KinaouProject, visualTrack: TimelineTrack): { scene
   const found: { sceneId: string; title: string; clip: TimelineClip }[] = []
   for (const scene of project.storyboard) {
     if (!scene.assetId) continue
-    const clip = visualTrack.clips.find((entry) => entry.assetId === scene.assetId && !seen.has(entry.id))
+    // The stamp decides which clip is this scene's; a clip carrying no stamp at all —
+    // placed before scenes were recorded — is matched by its media instead.
+    const clip = visualTrack.clips.find((entry) => entry.sceneId === scene.id)
+      ?? visualTrack.clips.find((entry) => !entry.sceneId && entry.assetId === scene.assetId && !seen.has(entry.id))
     if (!clip) continue
     seen.add(clip.id)
     found.push({ sceneId: scene.id, title: scene.title, clip })

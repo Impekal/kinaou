@@ -23,6 +23,8 @@ export type TimelineOperation =
   | { type: 'set-clip-fades'; trackId: string; clipId: string; fades: NonNullable<TimelineClip['fades']> }
   | { type: 'set-clip-speed'; trackId: string; clipId: string; speed: number }
   | { type: 'set-clip-motion'; trackId: string; clipId: string; motion?: NonNullable<TimelineClip['motion']> }
+  | { type: 'set-clip-asset'; trackId: string; clipId: string; assetId: string }
+  | { type: 'set-clip-scene'; trackId: string; clipId: string; sceneId?: string }
 
 function updateTrack(project: KinaouProject, trackId: string, update: (track: TimelineTrack) => TimelineTrack): KinaouProject {
   let found = false
@@ -134,6 +136,22 @@ export function applyTimelineOperation(project: KinaouProject, operation: Timeli
           return rest
         }
         return { ...clip, motion: operation.motion }
+      }))
+
+    case 'set-clip-asset': {
+      // A different source makes the old in-point meaningless, so the clip starts at the
+      // beginning of the new media rather than at an offset that belonged to another file.
+      if (!project.assets.some((asset) => asset.id === operation.assetId)) throw new Error(`Asset not found: ${operation.assetId}`)
+      return updateUnlockedTrack(project, operation.trackId, (track) => updateExistingClip(track, operation.clipId, (clip) => ({ ...clip, assetId: operation.assetId, sourceOffsetMs: 0 })))
+    }
+
+    case 'set-clip-scene':
+      return updateUnlockedTrack(project, operation.trackId, (track) => updateExistingClip(track, operation.clipId, (clip) => {
+        if (!operation.sceneId) {
+          const { sceneId: _removed, ...rest } = clip
+          return rest
+        }
+        return { ...clip, sceneId: operation.sceneId }
       }))
   }
 }

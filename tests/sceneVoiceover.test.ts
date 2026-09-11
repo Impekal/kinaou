@@ -108,3 +108,30 @@ describe('placing scene narration', () => {
     expect(() => placeSceneNarration(locked, scene, job(3000), 'voice-1')).toThrow(/locked/)
   })
 })
+
+describe('narration for a picture that appears in two scenes', () => {
+  it('takes each scene timing from its own clip', () => {
+    const asset = assetSchema.parse({ id: 'a1', kind: 'image', uri: 'KINAOU/Assets/a1.png', managed: true, offline: false, metadata: {} })
+    const project: KinaouProject = {
+      ...createProject('Recurring'),
+      assets: [asset],
+      tracks: [
+        trackSchema.parse({
+          id: 'video-1',
+          type: 'video',
+          name: 'Main Video',
+          clips: [
+            clipSchema.parse({ id: 'c1', assetId: 'a1', startMs: 0, durationMs: 4000, sceneId: 's1' }),
+            clipSchema.parse({ id: 'c2', assetId: 'a1', startMs: 4000, durationMs: 4000, sceneId: 's2' })
+          ]
+        }),
+        trackSchema.parse({ id: 'voice-1', type: 'voice', name: 'Voice', clips: [] })
+      ],
+      storyboard: [
+        { id: 's1', title: 'First look', description: 'Here it is.', durationMs: 4000, assetId: 'a1' },
+        { id: 's2', title: 'Second look', description: 'And here it is again.', durationMs: 4000, assetId: 'a1' }
+      ]
+    }
+    expect(planSceneVoiceovers(project, 'video-1').pending.map((entry) => [entry.sceneId, entry.startMs])).toEqual([['s1', 0], ['s2', 4000]])
+  })
+})
