@@ -125,3 +125,31 @@ describe('captions from the storyboard', () => {
     expect(() => captionsFromStoryboard(project, 'missing')).toThrow(/not found/)
   })
 })
+
+describe('captions for a picture that appears in two scenes', () => {
+  it('times each scene against its own clip, not the first one showing that picture', () => {
+    const asset = assetSchema.parse({ id: 'a1', kind: 'image', uri: 'KINAOU/Assets/WebCaptures/a1.png', managed: true, offline: false, metadata: {} })
+    const project: KinaouProject = {
+      ...createProject('Recurring'),
+      assets: [asset],
+      tracks: [
+        trackSchema.parse({
+          id: 'video-1',
+          type: 'video',
+          name: 'Main Video',
+          clips: [
+            clipSchema.parse({ id: 'c1', assetId: 'a1', startMs: 0, durationMs: 4000, sceneId: 's1' }),
+            clipSchema.parse({ id: 'c2', assetId: 'a1', startMs: 4000, durationMs: 4000, sceneId: 's2' })
+          ]
+        }),
+        trackSchema.parse({ id: 'caption-1', type: 'caption', name: 'Captions', clips: [] })
+      ],
+      storyboard: [
+        { id: 's1', title: 'First look', description: 'Here it is.', durationMs: 4000, assetId: 'a1' },
+        { id: 's2', title: 'Second look', description: 'And here it is again.', durationMs: 4000, assetId: 'a1' }
+      ]
+    }
+    const result = captionsFromStoryboard(project, 'video-1')
+    expect(result.captioned.map((entry) => [entry.sceneId, entry.startMs])).toEqual([['s1', 0], ['s2', 4000]])
+  })
+})

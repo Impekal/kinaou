@@ -36,8 +36,14 @@ function narratedSceneIds(project: KinaouProject): Set<string> {
     .map((asset) => String(asset.metadata.sceneId)))
 }
 
-function clipForAsset(track: TimelineTrack, assetId: string): TimelineClip | undefined {
-  return track.clips.find((clip) => clip.assetId === assetId)
+/**
+ * The clip this scene put on the track. A storyboard may show one picture in two
+ * scenes, so the stamp decides; only a clip that carries no stamp at all — placed
+ * before scenes were recorded — is matched by its media.
+ */
+function clipForScene(track: TimelineTrack, sceneId: string, assetId: string): TimelineClip | undefined {
+  return track.clips.find((clip) => clip.sceneId === sceneId)
+    ?? track.clips.find((clip) => !clip.sceneId && clip.assetId === assetId)
 }
 
 /**
@@ -68,7 +74,7 @@ export function planSceneVoiceovers(project: KinaouProject, visualTrackId: strin
       skipped.push({ sceneId: scene.id, title: scene.title, reason: 'Scene has no visual on the timeline yet' })
       continue
     }
-    const clip = clipForAsset(visualTrack, scene.assetId)
+    const clip = clipForScene(visualTrack, scene.id, scene.assetId)
     if (!clip) {
       skipped.push({ sceneId: scene.id, title: scene.title, reason: `Its visual is not on "${visualTrack.name}" — assemble the timeline first` })
       continue
