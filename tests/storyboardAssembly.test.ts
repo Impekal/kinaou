@@ -51,19 +51,32 @@ describe('storyboard assembly', () => {
     expect(result.placed[1]).toMatchObject({ startMs: 2000, durationMs: 9000, trimmedToSource: false })
   })
 
-  it('appends after existing clips and skips visuals already on the track', () => {
+  it('skips the scenes it already placed and appends after the existing clips', () => {
     const project = baseProject({
       assets: [image('a1'), image('a2')],
       storyboard: [scene('s1', 3000, 'a1'), scene('s2', 3000, 'a2')]
     })
     const first = assembleTimelineFromStoryboard(project, 'video-1').project
-    const withNewScene = { ...first, storyboard: [...first.storyboard, scene('s3', 5000, 'a1')] }
 
-    const second = assembleTimelineFromStoryboard(withNewScene, 'video-1')
+    const second = assembleTimelineFromStoryboard(first, 'video-1')
     expect(second.placed).toEqual([])
-    expect(second.skipped.map((entry) => entry.sceneId)).toEqual(['s1', 's2', 's3'])
-    expect(second.skipped[2].reason).toMatch(/already on "Main Video"/)
+    expect(second.skipped.map((entry) => entry.sceneId)).toEqual(['s1', 's2'])
+    expect(second.skipped[1].reason).toMatch(/already on "Main Video"/)
     expect(second.project.tracks[0].clips).toHaveLength(2)
+  })
+
+  it('places a scene that reuses a visual another scene already shows', () => {
+    const project = baseProject({
+      assets: [image('a1'), image('a2')],
+      storyboard: [scene('s1', 3000, 'a1'), scene('s2', 3000, 'a2')]
+    })
+    const first = assembleTimelineFromStoryboard(project, 'video-1').project
+    const recurring = { ...first, storyboard: [...first.storyboard, scene('s3', 5000, 'a1')] }
+
+    // A storyboard may show the same picture twice; only the same *scene* is a repeat.
+    const third = assembleTimelineFromStoryboard(recurring, 'video-1')
+    expect(third.placed.map((entry) => entry.sceneId)).toEqual(['s3'])
+    expect(third.project.tracks[0].clips.map((clip) => [clip.sceneId, clip.assetId])).toEqual([['s1', 'a1'], ['s2', 'a2'], ['s3', 'a1']])
   })
 
   it('reports per-scene reasons instead of failing the whole run', () => {

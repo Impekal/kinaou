@@ -95,7 +95,7 @@ Project "How to use X" → Director plan → Media plan (either mode) → storyb
 
 What to check along the way:
 
-1. **Assemble** places the scenes in storyboard order, back to back, on the chosen visual track. Running it again must skip everything ("already on …") instead of duplicating clips.
+1. **Assemble** places the scenes in storyboard order, back to back, on the chosen visual track. Running it again must skip everything ("already on …") instead of duplicating clips. Replace a scene's visual after assembling and the panel offers to **update the replaced scenes**: the new media appears inside the clip that is already there, at the same place and length, instead of being appended at the end.
 2. **Captions** appear on the caption track, split at sentence boundaries and aligned to the clips — not to the storyboard's planned durations. Each one stays editable in the Caption Studio; a second run must skip captioned scenes.
 3. **Format** (Landscape / Vertical / Square) belongs to the project: switching it also switches the composed preview, and the choice survives a reload. Render a vertical variant and confirm wide captures are centre-cropped to fill the 9:16 frame rather than letterboxed.
 4. **Narration** (only with Piper installed) speaks each scene description and places it under that scene on the voice track. A voice that runs longer than its scene is flagged as an overrun rather than cut, and **Fit the scenes to the narration** then lengthens exactly those visuals until each covers its own voice, moving everything after them by the same amount so the cross-dissolves keep their width. Footage with no frames left to give is extended as far as it goes and says why it stopped. A second run skips narrated scenes.

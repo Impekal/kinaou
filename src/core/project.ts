@@ -18,6 +18,8 @@ export const clipSchema = z.object({
   gain: z.number().default(1),
   speed: z.number().min(0.25).max(4).default(1),
   motion: z.enum(['zoom-in', 'zoom-out']).optional(),
+  /** Which storyboard scene put this clip here, so a replaced visual can find its own clip again. */
+  sceneId: z.string().min(1).optional(),
   transform: z.object({
     x: z.number().finite().default(0),
     y: z.number().finite().default(0),

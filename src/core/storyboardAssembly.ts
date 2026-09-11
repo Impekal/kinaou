@@ -58,7 +58,10 @@ export function assembleTimelineFromStoryboard(project: KinaouProject, trackId: 
 
   const placed: AssembledScene[] = []
   const skipped: SkippedScene[] = []
-  const alreadyPlaced = new Set(track.clips.map((clip) => clip.assetId))
+  // A clip knows which scene put it there. Clips from before that was recorded are
+  // adopted by their asset, so an older project keeps working and becomes precise.
+  const placedScenes = new Set(track.clips.map((clip) => clip.sceneId).filter((id): id is string => Boolean(id)))
+  const adoptable = new Map(track.clips.filter((clip) => !clip.sceneId).map((clip) => [clip.assetId, clip.id]))
   let cursorMs = track.clips.reduce((max, clip) => Math.max(max, clip.startMs + clip.durationMs), 0)
   let next = project
   const hadClips = track.clips.length > 0
@@ -68,7 +71,15 @@ export function assembleTimelineFromStoryboard(project: KinaouProject, trackId: 
       skipped.push({ sceneId: scene.id, title: scene.title, reason: 'Scene has no visual yet' })
       continue
     }
-    if (alreadyPlaced.has(scene.assetId)) {
+    if (placedScenes.has(scene.id)) {
+      skipped.push({ sceneId: scene.id, title: scene.title, reason: `Its visual is already on "${track.name}"` })
+      continue
+    }
+    const legacyClipId = adoptable.get(scene.assetId)
+    if (legacyClipId) {
+      next = applyTimelineOperation(next, { type: 'set-clip-scene', trackId, clipId: legacyClipId, sceneId: scene.id })
+      adoptable.delete(scene.assetId)
+      placedScenes.add(scene.id)
       skipped.push({ sceneId: scene.id, title: scene.title, reason: `Its visual is already on "${track.name}"` })
       continue
     }
@@ -117,6 +128,7 @@ export function assembleTimelineFromStoryboard(project: KinaouProject, trackId: 
       trackId,
       clip: {
         id: crypto.randomUUID(), assetId: asset.id, startMs, durationMs, sourceOffsetMs: 0, gain: 1, speed: 1,
+        sceneId: scene.id,
         ...(motion ? { motion } : {}),
         ...(crossfadeMs ? { transitionIn: { type: 'dissolve' as const, durationMs: crossfadeMs } } : {})
       }
@@ -131,7 +143,7 @@ export function assembleTimelineFromStoryboard(project: KinaouProject, trackId: 
       ...(motion ? { motion } : {}),
       ...(crossfadeMs ? { crossfadeMs } : {})
     })
-    alreadyPlaced.add(asset.id)
+    placedScenes.add(scene.id)
     cursorMs = startMs + durationMs
   }
 
