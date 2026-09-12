@@ -7,6 +7,7 @@ import { WorkerClient } from '../core/workerClient'
 import { createRangeRenderPlan, validateRenderRange } from '../core/renderRange'
 import { defaultAudioDucking, validateAudioDucking } from '../core/audioDucking'
 import { defaultLoudnessNormalization } from '../core/audioLoudness'
+import { planShortExportRanges } from '../core/shortExportRanges'
 
 interface RenderPanelProps {
   project: KinaouProject
@@ -38,6 +39,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const duckingCheck = (() => { try { validateAudioDucking(duckingSettings); return { valid: true, reason: '' } } catch (value) { return { valid: false, reason: value instanceof Error ? value.message : 'Invalid music ducking settings.' } } })()
   const range = { inMs: Math.round(Number(inSeconds) * 1000), outMs: Math.round(Number(outSeconds) * 1000) }
   const rangeCheck = Number.isFinite(range.inMs) && Number.isFinite(range.outMs) ? validateRenderRange(range, timelineDurationMs) : { valid: false, reason: 'In and Out must be numbers.' }
+  const shortExports = useMemo(() => planShortExportRanges(project), [project])
 
   useEffect(() => {
     setInSeconds('0')
@@ -132,6 +134,17 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         {rangeCheck.valid && <span className="cardBody">Export range: {(range.inMs / 1000).toFixed(3)}–{(range.outMs / 1000).toFixed(3)} s ({((range.outMs - range.inMs) / 1000).toFixed(3)} s)</span>}
       </div>
       {!rangeCheck.valid && <div className="warning">{rangeCheck.reason}</div>}
+
+      {project.storyboard.length > 0 && <div className="renderJob">
+        <div className="renderJobHead"><strong>Scene short ranges</strong><span>up to 60 s</span></div>
+        <p className="cardBody">Reviewable ranges built only from contiguous storyboard scenes that are already anchored on active visual tracks.</p>
+        {shortExports.candidates.map((candidate) => <div className="renderMeta" key={candidate.id}>
+          <span><strong>{candidate.titles.join(' + ')}</strong> · {(candidate.durationMs / 1000).toFixed(1)} s · {(candidate.inMs / 1000).toFixed(1)}–{(candidate.outMs / 1000).toFixed(1)} s</span>
+          <button disabled={Boolean(busy)} onClick={() => { setInSeconds(String(candidate.inMs / 1000)); setOutSeconds(String(candidate.outMs / 1000)) }}>Use this range</button>
+        </div>)}
+        {!shortExports.candidates.length && <div className="warning">No exportable scene range yet. Assemble storyboard scenes on an active visual track first.</div>}
+        {shortExports.skipped.map((item) => <div className="warning" key={item.sceneId}><strong>{item.title}:</strong> {item.reason}</div>)}
+      </div>}
 
       <label className="checkRow"><input type="checkbox" checked={duckingEnabled} disabled={Boolean(busy)} onChange={(event) => setDuckingEnabled(event.target.checked)} />Lower music while voice or dialogue is playing</label>
       {duckingEnabled && <div className="fieldGrid">
