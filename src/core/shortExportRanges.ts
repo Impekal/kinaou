@@ -1,4 +1,6 @@
 import type { KinaouProject } from './project'
+import type { TargetFormat } from './render'
+import { renderOutputPath } from './renderUi'
 
 export interface ShortExportCandidate {
   id: string
@@ -11,12 +13,38 @@ export interface ShortExportCandidate {
 
 export interface SkippedShortScene { sceneId: string; title: string; reason: string }
 export interface ShortExportPlan { candidates: ShortExportCandidate[]; skipped: SkippedShortScene[] }
+export interface ShortExportBatchItem {
+  id: string
+  title: string
+  inMs: number
+  outMs: number
+  durationMs: number
+  outputPath: string
+}
 
 const visualTracks = new Set(['video', 'broll', 'image', 'avatar', 'overlay'])
 
 export function shortExportVariant(candidate: ShortExportCandidate): string {
   const title = candidate.titles.join('-').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'scenes'
   return `short-${title}-${Math.round(candidate.inMs)}-${Math.round(candidate.outMs)}`
+}
+
+export function planShortExportBatch(project: KinaouProject, candidates: ShortExportCandidate[], selectedIds: string[], format: TargetFormat, now = new Date()): ShortExportBatchItem[] {
+  const selected = new Set(selectedIds)
+  if (!selected.size) throw new Error('Select at least one reviewed Short candidate.')
+  const known = new Set(candidates.map((candidate) => candidate.id))
+  const unknown = [...selected].find((id) => !known.has(id))
+  if (unknown) throw new Error('A selected Short candidate is no longer available. Review the current ranges again.')
+  const items = candidates.filter((candidate) => selected.has(candidate.id)).map((candidate) => ({
+    id: candidate.id,
+    title: candidate.titles.join(' + '),
+    inMs: candidate.inMs,
+    outMs: candidate.outMs,
+    durationMs: candidate.durationMs,
+    outputPath: renderOutputPath(project, now, `${format}-${shortExportVariant(candidate)}`)
+  }))
+  if (new Set(items.map((item) => item.outputPath)).size !== items.length) throw new Error('Selected Short candidates do not have unique export identities.')
+  return items
 }
 
 export function planShortExportRanges(project: KinaouProject, maxDurationMs = 60_000): ShortExportPlan {
