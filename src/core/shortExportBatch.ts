@@ -5,6 +5,8 @@ export interface ShortBatchRenderItem extends ShortExportBatchItem {
   state: RenderJobState
   progress: number
   jobId?: string
+  createdAt?: string
+  updatedAt?: string
   sizeBytes?: number
   renderedPath?: string
   error?: string

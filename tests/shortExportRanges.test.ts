@@ -91,6 +91,10 @@ describe('short export range planning', () => {
       { id: 's1--s2', inMs: 0, outMs: 49_500 },
       { id: 's3', inMs: 70_000, outMs: 80_000 }
     ])
+    expect(items.map((item) => ({ format: item.format, sceneIds: item.sceneIds }))).toEqual([
+      { format: 'vertical', sceneIds: ['s1', 's2'] },
+      { format: 'vertical', sceneIds: ['s3'] }
+    ])
     expect(items.map((item) => item.outputPath)).toEqual([
       'KINAOU/Renders/shorts_verticalshorthookproof049500_2026-09-12_08-00-00-000.mp4',
       'KINAOU/Renders/shorts_verticalshortcta7000080000_2026-09-12_08-00-00-000.mp4'

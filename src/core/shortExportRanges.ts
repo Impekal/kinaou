@@ -16,6 +16,8 @@ export interface ShortExportPlan { candidates: ShortExportCandidate[]; skipped: 
 export interface ShortExportBatchItem {
   id: string
   title: string
+  sceneIds: string[]
+  format: TargetFormat
   inMs: number
   outMs: number
   durationMs: number
@@ -64,6 +66,8 @@ export function planShortExportBatch(project: KinaouProject, candidates: ShortEx
   const items = candidates.filter((candidate) => selected.has(candidate.id)).map((candidate) => ({
     id: candidate.id,
     title: candidate.titles.join(' + '),
+    sceneIds: candidate.sceneIds,
+    format,
     inMs: candidate.inMs,
     outMs: candidate.outMs,
     durationMs: candidate.durationMs,
