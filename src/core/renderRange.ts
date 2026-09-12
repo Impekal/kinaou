@@ -45,8 +45,9 @@ export function createRangeRenderPlan(plan: RenderPlan, range: RenderRange, outp
   const check = validateRenderRange(range, plan.durationMs)
   if (!check.valid) throw new Error(check.reason)
   const output = assertSafeManagedPath(outputRelativePath)
-  if (!output.startsWith('KINAOU/Renders/')) throw new Error('Range export must stay inside KINAOU/Renders')
+  const expectedArea = plan.purpose === 'preview' ? 'KINAOU/Cache/Previews/' : 'KINAOU/Renders/'
+  if (!output.startsWith(expectedArea)) throw new Error(`Range ${plan.purpose} must stay inside ${expectedArea.slice(0, -1)}`)
   const clips = plan.clips.map((clip) => trimClip(clip, range)).filter((clip): clip is RenderClipStep => clip !== null)
   if (!clips.length) throw new Error('The selected range contains no renderable clips.')
-  return { ...plan, purpose: 'export', outputRelativePath: output, durationMs: range.outMs - range.inMs, clips }
+  return { ...plan, outputRelativePath: output, durationMs: range.outMs - range.inMs, clips }
 }

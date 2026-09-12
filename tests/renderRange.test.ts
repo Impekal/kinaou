@@ -44,4 +44,13 @@ describe('range render plan', () => {
     const ranged = createRangeRenderPlan(plan([still]), { inMs: 0, outMs: 2000 }, 'KINAOU/Renders/range.mp4')
     expect(buildCompositeFilter(ranged).graph).toContain(':d=60:s=640x360:fps=30')
   })
+
+  it('preserves preview purpose while enforcing separate managed output areas', () => {
+    const preview = { ...plan(), purpose: 'preview' as const, outputRelativePath: 'KINAOU/Cache/Previews/full.mp4' }
+    const ranged = createRangeRenderPlan(preview, { inMs: 1000, outMs: 5000 }, 'KINAOU/Cache/Previews/range.mp4')
+    expect(ranged.purpose).toBe('preview')
+    expect(ranged.outputRelativePath).toBe('KINAOU/Cache/Previews/range.mp4')
+    expect(() => createRangeRenderPlan(preview, { inMs: 1000, outMs: 5000 }, 'KINAOU/Renders/wrong.mp4')).toThrow(/Range preview.*Cache\/Previews/)
+    expect(() => createRangeRenderPlan(plan(), { inMs: 1000, outMs: 5000 }, 'KINAOU/Cache/Previews/wrong.mp4')).toThrow(/Range export.*Renders/)
+  })
 })

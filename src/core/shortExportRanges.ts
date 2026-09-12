@@ -48,6 +48,13 @@ export function shortExportVariant(candidate: ShortExportCandidate): string {
   return `short-${title}-${Math.round(candidate.inMs)}-${Math.round(candidate.outMs)}`
 }
 
+export function shortPreviewOutputPath(project: KinaouProject, candidate: ShortExportCandidate, format: TargetFormat): string {
+  if (format !== 'landscape' && format !== 'vertical' && format !== 'square') throw new Error('Unknown Short preview format.')
+  const projectId = project.id.replace(/[^a-zA-Z0-9-]/g, '').slice(0, 40)
+  if (!projectId) throw new Error('Project id must form a safe Short preview path.')
+  return `KINAOU/Cache/Previews/${projectId}_${format}_${shortExportVariant(candidate)}.mp4`
+}
+
 export function planShortExportBatch(project: KinaouProject, candidates: ShortExportCandidate[], selectedIds: string[], format: TargetFormat, now = new Date()): ShortExportBatchItem[] {
   const selected = new Set(selectedIds)
   if (!selected.size) throw new Error('Select at least one reviewed Short candidate.')

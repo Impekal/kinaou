@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { assetSchema, clipSchema, createProject, trackSchema } from '../src/core/project'
 import { createRenderPlan, formatProfiles } from '../src/core/render'
 import { createRangeRenderPlan } from '../src/core/renderRange'
-import { planShortExportBatch, planShortExportRanges, projectShortExportMaximum, setProjectShortExportMaximum, shortExportMaximumError, shortExportVariant } from '../src/core/shortExportRanges'
+import { planShortExportBatch, planShortExportRanges, projectShortExportMaximum, setProjectShortExportMaximum, shortExportMaximumError, shortExportVariant, shortPreviewOutputPath } from '../src/core/shortExportRanges'
 
 function project() {
   const base = createProject('Shorts')
@@ -68,6 +68,19 @@ describe('short export range planning', () => {
     const candidate = planShortExportRanges(project()).candidates[0]
     expect(shortExportVariant(candidate)).toBe('short-hook-proof-0-49500')
     expect(shortExportVariant({ ...candidate, titles: ['🔥 / ??'] })).toBe('short-scenes-0-49500')
+  })
+
+  it('creates a unique managed preview plan for the exact reviewed range', () => {
+    const input = { ...project(), id: 'Project / 1' }
+    const candidate = planShortExportRanges(input).candidates[1]
+    const path = shortPreviewOutputPath(input, candidate, 'vertical')
+    expect(path).toBe('KINAOU/Cache/Previews/Project1_vertical_short-cta-70000-80000.mp4')
+    const full = createRenderPlan(input, formatProfiles.vertical.preview, path)
+    const preview = createRangeRenderPlan(full, { inMs: candidate.inMs, outMs: candidate.outMs }, path)
+    expect(preview.purpose).toBe('preview')
+    expect(preview.durationMs).toBe(10_000)
+    expect(preview.clips.map((clip) => ({ id: clip.clipId, startMs: clip.startMs }))).toEqual([{ id: 'c3', startMs: 0 }])
+    expect(() => shortPreviewOutputPath(input, candidate, 'portrait' as never)).toThrow(/Unknown/)
   })
 
   it('plans selected reviewed candidates as unique managed batch outputs in timeline order', () => {
