@@ -9,6 +9,7 @@ import { defaultAudioDucking, validateAudioDucking } from '../core/audioDucking'
 import { defaultLoudnessNormalization } from '../core/audioLoudness'
 import { planShortExportBatch, planShortExportRanges, projectShortExportMaximum, setProjectShortExportMaximum, shortExportMaximumError, shortExportVariant, shortPreviewOutputPath } from '../core/shortExportRanges'
 import { cancelPendingShortBatchItems, nextShortBatchItem, shortBatchBusy, shortBatchTerminalStates, type ShortBatchRenderItem } from '../core/shortExportBatch'
+import { forgetExportReceipt, projectExportHistory, recordSuccessfulExport, type SuccessfulExportReceiptInput } from '../core/exportHistory'
 
 interface RenderPanelProps {
   project: KinaouProject
@@ -19,6 +20,7 @@ interface RenderPanelProps {
 }
 
 const terminalStates = new Set(['succeeded', 'failed', 'cancelled'])
+type SubmittedExportReceipt = Omit<SuccessfulExportReceiptInput, 'completedAt' | 'sizeBytes'>
 
 export function RenderPanel({ project, workerUrl, workerToken, workerConnected, onProjectChange }: RenderPanelProps) {
   const readiness = useMemo(() => renderReadiness(project), [project])
@@ -28,6 +30,9 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const [outputPath, setOutputPath] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [submittedExport, setSubmittedExport] = useState<SubmittedExportReceipt | null>(null)
+  const recordedExportJobs = useRef(new Set<string>())
+  const exportHistory = projectExportHistory(project)
   const timelineDurationMs = useMemo(() => project.tracks.flatMap((track) => track.muted ? [] : track.clips).reduce((end, clip) => Math.max(end, clip.startMs + clip.durationMs), 0), [project])
   const [inSeconds, setInSeconds] = useState('0')
   const [outSeconds, setOutSeconds] = useState(() => String(timelineDurationMs / 1000))
@@ -69,6 +74,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const batchBusy = shortBatchBusy(batchItems)
   const busy = singleBusy || batchBusy || shortPreviewBusy
   const activeBatchItem = batchItems.find((item) => item.jobId && !terminalStates.has(item.state))
+  const successfulBatchSignature = batchItems.filter((item) => item.state === 'succeeded' && item.jobId).map((item) => `${item.jobId}:${item.updatedAt}:${item.sizeBytes}`).join('|')
 
   useEffect(() => {
     setInSeconds('0')
@@ -167,6 +173,8 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
           ...item,
           state: next.state,
           progress: next.progress,
+          createdAt: next.createdAt,
+          updatedAt: next.updatedAt,
           ...(next.outputPath ? { renderedPath: next.outputPath } : {}),
           ...(next.sizeBytes !== undefined ? { sizeBytes: next.sizeBytes } : {}),
           ...(next.error ? { error: next.error } : {})
@@ -199,19 +207,60 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       if (batchCancelRequested.current) {
         try {
           const cancelled = await client.cancelRender(next.id)
-          setBatchItems((items) => items.map((item) => item.id === nextItem.id ? { ...item, jobId: next.id, state: cancelled.state, progress: cancelled.progress } : item))
+          setBatchItems((items) => items.map((item) => item.id === nextItem.id ? { ...item, jobId: next.id, state: cancelled.state, progress: cancelled.progress, createdAt: cancelled.createdAt, updatedAt: cancelled.updatedAt } : item))
         } catch (cancelError) {
           const message = cancelError instanceof Error ? cancelError.message : 'Could not cancel submitted Short export'
-          setBatchItems((items) => items.map((item) => item.id === nextItem.id ? { ...item, jobId: next.id, state: next.state, progress: next.progress, error: message } : item))
+          setBatchItems((items) => items.map((item) => item.id === nextItem.id ? { ...item, jobId: next.id, state: next.state, progress: next.progress, createdAt: next.createdAt, updatedAt: next.updatedAt, error: message } : item))
           setError(message)
         }
         return
       }
-      setBatchItems((items) => items.map((item) => item.id === nextItem.id ? { ...item, jobId: next.id, state: next.state, progress: next.progress } : item))
+      setBatchItems((items) => items.map((item) => item.id === nextItem.id ? { ...item, jobId: next.id, state: next.state, progress: next.progress, createdAt: next.createdAt, updatedAt: next.updatedAt } : item))
     }).catch((batchError) => {
       setBatchItems((items) => items.map((item) => item.id === nextItem.id ? { ...item, state: 'failed', error: batchError instanceof Error ? batchError.message : 'Could not start Short export' } : item))
     }).finally(() => { batchSubmitting.current = false })
   }, [activeBatchItem, batchItems, workerToken, workerUrl])
+
+  useEffect(() => {
+    if (job?.state !== 'succeeded' || !submittedExport || submittedExport.jobId !== job.id || recordedExportJobs.current.has(job.id)) return
+    try {
+      const next = recordSuccessfulExport(project, {
+        ...submittedExport,
+        durationMs: job.durationMs ?? submittedExport.durationMs,
+        ...(job.sizeBytes !== undefined ? { sizeBytes: job.sizeBytes } : {}),
+        completedAt: job.updatedAt
+      })
+      recordedExportJobs.current.add(job.id)
+      if (next !== project) onProjectChange(next)
+    } catch (historyError) {
+      setError(historyError instanceof Error ? historyError.message : 'Could not record successful export')
+    }
+  }, [job?.durationMs, job?.id, job?.sizeBytes, job?.state, job?.updatedAt, onProjectChange, project, submittedExport])
+
+  useEffect(() => {
+    if (!successfulBatchSignature) return
+    try {
+      let next = project
+      for (const item of batchItems.filter((candidate) => candidate.state === 'succeeded' && candidate.jobId)) {
+        if (recordedExportJobs.current.has(item.jobId!)) continue
+        next = recordSuccessfulExport(next, {
+          jobId: item.jobId!,
+          label: item.title,
+          outputRelativePath: item.outputPath,
+          format: item.format,
+          range: { inMs: item.inMs, outMs: item.outMs },
+          sceneIds: item.sceneIds,
+          durationMs: item.durationMs,
+          ...(item.sizeBytes !== undefined ? { sizeBytes: item.sizeBytes } : {}),
+          completedAt: item.updatedAt ?? new Date().toISOString()
+        })
+        recordedExportJobs.current.add(item.jobId!)
+      }
+      if (next !== project) onProjectChange(next)
+    } catch (historyError) {
+      setError(historyError instanceof Error ? historyError.message : 'Could not record successful Short export')
+    }
+  }, [batchItems, onProjectChange, project, successfulBatchSignature])
 
   async function startShortPreview() {
     if (!selectedShort || !readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy) return
@@ -249,6 +298,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     if (!readiness.ready || !rangeCheck.valid || !duckingCheck.valid || !workerConnected || !workerToken.trim() || submitting) return
     setSubmitting(true)
     setError('')
+    setSubmittedExport(null)
     try {
       const wholeTimeline = range.inMs === 0 && range.outMs === timelineDurationMs
       const path = renderOutputPath(project, new Date(), wholeTimeline ? format : selectedShort ? `${format}-${shortExportVariant(selectedShort)}` : `${format}-range-${range.inMs}-${range.outMs}`)
@@ -256,6 +306,15 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       const plan = wholeTimeline ? fullPlan : createRangeRenderPlan(fullPlan, range, path)
       const next = await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).startRender(plan)
       setOutputPath(path)
+      setSubmittedExport({
+        jobId: next.id,
+        label: wholeTimeline ? 'Whole timeline' : selectedShort ? selectedShort.titles.join(' + ') : `Custom range ${(range.inMs / 1000).toFixed(3)}–${(range.outMs / 1000).toFixed(3)} s`,
+        outputRelativePath: path,
+        format,
+        range: { ...range },
+        sceneIds: wholeTimeline ? [] : selectedShort?.sceneIds ?? [],
+        durationMs: plan.durationMs
+      })
       setJob(next)
     } catch (renderError) {
       setError(renderError instanceof Error ? renderError.message : 'Could not start render')
@@ -300,7 +359,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     if (!activeBatchItem?.jobId) return
     try {
       const next = await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).cancelRender(activeBatchItem.jobId)
-      setBatchItems((items) => items.map((item) => item.id === activeBatchItem.id ? { ...item, state: next.state, progress: next.progress } : item))
+      setBatchItems((items) => items.map((item) => item.id === activeBatchItem.id ? { ...item, state: next.state, progress: next.progress, createdAt: next.createdAt, updatedAt: next.updatedAt } : item))
     } catch (cancelError) {
       setError(cancelError instanceof Error ? cancelError.message : 'Could not cancel Short export batch')
     }
@@ -422,6 +481,21 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         </div>)}
         {batchBusy && <div className="renderActions"><button className="dangerButton" onClick={cancelShortBatch}>Cancel batch</button></div>}
       </div>}
+
+      <div className="renderJob">
+        <div className="renderJobHead"><strong>Successful exports</strong><span>{exportHistory.length}/50 recorded</span></div>
+        <p className="cardBody">This project keeps a bounded receipt for each successful worker render. Forgetting a receipt only removes this list entry — the MP4 in <code>KINAOU/Renders</code> is never deleted.</p>
+        {!exportHistory.length && <p className="cardBody">No successful export recorded yet.</p>}
+        {exportHistory.map((receipt) => <div className="renderJob" key={receipt.jobId}>
+          <div className="renderJobHead"><strong>{receipt.label}</strong><span>{formatProfiles[receipt.format].label} · {(receipt.durationMs / 1000).toFixed(1)} s · {new Date(receipt.completedAt).toLocaleString()}</span></div>
+          <div className="renderMeta">
+            <code>{receipt.outputRelativePath}</code>
+            {receipt.sizeBytes !== undefined && <span>{(receipt.sizeBytes / 1024 / 1024).toFixed(1)} MB</span>}
+            <span>{(receipt.range.inMs / 1000).toFixed(3)}–{(receipt.range.outMs / 1000).toFixed(3)} s{receipt.sceneIds.length ? ` · ${receipt.sceneIds.length} scene${receipt.sceneIds.length === 1 ? '' : 's'}` : ''}</span>
+            <button disabled={busy} onClick={() => { try { onProjectChange(forgetExportReceipt(project, receipt.jobId)) } catch (historyError) { setError(historyError instanceof Error ? historyError.message : 'Could not forget export receipt') } }}>Forget receipt (keep MP4)</button>
+          </div>
+        </div>)}
+      </div>
 
       <div className="renderActions">
         <button className="primary" disabled={!readiness.ready || !rangeCheck.valid || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting} onClick={startRender}>

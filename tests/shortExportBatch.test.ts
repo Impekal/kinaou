@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { cancelPendingShortBatchItems, nextShortBatchItem, shortBatchBusy, type ShortBatchRenderItem } from '../src/core/shortExportBatch'
 
 function item(id: string, state: ShortBatchRenderItem['state'] = 'queued', jobId?: string): ShortBatchRenderItem {
-  return { id, title: id, inMs: 0, outMs: 1000, durationMs: 1000, outputPath: `KINAOU/Renders/${id}.mp4`, state, progress: 0, ...(jobId ? { jobId } : {}) }
+  return { id, title: id, sceneIds: [id], format: 'vertical', inMs: 0, outMs: 1000, durationMs: 1000, outputPath: `KINAOU/Renders/${id}.mp4`, state, progress: 0, ...(jobId ? { jobId } : {}) }
 }
 
 describe('Short export batch scheduling', () => {
