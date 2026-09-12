@@ -7,7 +7,7 @@ import { WorkerClient } from '../core/workerClient'
 import { createRangeRenderPlan, validateRenderRange } from '../core/renderRange'
 import { defaultAudioDucking, validateAudioDucking } from '../core/audioDucking'
 import { defaultLoudnessNormalization } from '../core/audioLoudness'
-import { planShortExportBatch, planShortExportRanges, shortExportVariant } from '../core/shortExportRanges'
+import { planShortExportBatch, planShortExportRanges, projectShortExportMaximum, setProjectShortExportMaximum, shortExportMaximumError, shortExportVariant } from '../core/shortExportRanges'
 import { cancelPendingShortBatchItems, nextShortBatchItem, shortBatchBusy, shortBatchTerminalStates, type ShortBatchRenderItem } from '../core/shortExportBatch'
 
 interface RenderPanelProps {
@@ -40,7 +40,11 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const duckingCheck = (() => { try { validateAudioDucking(duckingSettings); return { valid: true, reason: '' } } catch (value) { return { valid: false, reason: value instanceof Error ? value.message : 'Invalid music ducking settings.' } } })()
   const range = { inMs: Math.round(Number(inSeconds) * 1000), outMs: Math.round(Number(outSeconds) * 1000) }
   const rangeCheck = Number.isFinite(range.inMs) && Number.isFinite(range.outMs) ? validateRenderRange(range, timelineDurationMs) : { valid: false, reason: 'In and Out must be numbers.' }
-  const shortExports = useMemo(() => planShortExportRanges(project), [project])
+  const shortMaximumMs = projectShortExportMaximum(project)
+  const [shortMaximumSeconds, setShortMaximumSeconds] = useState(() => String(shortMaximumMs / 1000))
+  const customShortMaximumMs = Math.round(Number(shortMaximumSeconds) * 1000)
+  const customShortMaximumError = Number.isFinite(customShortMaximumMs) ? shortExportMaximumError(customShortMaximumMs) : 'Short export maximum must be a number.'
+  const shortExports = useMemo(() => planShortExportRanges(project, shortMaximumMs), [project, shortMaximumMs])
   const shortCandidateSignature = shortExports.candidates.map((candidate) => `${candidate.id}:${candidate.inMs}:${candidate.outMs}:${candidate.titles.join('\u0000')}`).join('|')
   const [selectedShortId, setSelectedShortId] = useState('')
   const [batchSelectedIds, setBatchSelectedIds] = useState<string[]>([])
@@ -63,6 +67,10 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   useEffect(() => {
     setBatchSelectedIds([])
   }, [shortCandidateSignature])
+
+  useEffect(() => {
+    setShortMaximumSeconds(String(shortMaximumMs / 1000))
+  }, [shortMaximumMs])
 
   useEffect(() => {
     if (!job || terminalStates.has(job.state) || !workerToken.trim()) return
@@ -243,8 +251,17 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       {!rangeCheck.valid && <div className="warning">{rangeCheck.reason}</div>}
 
       {project.storyboard.length > 0 && <div className="renderJob">
-        <div className="renderJobHead"><strong>Scene short ranges</strong><span>up to 60 s</span></div>
+        <div className="renderJobHead"><strong>Scene short ranges</strong><span>up to {shortMaximumMs / 1000} s</span></div>
         <p className="cardBody">Reviewable ranges built only from contiguous storyboard scenes that are already anchored on active visual tracks.</p>
+        <div className="formatChooser" role="group" aria-label="Maximum Short length">
+          {[15, 30, 60, 90].map((seconds) => <button key={seconds} className={shortMaximumMs === seconds * 1000 ? 'formatOption active' : 'formatOption'} disabled={busy} onClick={() => onProjectChange(setProjectShortExportMaximum(project, seconds * 1000))}>
+            <strong>{seconds} seconds</strong>
+            <small>Replan scene groups</small>
+          </button>)}
+        </div>
+        <div className="fieldGrid"><label>Custom maximum (seconds)<input type="number" min="1" max="600" step="0.001" value={shortMaximumSeconds} disabled={busy} onChange={(event) => setShortMaximumSeconds(event.target.value)} /></label></div>
+        <div className="renderActions"><button disabled={busy || Boolean(customShortMaximumError) || customShortMaximumMs === shortMaximumMs} onClick={() => onProjectChange(setProjectShortExportMaximum(project, customShortMaximumMs))}>Apply custom maximum</button></div>
+        {customShortMaximumError && <div className="warning">{customShortMaximumError}</div>}
         {shortExports.candidates.map((candidate) => <div className="renderMeta" key={candidate.id}>
           <span><strong>{candidate.titles.join(' + ')}</strong> · {(candidate.durationMs / 1000).toFixed(1)} s · {(candidate.inMs / 1000).toFixed(1)}–{(candidate.outMs / 1000).toFixed(1)} s</span>
           <div className="renderActions">

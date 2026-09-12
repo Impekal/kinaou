@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { assetSchema, clipSchema, createProject, trackSchema } from '../src/core/project'
 import { createRenderPlan, formatProfiles } from '../src/core/render'
 import { createRangeRenderPlan } from '../src/core/renderRange'
-import { planShortExportBatch, planShortExportRanges, shortExportVariant } from '../src/core/shortExportRanges'
+import { planShortExportBatch, planShortExportRanges, projectShortExportMaximum, setProjectShortExportMaximum, shortExportMaximumError, shortExportVariant } from '../src/core/shortExportRanges'
 
 function project() {
   const base = createProject('Shorts')
@@ -40,6 +40,28 @@ describe('short export range planning', () => {
     const input = project()
     expect(planShortExportRanges({ ...input, tracks: input.tracks.map((track) => ({ ...track, muted: true })) }).candidates).toEqual([])
     expect(() => planShortExportRanges(input, 999)).toThrow(/between 1 second/)
+  })
+
+  it('persists a validated project-specific candidate maximum without breaking older projects', () => {
+    const input = project()
+    expect(projectShortExportMaximum(input)).toBe(60_000)
+    expect(projectShortExportMaximum({ ...input, metadata: { shortExportMaximumMs: 'invalid' } })).toBe(60_000)
+    expect(projectShortExportMaximum({ ...input, metadata: { shortExportMaximumMs: '30000' } })).toBe(60_000)
+    const updated = setProjectShortExportMaximum(input, 30_000, new Date('2026-09-12T10:00:00.000Z'))
+    expect(projectShortExportMaximum(updated)).toBe(30_000)
+    expect(updated.metadata.shortExportMaximumMs).toBe(30_000)
+    expect(updated.updatedAt).toBe('2026-09-12T10:00:00.000Z')
+    expect(setProjectShortExportMaximum(updated, 30_000)).toBe(updated)
+    expect(() => setProjectShortExportMaximum(input, 600_001)).toThrow(/between 1 second/)
+    expect(shortExportMaximumError(60_000)).toBeUndefined()
+  })
+
+  it('replans real scene groups when the project maximum changes', () => {
+    const input = project()
+    const maximum = projectShortExportMaximum(setProjectShortExportMaximum(input, 30_000))
+    const result = planShortExportRanges(input, maximum)
+    expect(result.candidates.map((candidate) => candidate.sceneIds)).toEqual([['s1'], ['s2'], ['s3']])
+    expect(result.candidates.every((candidate) => candidate.durationMs <= maximum)).toBe(true)
   })
 
   it('creates a stable safe variant name from the reviewed scene range', () => {
