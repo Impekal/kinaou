@@ -4,6 +4,7 @@ import { createRenderPlan, formatProfiles, projectTargetFormat, setProjectTarget
 import type { RenderJobRecord } from '../core/renderJobs'
 import { renderOutputPath, renderReadiness } from '../core/renderUi'
 import { WorkerClient } from '../core/workerClient'
+import { createRangeRenderPlan, validateRenderRange } from '../core/renderRange'
 
 interface RenderPanelProps {
   project: KinaouProject
@@ -23,6 +24,16 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const [outputPath, setOutputPath] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const timelineDurationMs = useMemo(() => project.tracks.flatMap((track) => track.muted ? [] : track.clips).reduce((end, clip) => Math.max(end, clip.startMs + clip.durationMs), 0), [project])
+  const [inSeconds, setInSeconds] = useState('0')
+  const [outSeconds, setOutSeconds] = useState(() => String(timelineDurationMs / 1000))
+  const range = { inMs: Math.round(Number(inSeconds) * 1000), outMs: Math.round(Number(outSeconds) * 1000) }
+  const rangeCheck = Number.isFinite(range.inMs) && Number.isFinite(range.outMs) ? validateRenderRange(range, timelineDurationMs) : { valid: false, reason: 'In and Out must be numbers.' }
+
+  useEffect(() => {
+    setInSeconds('0')
+    setOutSeconds(String(timelineDurationMs / 1000))
+  }, [timelineDurationMs])
 
   useEffect(() => {
     if (!job || terminalStates.has(job.state) || !workerToken.trim()) return
@@ -50,12 +61,14 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   }, [job?.id, workerToken, workerUrl])
 
   async function startRender() {
-    if (!readiness.ready || !workerConnected || !workerToken.trim() || submitting) return
+    if (!readiness.ready || !rangeCheck.valid || !workerConnected || !workerToken.trim() || submitting) return
     setSubmitting(true)
     setError('')
     try {
-      const path = renderOutputPath(project, new Date(), format)
-      const plan = createRenderPlan(project, profile.export, path)
+      const wholeTimeline = range.inMs === 0 && range.outMs === timelineDurationMs
+      const path = renderOutputPath(project, new Date(), wholeTimeline ? format : `${format}-range-${range.inMs}-${range.outMs}`)
+      const fullPlan = createRenderPlan(project, profile.export, path)
+      const plan = wholeTimeline ? fullPlan : createRangeRenderPlan(fullPlan, range, path)
       const next = await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).startRender(plan)
       setOutputPath(path)
       setJob(next)
@@ -101,6 +114,16 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       </div>
       <p className="cardBody">{profile.note}</p>
 
+      <div className="fieldGrid">
+        <label>In (seconds)<input type="number" min="0" step="0.001" value={inSeconds} disabled={Boolean(busy)} onChange={(event) => setInSeconds(event.target.value)} /></label>
+        <label>Out (seconds)<input type="number" min="0" step="0.001" value={outSeconds} disabled={Boolean(busy)} onChange={(event) => setOutSeconds(event.target.value)} /></label>
+      </div>
+      <div className="renderActions">
+        <button disabled={Boolean(busy) || (range.inMs === 0 && range.outMs === timelineDurationMs)} onClick={() => { setInSeconds('0'); setOutSeconds(String(timelineDurationMs / 1000)) }}>Whole timeline</button>
+        {rangeCheck.valid && <span className="cardBody">Export range: {(range.inMs / 1000).toFixed(3)}–{(range.outMs / 1000).toFixed(3)} s ({((range.outMs - range.inMs) / 1000).toFixed(3)} s)</span>}
+      </div>
+      {!rangeCheck.valid && <div className="warning">{rangeCheck.reason}</div>}
+
       {!readiness.ready && <div className="warning">{readiness.reason}</div>}
       {!workerConnected && readiness.ready && <div className="warning">Connect the local worker in Settings before rendering.</div>}
       {error && <div className="errorBox">{error}</div>}
@@ -119,7 +142,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       )}
 
       <div className="renderActions">
-        <button className="primary" disabled={!readiness.ready || !workerConnected || !workerToken.trim() || Boolean(busy) || submitting} onClick={startRender}>
+        <button className="primary" disabled={!readiness.ready || !rangeCheck.valid || !workerConnected || !workerToken.trim() || Boolean(busy) || submitting} onClick={startRender}>
           {submitting ? 'Submitting…' : job && terminalStates.has(job.state) ? 'Render again' : 'Start render'}
         </button>
         {busy && <button className="dangerButton" onClick={cancelRender}>Cancel render</button>}
