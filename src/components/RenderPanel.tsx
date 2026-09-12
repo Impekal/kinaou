@@ -7,7 +7,7 @@ import { WorkerClient } from '../core/workerClient'
 import { createRangeRenderPlan, validateRenderRange } from '../core/renderRange'
 import { defaultAudioDucking, validateAudioDucking } from '../core/audioDucking'
 import { defaultLoudnessNormalization } from '../core/audioLoudness'
-import { planShortExportBatch, planShortExportRanges, projectShortExportMaximum, setProjectShortExportMaximum, shortExportMaximumError, shortExportVariant } from '../core/shortExportRanges'
+import { planShortExportBatch, planShortExportRanges, projectShortExportMaximum, setProjectShortExportMaximum, shortExportMaximumError, shortExportVariant, shortPreviewOutputPath } from '../core/shortExportRanges'
 import { cancelPendingShortBatchItems, nextShortBatchItem, shortBatchBusy, shortBatchTerminalStates, type ShortBatchRenderItem } from '../core/shortExportBatch'
 
 interface RenderPanelProps {
@@ -53,9 +53,21 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const batchSubmitting = useRef(false)
   const batchCancelRequested = useRef(false)
   const selectedShort = shortExports.candidates.find((candidate) => candidate.id === selectedShortId && candidate.inMs === range.inMs && candidate.outMs === range.outMs)
+  const shortPreviewVideoRef = useRef<HTMLVideoElement>(null)
+  const [shortPreviewJob, setShortPreviewJob] = useState<RenderJobRecord | null>(null)
+  const [shortPreviewPath, setShortPreviewPath] = useState('')
+  const [shortPreviewUrl, setShortPreviewUrl] = useState('')
+  const [shortPreviewError, setShortPreviewError] = useState('')
+  const [shortPreviewCurrentTime, setShortPreviewCurrentTime] = useState(0)
+  const [shortPreviewDurationMs, setShortPreviewDurationMs] = useState(0)
+  const [shortPreviewSubmitting, setShortPreviewSubmitting] = useState(false)
+  const [shortPreviewSourceConfiguration, setShortPreviewSourceConfiguration] = useState('')
+  const shortPreviewConfiguration = selectedShort ? `${format}:${selectedShort.id}:${selectedShort.inMs}:${selectedShort.outMs}:${duckingEnabled}:${duckingReductionDb}:${duckingAttackMs}:${duckingReleaseMs}:${normalizeLoudness}` : ''
+  const shortPreviewCurrent = Boolean(shortPreviewSourceConfiguration && shortPreviewSourceConfiguration === shortPreviewConfiguration)
+  const shortPreviewBusy = shortPreviewSubmitting || Boolean(shortPreviewJob && !terminalStates.has(shortPreviewJob.state))
   const singleBusy = Boolean(job && !terminalStates.has(job.state))
   const batchBusy = shortBatchBusy(batchItems)
-  const busy = singleBusy || batchBusy
+  const busy = singleBusy || batchBusy || shortPreviewBusy
   const activeBatchItem = batchItems.find((item) => item.jobId && !terminalStates.has(item.state))
 
   useEffect(() => {
@@ -71,6 +83,51 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   useEffect(() => {
     setShortMaximumSeconds(String(shortMaximumMs / 1000))
   }, [shortMaximumMs])
+
+  useEffect(() => {
+    if (shortPreviewBusy || !shortPreviewSourceConfiguration || shortPreviewCurrent) return
+    setShortPreviewJob(null)
+    setShortPreviewPath('')
+    setShortPreviewUrl('')
+    setShortPreviewError('')
+    setShortPreviewCurrentTime(0)
+    setShortPreviewDurationMs(0)
+    setShortPreviewSourceConfiguration('')
+  }, [shortPreviewBusy, shortPreviewCurrent, shortPreviewSourceConfiguration])
+
+  useEffect(() => () => { if (shortPreviewUrl) URL.revokeObjectURL(shortPreviewUrl) }, [shortPreviewUrl])
+
+  useEffect(() => {
+    if (!shortPreviewJob || terminalStates.has(shortPreviewJob.state) || !shortPreviewPath || !workerToken.trim()) return
+    let disposed = false
+    let loading = false
+    let timer: ReturnType<typeof setInterval> | undefined
+    const client = new WorkerClient({ baseUrl: workerUrl, token: workerToken })
+    const poll = async () => {
+      if (loading) return
+      loading = true
+      try {
+        const next = await client.renderStatus(shortPreviewJob.id)
+        if (disposed) return
+        setShortPreviewJob(next)
+        if (next.state === 'succeeded') {
+          if (timer) clearInterval(timer)
+          const blob = await client.loadTimelinePreview(shortPreviewPath)
+          if (!disposed) setShortPreviewUrl(URL.createObjectURL(blob))
+        } else if (terminalStates.has(next.state) && timer) clearInterval(timer)
+      } catch (previewError) {
+        if (!disposed) setShortPreviewError(previewError instanceof Error ? previewError.message : 'Short preview failed')
+      } finally {
+        loading = false
+      }
+    }
+    void poll()
+    timer = setInterval(() => void poll(), 750)
+    return () => {
+      disposed = true
+      if (timer) clearInterval(timer)
+    }
+  }, [shortPreviewJob?.id, shortPreviewPath, workerToken, workerUrl])
 
   useEffect(() => {
     if (!job || terminalStates.has(job.state) || !workerToken.trim()) return
@@ -156,6 +213,38 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     }).finally(() => { batchSubmitting.current = false })
   }, [activeBatchItem, batchItems, workerToken, workerUrl])
 
+  async function startShortPreview() {
+    if (!selectedShort || !readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy) return
+    setShortPreviewSubmitting(true)
+    setShortPreviewError('')
+    try {
+      const path = shortPreviewOutputPath(project, selectedShort, format)
+      const fullPlan = createRenderPlan(project, profile.preview, path, { audioDucking: duckingSettings, loudnessNormalization: { ...defaultLoudnessNormalization, enabled: normalizeLoudness } })
+      const plan = createRangeRenderPlan(fullPlan, { inMs: selectedShort.inMs, outMs: selectedShort.outMs }, path)
+      setShortPreviewJob(null)
+      setShortPreviewPath(path)
+      setShortPreviewUrl('')
+      setShortPreviewCurrentTime(0)
+      setShortPreviewDurationMs(plan.durationMs)
+      setShortPreviewSourceConfiguration(shortPreviewConfiguration)
+      setShortPreviewJob(await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).startRender(plan))
+    } catch (previewError) {
+      setShortPreviewError(previewError instanceof Error ? previewError.message : 'Could not start Short preview')
+    } finally {
+      setShortPreviewSubmitting(false)
+    }
+  }
+
+  async function cancelShortPreview() {
+    if (!shortPreviewJob || terminalStates.has(shortPreviewJob.state)) return
+    setShortPreviewError('')
+    try {
+      setShortPreviewJob(await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).cancelRender(shortPreviewJob.id))
+    } catch (previewError) {
+      setShortPreviewError(previewError instanceof Error ? previewError.message : 'Could not cancel Short preview')
+    }
+  }
+
   async function startRender() {
     if (!readiness.ready || !rangeCheck.valid || !duckingCheck.valid || !workerConnected || !workerToken.trim() || submitting) return
     setSubmitting(true)
@@ -218,6 +307,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   }
 
   const percent = Math.round((job?.progress ?? 0) * 100)
+  const shortPreviewPercent = Math.round((shortPreviewJob?.progress ?? 0) * 100)
 
   return (
     <section className="card renderPanel">
@@ -287,6 +377,22 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
 
       <label className="checkRow"><input type="checkbox" checked={normalizeLoudness} disabled={busy} onChange={(event) => setNormalizeLoudness(event.target.checked)} />Normalize export loudness to −14 LUFS</label>
       <p className="cardBody">Optional master processing · true peak ≤ −1.5 dBTP · loudness range 11 LU. Off by default because it changes the sound.</p>
+
+      {selectedShort && <div className="renderJob">
+        <div className="renderJobHead"><strong>Selected Short preview</strong><span>{formatProfiles[format].label} · {(selectedShort.durationMs / 1000).toFixed(1)} s</span></div>
+        <p className="cardBody">Renders this exact scene range through the real composed-preview path, including layers, captions, transforms, retiming and the audio settings above. The temporary MP4 stays in <code>KINAOU/Cache/Previews</code>.</p>
+        <div className="renderActions">
+          <button className="secondaryButton" disabled={!readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy} onClick={startShortPreview}>{shortPreviewBusy ? `Rendering ${shortPreviewPercent}%` : shortPreviewUrl && shortPreviewCurrent ? 'Refresh Short preview' : 'Render Short preview'}</button>
+          {shortPreviewJob && !terminalStates.has(shortPreviewJob.state) && <button className="dangerButton" onClick={cancelShortPreview}>Cancel preview</button>}
+        </div>
+        {shortPreviewJob && <div className="progressTrack" aria-label={`Short preview progress ${shortPreviewPercent}%`}><div className="progressFill" style={{ width: `${shortPreviewPercent}%` }} /></div>}
+        {shortPreviewJob?.error && <div className="errorBox">{shortPreviewJob.error}</div>}
+        {shortPreviewError && <div className="errorBox">{shortPreviewError}</div>}
+        {shortPreviewUrl && shortPreviewCurrent && <>
+          <video ref={shortPreviewVideoRef} className="proxyVideo" src={shortPreviewUrl} controls preload="metadata" onTimeUpdate={(event) => setShortPreviewCurrentTime(event.currentTarget.currentTime)} />
+          <label>Playhead {shortPreviewCurrentTime.toFixed(2)}s<input type="range" min="0" max={shortPreviewDurationMs / 1000} step="0.01" value={shortPreviewCurrentTime} onChange={(event) => { const value = Number(event.target.value); setShortPreviewCurrentTime(value); if (shortPreviewVideoRef.current) shortPreviewVideoRef.current.currentTime = value }} /></label>
+        </>}
+      </div>}
 
       {!readiness.ready && <div className="warning">{readiness.reason}</div>}
       {!workerConnected && readiness.ready && <div className="warning">Connect the local worker in Settings before rendering.</div>}

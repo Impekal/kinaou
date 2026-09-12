@@ -27,7 +27,7 @@ test('the real compositor renders the selected source interval at the selected d
   if (!await toolsAvailable()) { t.skip('ffmpeg/ffprobe not installed — skipping executing range test'); return }
   const root = await mkdtemp(path.join(os.tmpdir(), 'kinaou-render-range-'))
   const managedRoot = path.join(root, 'KINAOU')
-  await mkdir(path.join(managedRoot, 'Assets'), { recursive: true }); await mkdir(path.join(managedRoot, 'Renders'), { recursive: true })
+  await mkdir(path.join(managedRoot, 'Assets'), { recursive: true }); await mkdir(path.join(managedRoot, 'Renders'), { recursive: true }); await mkdir(path.join(managedRoot, 'Cache', 'Previews'), { recursive: true })
   const source = path.join(managedRoot, 'Assets', 'source.mp4')
   await run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'color=red:size=320x180:rate=30:duration=1', '-f', 'lavfi', '-i', 'color=green:size=320x180:rate=30:duration=1', '-f', 'lavfi', '-i', 'color=blue:size=320x180:rate=30:duration=1', '-filter_complex', '[0:v][1:v][2:v]concat=n=3:v=1:a=0[v]', '-map', '[v]', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', source])
 
@@ -48,6 +48,20 @@ test('the real compositor renders the selected source interval at the selected d
     assert.ok(Math.abs(duration - 1) < 0.08, `expected 1.0s, got ${duration}`)
     const rgb = await run('ffmpeg', ['-v', 'error', '-ss', '0.5', '-i', rendered, '-vf', 'scale=1:1', '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'])
     assert.ok(rgb[1] > rgb[0] * 1.5 && rgb[1] > rgb[2] * 1.5, `expected green source interval, got RGB ${[...rgb.slice(0, 3)]}`)
+
+    const previewRelativePath = 'KINAOU/Cache/Previews/range.mp4'
+    const previewResponse = await fetch(`http://127.0.0.1:${PORT}/render`, { method: 'POST', headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' }, body: JSON.stringify({ plan: { purpose: 'preview', projectId: 'p1', outputRelativePath: previewRelativePath, preset: { name: 'Range preview', container: 'mp4', width: 320, height: 180, fps: 30, videoCodec: 'h264', audioCodec: 'aac' }, durationMs: 1000, requiredCapabilities: ['filesystem', 'ffmpeg'], clips: [clip] } }) })
+    const previewStarted = await previewResponse.json(); assert.equal(previewStarted.ok, true, JSON.stringify(previewStarted))
+    let previewJob
+    for (let attempt = 0; attempt < 60; attempt += 1) { await new Promise((resolve) => setTimeout(resolve, 500)); const status = await fetch(`http://127.0.0.1:${PORT}/render/jobs/${previewStarted.job.id}`, { headers: { authorization: `Bearer ${TOKEN}` } }); previewJob = (await status.json()).job; if (!['queued', 'running'].includes(previewJob.state)) break }
+    assert.equal(previewJob?.state, 'succeeded', previewJob?.error)
+    const preview = path.join(managedRoot, 'Cache', 'Previews', 'range.mp4')
+    const previewDuration = Number((await run('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', preview])).toString())
+    assert.ok(Math.abs(previewDuration - 1) < 0.08, `expected 1.0s preview, got ${previewDuration}`)
+    const previewRgb = await run('ffmpeg', ['-v', 'error', '-ss', '0.5', '-i', preview, '-vf', 'scale=1:1', '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'])
+    assert.ok(previewRgb[1] > previewRgb[0] * 1.5 && previewRgb[1] > previewRgb[2] * 1.5, `expected green preview interval, got RGB ${[...previewRgb.slice(0, 3)]}`)
+    const streamed = await fetch(`http://127.0.0.1:${PORT}/media?path=${encodeURIComponent(previewRelativePath)}`, { headers: { authorization: `Bearer ${TOKEN}` } })
+    assert.equal(streamed.status, 200); assert.match(streamed.headers.get('content-type') ?? '', /^video\/mp4/); assert.ok((await streamed.arrayBuffer()).byteLength > 0)
   } finally {
     child.kill('SIGKILL'); await new Promise((resolve) => { child.on('close', resolve); setTimeout(resolve, 3000).unref() }); await rm(root, { recursive: true, force: true })
   }
