@@ -50,6 +50,15 @@ test('both compositor implementations derive music ducking identically', async (
   assert.match(worker, /settings\.releaseMs/)
 })
 
+test('both compositor implementations apply the same optional master loudness filter', async () => {
+  const expression = /if \(plan\.loudnessNormalization\?\.enabled\) \{[\s\S]*?audioOutput = 'master'\n    \}/
+  const worker = (await readFile(workerScript, 'utf8')).match(expression)
+  const client = (await readFile(clientCompositor, 'utf8')).match(expression)
+  assert.ok(worker && client, 'master loudness expression not found')
+  assert.equal(worker[0], client[0], 'master loudness filter drifted between compositor implementations')
+  assert.match(worker[0], /loudnorm=I=/)
+})
+
 test('the worker rejects a render plan with an unknown fit mode', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'kinaou-fit-test-'))
   const managedRoot = path.join(root, 'KINAOU')
