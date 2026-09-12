@@ -2,6 +2,7 @@ import type { KinaouAsset } from './project'
 import type { RenderPlan, RenderClipStep } from './render'
 import { assertSafeManagedPath, normalizeRelativePath } from './storage'
 import type { MediaProbeResult, WorkerHandshake } from './workerProtocol'
+import type { AudioDuckingSettings } from './audioDucking'
 
 export interface ManagedRootBinding {
   managedRoot: string
@@ -105,6 +106,32 @@ export interface CompositeFilter {
 
 const MOTION_ZOOM = 0.18
 
+const musicDuckingFilters: (clip: RenderClipStep, clips: RenderClipStep[], settings: AudioDuckingSettings) => string = function musicDuckingFilters(clip, clips, settings) {
+  if (clip.trackType !== 'music' || !settings.enabled || settings.reductionDb === 0) return ''
+  const expanded = clips.filter((item) => item.trackType === 'voice' || item.trackType === 'dialog').map((item) => ({ startMs: Math.max(0, item.startMs - settings.attackMs), endMs: item.startMs + item.durationMs + settings.releaseMs })).sort((a, b) => a.startMs - b.startMs || a.endMs - b.endMs)
+  const merged = expanded.slice(0, 0)
+  for (const interval of expanded) {
+    const previous = merged.at(-1)
+    if (previous && interval.startMs <= previous.endMs) previous.endMs = Math.max(previous.endMs, interval.endMs)
+    else merged.push({ ...interval })
+  }
+  const gain = Number(Math.pow(10, -settings.reductionDb / 20).toFixed(6))
+  const clipEndMs = clip.startMs + clip.durationMs
+  return merged.map((interval) => {
+    const intersectionStart = Math.max(interval.startMs, clip.startMs)
+    const intersectionEnd = Math.min(interval.endMs, clipEndMs)
+    if (intersectionEnd <= intersectionStart) return ''
+    const start = (interval.startMs - clip.startMs) / 1000
+    const end = (interval.endMs - clip.startMs) / 1000
+    const attackEnd = Math.min(interval.startMs + settings.attackMs, interval.endMs) / 1000 - clip.startMs / 1000
+    const releaseStart = Math.max(interval.startMs + settings.attackMs, interval.endMs - settings.releaseMs) / 1000 - clip.startMs / 1000
+    let expression = String(gain)
+    if (end > releaseStart) expression = `if(gte(t,${releaseStart}),${gain}+(1-${gain})*(t-${releaseStart})/${end - releaseStart},${expression})`
+    if (attackEnd > start) expression = `if(lt(t,${attackEnd}),1-(1-${gain})*(t-${start})/${attackEnd - start},${expression})`
+    return `,volume='${expression}':eval=frame:enable='between(t,${(intersectionStart - clip.startMs) / 1000},${(intersectionEnd - clip.startMs) / 1000})'`
+  }).join('')
+}
+
 /** The size a still occupies inside the canvas once letterboxed, or null if unknown. */
 function letterboxedSize(asset: KinaouAsset, width: number, height: number): { w: number; h: number } | null {
   const sourceWidth = Number(asset.metadata.width)
@@ -174,13 +201,14 @@ export function buildCompositeFilter(plan: RenderPlan, subtitleAbsolutePath?: st
 
   let audioOutput: string | undefined
   if (audios.length) {
+    const ducking = plan.audioDucking ?? { enabled: true, reductionDb: 12, attackMs: 150, releaseMs: 400 }
     const labels: string[] = []
     audios.forEach(({ index, clip }, audioIndex) => {
       const label = `a${audioIndex}`
       const delay = Math.round(clip.startMs)
       const fades = `${clip.fades.inMs ? `,afade=t=in:st=0:d=${seconds(clip.fades.inMs)}` : ''}${clip.fades.outMs ? `,afade=t=out:st=${seconds(clip.durationMs - clip.fades.outMs)}:d=${seconds(clip.fades.outMs)}` : ''}`
       const tempo = buildAtempoFilters(clip.speed)
-      parts.push(`[${index}:a]atrim=0:${seconds(clip.durationMs * clip.speed)},asetpts=PTS-STARTPTS${tempo},atrim=0:${seconds(clip.durationMs)},volume=${clip.gain}${fades},adelay=${delay}|${delay}[${label}]`)
+      parts.push(`[${index}:a]atrim=0:${seconds(clip.durationMs * clip.speed)},asetpts=PTS-STARTPTS${tempo},atrim=0:${seconds(clip.durationMs)},volume=${clip.gain}${fades}${musicDuckingFilters(clip, plan.clips, ducking)},adelay=${delay}|${delay}[${label}]`)
       labels.push(`[${label}]`)
     })
     audioOutput = 'aout'

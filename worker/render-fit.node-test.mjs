@@ -25,6 +25,12 @@ function extractFitLogic(source) {
   return { fit: fit[0], visual: visual[0], zoom: zoom[0], zoompan: zoompan[0], letterbox: letterbox[0] }
 }
 
+function extractDuckingLogic(source) {
+  const match = source.match(/function musicDuckingFilters\(clip, clips, settings\) \{[\s\S]*?\n\}/)
+  assert.ok(match, 'music ducking function not found')
+  return match[0]
+}
+
 test('both compositor implementations derive the fit and motion filters identically', async () => {
   const worker = extractFitLogic(await readFile(workerScript, 'utf8'))
   const client = extractFitLogic(await readFile(clientCompositor, 'utf8'))
@@ -33,6 +39,15 @@ test('both compositor implementations derive the fit and motion filters identica
   }
   assert.match(worker.fit, /force_original_aspect_ratio=increase,crop=\$\{width\}:\$\{height\}/)
   assert.match(worker.zoompan, /s=\$\{target\.w\}x\$\{target\.h\}/)
+})
+
+test('both compositor implementations derive music ducking identically', async () => {
+  const worker = extractDuckingLogic(await readFile(workerScript, 'utf8'))
+  const client = extractDuckingLogic(await readFile(clientCompositor, 'utf8'))
+  assert.equal(worker, client, 'music ducking drifted between the two compositor implementations')
+  assert.match(worker, /Math\.pow\(10, -settings\.reductionDb \/ 20\)/)
+  assert.match(worker, /settings\.attackMs/)
+  assert.match(worker, /settings\.releaseMs/)
 })
 
 test('the worker rejects a render plan with an unknown fit mode', async () => {

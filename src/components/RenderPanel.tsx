@@ -5,6 +5,7 @@ import type { RenderJobRecord } from '../core/renderJobs'
 import { renderOutputPath, renderReadiness } from '../core/renderUi'
 import { WorkerClient } from '../core/workerClient'
 import { createRangeRenderPlan, validateRenderRange } from '../core/renderRange'
+import { defaultAudioDucking, validateAudioDucking } from '../core/audioDucking'
 
 interface RenderPanelProps {
   project: KinaouProject
@@ -27,6 +28,12 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const timelineDurationMs = useMemo(() => project.tracks.flatMap((track) => track.muted ? [] : track.clips).reduce((end, clip) => Math.max(end, clip.startMs + clip.durationMs), 0), [project])
   const [inSeconds, setInSeconds] = useState('0')
   const [outSeconds, setOutSeconds] = useState(() => String(timelineDurationMs / 1000))
+  const [duckingEnabled, setDuckingEnabled] = useState(defaultAudioDucking.enabled)
+  const [duckingReductionDb, setDuckingReductionDb] = useState(String(defaultAudioDucking.reductionDb))
+  const [duckingAttackMs, setDuckingAttackMs] = useState(String(defaultAudioDucking.attackMs))
+  const [duckingReleaseMs, setDuckingReleaseMs] = useState(String(defaultAudioDucking.releaseMs))
+  const duckingSettings = { enabled: duckingEnabled, reductionDb: Number(duckingReductionDb), attackMs: Number(duckingAttackMs), releaseMs: Number(duckingReleaseMs) }
+  const duckingCheck = (() => { try { validateAudioDucking(duckingSettings); return { valid: true, reason: '' } } catch (value) { return { valid: false, reason: value instanceof Error ? value.message : 'Invalid music ducking settings.' } } })()
   const range = { inMs: Math.round(Number(inSeconds) * 1000), outMs: Math.round(Number(outSeconds) * 1000) }
   const rangeCheck = Number.isFinite(range.inMs) && Number.isFinite(range.outMs) ? validateRenderRange(range, timelineDurationMs) : { valid: false, reason: 'In and Out must be numbers.' }
 
@@ -61,13 +68,13 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   }, [job?.id, workerToken, workerUrl])
 
   async function startRender() {
-    if (!readiness.ready || !rangeCheck.valid || !workerConnected || !workerToken.trim() || submitting) return
+    if (!readiness.ready || !rangeCheck.valid || !duckingCheck.valid || !workerConnected || !workerToken.trim() || submitting) return
     setSubmitting(true)
     setError('')
     try {
       const wholeTimeline = range.inMs === 0 && range.outMs === timelineDurationMs
       const path = renderOutputPath(project, new Date(), wholeTimeline ? format : `${format}-range-${range.inMs}-${range.outMs}`)
-      const fullPlan = createRenderPlan(project, profile.export, path)
+      const fullPlan = createRenderPlan(project, profile.export, path, { audioDucking: duckingSettings })
       const plan = wholeTimeline ? fullPlan : createRangeRenderPlan(fullPlan, range, path)
       const next = await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).startRender(plan)
       setOutputPath(path)
@@ -124,6 +131,14 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       </div>
       {!rangeCheck.valid && <div className="warning">{rangeCheck.reason}</div>}
 
+      <label className="checkRow"><input type="checkbox" checked={duckingEnabled} disabled={Boolean(busy)} onChange={(event) => setDuckingEnabled(event.target.checked)} />Lower music while voice or dialogue is playing</label>
+      {duckingEnabled && <div className="fieldGrid">
+        <label>Reduction (dB)<input type="number" min="0" max="40" step="1" value={duckingReductionDb} disabled={Boolean(busy)} onChange={(event) => setDuckingReductionDb(event.target.value)} /></label>
+        <label>Attack (ms)<input type="number" min="0" max="5000" step="10" value={duckingAttackMs} disabled={Boolean(busy)} onChange={(event) => setDuckingAttackMs(event.target.value)} /></label>
+        <label>Release (ms)<input type="number" min="0" max="5000" step="10" value={duckingReleaseMs} disabled={Boolean(busy)} onChange={(event) => setDuckingReleaseMs(event.target.value)} /></label>
+      </div>}
+      {!duckingCheck.valid && <div className="warning">{duckingCheck.reason}</div>}
+
       {!readiness.ready && <div className="warning">{readiness.reason}</div>}
       {!workerConnected && readiness.ready && <div className="warning">Connect the local worker in Settings before rendering.</div>}
       {error && <div className="errorBox">{error}</div>}
@@ -142,7 +157,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       )}
 
       <div className="renderActions">
-        <button className="primary" disabled={!readiness.ready || !rangeCheck.valid || !workerConnected || !workerToken.trim() || Boolean(busy) || submitting} onClick={startRender}>
+        <button className="primary" disabled={!readiness.ready || !rangeCheck.valid || !duckingCheck.valid || !workerConnected || !workerToken.trim() || Boolean(busy) || submitting} onClick={startRender}>
           {submitting ? 'Submitting…' : job && terminalStates.has(job.state) ? 'Render again' : 'Start render'}
         </button>
         {busy && <button className="dangerButton" onClick={cancelRender}>Cancel render</button>}
