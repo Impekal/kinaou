@@ -14,6 +14,11 @@ export interface ShortExportPlan { candidates: ShortExportCandidate[]; skipped: 
 
 const visualTracks = new Set(['video', 'broll', 'image', 'avatar', 'overlay'])
 
+export function shortExportVariant(candidate: ShortExportCandidate): string {
+  const title = candidate.titles.join('-').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'scenes'
+  return `short-${title}-${Math.round(candidate.inMs)}-${Math.round(candidate.outMs)}`
+}
+
 export function planShortExportRanges(project: KinaouProject, maxDurationMs = 60_000): ShortExportPlan {
   if (!Number.isInteger(maxDurationMs) || maxDurationMs < 1000 || maxDurationMs > 10 * 60_000) throw new Error('Short export maximum must be between 1 second and 10 minutes.')
   const clips = project.tracks.filter((track) => !track.muted && visualTracks.has(track.type)).flatMap((track) => track.clips)
