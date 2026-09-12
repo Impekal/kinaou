@@ -577,6 +577,7 @@ function validateRenderPlan(plan) {
   if (!Number.isFinite(plan.durationMs) || plan.durationMs <= 0) throw new Error('Invalid render duration')
   if (!plan.preset || !Number.isFinite(plan.preset.width) || plan.preset.width <= 0 || !Number.isFinite(plan.preset.height) || plan.preset.height <= 0 || !Number.isFinite(plan.preset.fps) || plan.preset.fps <= 0) throw new Error('Invalid render preset')
   if (plan.preset.fit !== undefined && plan.preset.fit !== 'contain' && plan.preset.fit !== 'cover') throw new Error('Invalid render preset fit mode')
+  if (plan.audioDucking !== undefined && (typeof plan.audioDucking !== 'object' || typeof plan.audioDucking.enabled !== 'boolean' || !Number.isFinite(plan.audioDucking.reductionDb) || plan.audioDucking.reductionDb < 0 || plan.audioDucking.reductionDb > 40 || !Number.isInteger(plan.audioDucking.attackMs) || plan.audioDucking.attackMs < 0 || plan.audioDucking.attackMs > 5000 || !Number.isInteger(plan.audioDucking.releaseMs) || plan.audioDucking.releaseMs < 0 || plan.audioDucking.releaseMs > 5000)) throw new Error('Invalid music ducking settings')
   requireRenderRelativePath(plan.outputRelativePath)
   if (!['export', 'preview'].includes(plan.purpose)) throw new Error('Invalid render purpose')
   if (plan.purpose === 'export' && !plan.outputRelativePath.startsWith('KINAOU/Renders/')) throw new Error('Export must target KINAOU/Renders')
@@ -703,6 +704,32 @@ async function executeRenderJob(id) {
 
 const MOTION_ZOOM = 0.18
 
+const musicDuckingFilters = function musicDuckingFilters(clip, clips, settings) {
+  if (clip.trackType !== 'music' || !settings.enabled || settings.reductionDb === 0) return ''
+  const expanded = clips.filter((item) => item.trackType === 'voice' || item.trackType === 'dialog').map((item) => ({ startMs: Math.max(0, item.startMs - settings.attackMs), endMs: item.startMs + item.durationMs + settings.releaseMs })).sort((a, b) => a.startMs - b.startMs || a.endMs - b.endMs)
+  const merged = expanded.slice(0, 0)
+  for (const interval of expanded) {
+    const previous = merged.at(-1)
+    if (previous && interval.startMs <= previous.endMs) previous.endMs = Math.max(previous.endMs, interval.endMs)
+    else merged.push({ ...interval })
+  }
+  const gain = Number(Math.pow(10, -settings.reductionDb / 20).toFixed(6))
+  const clipEndMs = clip.startMs + clip.durationMs
+  return merged.map((interval) => {
+    const intersectionStart = Math.max(interval.startMs, clip.startMs)
+    const intersectionEnd = Math.min(interval.endMs, clipEndMs)
+    if (intersectionEnd <= intersectionStart) return ''
+    const start = (interval.startMs - clip.startMs) / 1000
+    const end = (interval.endMs - clip.startMs) / 1000
+    const attackEnd = Math.min(interval.startMs + settings.attackMs, interval.endMs) / 1000 - clip.startMs / 1000
+    const releaseStart = Math.max(interval.startMs + settings.attackMs, interval.endMs - settings.releaseMs) / 1000 - clip.startMs / 1000
+    let expression = String(gain)
+    if (end > releaseStart) expression = `if(gte(t,${releaseStart}),${gain}+(1-${gain})*(t-${releaseStart})/${end - releaseStart},${expression})`
+    if (attackEnd > start) expression = `if(lt(t,${attackEnd}),1-(1-${gain})*(t-${start})/${attackEnd - start},${expression})`
+    return `,volume='${expression}':eval=frame:enable='between(t,${(intersectionStart - clip.startMs) / 1000},${(intersectionEnd - clip.startMs) / 1000})'`
+  }).join('')
+}
+
 /** The size a still occupies inside the canvas once letterboxed, or null if unknown. */
 function letterboxedSize(asset, width, height) {
   const sourceWidth = Number(asset.metadata.width)
@@ -773,13 +800,14 @@ function buildCompositeArgs(plan, mediaClips, inputPaths, outputPath, subtitlePa
 
   let audioOutput = null
   if (audios.length) {
+    const ducking = plan.audioDucking ?? { enabled: true, reductionDb: 12, attackMs: 150, releaseMs: 400 }
     const labels = []
     audios.forEach(({ index, clip }, audioIndex) => {
       const label = `a${audioIndex}`
       const delay = Math.round(clip.startMs)
       const fades = `${clip.fades.inMs ? `,afade=t=in:st=0:d=${seconds(clip.fades.inMs)}` : ''}${clip.fades.outMs ? `,afade=t=out:st=${seconds(clip.durationMs - clip.fades.outMs)}:d=${seconds(clip.fades.outMs)}` : ''}`
       const tempo = buildAtempoFilters(clip.speed)
-      parts.push(`[${index}:a]atrim=0:${seconds(clip.durationMs * clip.speed)},asetpts=PTS-STARTPTS${tempo},atrim=0:${seconds(clip.durationMs)},volume=${clip.gain}${fades},adelay=${delay}|${delay}[${label}]`)
+      parts.push(`[${index}:a]atrim=0:${seconds(clip.durationMs * clip.speed)},asetpts=PTS-STARTPTS${tempo},atrim=0:${seconds(clip.durationMs)},volume=${clip.gain}${fades}${musicDuckingFilters(clip, mediaClips, ducking)},adelay=${delay}|${delay}[${label}]`)
       labels.push(`[${label}]`)
     })
     audioOutput = 'aout'

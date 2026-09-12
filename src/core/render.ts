@@ -1,6 +1,7 @@
 import { touchProject, type KinaouAsset, type KinaouProject } from './project'
 import { assertSafeManagedPath } from './storage'
 import type { WorkerCapability } from './workers'
+import { defaultAudioDucking, validateAudioDucking, type AudioDuckingSettings } from './audioDucking'
 
 export interface RenderPreset {
   name: string
@@ -43,6 +44,7 @@ export interface RenderPlan {
   durationMs: number
   requiredCapabilities: WorkerCapability[]
   clips: RenderClipStep[]
+  audioDucking?: AudioDuckingSettings
 }
 
 export const preview1080pPreset: RenderPreset = {
@@ -106,7 +108,7 @@ export function setProjectTargetFormat(project: KinaouProject, format: TargetFor
   return touchProject({ ...project, metadata: { ...project.metadata, targetFormat: format } })
 }
 
-export function createRenderPlan(project: KinaouProject, preset: RenderPreset, outputRelativePath: string): RenderPlan {
+export function createRenderPlan(project: KinaouProject, preset: RenderPreset, outputRelativePath: string, options: { audioDucking?: AudioDuckingSettings } = {}): RenderPlan {
   const safeOutput = assertSafeManagedPath(outputRelativePath)
   const preview = safeOutput.startsWith('KINAOU/Cache/Previews/')
   if (!preview && !safeOutput.startsWith('KINAOU/Renders/')) throw new Error('Render output must stay inside KINAOU/Renders or KINAOU/Cache/Previews')
@@ -157,7 +159,8 @@ export function createRenderPlan(project: KinaouProject, preset: RenderPreset, o
     preset,
     durationMs,
     requiredCapabilities: ['filesystem', 'ffmpeg'],
-    clips
+    clips,
+    audioDucking: validateAudioDucking(options.audioDucking ?? defaultAudioDucking)
   }
 }
 
