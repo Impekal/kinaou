@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KinaouProject } from '../core/project'
-import { createRenderPlan, formatProfiles, projectTargetFormat, setProjectTargetFormat, type TargetFormat } from '../core/render'
+import { createRenderPlan, formatProfiles, projectTargetFormat, setProjectTargetFormat, type RenderPlan, type TargetFormat } from '../core/render'
 import type { RenderJobRecord } from '../core/renderJobs'
 import { renderOutputPath, renderReadiness } from '../core/renderUi'
 import { WorkerClient } from '../core/workerClient'
 import { createRangeRenderPlan, validateRenderRange } from '../core/renderRange'
 import { defaultAudioDucking, validateAudioDucking } from '../core/audioDucking'
 import { defaultLoudnessNormalization } from '../core/audioLoudness'
-import { planShortExportRanges, shortExportVariant } from '../core/shortExportRanges'
+import { planShortExportBatch, planShortExportRanges, shortExportVariant } from '../core/shortExportRanges'
+import { cancelPendingShortBatchItems, nextShortBatchItem, shortBatchBusy, shortBatchTerminalStates, type ShortBatchRenderItem } from '../core/shortExportBatch'
 
 interface RenderPanelProps {
   project: KinaouProject
@@ -40,14 +41,28 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const range = { inMs: Math.round(Number(inSeconds) * 1000), outMs: Math.round(Number(outSeconds) * 1000) }
   const rangeCheck = Number.isFinite(range.inMs) && Number.isFinite(range.outMs) ? validateRenderRange(range, timelineDurationMs) : { valid: false, reason: 'In and Out must be numbers.' }
   const shortExports = useMemo(() => planShortExportRanges(project), [project])
+  const shortCandidateSignature = shortExports.candidates.map((candidate) => `${candidate.id}:${candidate.inMs}:${candidate.outMs}:${candidate.titles.join('\u0000')}`).join('|')
   const [selectedShortId, setSelectedShortId] = useState('')
+  const [batchSelectedIds, setBatchSelectedIds] = useState<string[]>([])
+  const [batchItems, setBatchItems] = useState<ShortBatchRenderItem[]>([])
+  const batchPlans = useRef(new Map<string, RenderPlan>())
+  const batchSubmitting = useRef(false)
+  const batchCancelRequested = useRef(false)
   const selectedShort = shortExports.candidates.find((candidate) => candidate.id === selectedShortId && candidate.inMs === range.inMs && candidate.outMs === range.outMs)
+  const singleBusy = Boolean(job && !terminalStates.has(job.state))
+  const batchBusy = shortBatchBusy(batchItems)
+  const busy = singleBusy || batchBusy
+  const activeBatchItem = batchItems.find((item) => item.jobId && !terminalStates.has(item.state))
 
   useEffect(() => {
     setInSeconds('0')
     setOutSeconds(String(timelineDurationMs / 1000))
     setSelectedShortId('')
   }, [timelineDurationMs])
+
+  useEffect(() => {
+    setBatchSelectedIds([])
+  }, [shortCandidateSignature])
 
   useEffect(() => {
     if (!job || terminalStates.has(job.state) || !workerToken.trim()) return
@@ -73,6 +88,65 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       if (timer) clearInterval(timer)
     }
   }, [job?.id, workerToken, workerUrl])
+
+  useEffect(() => {
+    if (!activeBatchItem?.jobId || !workerToken.trim()) return
+    let disposed = false
+    let timer: ReturnType<typeof setInterval> | undefined
+    const client = new WorkerClient({ baseUrl: workerUrl, token: workerToken })
+    const poll = async () => {
+      try {
+        const next = await client.renderStatus(activeBatchItem.jobId!)
+        if (disposed) return
+        setBatchItems((items) => items.map((item) => item.id === activeBatchItem.id ? {
+          ...item,
+          state: next.state,
+          progress: next.progress,
+          ...(next.outputPath ? { renderedPath: next.outputPath } : {}),
+          ...(next.sizeBytes !== undefined ? { sizeBytes: next.sizeBytes } : {}),
+          ...(next.error ? { error: next.error } : {})
+        } : item))
+        if (terminalStates.has(next.state) && timer) clearInterval(timer)
+      } catch (pollError) {
+        if (!disposed) setError(pollError instanceof Error ? pollError.message : 'Short export status failed')
+      }
+    }
+    void poll()
+    timer = setInterval(() => void poll(), 1000)
+    return () => {
+      disposed = true
+      if (timer) clearInterval(timer)
+    }
+  }, [activeBatchItem?.id, activeBatchItem?.jobId, workerToken, workerUrl])
+
+  useEffect(() => {
+    if (batchCancelRequested.current || batchSubmitting.current || activeBatchItem || !workerToken.trim()) return
+    const nextItem = nextShortBatchItem(batchItems)
+    if (!nextItem) return
+    const plan = batchPlans.current.get(nextItem.id)
+    if (!plan) {
+      setBatchItems((items) => items.map((item) => item.id === nextItem.id ? { ...item, state: 'failed', error: 'The prepared render plan is missing.' } : item))
+      return
+    }
+    batchSubmitting.current = true
+    const client = new WorkerClient({ baseUrl: workerUrl, token: workerToken })
+    client.startRender(plan).then(async (next) => {
+      if (batchCancelRequested.current) {
+        try {
+          const cancelled = await client.cancelRender(next.id)
+          setBatchItems((items) => items.map((item) => item.id === nextItem.id ? { ...item, jobId: next.id, state: cancelled.state, progress: cancelled.progress } : item))
+        } catch (cancelError) {
+          const message = cancelError instanceof Error ? cancelError.message : 'Could not cancel submitted Short export'
+          setBatchItems((items) => items.map((item) => item.id === nextItem.id ? { ...item, jobId: next.id, state: next.state, progress: next.progress, error: message } : item))
+          setError(message)
+        }
+        return
+      }
+      setBatchItems((items) => items.map((item) => item.id === nextItem.id ? { ...item, jobId: next.id, state: next.state, progress: next.progress } : item))
+    }).catch((batchError) => {
+      setBatchItems((items) => items.map((item) => item.id === nextItem.id ? { ...item, state: 'failed', error: batchError instanceof Error ? batchError.message : 'Could not start Short export' } : item))
+    }).finally(() => { batchSubmitting.current = false })
+  }, [activeBatchItem, batchItems, workerToken, workerUrl])
 
   async function startRender() {
     if (!readiness.ready || !rangeCheck.valid || !duckingCheck.valid || !workerConnected || !workerToken.trim() || submitting) return
@@ -104,7 +178,37 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     }
   }
 
-  const busy = job && !terminalStates.has(job.state)
+  function startShortBatch() {
+    if (!readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting) return
+    setError('')
+    try {
+      const planned = planShortExportBatch(project, shortExports.candidates, batchSelectedIds, format, new Date())
+      const plans = new Map<string, RenderPlan>()
+      for (const item of planned) {
+        const fullPlan = createRenderPlan(project, profile.export, item.outputPath, { audioDucking: duckingSettings, loudnessNormalization: { ...defaultLoudnessNormalization, enabled: normalizeLoudness } })
+        plans.set(item.id, createRangeRenderPlan(fullPlan, { inMs: item.inMs, outMs: item.outMs }, item.outputPath))
+      }
+      batchPlans.current = plans
+      batchCancelRequested.current = false
+      setBatchItems(planned.map((item) => ({ ...item, state: 'queued', progress: 0 })))
+    } catch (batchError) {
+      setError(batchError instanceof Error ? batchError.message : 'Could not prepare Short exports')
+    }
+  }
+
+  async function cancelShortBatch() {
+    if (!batchBusy) return
+    batchCancelRequested.current = true
+    setBatchItems(cancelPendingShortBatchItems)
+    if (!activeBatchItem?.jobId) return
+    try {
+      const next = await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).cancelRender(activeBatchItem.jobId)
+      setBatchItems((items) => items.map((item) => item.id === activeBatchItem.id ? { ...item, state: next.state, progress: next.progress } : item))
+    } catch (cancelError) {
+      setError(cancelError instanceof Error ? cancelError.message : 'Could not cancel Short export batch')
+    }
+  }
+
   const percent = Math.round((job?.progress ?? 0) * 100)
 
   return (
@@ -120,7 +224,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
 
       <div className="formatChooser" role="group" aria-label="Output format">
         {(Object.keys(formatProfiles) as TargetFormat[]).map((id) => (
-          <button key={id} className={id === format ? 'formatOption active' : 'formatOption'} disabled={Boolean(busy)} onClick={() => onProjectChange(setProjectTargetFormat(project, id))}>
+          <button key={id} className={id === format ? 'formatOption active' : 'formatOption'} disabled={busy} onClick={() => onProjectChange(setProjectTargetFormat(project, id))}>
             <strong>{formatProfiles[id].label}</strong>
             <small>{formatProfiles[id].aspect} · {formatProfiles[id].export.width}×{formatProfiles[id].export.height}</small>
           </button>
@@ -129,11 +233,11 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       <p className="cardBody">{profile.note}</p>
 
       <div className="fieldGrid">
-        <label>In (seconds)<input type="number" min="0" step="0.001" value={inSeconds} disabled={Boolean(busy)} onChange={(event) => { setInSeconds(event.target.value); setSelectedShortId('') }} /></label>
-        <label>Out (seconds)<input type="number" min="0" step="0.001" value={outSeconds} disabled={Boolean(busy)} onChange={(event) => { setOutSeconds(event.target.value); setSelectedShortId('') }} /></label>
+        <label>In (seconds)<input type="number" min="0" step="0.001" value={inSeconds} disabled={busy} onChange={(event) => { setInSeconds(event.target.value); setSelectedShortId('') }} /></label>
+        <label>Out (seconds)<input type="number" min="0" step="0.001" value={outSeconds} disabled={busy} onChange={(event) => { setOutSeconds(event.target.value); setSelectedShortId('') }} /></label>
       </div>
       <div className="renderActions">
-        <button disabled={Boolean(busy) || (range.inMs === 0 && range.outMs === timelineDurationMs)} onClick={() => { setInSeconds('0'); setOutSeconds(String(timelineDurationMs / 1000)); setSelectedShortId('') }}>Whole timeline</button>
+        <button disabled={busy || (range.inMs === 0 && range.outMs === timelineDurationMs)} onClick={() => { setInSeconds('0'); setOutSeconds(String(timelineDurationMs / 1000)); setSelectedShortId('') }}>Whole timeline</button>
         {rangeCheck.valid && <span className="cardBody">Export range: {(range.inMs / 1000).toFixed(3)}–{(range.outMs / 1000).toFixed(3)} s ({((range.outMs - range.inMs) / 1000).toFixed(3)} s)</span>}
       </div>
       {!rangeCheck.valid && <div className="warning">{rangeCheck.reason}</div>}
@@ -143,21 +247,28 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         <p className="cardBody">Reviewable ranges built only from contiguous storyboard scenes that are already anchored on active visual tracks.</p>
         {shortExports.candidates.map((candidate) => <div className="renderMeta" key={candidate.id}>
           <span><strong>{candidate.titles.join(' + ')}</strong> · {(candidate.durationMs / 1000).toFixed(1)} s · {(candidate.inMs / 1000).toFixed(1)}–{(candidate.outMs / 1000).toFixed(1)} s</span>
-          <button disabled={Boolean(busy)} onClick={() => { setInSeconds(String(candidate.inMs / 1000)); setOutSeconds(String(candidate.outMs / 1000)); setSelectedShortId(candidate.id) }}>{selectedShort?.id === candidate.id ? 'Selected' : 'Use this range'}</button>
+          <div className="renderActions">
+            <label className="checkRow"><input type="checkbox" checked={batchSelectedIds.includes(candidate.id)} disabled={busy} onChange={(event) => setBatchSelectedIds((ids) => event.target.checked ? [...ids, candidate.id] : ids.filter((id) => id !== candidate.id))} />Batch</label>
+            <button disabled={busy} onClick={() => { setInSeconds(String(candidate.inMs / 1000)); setOutSeconds(String(candidate.outMs / 1000)); setSelectedShortId(candidate.id) }}>{selectedShort?.id === candidate.id ? 'Selected' : 'Use this range'}</button>
+          </div>
         </div>)}
         {!shortExports.candidates.length && <div className="warning">No exportable scene range yet. Assemble storyboard scenes on an active visual track first.</div>}
         {shortExports.skipped.map((item) => <div className="warning" key={item.sceneId}><strong>{item.title}:</strong> {item.reason}</div>)}
+        {shortExports.candidates.length > 0 && <div className="renderActions">
+          <button disabled={busy} onClick={() => setBatchSelectedIds(batchSelectedIds.length === shortExports.candidates.length ? [] : shortExports.candidates.map((candidate) => candidate.id))}>{batchSelectedIds.length === shortExports.candidates.length ? 'Clear selection' : 'Select all'}</button>
+          <button className="primary" disabled={!batchSelectedIds.length || !readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting} onClick={startShortBatch}>Export selected Shorts ({batchSelectedIds.length})</button>
+        </div>}
       </div>}
 
-      <label className="checkRow"><input type="checkbox" checked={duckingEnabled} disabled={Boolean(busy)} onChange={(event) => setDuckingEnabled(event.target.checked)} />Lower music while voice or dialogue is playing</label>
+      <label className="checkRow"><input type="checkbox" checked={duckingEnabled} disabled={busy} onChange={(event) => setDuckingEnabled(event.target.checked)} />Lower music while voice or dialogue is playing</label>
       {duckingEnabled && <div className="fieldGrid">
-        <label>Reduction (dB)<input type="number" min="0" max="40" step="1" value={duckingReductionDb} disabled={Boolean(busy)} onChange={(event) => setDuckingReductionDb(event.target.value)} /></label>
-        <label>Attack (ms)<input type="number" min="0" max="5000" step="10" value={duckingAttackMs} disabled={Boolean(busy)} onChange={(event) => setDuckingAttackMs(event.target.value)} /></label>
-        <label>Release (ms)<input type="number" min="0" max="5000" step="10" value={duckingReleaseMs} disabled={Boolean(busy)} onChange={(event) => setDuckingReleaseMs(event.target.value)} /></label>
+        <label>Reduction (dB)<input type="number" min="0" max="40" step="1" value={duckingReductionDb} disabled={busy} onChange={(event) => setDuckingReductionDb(event.target.value)} /></label>
+        <label>Attack (ms)<input type="number" min="0" max="5000" step="10" value={duckingAttackMs} disabled={busy} onChange={(event) => setDuckingAttackMs(event.target.value)} /></label>
+        <label>Release (ms)<input type="number" min="0" max="5000" step="10" value={duckingReleaseMs} disabled={busy} onChange={(event) => setDuckingReleaseMs(event.target.value)} /></label>
       </div>}
       {!duckingCheck.valid && <div className="warning">{duckingCheck.reason}</div>}
 
-      <label className="checkRow"><input type="checkbox" checked={normalizeLoudness} disabled={Boolean(busy)} onChange={(event) => setNormalizeLoudness(event.target.checked)} />Normalize export loudness to −14 LUFS</label>
+      <label className="checkRow"><input type="checkbox" checked={normalizeLoudness} disabled={busy} onChange={(event) => setNormalizeLoudness(event.target.checked)} />Normalize export loudness to −14 LUFS</label>
       <p className="cardBody">Optional master processing · true peak ≤ −1.5 dBTP · loudness range 11 LU. Off by default because it changes the sound.</p>
 
       {!readiness.ready && <div className="warning">{readiness.reason}</div>}
@@ -177,11 +288,23 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         </div>
       )}
 
+      {batchItems.length > 0 && <div className="renderJob">
+        <div className="renderJobHead"><strong>SHORT EXPORT BATCH</strong><span>{batchItems.filter((item) => shortBatchTerminalStates.has(item.state)).length}/{batchItems.length} finished</span></div>
+        <p className="cardBody">Exports run one at a time so local FFmpeg work stays bounded. A failed item is reported without hiding the remaining results.</p>
+        {batchItems.map((item) => <div className="renderJob" key={item.id}>
+          <div className="renderJobHead"><strong>{item.title}</strong><span>{item.state.toUpperCase()} · {Math.round(item.progress * 100)}%</span></div>
+          <div className="progressTrack" aria-label={`${item.title} render progress ${Math.round(item.progress * 100)}%`}><div className="progressFill" style={{ width: `${Math.round(item.progress * 100)}%` }} /></div>
+          <div className="renderMeta"><code>{item.renderedPath ?? item.outputPath}</code>{item.sizeBytes !== undefined && <span>{(item.sizeBytes / 1024 / 1024).toFixed(1)} MB</span>}</div>
+          {item.error && <div className="errorBox">{item.error}</div>}
+        </div>)}
+        {batchBusy && <div className="renderActions"><button className="dangerButton" onClick={cancelShortBatch}>Cancel batch</button></div>}
+      </div>}
+
       <div className="renderActions">
-        <button className="primary" disabled={!readiness.ready || !rangeCheck.valid || !duckingCheck.valid || !workerConnected || !workerToken.trim() || Boolean(busy) || submitting} onClick={startRender}>
-          {submitting ? 'Submitting…' : job && terminalStates.has(job.state) ? 'Render again' : 'Start render'}
+        <button className="primary" disabled={!readiness.ready || !rangeCheck.valid || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting} onClick={startRender}>
+          {submitting ? 'Submitting…' : batchBusy ? 'Short batch in progress' : job && terminalStates.has(job.state) ? 'Render again' : 'Start render'}
         </button>
-        {busy && <button className="dangerButton" onClick={cancelRender}>Cancel render</button>}
+        {singleBusy && <button className="dangerButton" onClick={cancelRender}>Cancel render</button>}
       </div>
     </section>
   )

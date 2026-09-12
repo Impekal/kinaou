@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { assetSchema, clipSchema, createProject, trackSchema } from '../src/core/project'
-import { planShortExportRanges, shortExportVariant } from '../src/core/shortExportRanges'
+import { createRenderPlan, formatProfiles } from '../src/core/render'
+import { createRangeRenderPlan } from '../src/core/renderRange'
+import { planShortExportBatch, planShortExportRanges, shortExportVariant } from '../src/core/shortExportRanges'
 
 function project() {
   const base = createProject('Shorts')
@@ -44,5 +46,30 @@ describe('short export range planning', () => {
     const candidate = planShortExportRanges(project()).candidates[0]
     expect(shortExportVariant(candidate)).toBe('short-hook-proof-0-49500')
     expect(shortExportVariant({ ...candidate, titles: ['🔥 / ??'] })).toBe('short-scenes-0-49500')
+  })
+
+  it('plans selected reviewed candidates as unique managed batch outputs in timeline order', () => {
+    const input = project()
+    const candidates = planShortExportRanges(input).candidates
+    const items = planShortExportBatch(input, candidates, ['s3', 's1--s2'], 'vertical', new Date('2026-09-12T08:00:00.000Z'))
+    expect(items.map((item) => ({ id: item.id, inMs: item.inMs, outMs: item.outMs }))).toEqual([
+      { id: 's1--s2', inMs: 0, outMs: 49_500 },
+      { id: 's3', inMs: 70_000, outMs: 80_000 }
+    ])
+    expect(items.map((item) => item.outputPath)).toEqual([
+      'KINAOU/Renders/shorts_verticalshorthookproof049500_2026-09-12_08-00-00-000.mp4',
+      'KINAOU/Renders/shorts_verticalshortcta7000080000_2026-09-12_08-00-00-000.mp4'
+    ])
+    expect(new Set(items.map((item) => item.outputPath)).size).toBe(items.length)
+    const plans = items.map((item) => createRangeRenderPlan(createRenderPlan(input, formatProfiles.vertical.export, item.outputPath), { inMs: item.inMs, outMs: item.outMs }, item.outputPath))
+    expect(plans.map((plan) => plan.durationMs)).toEqual([49_500, 10_000])
+    expect(plans[1].clips.map((clip) => ({ id: clip.clipId, startMs: clip.startMs }))).toEqual([{ id: 'c3', startMs: 0 }])
+  })
+
+  it('refuses empty or stale batch selections', () => {
+    const input = project()
+    const candidates = planShortExportRanges(input).candidates
+    expect(() => planShortExportBatch(input, candidates, [], 'vertical')).toThrow(/Select at least one/)
+    expect(() => planShortExportBatch(input, candidates, ['removed-scene'], 'vertical')).toThrow(/no longer available/)
   })
 })
