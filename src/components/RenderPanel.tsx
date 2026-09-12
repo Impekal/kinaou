@@ -7,7 +7,7 @@ import { WorkerClient } from '../core/workerClient'
 import { createRangeRenderPlan, validateRenderRange } from '../core/renderRange'
 import { defaultAudioDucking, validateAudioDucking } from '../core/audioDucking'
 import { defaultLoudnessNormalization } from '../core/audioLoudness'
-import { planShortExportRanges } from '../core/shortExportRanges'
+import { planShortExportRanges, shortExportVariant } from '../core/shortExportRanges'
 
 interface RenderPanelProps {
   project: KinaouProject
@@ -40,10 +40,13 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const range = { inMs: Math.round(Number(inSeconds) * 1000), outMs: Math.round(Number(outSeconds) * 1000) }
   const rangeCheck = Number.isFinite(range.inMs) && Number.isFinite(range.outMs) ? validateRenderRange(range, timelineDurationMs) : { valid: false, reason: 'In and Out must be numbers.' }
   const shortExports = useMemo(() => planShortExportRanges(project), [project])
+  const [selectedShortId, setSelectedShortId] = useState('')
+  const selectedShort = shortExports.candidates.find((candidate) => candidate.id === selectedShortId && candidate.inMs === range.inMs && candidate.outMs === range.outMs)
 
   useEffect(() => {
     setInSeconds('0')
     setOutSeconds(String(timelineDurationMs / 1000))
+    setSelectedShortId('')
   }, [timelineDurationMs])
 
   useEffect(() => {
@@ -77,7 +80,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     setError('')
     try {
       const wholeTimeline = range.inMs === 0 && range.outMs === timelineDurationMs
-      const path = renderOutputPath(project, new Date(), wholeTimeline ? format : `${format}-range-${range.inMs}-${range.outMs}`)
+      const path = renderOutputPath(project, new Date(), wholeTimeline ? format : selectedShort ? `${format}-${shortExportVariant(selectedShort)}` : `${format}-range-${range.inMs}-${range.outMs}`)
       const fullPlan = createRenderPlan(project, profile.export, path, { audioDucking: duckingSettings, loudnessNormalization: { ...defaultLoudnessNormalization, enabled: normalizeLoudness } })
       const plan = wholeTimeline ? fullPlan : createRangeRenderPlan(fullPlan, range, path)
       const next = await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).startRender(plan)
@@ -126,11 +129,11 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       <p className="cardBody">{profile.note}</p>
 
       <div className="fieldGrid">
-        <label>In (seconds)<input type="number" min="0" step="0.001" value={inSeconds} disabled={Boolean(busy)} onChange={(event) => setInSeconds(event.target.value)} /></label>
-        <label>Out (seconds)<input type="number" min="0" step="0.001" value={outSeconds} disabled={Boolean(busy)} onChange={(event) => setOutSeconds(event.target.value)} /></label>
+        <label>In (seconds)<input type="number" min="0" step="0.001" value={inSeconds} disabled={Boolean(busy)} onChange={(event) => { setInSeconds(event.target.value); setSelectedShortId('') }} /></label>
+        <label>Out (seconds)<input type="number" min="0" step="0.001" value={outSeconds} disabled={Boolean(busy)} onChange={(event) => { setOutSeconds(event.target.value); setSelectedShortId('') }} /></label>
       </div>
       <div className="renderActions">
-        <button disabled={Boolean(busy) || (range.inMs === 0 && range.outMs === timelineDurationMs)} onClick={() => { setInSeconds('0'); setOutSeconds(String(timelineDurationMs / 1000)) }}>Whole timeline</button>
+        <button disabled={Boolean(busy) || (range.inMs === 0 && range.outMs === timelineDurationMs)} onClick={() => { setInSeconds('0'); setOutSeconds(String(timelineDurationMs / 1000)); setSelectedShortId('') }}>Whole timeline</button>
         {rangeCheck.valid && <span className="cardBody">Export range: {(range.inMs / 1000).toFixed(3)}–{(range.outMs / 1000).toFixed(3)} s ({((range.outMs - range.inMs) / 1000).toFixed(3)} s)</span>}
       </div>
       {!rangeCheck.valid && <div className="warning">{rangeCheck.reason}</div>}
@@ -140,7 +143,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         <p className="cardBody">Reviewable ranges built only from contiguous storyboard scenes that are already anchored on active visual tracks.</p>
         {shortExports.candidates.map((candidate) => <div className="renderMeta" key={candidate.id}>
           <span><strong>{candidate.titles.join(' + ')}</strong> · {(candidate.durationMs / 1000).toFixed(1)} s · {(candidate.inMs / 1000).toFixed(1)}–{(candidate.outMs / 1000).toFixed(1)} s</span>
-          <button disabled={Boolean(busy)} onClick={() => { setInSeconds(String(candidate.inMs / 1000)); setOutSeconds(String(candidate.outMs / 1000)) }}>Use this range</button>
+          <button disabled={Boolean(busy)} onClick={() => { setInSeconds(String(candidate.inMs / 1000)); setOutSeconds(String(candidate.outMs / 1000)); setSelectedShortId(candidate.id) }}>{selectedShort?.id === candidate.id ? 'Selected' : 'Use this range'}</button>
         </div>)}
         {!shortExports.candidates.length && <div className="warning">No exportable scene range yet. Assemble storyboard scenes on an active visual track first.</div>}
         {shortExports.skipped.map((item) => <div className="warning" key={item.sceneId}><strong>{item.title}:</strong> {item.reason}</div>)}

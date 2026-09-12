@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { assetSchema, clipSchema, createProject, trackSchema } from '../src/core/project'
-import { planShortExportRanges } from '../src/core/shortExportRanges'
+import { planShortExportRanges, shortExportVariant } from '../src/core/shortExportRanges'
 
 function project() {
   const base = createProject('Shorts')
@@ -38,5 +38,11 @@ describe('short export range planning', () => {
     const input = project()
     expect(planShortExportRanges({ ...input, tracks: input.tracks.map((track) => ({ ...track, muted: true })) }).candidates).toEqual([])
     expect(() => planShortExportRanges(input, 999)).toThrow(/between 1 second/)
+  })
+
+  it('creates a stable safe variant name from the reviewed scene range', () => {
+    const candidate = planShortExportRanges(project()).candidates[0]
+    expect(shortExportVariant(candidate)).toBe('short-hook-proof-0-49500')
+    expect(shortExportVariant({ ...candidate, titles: ['🔥 / ??'] })).toBe('short-scenes-0-49500')
   })
 })
