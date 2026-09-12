@@ -1,4 +1,4 @@
-import type { KinaouProject } from './project'
+import { touchProject, type KinaouProject } from './project'
 import type { TargetFormat } from './render'
 import { renderOutputPath } from './renderUi'
 
@@ -23,6 +23,25 @@ export interface ShortExportBatchItem {
 }
 
 const visualTracks = new Set(['video', 'broll', 'image', 'avatar', 'overlay'])
+export const defaultShortExportMaximumMs = 60_000
+
+export function shortExportMaximumError(maxDurationMs: number): string | undefined {
+  return !Number.isInteger(maxDurationMs) || maxDurationMs < 1000 || maxDurationMs > 10 * 60_000
+    ? 'Short export maximum must be between 1 second and 10 minutes.'
+    : undefined
+}
+
+export function projectShortExportMaximum(project: KinaouProject): number {
+  const stored = project.metadata.shortExportMaximumMs
+  return typeof stored !== 'number' || shortExportMaximumError(stored) ? defaultShortExportMaximumMs : stored
+}
+
+export function setProjectShortExportMaximum(project: KinaouProject, maxDurationMs: number, now = new Date()): KinaouProject {
+  const error = shortExportMaximumError(maxDurationMs)
+  if (error) throw new Error(error)
+  if (projectShortExportMaximum(project) === maxDurationMs && project.metadata.shortExportMaximumMs === maxDurationMs) return project
+  return touchProject({ ...project, metadata: { ...project.metadata, shortExportMaximumMs: maxDurationMs } }, now)
+}
 
 export function shortExportVariant(candidate: ShortExportCandidate): string {
   const title = candidate.titles.join('-').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'scenes'
@@ -47,8 +66,9 @@ export function planShortExportBatch(project: KinaouProject, candidates: ShortEx
   return items
 }
 
-export function planShortExportRanges(project: KinaouProject, maxDurationMs = 60_000): ShortExportPlan {
-  if (!Number.isInteger(maxDurationMs) || maxDurationMs < 1000 || maxDurationMs > 10 * 60_000) throw new Error('Short export maximum must be between 1 second and 10 minutes.')
+export function planShortExportRanges(project: KinaouProject, maxDurationMs = defaultShortExportMaximumMs): ShortExportPlan {
+  const maximumError = shortExportMaximumError(maxDurationMs)
+  if (maximumError) throw new Error(maximumError)
   const clips = project.tracks.filter((track) => !track.muted && visualTracks.has(track.type)).flatMap((track) => track.clips)
   const skipped: SkippedShortScene[] = []
   const ranges = project.storyboard.flatMap((scene) => {
