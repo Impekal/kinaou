@@ -213,6 +213,10 @@ export function buildCompositeFilter(plan: RenderPlan, subtitleAbsolutePath?: st
     })
     audioOutput = 'aout'
     parts.push(`${labels.join('')}amix=inputs=${labels.length}:duration=longest:normalize=0[${audioOutput}]`)
+    if (plan.loudnessNormalization?.enabled) {
+      parts.push(`[${audioOutput}]loudnorm=I=${plan.loudnessNormalization.targetLufs}:TP=${plan.loudnessNormalization.truePeakDb}:LRA=${plan.loudnessNormalization.loudnessRange}[master]`)
+      audioOutput = 'master'
+    }
   }
 
   return { graph: parts.join(';'), videoOutput: `[${currentVideo}]`, ...(audioOutput ? { audioOutput: `[${audioOutput}]` } : {}) }

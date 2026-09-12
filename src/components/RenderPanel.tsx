@@ -6,6 +6,7 @@ import { renderOutputPath, renderReadiness } from '../core/renderUi'
 import { WorkerClient } from '../core/workerClient'
 import { createRangeRenderPlan, validateRenderRange } from '../core/renderRange'
 import { defaultAudioDucking, validateAudioDucking } from '../core/audioDucking'
+import { defaultLoudnessNormalization } from '../core/audioLoudness'
 
 interface RenderPanelProps {
   project: KinaouProject
@@ -32,6 +33,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const [duckingReductionDb, setDuckingReductionDb] = useState(String(defaultAudioDucking.reductionDb))
   const [duckingAttackMs, setDuckingAttackMs] = useState(String(defaultAudioDucking.attackMs))
   const [duckingReleaseMs, setDuckingReleaseMs] = useState(String(defaultAudioDucking.releaseMs))
+  const [normalizeLoudness, setNormalizeLoudness] = useState(defaultLoudnessNormalization.enabled)
   const duckingSettings = { enabled: duckingEnabled, reductionDb: Number(duckingReductionDb), attackMs: Number(duckingAttackMs), releaseMs: Number(duckingReleaseMs) }
   const duckingCheck = (() => { try { validateAudioDucking(duckingSettings); return { valid: true, reason: '' } } catch (value) { return { valid: false, reason: value instanceof Error ? value.message : 'Invalid music ducking settings.' } } })()
   const range = { inMs: Math.round(Number(inSeconds) * 1000), outMs: Math.round(Number(outSeconds) * 1000) }
@@ -74,7 +76,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     try {
       const wholeTimeline = range.inMs === 0 && range.outMs === timelineDurationMs
       const path = renderOutputPath(project, new Date(), wholeTimeline ? format : `${format}-range-${range.inMs}-${range.outMs}`)
-      const fullPlan = createRenderPlan(project, profile.export, path, { audioDucking: duckingSettings })
+      const fullPlan = createRenderPlan(project, profile.export, path, { audioDucking: duckingSettings, loudnessNormalization: { ...defaultLoudnessNormalization, enabled: normalizeLoudness } })
       const plan = wholeTimeline ? fullPlan : createRangeRenderPlan(fullPlan, range, path)
       const next = await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).startRender(plan)
       setOutputPath(path)
@@ -138,6 +140,9 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         <label>Release (ms)<input type="number" min="0" max="5000" step="10" value={duckingReleaseMs} disabled={Boolean(busy)} onChange={(event) => setDuckingReleaseMs(event.target.value)} /></label>
       </div>}
       {!duckingCheck.valid && <div className="warning">{duckingCheck.reason}</div>}
+
+      <label className="checkRow"><input type="checkbox" checked={normalizeLoudness} disabled={Boolean(busy)} onChange={(event) => setNormalizeLoudness(event.target.checked)} />Normalize export loudness to −14 LUFS</label>
+      <p className="cardBody">Optional master processing · true peak ≤ −1.5 dBTP · loudness range 11 LU. Off by default because it changes the sound.</p>
 
       {!readiness.ready && <div className="warning">{readiness.reason}</div>}
       {!workerConnected && readiness.ready && <div className="warning">Connect the local worker in Settings before rendering.</div>}

@@ -578,6 +578,7 @@ function validateRenderPlan(plan) {
   if (!plan.preset || !Number.isFinite(plan.preset.width) || plan.preset.width <= 0 || !Number.isFinite(plan.preset.height) || plan.preset.height <= 0 || !Number.isFinite(plan.preset.fps) || plan.preset.fps <= 0) throw new Error('Invalid render preset')
   if (plan.preset.fit !== undefined && plan.preset.fit !== 'contain' && plan.preset.fit !== 'cover') throw new Error('Invalid render preset fit mode')
   if (plan.audioDucking !== undefined && (typeof plan.audioDucking !== 'object' || typeof plan.audioDucking.enabled !== 'boolean' || !Number.isFinite(plan.audioDucking.reductionDb) || plan.audioDucking.reductionDb < 0 || plan.audioDucking.reductionDb > 40 || !Number.isInteger(plan.audioDucking.attackMs) || plan.audioDucking.attackMs < 0 || plan.audioDucking.attackMs > 5000 || !Number.isInteger(plan.audioDucking.releaseMs) || plan.audioDucking.releaseMs < 0 || plan.audioDucking.releaseMs > 5000)) throw new Error('Invalid music ducking settings')
+  if (plan.loudnessNormalization !== undefined && (typeof plan.loudnessNormalization !== 'object' || typeof plan.loudnessNormalization.enabled !== 'boolean' || !Number.isFinite(plan.loudnessNormalization.targetLufs) || plan.loudnessNormalization.targetLufs < -70 || plan.loudnessNormalization.targetLufs > -5 || !Number.isFinite(plan.loudnessNormalization.truePeakDb) || plan.loudnessNormalization.truePeakDb < -9 || plan.loudnessNormalization.truePeakDb > 0 || !Number.isFinite(plan.loudnessNormalization.loudnessRange) || plan.loudnessNormalization.loudnessRange < 1 || plan.loudnessNormalization.loudnessRange > 50)) throw new Error('Invalid loudness normalization settings')
   requireRenderRelativePath(plan.outputRelativePath)
   if (!['export', 'preview'].includes(plan.purpose)) throw new Error('Invalid render purpose')
   if (plan.purpose === 'export' && !plan.outputRelativePath.startsWith('KINAOU/Renders/')) throw new Error('Export must target KINAOU/Renders')
@@ -812,6 +813,10 @@ function buildCompositeArgs(plan, mediaClips, inputPaths, outputPath, subtitlePa
     })
     audioOutput = 'aout'
     parts.push(`${labels.join('')}amix=inputs=${labels.length}:duration=longest:normalize=0[${audioOutput}]`)
+    if (plan.loudnessNormalization?.enabled) {
+      parts.push(`[${audioOutput}]loudnorm=I=${plan.loudnessNormalization.targetLufs}:TP=${plan.loudnessNormalization.truePeakDb}:LRA=${plan.loudnessNormalization.loudnessRange}[master]`)
+      audioOutput = 'master'
+    }
   }
 
   args.push('-filter_complex', parts.join(';'), '-map', `[${currentVideo}]`)

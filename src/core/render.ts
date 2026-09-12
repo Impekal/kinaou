@@ -2,6 +2,7 @@ import { touchProject, type KinaouAsset, type KinaouProject } from './project'
 import { assertSafeManagedPath } from './storage'
 import type { WorkerCapability } from './workers'
 import { defaultAudioDucking, validateAudioDucking, type AudioDuckingSettings } from './audioDucking'
+import { defaultLoudnessNormalization, validateLoudnessNormalization, type LoudnessNormalizationSettings } from './audioLoudness'
 
 export interface RenderPreset {
   name: string
@@ -45,6 +46,7 @@ export interface RenderPlan {
   requiredCapabilities: WorkerCapability[]
   clips: RenderClipStep[]
   audioDucking?: AudioDuckingSettings
+  loudnessNormalization?: LoudnessNormalizationSettings
 }
 
 export const preview1080pPreset: RenderPreset = {
@@ -108,7 +110,7 @@ export function setProjectTargetFormat(project: KinaouProject, format: TargetFor
   return touchProject({ ...project, metadata: { ...project.metadata, targetFormat: format } })
 }
 
-export function createRenderPlan(project: KinaouProject, preset: RenderPreset, outputRelativePath: string, options: { audioDucking?: AudioDuckingSettings } = {}): RenderPlan {
+export function createRenderPlan(project: KinaouProject, preset: RenderPreset, outputRelativePath: string, options: { audioDucking?: AudioDuckingSettings; loudnessNormalization?: LoudnessNormalizationSettings } = {}): RenderPlan {
   const safeOutput = assertSafeManagedPath(outputRelativePath)
   const preview = safeOutput.startsWith('KINAOU/Cache/Previews/')
   if (!preview && !safeOutput.startsWith('KINAOU/Renders/')) throw new Error('Render output must stay inside KINAOU/Renders or KINAOU/Cache/Previews')
@@ -160,7 +162,8 @@ export function createRenderPlan(project: KinaouProject, preset: RenderPreset, o
     durationMs,
     requiredCapabilities: ['filesystem', 'ffmpeg'],
     clips,
-    audioDucking: validateAudioDucking(options.audioDucking ?? defaultAudioDucking)
+    audioDucking: validateAudioDucking(options.audioDucking ?? defaultAudioDucking),
+    loudnessNormalization: validateLoudnessNormalization(options.loudnessNormalization ?? defaultLoudnessNormalization)
   }
 }
 
