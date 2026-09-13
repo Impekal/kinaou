@@ -99,6 +99,29 @@ describe('worker client', () => {
     await expect(incomplete.exportAvailability(['KINAOU/Renders/a.mp4'])).rejects.toThrow(/export availability response/)
   })
 
+  it('validates local publish package requests and responses', async () => {
+    const request = {
+      schemaVersion: 1 as const,
+      projectId: 'p1',
+      export: { schemaVersion: 1 as const, jobId: 'job-1', label: 'Final', outputRelativePath: 'KINAOU/Renders/final.mp4', format: 'landscape' as const, range: { inMs: 0, outMs: 5000 }, sceneIds: [], durationMs: 5000, completedAt: '2026-09-13T08:00:00.000Z' },
+      platform: 'generic' as const,
+      title: 'Final video',
+      description: '',
+      tags: ['kinaou']
+    }
+    const fetchImpl: typeof fetch = async (input, init) => {
+      expect(String(input)).toContain('/publish/packages')
+      expect(JSON.parse(String(init?.body))).toEqual(request)
+      return jsonResponse({ ok: true, type: 'publish-package', result: { path: 'KINAOU/Renders/final_generic_1.publish.json', sourcePath: 'KINAOU/Renders/final.mp4', platform: 'generic', createdAt: '2026-09-13T08:01:00.000Z', sizeBytes: 640 } }, 201)
+    }
+    const client = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl })
+    expect(await client.createPublishPackage(request)).toMatchObject({ platform: 'generic', sizeBytes: 640 })
+
+    await expect(client.createPublishPackage({ ...request, export: { ...request.export, outputRelativePath: 'KINAOU/Assets/final.mp4' } })).rejects.toThrow()
+    const invalid = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl: async () => jsonResponse({ ok: true, type: 'publish-package', result: { path: '../outside.json' } }) })
+    await expect(invalid.createPublishPackage(request)).rejects.toThrow()
+  })
+
   it('sends bearer auth and parses health/probe responses', async () => {
     const seen: Array<{ url: string; auth: string | null }> = []
     const fetchImpl: typeof fetch = async (input, init) => {

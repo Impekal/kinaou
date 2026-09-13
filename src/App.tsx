@@ -23,6 +23,7 @@ import { SceneVoiceoverPanel } from './components/SceneVoiceoverPanel'
 import { ScriptCaptionsPanel } from './components/ScriptCaptionsPanel'
 import { StoryboardAssemblyPanel } from './components/StoryboardAssemblyPanel'
 import { AiEditorPanel } from './components/AiEditorPanel'
+import { PublishPanel } from './components/PublishPanel'
 import { createProjectFromInput, type CreationInputKind } from './core/create'
 import { importProbedMedia, type ImportableMediaKind } from './core/mediaImport'
 import { ProjectRepository, StorageSettingsRepository } from './core/persistence'
@@ -177,6 +178,7 @@ export function App() {
         {section === 'Images' && (project ? <ImageStudioPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">Create or open a project first.</section>)}
         {section === 'Video' && (project ? <VideoStudioPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">Create or open a project first.</section>)}
         {section === 'Capture' && (project ? <CapturePanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">Create or open a project first.</section>)}
+        {section === 'Publish' && (project ? <PublishPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} /> : <section className="card emptyState">Create or open a project first.</section>)}
 
         {section === 'Studio' && <section className="stack">
           {!project ? <div className="card emptyState">Create or open a project first.</div> : <>
@@ -224,7 +226,7 @@ export function App() {
           <div className="card"><div className="eyebrow">MANAGED TARGETS</div><ul className="paths">{storageAreas.map((area) => <li key={area}><span>{area}</span><code>{storageTarget(storage, area)}</code></li>)}</ul><div className="note">{storage.backend === 'desktop-worker' ? 'External filesystem profile configured. Real media access is available when the local worker is running and authenticated.' : 'Browser mode stores project metadata locally. Heavy media should use the desktop worker / external SSD adapter.'}</div></div>
         </section>}
 
-        {!['Projects', 'Create', 'Director', 'Studio', 'Assets', 'Audio', 'Images', 'Video', 'Capture', 'Settings'].includes(section) && <section className="card emptyState"><div className="eyebrow">{section.toUpperCase()}</div><h2>Engine slot reserved</h2><p>This area is intentionally not presented as functional until its underlying engine exists.</p></section>}
+        {!['Projects', 'Create', 'Director', 'Studio', 'Assets', 'Audio', 'Images', 'Video', 'Capture', 'Publish', 'Settings'].includes(section) && <section className="card emptyState"><div className="eyebrow">{section.toUpperCase()}</div><h2>Engine slot reserved</h2><p>This area is intentionally not presented as functional until its underlying engine exists.</p></section>}
       </main>
     </div>
   )
