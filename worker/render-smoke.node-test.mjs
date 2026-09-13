@@ -147,6 +147,12 @@ test('the real FFmpeg compositor renders the formats it advertises', { timeout: 
       assert.ok(await regionLuma(contain, '1080:300:0:0') < 5, 'contain mode unexpectedly filled the top of the frame')
     })
 
+    await t.test('the same source renders as a real square adaptation', async () => {
+      const square = await render({ ...basePreset, width: 1080, height: 1080, fit: 'cover' }, 'KINAOU/Renders/square-cover.mp4', [visualClip(2000)])
+      assert.deepEqual(await dimensions(square), { width: 1080, height: 1080 })
+      assert.ok((await stat(square)).size > 0)
+    })
+
     await t.test('captions are really burnt into the picture', async () => {
       const plain = await render({ ...basePreset, width: 1280, height: 720 }, 'KINAOU/Renders/plain.mp4', [visualClip(2000, 'dark.mp4')])
       const captioned = await render({ ...basePreset, width: 1280, height: 720 }, 'KINAOU/Renders/captioned.mp4', [visualClip(2000, 'dark.mp4'), captionClip(2000, 'Hallo Welt')])

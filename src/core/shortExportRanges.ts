@@ -1,5 +1,5 @@
 import { touchProject, type KinaouProject } from './project'
-import type { TargetFormat } from './render'
+import { formatProfiles, type TargetFormat } from './render'
 import { renderOutputPath } from './renderUi'
 
 export interface ShortExportCandidate {
@@ -57,22 +57,25 @@ export function shortPreviewOutputPath(project: KinaouProject, candidate: ShortE
   return `KINAOU/Cache/Previews/${projectId}_${format}_${shortExportVariant(candidate)}.mp4`
 }
 
-export function planShortExportBatch(project: KinaouProject, candidates: ShortExportCandidate[], selectedIds: string[], format: TargetFormat, now = new Date()): ShortExportBatchItem[] {
+export function planShortExportBatch(project: KinaouProject, candidates: ShortExportCandidate[], selectedIds: string[], formats: TargetFormat[], now = new Date()): ShortExportBatchItem[] {
   const selected = new Set(selectedIds)
   if (!selected.size) throw new Error('Select at least one reviewed Short candidate.')
   const known = new Set(candidates.map((candidate) => candidate.id))
   const unknown = [...selected].find((id) => !known.has(id))
   if (unknown) throw new Error('A selected Short candidate is no longer available. Review the current ranges again.')
-  const items = candidates.filter((candidate) => selected.has(candidate.id)).map((candidate) => ({
-    id: candidate.id,
+  const uniqueFormats = [...new Set(formats)]
+  if (!uniqueFormats.length) throw new Error('Select at least one output format for the Short batch.')
+  if (uniqueFormats.some((format) => !Object.hasOwn(formatProfiles, format))) throw new Error('A selected Short output format is not supported.')
+  const items = candidates.filter((candidate) => selected.has(candidate.id)).flatMap((candidate) => uniqueFormats.map((format) => ({
+    id: `${candidate.id}:${format}`,
     title: candidate.titles.join(' + '),
-    sceneIds: candidate.sceneIds,
+    sceneIds: [...candidate.sceneIds],
     format,
     inMs: candidate.inMs,
     outMs: candidate.outMs,
     durationMs: candidate.durationMs,
     outputPath: renderOutputPath(project, now, `${format}-${shortExportVariant(candidate)}`)
-  }))
+  })))
   if (new Set(items.map((item) => item.outputPath)).size !== items.length) throw new Error('Selected Short candidates do not have unique export identities.')
   return items
 }
