@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { exportReceiptSchema } from '../src/core/exportHistory'
-import { buildPublishPackageRequest, parsePublishTags, publishPackageEntrySchema, publishPackageListSchema, publishPackageResultSchema } from '../src/core/publishPackage'
-import { createProject } from '../src/core/project'
+import { buildPublishPackageRequest, clearProjectPublishDefaults, parsePublishTags, projectPublishDefaults, publishPackageEntrySchema, publishPackageListSchema, publishPackageResultSchema, saveProjectPublishDefaults } from '../src/core/publishPackage'
+import { createProject, parseProject } from '../src/core/project'
 
 const receipt = exportReceiptSchema.parse({
   schemaVersion: 1,
@@ -72,5 +72,41 @@ describe('local publish packages', () => {
     expect(() => publishPackageEntrySchema.parse({ ...entry, document: { ...entry.document, kind: 'unknown' } })).toThrow()
     expect(() => publishPackageEntrySchema.parse({ ...entry, document: { ...entry.document, media: { ...entry.document.media, outputRelativePath: '../outside.mp4' } } })).toThrow()
     expect(() => publishPackageListSchema.parse(Array.from({ length: 201 }, () => entry))).toThrow()
+  })
+
+  it('persists normalized reusable publish defaults inside one project', () => {
+    const project = createProject('Demo', new Date('2026-09-13T09:00:00.000Z'))
+    const saved = saveProjectPublishDefaults(project, {
+      platform: 'instagram',
+      title: '  Repeatable title  ',
+      description: '  Repeatable description.  ',
+      tags: '#Local AI, Editing\nlocal ai'
+    }, new Date('2026-09-13T09:01:00.000Z'))
+    expect(projectPublishDefaults(saved)).toEqual({
+      schemaVersion: 1,
+      platform: 'instagram',
+      title: 'Repeatable title',
+      description: 'Repeatable description.',
+      tags: ['Local AI', 'Editing'],
+      updatedAt: '2026-09-13T09:01:00.000Z'
+    })
+    expect(saved.updatedAt).toBe('2026-09-13T09:01:00.000Z')
+    expect(project.metadata.publishDefaults).toBeUndefined()
+    expect(projectPublishDefaults(parseProject(JSON.parse(JSON.stringify(saved))))).toEqual(projectPublishDefaults(saved))
+    expect(projectPublishDefaults(createProject('Another project'))).toBeNull()
+
+    const unchanged = saveProjectPublishDefaults(saved, { platform: 'instagram', title: 'Repeatable title', description: 'Repeatable description.', tags: 'Local AI, Editing' }, new Date('2026-09-13T10:00:00.000Z'))
+    expect(unchanged).toBe(saved)
+  })
+
+  it('ignores malformed defaults and clears stored defaults without touching form data', () => {
+    const project = createProject('Demo', new Date('2026-09-13T09:00:00.000Z'))
+    const malformed = { ...project, metadata: { publishDefaults: { platform: 'cloud' } } }
+    expect(projectPublishDefaults(malformed)).toBeNull()
+    const cleared = clearProjectPublishDefaults(malformed, new Date('2026-09-13T09:02:00.000Z'))
+    expect(cleared.metadata.publishDefaults).toBeUndefined()
+    expect(cleared.title).toBe(project.title)
+    expect(cleared.updatedAt).toBe('2026-09-13T09:02:00.000Z')
+    expect(clearProjectPublishDefaults(project)).toBe(project)
   })
 })

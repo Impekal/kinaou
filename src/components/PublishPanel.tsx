@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { projectExportHistory } from '../core/exportHistory'
-import { buildPublishPackageRequest, publishTargetLabels, type PublishPackageEntry, type PublishPackageResult, type PublishTarget } from '../core/publishPackage'
+import { buildPublishPackageRequest, clearProjectPublishDefaults, projectPublishDefaults, publishTargetLabels, saveProjectPublishDefaults, type PublishPackageEntry, type PublishPackageResult, type PublishTarget } from '../core/publishPackage'
 import type { KinaouProject } from '../core/project'
 import { WorkerClient } from '../core/workerClient'
 
@@ -10,15 +10,17 @@ interface PublishPanelProps {
   workerToken: string
   workerConnected: boolean
   workerCapabilities: string[]
+  onProjectChange: (project: KinaouProject) => void
 }
 
-export function PublishPanel({ project, workerUrl, workerToken, workerConnected, workerCapabilities }: PublishPanelProps) {
+export function PublishPanel({ project, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange }: PublishPanelProps) {
   const receipts = useMemo(() => projectExportHistory(project), [project])
+  const savedDefaults = projectPublishDefaults(project)
   const [selectedJobId, setSelectedJobId] = useState(() => receipts[0]?.jobId ?? '')
-  const [platform, setPlatform] = useState<PublishTarget>('youtube')
-  const [title, setTitle] = useState(project.title)
-  const [description, setDescription] = useState('')
-  const [tags, setTags] = useState('')
+  const [platform, setPlatform] = useState<PublishTarget>(() => savedDefaults?.platform ?? 'youtube')
+  const [title, setTitle] = useState(() => savedDefaults?.title ?? project.title)
+  const [description, setDescription] = useState(() => savedDefaults?.description ?? '')
+  const [tags, setTags] = useState(() => savedDefaults?.tags.join(', ') ?? '')
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<PublishPackageResult | null>(null)
   const [error, setError] = useState('')
@@ -26,21 +28,53 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
   const [listBusy, setListBusy] = useState(false)
   const [listError, setListError] = useState('')
   const [libraryMessage, setLibraryMessage] = useState('')
+  const [defaultsMessage, setDefaultsMessage] = useState('')
   const selected = receipts.find((receipt) => receipt.jobId === selectedJobId) ?? receipts[0]
   const packageSupported = workerCapabilities.includes('publish-package')
   const librarySupported = workerCapabilities.includes('publish-package-library')
 
   useEffect(() => {
+    const defaults = projectPublishDefaults(project)
     setSelectedJobId(receipts[0]?.jobId ?? '')
-    setTitle(project.title)
-    setDescription('')
-    setTags('')
+    setPlatform(defaults?.platform ?? 'youtube')
+    setTitle(defaults?.title ?? project.title)
+    setDescription(defaults?.description ?? '')
+    setTags(defaults?.tags.join(', ') ?? '')
     setResult(null)
     setError('')
     setPackages(null)
     setListError('')
     setLibraryMessage('')
+    setDefaultsMessage('')
   }, [project.id])
+
+  function useSavedDefaults() {
+    if (!savedDefaults) return
+    setPlatform(savedDefaults.platform)
+    setTitle(savedDefaults.title)
+    setDescription(savedDefaults.description)
+    setTags(savedDefaults.tags.join(', '))
+    setResult(null)
+    setError('')
+    setDefaultsMessage('Saved project defaults loaded into the form.')
+  }
+
+  function saveDefaults() {
+    try {
+      const next = saveProjectPublishDefaults(project, { platform, title, description, tags })
+      onProjectChange(next)
+      setError('')
+      setDefaultsMessage(next === project ? 'These values are already the saved project defaults.' : 'Current publish metadata saved with this project.')
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not save publish defaults')
+    }
+  }
+
+  function clearDefaults() {
+    const next = clearProjectPublishDefaults(project)
+    onProjectChange(next)
+    setDefaultsMessage('Saved project defaults cleared. The current form was kept.')
+  }
 
   async function refreshPackages(client = new WorkerClient({ baseUrl: workerUrl, token: workerToken })) {
     if (!workerConnected || !librarySupported || !workerToken.trim() || listBusy) return
@@ -107,6 +141,9 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
           <label>Title<input maxLength={200} value={title} disabled={busy} onChange={(event) => { setTitle(event.target.value); setResult(null) }} /></label>
           <label>Description<textarea maxLength={5000} value={description} disabled={busy} onChange={(event) => { setDescription(event.target.value); setResult(null) }} /></label>
           <label>Tags, comma or line separated<input value={tags} disabled={busy} placeholder="tutorial, local AI, editing" onChange={(event) => { setTags(event.target.value); setResult(null) }} /></label>
+          <div className="publishDefaultActions"><button className="secondaryButton" disabled={busy || !title.trim()} onClick={saveDefaults}>Save as project defaults</button>{savedDefaults && <><button className="secondaryButton" disabled={busy} onClick={useSavedDefaults}>Use saved defaults</button><button className="secondaryButton" disabled={busy} onClick={clearDefaults}>Clear saved defaults</button></>}</div>
+          {savedDefaults && <small>Saved for this project · {publishTargetLabels[savedDefaults.platform]} · updated {new Date(savedDefaults.updatedAt).toLocaleString()}</small>}
+          {defaultsMessage && <div className="note">{defaultsMessage}</div>}
           <button className="primary" disabled={!selected || !workerConnected || !packageSupported || !workerToken.trim() || !title.trim() || busy} onClick={createPackage}>{busy ? 'Checking export and writing…' : 'Create local publish package'}</button>
           {!workerConnected && <small>Connect the local worker in Settings first.</small>}
           {workerConnected && !packageSupported && <small>Restart the local worker from this KINAOU build, reconnect, then try again.</small>}
