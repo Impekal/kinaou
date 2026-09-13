@@ -53,7 +53,7 @@ describe('clip motion', () => {
 
   it('uses the whole canvas when the format crops to cover', () => {
     const graph = graphFor(project({}, { motion: 'zoom-in' }), { ...formatProfiles.landscape.export, width: 640, height: 640, fit: 'cover' })
-    expect(graph).toContain('force_original_aspect_ratio=increase,crop=640:640,zoompan=')
+    expect(graph).toContain('force_original_aspect_ratio=increase,crop=640:640:(iw-640)*0.5:(ih-640)*0.5,zoompan=')
     expect(graph).toContain(':d=90:s=640x640:fps=30')
   })
 

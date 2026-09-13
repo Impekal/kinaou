@@ -23,7 +23,7 @@ Core filesystem/media (advertised honestly per detected tool — `ffmpeg`/`media
 - `POST /assets/availability` — per-path real file presence inside the managed root, so the PWA can mark assets OFFLINE after drive disconnect/reconnect and verify that recorded export MP4s still exist without modifying them.
 - `POST /assets/proxy` / `POST /assets/thumbnail` / `POST /assets/waveform` — deterministic managed derivatives under `KINAOU/Cache`.
 - `GET /media?path=…` — authenticated streaming of managed originals and generated previews.
-- `POST /render`, `GET /render/jobs/:id`, cancel — the real multi-track FFmpeg compositor: visual layering by track order, audio mixing, caption burn-in, transforms, dissolves, fades and 0.25–4× retiming, for full exports to `KINAOU/Renders` and 540p previews to `KINAOU/Cache/Previews`.
+- `POST /render`, `GET /render/jobs/:id`, cancel — the real multi-track FFmpeg compositor: visual layering by track order, audio mixing, caption burn-in, transforms, dissolves, fades, 0.25–4× retiming, and normalized per-format crop focus (`format-reframing` capability), for full exports to `KINAOU/Renders` and format-matched previews to `KINAOU/Cache/Previews`.
 - `POST /projects/save` / `GET /projects/backups` / `POST /projects/restore` — durable project JSON backups under `KINAOU/Projects` (atomic writes, strict ids, size-bounded).
 
 Local AI adapters (all loopback-only, nothing downloaded by KINAOU):

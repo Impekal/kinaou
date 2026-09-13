@@ -105,7 +105,7 @@ const server = http.createServer(async (request, response) => {
           name: 'KINAOU Mac Worker',
           platform: process.platform,
           version: VERSION,
-          capabilities: ['filesystem', 'asset-upload', 'publish-package', 'publish-package-library', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe'] : []), ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(PIPER_CLI && piperVoices.length && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : [])],
+          capabilities: ['filesystem', 'asset-upload', 'publish-package', 'publish-package-library', 'format-reframing', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe'] : []), ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(PIPER_CLI && piperVoices.length && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : [])],
           managedRoots: [MANAGED_ROOT],
           ffmpegVersion: versions.ffmpeg,
           ffprobeVersion: versions.ffprobe
@@ -661,6 +661,8 @@ function validateRenderPlan(plan) {
   if (!Number.isFinite(plan.durationMs) || plan.durationMs <= 0) throw new Error('Invalid render duration')
   if (!plan.preset || !Number.isFinite(plan.preset.width) || plan.preset.width <= 0 || !Number.isFinite(plan.preset.height) || plan.preset.height <= 0 || !Number.isFinite(plan.preset.fps) || plan.preset.fps <= 0) throw new Error('Invalid render preset')
   if (plan.preset.fit !== undefined && plan.preset.fit !== 'contain' && plan.preset.fit !== 'cover') throw new Error('Invalid render preset fit mode')
+  if ([plan.preset.focusX, plan.preset.focusY].some((value) => value !== undefined && (!Number.isFinite(value) || value < 0 || value > 1))) throw new Error('Invalid render preset focus')
+  if ((plan.preset.focusX !== undefined || plan.preset.focusY !== undefined) && plan.preset.fit !== 'cover') throw new Error('Render preset focus requires cover fit')
   if (plan.audioDucking !== undefined && (typeof plan.audioDucking !== 'object' || typeof plan.audioDucking.enabled !== 'boolean' || !Number.isFinite(plan.audioDucking.reductionDb) || plan.audioDucking.reductionDb < 0 || plan.audioDucking.reductionDb > 40 || !Number.isInteger(plan.audioDucking.attackMs) || plan.audioDucking.attackMs < 0 || plan.audioDucking.attackMs > 5000 || !Number.isInteger(plan.audioDucking.releaseMs) || plan.audioDucking.releaseMs < 0 || plan.audioDucking.releaseMs > 5000)) throw new Error('Invalid music ducking settings')
   if (plan.loudnessNormalization !== undefined && (typeof plan.loudnessNormalization !== 'object' || typeof plan.loudnessNormalization.enabled !== 'boolean' || !Number.isFinite(plan.loudnessNormalization.targetLufs) || plan.loudnessNormalization.targetLufs < -70 || plan.loudnessNormalization.targetLufs > -5 || !Number.isFinite(plan.loudnessNormalization.truePeakDb) || plan.loudnessNormalization.truePeakDb < -9 || plan.loudnessNormalization.truePeakDb > 0 || !Number.isFinite(plan.loudnessNormalization.loudnessRange) || plan.loudnessNormalization.loudnessRange < 1 || plan.loudnessNormalization.loudnessRange > 50)) throw new Error('Invalid loudness normalization settings')
   requireRenderRelativePath(plan.outputRelativePath)
@@ -833,10 +835,12 @@ function buildCompositeArgs(plan, mediaClips, inputPaths, outputPath, subtitlePa
 
   const width = plan.preset.width
   const height = plan.preset.height
-  // contain letterboxes the whole frame; cover fills the canvas and centre-crops
-  // the overflow, which is what vertical/square platform formats expect.
+  const focusX = plan.preset.focusX ?? 0.5
+  const focusY = plan.preset.focusY ?? 0.5
+  // contain letterboxes the whole frame; cover fills the canvas and crops the
+  // overflow at the selected format-specific normalized focus point.
   const fitFilter = plan.preset.fit === 'cover'
-    ? `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}`
+    ? `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}:(iw-${width})*${focusX}:(ih-${height})*${focusY}`
     : `scale=${width}:${height}:force_original_aspect_ratio=decrease`
   // A still scene can drift slowly instead of sitting perfectly still. zoompan needs a
   // fixed output size: cover already fills the canvas, while contain must render into

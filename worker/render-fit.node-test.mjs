@@ -59,7 +59,7 @@ test('both compositor implementations apply the same optional master loudness fi
   assert.match(worker[0], /loudnorm=I=/)
 })
 
-test('the worker rejects a render plan with an unknown fit mode', async () => {
+test('the worker accepts bounded cover focus and rejects malformed reframing', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'kinaou-fit-test-'))
   const managedRoot = path.join(root, 'KINAOU')
   await mkdir(managedRoot, { recursive: true })
@@ -109,8 +109,21 @@ test('the worker rejects a render plan with an unknown fit mode', async () => {
     assert.equal(bad.status, 400)
     assert.match(bad.payload.error.message, /fit mode/)
 
-    // cover and an absent fit are both legitimate and get past validation
-    for (const preset of [{ ...basePreset, fit: 'cover' }, basePreset]) {
+    for (const preset of [
+      { ...basePreset, fit: 'cover', focusX: -0.01, focusY: 0.5 },
+      { ...basePreset, fit: 'cover', focusX: 0.5, focusY: 1.01 }
+    ]) {
+      const invalidFocus = await send(preset)
+      assert.equal(invalidFocus.status, 400)
+      assert.match(invalidFocus.payload.error.message, /preset focus/)
+    }
+
+    const containFocus = await send({ ...basePreset, fit: 'contain', focusX: 0.5, focusY: 0.5 })
+    assert.equal(containFocus.status, 400)
+    assert.match(containFocus.payload.error.message, /requires cover/)
+
+    // Bounded off-centre cover, centred cover and an absent fit all get past validation.
+    for (const preset of [{ ...basePreset, fit: 'cover', focusX: 0, focusY: 1 }, { ...basePreset, fit: 'cover' }, basePreset]) {
       const accepted = await send(preset)
       assert.equal(accepted.status, 202, `expected the plan to be accepted, got ${JSON.stringify(accepted.payload)}`)
     }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { createTimelinePreviewPlan } from '../core/render'
+import { createTimelinePreviewPlan, formatReframingRequiresWorker, projectTargetFormat } from '../core/render'
 import type { RenderJobRecord } from '../core/renderJobs'
 import { renderReadiness } from '../core/renderUi'
 import type { KinaouProject } from '../core/project'
@@ -7,8 +7,9 @@ import { WorkerClient } from '../core/workerClient'
 
 const terminal = new Set(['succeeded', 'failed', 'cancelled'])
 
-export function TimelinePreview({ project, workerUrl, workerToken, workerConnected }: { project: KinaouProject; workerUrl: string; workerToken: string; workerConnected: boolean }) {
+export function TimelinePreview({ project, workerUrl, workerToken, workerConnected, workerCapabilities }: { project: KinaouProject; workerUrl: string; workerToken: string; workerConnected: boolean; workerCapabilities: string[] }) {
   const readiness = useMemo(() => renderReadiness(project), [project])
+  const reframingBlocked = formatReframingRequiresWorker(project, projectTargetFormat(project)) && !workerCapabilities.includes('format-reframing')
   const plan = useMemo(() => {
     if (!readiness.ready) return null
     try {
@@ -44,7 +45,7 @@ export function TimelinePreview({ project, workerUrl, workerToken, workerConnect
   useEffect(() => () => { if (url) URL.revokeObjectURL(url) }, [url])
 
   async function renderPreview() {
-    if (!plan) return
+    if (!plan || reframingBlocked) return
     setError(''); setUrl(''); setCurrentTime(0)
     try { setJob(await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).startRender(plan)) }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not start preview') }
@@ -53,9 +54,10 @@ export function TimelinePreview({ project, workerUrl, workerToken, workerConnect
   const busy = job && !terminal.has(job.state)
   const durationSeconds = (plan?.durationMs ?? 0) / 1000
   return <section className="card timelinePreview">
-    <div className="sectionLead"><div><div className="eyebrow">COMPOSED PREVIEW</div><h3>Timeline preview</h3><p>Renders the actual timeline at 960×540 into managed cache. Export still uses original media and the full preset.</p></div><button className="secondaryButton" disabled={!readiness.ready || !plan || !workerConnected || Boolean(busy)} onClick={renderPreview}>{busy ? `Rendering ${Math.round((job?.progress ?? 0) * 100)}%` : url ? 'Refresh preview' : 'Render preview'}</button></div>
+    <div className="sectionLead"><div><div className="eyebrow">COMPOSED PREVIEW</div><h3>Timeline preview</h3><p>Renders the actual timeline in the project's output shape and framing into managed cache. Export still uses original media and the full preset.</p></div><button className="secondaryButton" disabled={!readiness.ready || !plan || !workerConnected || Boolean(busy) || reframingBlocked} onClick={renderPreview}>{busy ? `Rendering ${Math.round((job?.progress ?? 0) * 100)}%` : url ? 'Refresh preview' : 'Render preview'}</button></div>
     {!readiness.ready && <div className="warning">{readiness.reason}</div>}
     {readiness.ready && !plan && <div className="warning">The current timeline cannot be turned into a render plan. Undo the last timeline change or adjust the affected clip.</div>}
+    {workerConnected && reframingBlocked && <div className="warning">Restart the local worker to preview the selected off-centre crop.</div>}
     {job?.error && <div className="errorBox">{job.error}</div>}{error && <div className="errorBox">{error}</div>}
     {url && <><video ref={videoRef} className="proxyVideo" src={url} controls preload="metadata" onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)} /><label>Playhead {currentTime.toFixed(2)}s<input type="range" min="0" max={durationSeconds} step="0.01" value={currentTime} onChange={(event) => { const value = Number(event.target.value); setCurrentTime(value); if (videoRef.current) videoRef.current.currentTime = value }} /></label></>}
   </section>
