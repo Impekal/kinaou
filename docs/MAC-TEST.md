@@ -54,7 +54,7 @@ node worker/mac-worker.mjs
 
 The worker prints a one-time token (or set `KINAOU_WORKER_TOKEN` yourself). In the PWA: **Settings → Local worker** → URL `http://127.0.0.1:43117`, paste the token, **Test connection**.
 
-**Expect:** capability chips `filesystem, ffmpeg, media-probe, asset-upload, media-proxy, media-thumbnail, media-waveform`, plus `screen-capture` (macOS) and `web-capture` if Chrome/Chromium/Firefox is installed. AI chips (`local-llm`, `speech-to-text`, `text-to-speech`, `image-generation`, `video-generation`) appear only when their runtime is installed — their absence is correct, not a bug.
+**Expect:** capability chips `filesystem, publish-package, ffmpeg, media-probe, asset-upload, media-proxy, media-thumbnail, media-waveform`, plus `screen-capture` (macOS) and `web-capture` if Chrome/Chromium/Firefox is installed. AI chips (`local-llm`, `speech-to-text`, `text-to-speech`, `image-generation`, `video-generation`) appear only when their runtime is installed — their absence is correct, not a bug.
 
 ## Stage 2 — Core media path (no AI needed)
 
@@ -91,7 +91,7 @@ Needs any installed Chrome, Chromium or Firefox (or point `KINAOU_CHROMIUM`/`KIN
 
 ## Stage 6 — The full loop
 
-Project "How to use X" → Director plan → Media plan (either mode) → storyboard fulfillment check → **Studio → Assemble the fulfilled scenes** → **Narrate the scenes** (needs Piper) → **Write captions from the script** → pick the output format → **Start render**. That is the complete Discover → Direct → Generate → Edit → Adapt → Export path on real hardware, without placing a single asset by hand.
+Project "How to use X" → Director plan → Media plan (either mode) → storyboard fulfillment check → **Studio → Assemble the fulfilled scenes** → **Narrate the scenes** (needs Piper) → **Write captions from the script** → pick the output format → **Start render** → **Publish → Create local publish package**. That is the complete Discover → Direct → Generate → Edit → Adapt → Export → local handoff path on real hardware, without placing a single asset by hand or uploading anything.
 
 What to check along the way:
 
@@ -100,6 +100,7 @@ What to check along the way:
 3. **Format** (Landscape / Vertical / Square) belongs to the project: switching it also switches the composed preview, and the choice survives a reload. Render a vertical variant and confirm wide captures are centre-cropped to fill the 9:16 frame rather than letterboxed.
 4. **Narration** (only with Piper installed) speaks each scene description and places it under that scene on the voice track. A voice that runs longer than its scene is flagged as an overrun rather than cut, and **Fit the scenes to the narration** then lengthens exactly those visuals until each covers its own voice, moving everything after them by the same amount so the cross-dissolves keep their width. Footage with no frames left to give is extended as far as it goes and says why it stopped. A second run skips narrated scenes.
 5. Each of these actions writes an automatic version first, so restoring "Before assembling scenes on the timeline", "Before generating scene narration" or "Before writing captions from the script" undoes that whole batch.
+6. **Publish** lists only recorded successful exports. Choose the new MP4, enter reviewed metadata and create a local package. Expect a new uniquely named `*.publish.json` beside the MP4 in `KINAOU/Renders`; its media path/range/format must match the export and the MP4 must remain unchanged. Nothing is sent to the selected platform.
 
 The complete loop was rehearsed in the development sandbox against the real worker: two captures → assembly with alternating zoom and a 0.5s cross-dissolve → narration per scene → captions → vertical format → a rendered 1080×1920 MP4 of 13.5s with an audio track. Your Mac run verifies the same path on real hardware with a real Piper voice.
 
