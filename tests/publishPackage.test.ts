@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { exportReceiptSchema } from '../src/core/exportHistory'
-import { buildPublishPackageRequest, clearProjectPublishDefaults, parsePublishTags, projectPublishDefaults, publishPackageEntrySchema, publishPackageListSchema, publishPackageResultSchema, saveProjectPublishDefaults } from '../src/core/publishPackage'
+import { buildPublishPackageRequest, clearProjectPublishDefaults, parsePublishPreflightResult, parsePublishTags, projectPublishDefaults, publishFormatDimensions, publishPackageEntrySchema, publishPackageListSchema, publishPackageResultSchema, publishPreflightMatchesReceipt, saveProjectPublishDefaults } from '../src/core/publishPackage'
 import { createProject, parseProject } from '../src/core/project'
 
 const receipt = exportReceiptSchema.parse({
@@ -17,6 +17,10 @@ const receipt = exportReceiptSchema.parse({
 })
 
 describe('local publish packages', () => {
+  it('derives preflight dimensions from the real full-quality render profiles', () => {
+    expect(publishFormatDimensions).toEqual({ landscape: { width: 1920, height: 1080 }, vertical: { width: 1080, height: 1920 }, square: { width: 1080, height: 1080 } })
+  })
+
   it('builds a bounded attributable request from a real export receipt', () => {
     const project = { ...createProject('Demo'), id: 'project-1' }
     const request = buildPublishPackageRequest(project, receipt, {
@@ -47,6 +51,29 @@ describe('local publish packages', () => {
     expect(publishPackageResultSchema.parse({ path: 'KINAOU/Renders/demo_youtube_1.publish.json', sourcePath: receipt.outputRelativePath, platform: 'youtube', createdAt: '2026-09-13T08:01:00.000Z', sizeBytes: 512 }).sizeBytes).toBe(512)
     expect(() => publishPackageResultSchema.parse({ path: 'KINAOU/Assets/demo.publish.json', sourcePath: receipt.outputRelativePath, platform: 'youtube', createdAt: '2026-09-13T08:01:00.000Z', sizeBytes: 512 })).toThrow()
     expect(() => publishPackageResultSchema.parse({ path: 'KINAOU/Renders/demo.publish.json', sourcePath: receipt.outputRelativePath, platform: 'youtube', createdAt: '2026-09-13T08:01:00.000Z', sizeBytes: 0 })).toThrow()
+  })
+
+  it('accepts only internally consistent preflight results for the selected receipt', () => {
+    const result = {
+      schemaVersion: 1 as const,
+      sourcePath: receipt.outputRelativePath,
+      checkedAt: '2026-09-13T08:01:00.000Z',
+      ready: true,
+      durationToleranceMs: 250 as const,
+      expected: { jobId: receipt.jobId, format: 'vertical' as const, width: 1080, height: 1920, durationMs: 8000, sizeBytes: 1234 },
+      actual: { width: 1080, height: 1920, durationMs: 8050, sizeBytes: 1234, videoCodec: 'h264', audioCodec: 'aac' },
+      checks: { size: true, videoStream: true, dimensions: true, duration: true }
+    }
+    expect(parsePublishPreflightResult(result, receipt)).toEqual(result)
+    expect(publishPreflightMatchesReceipt(parsePublishPreflightResult(result, receipt), receipt)).toBe(true)
+    expect(publishPreflightMatchesReceipt(null, undefined)).toBe(false)
+    expect(publishPreflightMatchesReceipt(parsePublishPreflightResult(result, receipt), { ...receipt, jobId: 'another-job' })).toBe(false)
+    expect(() => parsePublishPreflightResult({ ...result, actual: { ...result.actual, width: 1920 } }, receipt)).toThrow(/inconsistent/)
+    expect(() => parsePublishPreflightResult({ ...result, ready: false }, receipt)).toThrow(/inconsistent/)
+    expect(() => parsePublishPreflightResult(result, { ...receipt, durationMs: 7000 })).toThrow(/does not match/)
+
+    const noVideo = { ...result, ready: false, actual: { sizeBytes: 1234, durationMs: 8050 }, checks: { size: true, videoStream: false, dimensions: false, duration: true } }
+    expect(parsePublishPreflightResult(noVideo, receipt).ready).toBe(false)
   })
 
   it('validates reopened package documents and their live source status', () => {

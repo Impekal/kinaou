@@ -56,10 +56,9 @@ test('health omits FFmpeg-backed capabilities when ffmpeg and ffprobe are missin
     const handshake = await worker.health()
     assert.ok(handshake.capabilities.includes('filesystem'))
     assert.ok(handshake.capabilities.includes('asset-upload'))
-    assert.ok(handshake.capabilities.includes('publish-package'))
     assert.ok(handshake.capabilities.includes('publish-package-library'))
     assert.ok(handshake.capabilities.includes('format-reframing'))
-    for (const dishonest of ['ffmpeg', 'media-probe', 'media-proxy', 'media-thumbnail', 'media-waveform']) {
+    for (const dishonest of ['ffmpeg', 'media-probe', 'media-proxy', 'media-thumbnail', 'media-waveform', 'publish-preflight', 'publish-package']) {
       assert.ok(!handshake.capabilities.includes(dishonest), `capability ${dishonest} must not be advertised without FFmpeg`)
     }
     assert.equal(handshake.ffmpegVersion, undefined)
@@ -81,7 +80,7 @@ test('health advertises FFmpeg-backed capabilities when ffmpeg and ffprobe respo
   const worker = await startWorker(binDir, 43912)
   try {
     const handshake = await worker.health()
-    for (const capability of ['filesystem', 'asset-upload', 'publish-package', 'publish-package-library', 'format-reframing', 'ffmpeg', 'media-probe', 'media-proxy', 'media-thumbnail', 'media-waveform']) {
+    for (const capability of ['filesystem', 'asset-upload', 'publish-package', 'publish-package-library', 'publish-preflight', 'format-reframing', 'ffmpeg', 'media-probe', 'media-proxy', 'media-thumbnail', 'media-waveform']) {
       assert.ok(handshake.capabilities.includes(capability), `capability ${capability} must be advertised with FFmpeg present`)
     }
     assert.equal(handshake.ffmpegVersion, 'ffmpeg version 7.0-kinaou-test')
