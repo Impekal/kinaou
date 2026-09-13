@@ -39,7 +39,7 @@ export const publishPackageRequestSchema = z.object({
   tags: publishTagsSchema
 })
 
-const managedPublishPathSchema = z.string().min(1).max(700).refine((value) => {
+export const managedPublishPathSchema = z.string().min(1).max(700).refine((value) => {
   try {
     return assertSafeManagedPath(value) === value && value.startsWith('KINAOU/Renders/') && value.endsWith('.publish.json')
   } catch {
@@ -48,12 +48,23 @@ const managedPublishPathSchema = z.string().min(1).max(700).refine((value) => {
 }, 'Publish package must be a canonical managed JSON file under KINAOU/Renders')
 
 export const publishPackageResultSchema = z.object({
+  schemaVersion: z.literal(2),
   path: managedPublishPathSchema,
   sourcePath: managedRenderPathSchema,
   platform: publishTargetSchema,
   createdAt: z.string().datetime(),
-  sizeBytes: z.number().int().positive()
-})
+  sizeBytes: z.number().int().positive(),
+  sourceSha256: z.string().regex(/^[a-f0-9]{64}$/)
+}).strict()
+
+const publishActualMediaFactsSchema = z.object({
+  sizeBytes: z.number().int().positive(),
+  durationMs: z.number().int().nonnegative().optional(),
+  width: z.number().int().positive().optional(),
+  height: z.number().int().positive().optional(),
+  videoCodec: z.string().trim().min(1).max(100).optional(),
+  audioCodec: z.string().trim().min(1).max(100).optional()
+}).strict()
 
 export const publishPreflightResultSchema = z.object({
   schemaVersion: z.literal(1),
@@ -69,14 +80,7 @@ export const publishPreflightResultSchema = z.object({
     durationMs: z.number().int().positive(),
     sizeBytes: z.number().int().nonnegative().optional()
   }).strict(),
-  actual: z.object({
-    sizeBytes: z.number().int().positive(),
-    durationMs: z.number().int().nonnegative().optional(),
-    width: z.number().int().positive().optional(),
-    height: z.number().int().positive().optional(),
-    videoCodec: z.string().trim().min(1).max(100).optional(),
-    audioCodec: z.string().trim().min(1).max(100).optional()
-  }).strict(),
+  actual: publishActualMediaFactsSchema,
   checks: z.object({
     size: z.boolean(),
     videoStream: z.boolean(),
@@ -98,8 +102,7 @@ export const publishPreflightResultSchema = z.object({
   if (result.ready !== Object.values(checks).every(Boolean)) context.addIssue({ code: 'custom', path: ['ready'], message: 'Publish preflight readiness is inconsistent with its checks' })
 })
 
-export const publishPackageDocumentSchema = z.object({
-  schemaVersion: z.literal(1),
+const publishPackageBaseSchema = z.object({
   kind: z.literal('kinaou-publish-package'),
   createdAt: z.string().datetime(),
   projectId: publishProjectIdSchema,
@@ -110,6 +113,27 @@ export const publishPackageDocumentSchema = z.object({
   media: exportReceiptSchema.extend({ sizeBytes: z.number().int().positive() })
 })
 
+const publishPackageDocumentV1Schema = publishPackageBaseSchema.extend({
+  schemaVersion: z.literal(1),
+}).strict()
+
+export const publishPackageIntegrityFactsSchema = z.object({
+  checkedAt: z.string().datetime(),
+  actual: publishActualMediaFactsSchema,
+  sha256: z.string().regex(/^[a-f0-9]{64}$/)
+}).strict().superRefine((facts, context) => {
+  if (facts.actual.sizeBytes <= 0) context.addIssue({ code: 'custom', path: ['actual', 'sizeBytes'], message: 'Publish integrity size must be positive' })
+})
+
+const publishPackageDocumentV2Schema = publishPackageBaseSchema.extend({
+  schemaVersion: z.literal(2),
+  integrity: publishPackageIntegrityFactsSchema
+}).strict().superRefine((document, context) => {
+  if (document.integrity.actual.sizeBytes !== document.media.sizeBytes) context.addIssue({ code: 'custom', path: ['integrity', 'actual', 'sizeBytes'], message: 'Publish integrity size must match the media receipt' })
+})
+
+export const publishPackageDocumentSchema = z.union([publishPackageDocumentV1Schema, publishPackageDocumentV2Schema])
+
 export const publishPackageEntrySchema = z.object({
   path: managedPublishPathSchema,
   sizeBytes: z.number().int().positive(),
@@ -119,6 +143,29 @@ export const publishPackageEntrySchema = z.object({
 })
 
 export const publishPackageListSchema = z.array(publishPackageEntrySchema).max(200)
+
+export const publishIntegrityRequestSchema = z.object({ path: managedPublishPathSchema }).strict()
+
+export const publishIntegrityResultSchema = z.object({
+  schemaVersion: z.literal(1),
+  packagePath: managedPublishPathSchema,
+  sourcePath: managedRenderPathSchema,
+  checkedAt: z.string().datetime(),
+  status: z.enum(['unchanged', 'modified', 'missing', 'unverifiable']),
+  expectedSha256: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+  actualSha256: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+  sizeBytes: z.number().int().positive().optional()
+}).strict().superRefine((result, context) => {
+  if (result.status === 'unchanged') {
+    if (!result.expectedSha256 || result.actualSha256 !== result.expectedSha256 || !result.sizeBytes) context.addIssue({ code: 'custom', message: 'Unchanged publish integrity result is incomplete or inconsistent' })
+  } else if (result.status === 'modified') {
+    if (!result.expectedSha256 || !result.sizeBytes || (result.actualSha256 && result.actualSha256 === result.expectedSha256)) context.addIssue({ code: 'custom', message: 'Modified publish integrity result is incomplete or inconsistent' })
+  } else if (result.status === 'missing') {
+    if (result.actualSha256 || result.sizeBytes) context.addIssue({ code: 'custom', message: 'Missing publish integrity result cannot include current file facts' })
+  } else if (result.expectedSha256 || result.actualSha256 || result.sizeBytes) {
+    context.addIssue({ code: 'custom', message: 'Legacy publish package cannot include integrity facts' })
+  }
+})
 
 export const projectPublishDefaultsSchema = z.object({
   schemaVersion: z.literal(1),
@@ -134,6 +181,7 @@ export type PublishPackageResult = z.infer<typeof publishPackageResultSchema>
 export type PublishPreflightResult = z.infer<typeof publishPreflightResultSchema>
 export type PublishPackageDocument = z.infer<typeof publishPackageDocumentSchema>
 export type PublishPackageEntry = z.infer<typeof publishPackageEntrySchema>
+export type PublishIntegrityResult = z.infer<typeof publishIntegrityResultSchema>
 export type ProjectPublishDefaults = z.infer<typeof projectPublishDefaultsSchema>
 
 export function parsePublishTags(input: string): string[] {

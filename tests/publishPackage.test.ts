@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { exportReceiptSchema } from '../src/core/exportHistory'
-import { buildPublishPackageRequest, clearProjectPublishDefaults, parsePublishPreflightResult, parsePublishTags, projectPublishDefaults, publishFormatDimensions, publishPackageEntrySchema, publishPackageListSchema, publishPackageResultSchema, publishPreflightMatchesReceipt, saveProjectPublishDefaults } from '../src/core/publishPackage'
+import { buildPublishPackageRequest, clearProjectPublishDefaults, parsePublishPreflightResult, parsePublishTags, projectPublishDefaults, publishFormatDimensions, publishIntegrityResultSchema, publishPackageEntrySchema, publishPackageListSchema, publishPackageResultSchema, publishPreflightMatchesReceipt, saveProjectPublishDefaults } from '../src/core/publishPackage'
 import { createProject, parseProject } from '../src/core/project'
 
 const receipt = exportReceiptSchema.parse({
@@ -15,6 +15,7 @@ const receipt = exportReceiptSchema.parse({
   sizeBytes: 1234,
   completedAt: '2026-09-13T08:00:00.000Z'
 })
+const digest = 'a'.repeat(64)
 
 describe('local publish packages', () => {
   it('derives preflight dimensions from the real full-quality render profiles', () => {
@@ -48,9 +49,11 @@ describe('local publish packages', () => {
   })
 
   it('accepts only managed non-empty publish-package results', () => {
-    expect(publishPackageResultSchema.parse({ path: 'KINAOU/Renders/demo_youtube_1.publish.json', sourcePath: receipt.outputRelativePath, platform: 'youtube', createdAt: '2026-09-13T08:01:00.000Z', sizeBytes: 512 }).sizeBytes).toBe(512)
-    expect(() => publishPackageResultSchema.parse({ path: 'KINAOU/Assets/demo.publish.json', sourcePath: receipt.outputRelativePath, platform: 'youtube', createdAt: '2026-09-13T08:01:00.000Z', sizeBytes: 512 })).toThrow()
-    expect(() => publishPackageResultSchema.parse({ path: 'KINAOU/Renders/demo.publish.json', sourcePath: receipt.outputRelativePath, platform: 'youtube', createdAt: '2026-09-13T08:01:00.000Z', sizeBytes: 0 })).toThrow()
+    const result = { schemaVersion: 2, path: 'KINAOU/Renders/demo_youtube_1.publish.json', sourcePath: receipt.outputRelativePath, platform: 'youtube', createdAt: '2026-09-13T08:01:00.000Z', sizeBytes: 512, sourceSha256: digest }
+    expect(publishPackageResultSchema.parse(result).sizeBytes).toBe(512)
+    expect(() => publishPackageResultSchema.parse({ ...result, path: 'KINAOU/Assets/demo.publish.json' })).toThrow()
+    expect(() => publishPackageResultSchema.parse({ ...result, sizeBytes: 0 })).toThrow()
+    expect(() => publishPackageResultSchema.parse({ ...result, sourceSha256: digest.toUpperCase() })).toThrow()
   })
 
   it('accepts only internally consistent preflight results for the selected receipt', () => {
@@ -99,6 +102,31 @@ describe('local publish packages', () => {
     expect(() => publishPackageEntrySchema.parse({ ...entry, document: { ...entry.document, kind: 'unknown' } })).toThrow()
     expect(() => publishPackageEntrySchema.parse({ ...entry, document: { ...entry.document, media: { ...entry.document.media, outputRelativePath: '../outside.mp4' } } })).toThrow()
     expect(() => publishPackageListSchema.parse(Array.from({ length: 201 }, () => entry))).toThrow()
+
+    const current = publishPackageEntrySchema.parse({
+      ...entry,
+      document: {
+        ...entry.document,
+        schemaVersion: 2,
+        integrity: {
+          checkedAt: '2026-09-13T08:01:00.000Z',
+          actual: { sizeBytes: 1234, durationMs: 8050, width: 1080, height: 1920, videoCodec: 'h264', audioCodec: 'aac' },
+          sha256: digest
+        }
+      }
+    })
+    expect(current.document.schemaVersion).toBe(2)
+    expect(() => publishPackageEntrySchema.parse({ ...current, document: { ...current.document, media: { ...current.document.media, sizeBytes: 1200 } } })).toThrow(/integrity size/)
+  })
+
+  it('strictly validates explicit package integrity outcomes', () => {
+    const base = { schemaVersion: 1, packagePath: 'KINAOU/Renders/demo_youtube_1.publish.json', sourcePath: receipt.outputRelativePath, checkedAt: '2026-09-13T08:03:00.000Z' }
+    expect(publishIntegrityResultSchema.parse({ ...base, status: 'unchanged', expectedSha256: digest, actualSha256: digest, sizeBytes: 1234 }).status).toBe('unchanged')
+    expect(publishIntegrityResultSchema.parse({ ...base, status: 'modified', expectedSha256: digest, sizeBytes: 1300 }).status).toBe('modified')
+    expect(publishIntegrityResultSchema.parse({ ...base, status: 'missing', expectedSha256: digest }).status).toBe('missing')
+    expect(publishIntegrityResultSchema.parse({ ...base, status: 'unverifiable' }).status).toBe('unverifiable')
+    expect(() => publishIntegrityResultSchema.parse({ ...base, status: 'unchanged', expectedSha256: digest, actualSha256: 'b'.repeat(64), sizeBytes: 1234 })).toThrow(/inconsistent/)
+    expect(() => publishIntegrityResultSchema.parse({ ...base, status: 'unverifiable', expectedSha256: digest })).toThrow(/Legacy/)
   })
 
   it('persists normalized reusable publish defaults inside one project', () => {

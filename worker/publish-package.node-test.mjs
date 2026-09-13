@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -69,6 +70,10 @@ test('publish preflight probes real media and packages only a matching export', 
       const response = await fetch(`http://127.0.0.1:${PORT}/publish/packages?projectId=${encodeURIComponent(projectId)}`, { headers: { authorization: `Bearer ${token}` } })
       return { status: response.status, payload: await response.json() }
     }
+    const verify = async (packagePath, token = TOKEN) => {
+      const response = await fetch(`http://127.0.0.1:${PORT}/publish/packages/integrity`, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ path: packagePath }) })
+      return { status: response.status, payload: await response.json() }
+    }
 
     const inspected = await preflight(valid.export)
     assert.equal(inspected.status, 200)
@@ -91,11 +96,14 @@ test('publish preflight probes real media and packages only a matching export', 
     const first = await call(valid)
     assert.equal(first.status, 201)
     assert.equal(first.payload.type, 'publish-package')
+    assert.equal(first.payload.result.schemaVersion, 2)
     assert.equal(first.payload.result.sourcePath, valid.export.outputRelativePath)
     assert.match(first.payload.result.path, /^KINAOU\/Renders\/finished_youtube_.*\.publish\.json$/)
+    const sourceSha256 = createHash('sha256').update(sourceBefore).digest('hex')
+    assert.equal(first.payload.result.sourceSha256, sourceSha256)
     const document = JSON.parse(await readFile(path.join(managedRoot, first.payload.result.path.slice('KINAOU/'.length)), 'utf8'))
     assert.deepEqual(document, {
-      schemaVersion: 1,
+      schemaVersion: 2,
       kind: 'kinaou-publish-package',
       createdAt: first.payload.result.createdAt,
       projectId: 'project-1',
@@ -103,8 +111,39 @@ test('publish preflight probes real media and packages only a matching export', 
       title: 'Reviewed title',
       description: 'Reviewed description',
       tags: ['KINAOU', 'local'],
-      media: valid.export
+      media: valid.export,
+      integrity: {
+        checkedAt: document.integrity.checkedAt,
+        actual: inspected.payload.result.actual,
+        sha256: sourceSha256
+      }
     })
+    assert.match(document.integrity.checkedAt, /^2026-/)
+
+    const unchanged = await verify(first.payload.result.path)
+    assert.equal(unchanged.status, 200)
+    assert.equal(unchanged.payload.type, 'publish-package-integrity')
+    assert.deepEqual(unchanged.payload.result, {
+      schemaVersion: 1,
+      packagePath: first.payload.result.path,
+      sourcePath: valid.export.outputRelativePath,
+      checkedAt: unchanged.payload.result.checkedAt,
+      status: 'unchanged',
+      expectedSha256: sourceSha256,
+      actualSha256: sourceSha256,
+      sizeBytes: sourceInfo.size
+    })
+
+    const sameSizeMutation = Buffer.from(sourceBefore)
+    sameSizeMutation[sameSizeMutation.length - 1] ^= 1
+    await writeFile(source, sameSizeMutation)
+    const modified = await verify(first.payload.result.path)
+    assert.equal(modified.status, 200)
+    assert.equal(modified.payload.result.status, 'modified')
+    assert.equal(modified.payload.result.sizeBytes, sourceInfo.size)
+    assert.notEqual(modified.payload.result.actualSha256, sourceSha256)
+    await writeFile(source, sourceBefore)
+    assert.equal((await verify(first.payload.result.path)).payload.result.status, 'unchanged')
 
     const second = await call(valid)
     assert.equal(second.status, 201)
@@ -121,12 +160,28 @@ test('publish preflight probes real media and packages only a matching export', 
 
     const otherProject = await call({ ...valid, projectId: 'project-2', title: 'Other project' })
     assert.equal(otherProject.status, 201)
+    const legacyPath = path.join(renders, 'finished_legacy.publish.json')
+    await writeFile(legacyPath, JSON.stringify({
+      schemaVersion: 1,
+      kind: 'kinaou-publish-package',
+      createdAt: '2026-09-13T08:01:00.000Z',
+      projectId: 'project-1',
+      platform: 'generic',
+      title: 'Legacy package',
+      description: '',
+      tags: [],
+      media: valid.export
+    }))
+    const legacy = await verify('KINAOU/Renders/finished_legacy.publish.json')
+    assert.equal(legacy.status, 200)
+    assert.equal(legacy.payload.result.status, 'unverifiable')
+    assert.equal(legacy.payload.result.expectedSha256, undefined)
     await writeFile(path.join(renders, 'malformed.publish.json'), '{not-json')
     await symlink(path.join(managedRoot, first.payload.result.path.slice('KINAOU/'.length)), path.join(renders, 'linked.publish.json'))
     const library = await list('project-1')
     assert.equal(library.status, 200)
     assert.equal(library.payload.type, 'publish-packages')
-    assert.equal(library.payload.packages.length, 2)
+    assert.equal(library.payload.packages.length, 3)
     assert.ok(library.payload.packages.every((entry) => entry.document.projectId === 'project-1'))
     assert.ok(library.payload.packages.every((entry) => entry.document.kind === 'kinaou-publish-package'))
     assert.ok(library.payload.packages.every((entry) => entry.sourceAvailable === true))
@@ -139,6 +194,10 @@ test('publish preflight probes real media and packages only a matching export', 
     assert.match(symlinkedSource.payload.error.message, /missing or empty/)
 
     await rm(source)
+    const missingIntegrity = await verify(first.payload.result.path)
+    assert.equal(missingIntegrity.status, 200)
+    assert.equal(missingIntegrity.payload.result.status, 'missing')
+    assert.equal(missingIntegrity.payload.result.expectedSha256, sourceSha256)
     const missingSourceLibrary = await list('project-1')
     assert.ok(missingSourceLibrary.payload.packages.every((entry) => entry.sourceAvailable === false))
     const invalidProject = await list(' ')
@@ -157,6 +216,10 @@ test('publish preflight probes real media and packages only a matching export', 
     assert.equal(unauthorized.status, 401)
     const unauthorizedPreflight = await preflight(valid.export, 'wrong')
     assert.equal(unauthorizedPreflight.status, 401)
+    const unauthorizedIntegrity = await verify(first.payload.result.path, 'wrong')
+    assert.equal(unauthorizedIntegrity.status, 401)
+    const escapedIntegrity = await verify('KINAOU/Renders/../outside.publish.json')
+    assert.ok([400, 403].includes(escapedIntegrity.status))
   } finally {
     child.kill('SIGKILL')
     await new Promise((resolve) => { child.on('close', resolve); setTimeout(resolve, 3000).unref() })

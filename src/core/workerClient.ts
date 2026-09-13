@@ -9,7 +9,7 @@ import { parseVideoJob, type VideoJobRecord } from './videoJobs'
 import { parseCaptureJob, type CaptureJobRecord, type CaptureRequest } from './captureJobs'
 import { parseWebCaptureBrowsers, parseWebCaptureJob, type WebCaptureBrowser, type WebCaptureJobRecord, type WebCaptureRequest } from './webCaptureJobs'
 import { assertSafeManagedPath } from './storage'
-import { parsePublishPreflightResult, publishPackageListSchema, publishPackageRequestSchema, publishPackageResultSchema, publishProjectIdSchema, type PublishPackageEntry, type PublishPackageRequest, type PublishPackageResult, type PublishPreflightResult } from './publishPackage'
+import { managedPublishPathSchema, parsePublishPreflightResult, publishIntegrityResultSchema, publishPackageListSchema, publishPackageRequestSchema, publishPackageResultSchema, publishProjectIdSchema, type PublishIntegrityResult, type PublishPackageEntry, type PublishPackageRequest, type PublishPackageResult, type PublishPreflightResult } from './publishPackage'
 import { exportReceiptSchema, type ExportReceipt } from './exportHistory'
 
 export interface WorkerClientOptions {
@@ -103,6 +103,15 @@ export class WorkerClient {
     const payload = await this.request(`/publish/packages?projectId=${encodeURIComponent(id)}`, { method: 'GET' })
     if (payload?.ok !== true || payload?.type !== 'publish-packages') throw new Error('Invalid worker publish package list response')
     return publishPackageListSchema.parse(payload.packages)
+  }
+
+  async verifyPublishPackageIntegrity(path: string): Promise<PublishIntegrityResult> {
+    const packagePath = managedPublishPathSchema.parse(path)
+    const payload = await this.request('/publish/packages/integrity', { method: 'POST', body: JSON.stringify({ path: packagePath }) })
+    if (payload?.ok !== true || payload?.type !== 'publish-package-integrity') throw new Error('Invalid worker publish package integrity response')
+    const result = publishIntegrityResultSchema.parse(payload.result)
+    if (result.packagePath !== packagePath) throw new Error('Publish package integrity result does not match the requested package')
+    return result
   }
 
   async assetAvailability(paths: string[]): Promise<Array<{ path: string; available: boolean }>> {
