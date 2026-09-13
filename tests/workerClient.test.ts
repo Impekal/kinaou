@@ -122,6 +122,31 @@ describe('worker client', () => {
     await expect(invalid.createPublishPackage(request)).rejects.toThrow()
   })
 
+  it('requests and strictly validates a real publish preflight', async () => {
+    const receipt = { schemaVersion: 1 as const, jobId: 'job-1', label: 'Final', outputRelativePath: 'KINAOU/Renders/final.mp4', format: 'vertical' as const, range: { inMs: 0, outMs: 5000 }, sceneIds: [], durationMs: 5000, sizeBytes: 1200, completedAt: '2026-09-13T08:00:00.000Z' }
+    const result = {
+      schemaVersion: 1,
+      sourcePath: receipt.outputRelativePath,
+      checkedAt: '2026-09-13T08:01:00.000Z',
+      ready: true,
+      durationToleranceMs: 250,
+      expected: { jobId: 'job-1', format: 'vertical', width: 1080, height: 1920, durationMs: 5000, sizeBytes: 1200 },
+      actual: { width: 1080, height: 1920, durationMs: 5010, sizeBytes: 1200, videoCodec: 'h264', audioCodec: 'aac' },
+      checks: { size: true, videoStream: true, dimensions: true, duration: true }
+    }
+    const fetchImpl: typeof fetch = async (input, init) => {
+      expect(String(input)).toContain('/publish/preflight')
+      expect(JSON.parse(String(init?.body))).toEqual({ export: receipt })
+      return jsonResponse({ ok: true, type: 'publish-preflight', result })
+    }
+    const client = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl })
+    expect(await client.preflightPublishExport(receipt)).toEqual(result)
+
+    const inconsistent = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl: async () => jsonResponse({ ok: true, type: 'publish-preflight', result: { ...result, ready: false } }) })
+    await expect(inconsistent.preflightPublishExport(receipt)).rejects.toThrow(/inconsistent/)
+    await expect(client.preflightPublishExport({ ...receipt, outputRelativePath: 'KINAOU/Assets/final.mp4' })).rejects.toThrow()
+  })
+
   it('requests and strictly validates the local publish package library', async () => {
     const document = {
       schemaVersion: 1 as const,

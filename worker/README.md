@@ -62,10 +62,11 @@ Website capture (`web-capture` capability) takes real, reproducible screenshots 
 - `POST /webcapture/jobs` renders exactly the explicitly entered credential-free http(s) URL headless in an isolated temporary profile under `KINAOU/Temp/WebCaptures`, with a bounded viewport, a timeout, and cancellation; the browser fetches that page (and its own subresources) from the network — nothing else.
 - The PNG is atomically renamed into `KINAOU/Assets/WebCaptures`, the temporary profile is always removed, and the result carries `real-capture` provenance with URL, browser, version and viewport, so a web capture stays distinct from both generated visuals and screen captures.
 
-Local publish handoff (`publish-package` and `publish-package-library` capabilities) stays entirely on the managed drive:
+Local publish handoff (`publish-preflight`, `publish-package` and `publish-package-library` capabilities) stays entirely on the managed drive:
 
+- `POST /publish/preflight` ffprobe-inspects one recorded export and compares its real byte size, video stream, dimensions and duration (within a 250 ms container tolerance) with the retained receipt and format; audio-stream presence is reported without requiring audio for a silent video.
 - `POST /publish/packages` accepts one validated successful-export receipt plus reviewed platform, title, description and tags.
-- The worker first confirms that the referenced `KINAOU/Renders/*.mp4` is a real non-empty file, then writes a new non-overwriting `*.publish.json` sidecar beside it with the actual file size and server-stamped creation time.
+- The worker reruns the complete preflight immediately before packaging and writes a new non-overwriting `*.publish.json` sidecar only when every required check passes, with the actual file size and server-stamped creation time.
 - `GET /publish/packages?projectId=…` scans only the managed render tree, skips symlinks and malformed/oversized sidecars, and returns at most 200 validated packages for that exact project with live source-file availability. The scan itself is bounded to 5,000 entries and eight nested directories.
 - The MP4 is never modified, moved, deleted or uploaded. Every call creates a separate attributable handoff file; no platform credentials or network API are involved.
 

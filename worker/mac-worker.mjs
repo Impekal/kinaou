@@ -16,7 +16,7 @@ import { buildPiperCommand, piperVoiceRelativePaths, ttsPaths, validateTtsText }
 import { DEFAULT_OSASCRIPT_PATH, DEFAULT_SCREENCAPTURE_PATH, buildAppActivateCommand, buildAppWindowBoundsCommand, buildCaptureCommand, buildCaptureProvenance, captureAssetRelativePath, captureTempRelativePath, parseAppWindowBounds, validateCaptureRequest } from './capture.mjs'
 import os from 'node:os'
 import { buildWebCaptureCommand, buildWebCaptureProvenance, validateWebCaptureRequest, webCaptureBrowserCandidates, webCaptureProfileDirectory, webCapturePaths } from './webcapture.mjs'
-import { buildPublishPackageDocument, publishPackageRelativePath, validatePublishPackageDocument, validatePublishPackageRequest, validatePublishProjectId } from './publish-package.mjs'
+import { buildPublishPackageDocument, buildPublishPreflightResult, publishPackageRelativePath, validatePublishExportReceipt, validatePublishPackageDocument, validatePublishPackageRequest, validatePublishProjectId } from './publish-package.mjs'
 
 const HOST = '127.0.0.1'
 const PORT = Number(process.env.KINAOU_WORKER_PORT ?? 43117)
@@ -105,7 +105,7 @@ const server = http.createServer(async (request, response) => {
           name: 'KINAOU Mac Worker',
           platform: process.platform,
           version: VERSION,
-          capabilities: ['filesystem', 'asset-upload', 'publish-package', 'publish-package-library', 'format-reframing', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe'] : []), ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(PIPER_CLI && piperVoices.length && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : [])],
+          capabilities: ['filesystem', 'asset-upload', 'publish-package-library', 'format-reframing', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe', 'publish-preflight', 'publish-package'] : []), ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(PIPER_CLI && piperVoices.length && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : [])],
           managedRoots: [MANAGED_ROOT],
           ffmpegVersion: versions.ffmpeg,
           ffprobeVersion: versions.ffprobe
@@ -309,18 +309,29 @@ const server = http.createServer(async (request, response) => {
       return send(response, 200, { ok: true, type: 'asset-availability', results })
     }
 
+    if (request.method === 'POST' && request.url === '/publish/preflight') {
+      const body = await readJson(request)
+      const sourceRelativePath = requireManagedRelativePath(body?.export?.outputRelativePath)
+      if (!sourceRelativePath.startsWith('KINAOU/Renders/') || !sourceRelativePath.endsWith('.mp4')) throw unauthorizedPath('Publish source must be an MP4 inside KINAOU/Renders')
+      const exportReceipt = validatePublishExportReceipt(body.export)
+      const result = await preflightPublishExport(exportReceipt)
+      return send(response, 200, { ok: true, type: 'publish-preflight', result })
+    }
+
     if (request.method === 'POST' && request.url === '/publish/packages') {
       const body = await readJson(request)
       const sourceRelativePath = requireManagedRelativePath(body?.export?.outputRelativePath)
       if (!sourceRelativePath.startsWith('KINAOU/Renders/') || !sourceRelativePath.endsWith('.mp4')) throw unauthorizedPath('Publish source must be an MP4 inside KINAOU/Renders')
       const input = validatePublishPackageRequest(body)
-      const sourceAbsolutePath = resolveManaged(sourceRelativePath)
-      const sourceInfo = await lstat(sourceAbsolutePath).catch(() => null)
-      if (!sourceInfo?.isFile() || sourceInfo.size <= 0) throw new Error('Publish source MP4 is missing or empty')
+      const preflight = await preflightPublishExport(input.export)
+      if (!preflight.ready) {
+        const failed = Object.entries(preflight.checks).filter(([, passed]) => !passed).map(([name]) => name).join(', ')
+        throw new Error(`Publish preflight failed: ${failed}`)
+      }
       const createdAt = new Date().toISOString()
       const relativePath = publishPackageRelativePath(sourceRelativePath, input.platform, createdAt, crypto.randomUUID())
       const absolutePath = resolveManaged(relativePath)
-      const document = buildPublishPackageDocument(input, { createdAt, sourceSizeBytes: sourceInfo.size })
+      const document = buildPublishPackageDocument(input, { createdAt, sourceSizeBytes: preflight.actual.sizeBytes })
       await mkdir(path.dirname(absolutePath), { recursive: true })
       await writeFile(absolutePath, JSON.stringify(document, null, 2), { encoding: 'utf8', flag: 'wx' })
       const packageInfo = await stat(absolutePath)
@@ -526,6 +537,14 @@ const MAX_PUBLISH_PACKAGE_BYTES = 256 * 1024
 const MAX_PUBLISH_SCAN_ENTRIES = 5000
 const MAX_PUBLISH_SCAN_DEPTH = 8
 const MAX_PUBLISH_RESULTS = 200
+
+async function preflightPublishExport(exportReceipt) {
+  const sourceAbsolutePath = resolveManaged(exportReceipt.outputRelativePath)
+  const sourceInfo = await lstat(sourceAbsolutePath).catch(() => null)
+  if (!sourceInfo?.isFile() || sourceInfo.size <= 0) throw new Error('Publish source MP4 is missing or empty')
+  const probe = await probeMedia(sourceAbsolutePath)
+  return buildPublishPreflightResult(exportReceipt, { ...probe, sizeBytes: sourceInfo.size }, new Date().toISOString())
+}
 
 async function listPublishPackages(projectId) {
   const rendersPath = resolveManaged('KINAOU/Renders')

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -10,13 +10,28 @@ const workerScript = fileURLToPath(new URL('./mac-worker.mjs', import.meta.url))
 const TOKEN = 'publish-package-test-token'
 const PORT = 43928
 
-test('publish packages are real non-overwriting sidecars for existing managed exports', async () => {
+function run(command, args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { shell: false })
+    const stdout = []
+    let stderr = ''
+    child.stdout?.on('data', (chunk) => stdout.push(chunk))
+    child.stderr?.on('data', (chunk) => { stderr += chunk.toString() })
+    child.on('error', reject)
+    child.on('close', (code) => code === 0 ? resolve(Buffer.concat(stdout)) : reject(new Error(`${command} exited with ${code}: ${stderr.slice(0, 400)}`)))
+  })
+}
+
+test('publish preflight probes real media and packages only a matching export', { timeout: 120_000 }, async (t) => {
+  try { await run('ffmpeg', ['-version']); await run('ffprobe', ['-version']) } catch { t.skip('ffmpeg/ffprobe not installed'); return }
   const root = await mkdtemp(path.join(os.tmpdir(), 'kinaou-publish-test-'))
   const managedRoot = path.join(root, 'KINAOU')
   const renders = path.join(managedRoot, 'Renders')
   await mkdir(renders, { recursive: true })
   const source = path.join(renders, 'finished.mp4')
-  await writeFile(source, 'real rendered bytes')
+  await run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc=size=1920x1080:rate=10:duration=2', '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000:duration=2', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', source])
+  const sourceInfo = await stat(source)
+  const sourceBefore = await readFile(source)
 
   const child = spawn(process.execPath, [workerScript], {
     env: { PATH: process.env.PATH, KINAOU_MANAGED_ROOT: managedRoot, KINAOU_WORKER_TOKEN: TOKEN, KINAOU_WORKER_PORT: String(PORT) },
@@ -36,7 +51,7 @@ test('publish packages are real non-overwriting sidecars for existing managed ex
     const valid = {
       schemaVersion: 1,
       projectId: 'project-1',
-      export: { schemaVersion: 1, jobId: 'job-1', label: 'Finished export', outputRelativePath: 'KINAOU/Renders/finished.mp4', format: 'landscape', range: { inMs: 0, outMs: 5000 }, sceneIds: ['scene-1'], durationMs: 5000, completedAt: '2026-09-13T08:00:00.000Z' },
+      export: { schemaVersion: 1, jobId: 'job-1', label: 'Finished export', outputRelativePath: 'KINAOU/Renders/finished.mp4', format: 'landscape', range: { inMs: 0, outMs: 2000 }, sceneIds: ['scene-1'], durationMs: 2000, sizeBytes: sourceInfo.size, completedAt: '2026-09-13T08:00:00.000Z' },
       platform: 'youtube',
       title: 'Reviewed title',
       description: 'Reviewed description',
@@ -46,10 +61,32 @@ test('publish packages are real non-overwriting sidecars for existing managed ex
       const response = await fetch(`http://127.0.0.1:${PORT}/publish/packages`, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(body) })
       return { status: response.status, payload: await response.json() }
     }
+    const preflight = async (exportReceipt, token = TOKEN) => {
+      const response = await fetch(`http://127.0.0.1:${PORT}/publish/preflight`, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ export: exportReceipt }) })
+      return { status: response.status, payload: await response.json() }
+    }
     const list = async (projectId, token = TOKEN) => {
       const response = await fetch(`http://127.0.0.1:${PORT}/publish/packages?projectId=${encodeURIComponent(projectId)}`, { headers: { authorization: `Bearer ${token}` } })
       return { status: response.status, payload: await response.json() }
     }
+
+    const inspected = await preflight(valid.export)
+    assert.equal(inspected.status, 200)
+    assert.equal(inspected.payload.type, 'publish-preflight')
+    assert.equal(inspected.payload.result.ready, true)
+    assert.deepEqual(inspected.payload.result.checks, { size: true, videoStream: true, dimensions: true, duration: true })
+    assert.deepEqual(inspected.payload.result.expected, { jobId: 'job-1', format: 'landscape', width: 1920, height: 1080, durationMs: 2000, sizeBytes: sourceInfo.size })
+    assert.deepEqual({ width: inspected.payload.result.actual.width, height: inspected.payload.result.actual.height, videoCodec: inspected.payload.result.actual.videoCodec, audioCodec: inspected.payload.result.actual.audioCodec }, { width: 1920, height: 1080, videoCodec: 'h264', audioCodec: 'aac' })
+
+    const mismatched = await preflight({ ...valid.export, format: 'vertical' })
+    assert.equal(mismatched.status, 200)
+    assert.equal(mismatched.payload.result.ready, false)
+    assert.equal(mismatched.payload.result.checks.dimensions, false)
+    assert.equal(mismatched.payload.result.checks.size, true)
+    assert.equal(mismatched.payload.result.checks.duration, true)
+    const blockedMismatch = await call({ ...valid, export: { ...valid.export, format: 'vertical' } })
+    assert.equal(blockedMismatch.status, 400)
+    assert.match(blockedMismatch.payload.error.message, /preflight failed: dimensions/)
 
     const first = await call(valid)
     assert.equal(first.status, 201)
@@ -66,13 +103,21 @@ test('publish packages are real non-overwriting sidecars for existing managed ex
       title: 'Reviewed title',
       description: 'Reviewed description',
       tags: ['KINAOU', 'local'],
-      media: { ...valid.export, sizeBytes: 19 }
+      media: valid.export
     })
 
     const second = await call(valid)
     assert.equal(second.status, 201)
     assert.notEqual(second.payload.result.path, first.payload.result.path)
-    assert.equal((await readFile(source, 'utf8')), 'real rendered bytes')
+    assert.deepEqual(await readFile(source), sourceBefore)
+
+    // A successful visible check is not a permanent waiver: package creation probes
+    // again and catches a file that changed between review and handoff.
+    await writeFile(source, Buffer.from([0]), { flag: 'a' })
+    const changedAfterReview = await call(valid)
+    assert.equal(changedAfterReview.status, 400)
+    assert.match(changedAfterReview.payload.error.message, /preflight failed: size/)
+    await writeFile(source, sourceBefore)
 
     const otherProject = await call({ ...valid, projectId: 'project-2', title: 'Other project' })
     assert.equal(otherProject.status, 201)
@@ -110,6 +155,8 @@ test('publish packages are real non-overwriting sidecars for existing managed ex
     assert.equal(duplicateTags.status, 400)
     const unauthorized = await call(valid, 'wrong')
     assert.equal(unauthorized.status, 401)
+    const unauthorizedPreflight = await preflight(valid.export, 'wrong')
+    assert.equal(unauthorizedPreflight.status, 401)
   } finally {
     child.kill('SIGKILL')
     await new Promise((resolve) => { child.on('close', resolve); setTimeout(resolve, 3000).unref() })
