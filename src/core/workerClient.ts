@@ -8,6 +8,7 @@ import { parseImageGenerationAvailability, parseImageJob, type ImageGenerationAv
 import { parseVideoJob, type VideoJobRecord } from './videoJobs'
 import { parseCaptureJob, type CaptureJobRecord, type CaptureRequest } from './captureJobs'
 import { parseWebCaptureBrowsers, parseWebCaptureJob, type WebCaptureBrowser, type WebCaptureJobRecord, type WebCaptureRequest } from './webCaptureJobs'
+import { assertSafeManagedPath } from './storage'
 
 export interface WorkerClientOptions {
   baseUrl: string
@@ -87,6 +88,21 @@ export class WorkerClient {
     if (payload?.ok !== true || payload?.type !== 'asset-availability' || !Array.isArray(payload.results)) throw new Error('Invalid worker availability response')
     return payload.results.filter((entry: unknown): entry is { path: string; available: boolean } =>
       Boolean(entry && typeof (entry as { path?: unknown }).path === 'string' && typeof (entry as { available?: unknown }).available === 'boolean'))
+  }
+
+  async exportAvailability(paths: string[]): Promise<Array<{ path: string; available: boolean }>> {
+    if (!paths.length) return []
+    if (paths.length > 50) throw new Error('Export availability accepts at most 50 paths')
+    const uniquePaths = [...new Set(paths)]
+    for (const path of uniquePaths) {
+      let canonical = ''
+      try { canonical = assertSafeManagedPath(path) } catch { /* normalized below */ }
+      if (canonical !== path || !path.startsWith('KINAOU/Renders/') || !path.endsWith('.mp4')) throw new Error('Invalid managed export path')
+    }
+    const results = await this.assetAvailability(uniquePaths)
+    const byPath = new Map(results.map((result) => [result.path, result.available]))
+    if (results.length !== uniquePaths.length || byPath.size !== uniquePaths.length || uniquePaths.some((path) => !byPath.has(path))) throw new Error('Invalid worker export availability response')
+    return uniquePaths.map((path) => ({ path, available: byPath.get(path)! }))
   }
 
   async listLocalModels(): Promise<Array<{ id: string; sizeBytes: number }>> {
