@@ -75,6 +75,9 @@ describe('short export range planning', () => {
     const candidate = planShortExportRanges(input).candidates[1]
     const path = shortPreviewOutputPath(input, candidate, 'vertical')
     expect(path).toBe('KINAOU/Cache/Previews/Project1_vertical_short-cta-70000-80000.mp4')
+    expect(shortPreviewOutputPath(input, candidate, 'landscape')).toBe('KINAOU/Cache/Previews/Project1_landscape_short-cta-70000-80000.mp4')
+    expect(shortPreviewOutputPath(input, candidate, 'square')).toBe('KINAOU/Cache/Previews/Project1_square_short-cta-70000-80000.mp4')
+    expect(new Set(['landscape', 'vertical', 'square'].map((format) => shortPreviewOutputPath(input, candidate, format as keyof typeof formatProfiles))).size).toBe(3)
     const full = createRenderPlan(input, formatProfiles.vertical.preview, path)
     const preview = createRangeRenderPlan(full, { inMs: candidate.inMs, outMs: candidate.outMs }, path)
     expect(preview.purpose).toBe('preview')
