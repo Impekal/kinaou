@@ -72,9 +72,10 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const [shortPreviewError, setShortPreviewError] = useState('')
   const [shortPreviewCurrentTime, setShortPreviewCurrentTime] = useState(0)
   const [shortPreviewDurationMs, setShortPreviewDurationMs] = useState(0)
+  const [shortPreviewFormat, setShortPreviewFormat] = useState<TargetFormat>(format)
   const [shortPreviewSubmitting, setShortPreviewSubmitting] = useState(false)
   const [shortPreviewSourceConfiguration, setShortPreviewSourceConfiguration] = useState('')
-  const shortPreviewConfiguration = selectedShort ? `${format}:${selectedShort.id}:${selectedShort.inMs}:${selectedShort.outMs}:${duckingEnabled}:${duckingReductionDb}:${duckingAttackMs}:${duckingReleaseMs}:${normalizeLoudness}` : ''
+  const shortPreviewConfiguration = selectedShort ? `${shortPreviewFormat}:${selectedShort.id}:${selectedShort.inMs}:${selectedShort.outMs}:${duckingEnabled}:${duckingReductionDb}:${duckingAttackMs}:${duckingReleaseMs}:${normalizeLoudness}` : ''
   const shortPreviewCurrent = Boolean(shortPreviewSourceConfiguration && shortPreviewSourceConfiguration === shortPreviewConfiguration)
   const shortPreviewBusy = shortPreviewSubmitting || Boolean(shortPreviewJob && !terminalStates.has(shortPreviewJob.state))
   const singleBusy = Boolean(job && !terminalStates.has(job.state))
@@ -95,6 +96,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
 
   useEffect(() => {
     setBatchFormats([format])
+    setShortPreviewFormat(format)
   }, [format])
 
   useEffect(() => {
@@ -300,8 +302,8 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     setShortPreviewSubmitting(true)
     setShortPreviewError('')
     try {
-      const path = shortPreviewOutputPath(project, selectedShort, format)
-      const fullPlan = createRenderPlan(project, profile.preview, path, { audioDucking: duckingSettings, loudnessNormalization: { ...defaultLoudnessNormalization, enabled: normalizeLoudness } })
+      const path = shortPreviewOutputPath(project, selectedShort, shortPreviewFormat)
+      const fullPlan = createRenderPlan(project, formatProfiles[shortPreviewFormat].preview, path, { audioDucking: duckingSettings, loudnessNormalization: { ...defaultLoudnessNormalization, enabled: normalizeLoudness } })
       const plan = createRangeRenderPlan(fullPlan, { inMs: selectedShort.inMs, outMs: selectedShort.outMs }, path)
       setShortPreviewJob(null)
       setShortPreviewPath(path)
@@ -485,8 +487,15 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       <p className="cardBody">Optional master processing · true peak ≤ −1.5 dBTP · loudness range 11 LU. Off by default because it changes the sound.</p>
 
       {selectedShort && <div className="renderJob">
-        <div className="renderJobHead"><strong>Selected Short preview</strong><span>{formatProfiles[format].label} · {(selectedShort.durationMs / 1000).toFixed(1)} s</span></div>
+        <div className="renderJobHead"><strong>Selected Short preview</strong><span>{formatProfiles[shortPreviewFormat].label} · {(selectedShort.durationMs / 1000).toFixed(1)} s</span></div>
         <p className="cardBody">Renders this exact scene range through the real composed-preview path, including layers, captions, transforms, retiming and the audio settings above. The temporary MP4 stays in <code>KINAOU/Cache/Previews</code>.</p>
+        <p className="cardBody">Choose the adaptation you want to review. This changes only the Short preview and leaves the project's main format unchanged.</p>
+        <div className="formatChooser" role="group" aria-label="Short preview format">
+          {targetFormats.map((id) => <button key={id} className={id === shortPreviewFormat ? 'formatOption active' : 'formatOption'} aria-pressed={id === shortPreviewFormat} disabled={busy} onClick={() => setShortPreviewFormat(id)}>
+            <strong>{formatProfiles[id].label}</strong>
+            <small>{formatProfiles[id].aspect} · {formatProfiles[id].preview.width}×{formatProfiles[id].preview.height}</small>
+          </button>)}
+        </div>
         <div className="renderActions">
           <button className="secondaryButton" disabled={!readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy} onClick={startShortPreview}>{shortPreviewBusy ? `Rendering ${shortPreviewPercent}%` : shortPreviewUrl && shortPreviewCurrent ? 'Refresh Short preview' : 'Render Short preview'}</button>
           {shortPreviewJob && !terminalStates.has(shortPreviewJob.state) && <button className="dangerButton" onClick={cancelShortPreview}>Cancel preview</button>}
