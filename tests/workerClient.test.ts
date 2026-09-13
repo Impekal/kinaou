@@ -122,6 +122,31 @@ describe('worker client', () => {
     await expect(invalid.createPublishPackage(request)).rejects.toThrow()
   })
 
+  it('requests and strictly validates the local publish package library', async () => {
+    const document = {
+      schemaVersion: 1 as const,
+      kind: 'kinaou-publish-package' as const,
+      createdAt: '2026-09-13T08:01:00.000Z',
+      projectId: 'project one',
+      platform: 'generic' as const,
+      title: 'Final video',
+      description: '',
+      tags: ['kinaou'],
+      media: { schemaVersion: 1 as const, jobId: 'job-1', label: 'Final', outputRelativePath: 'KINAOU/Renders/final.mp4', format: 'landscape' as const, range: { inMs: 0, outMs: 5000 }, sceneIds: [], durationMs: 5000, sizeBytes: 1200, completedAt: '2026-09-13T08:00:00.000Z' }
+    }
+    const fetchImpl: typeof fetch = async (input, init) => {
+      expect(String(input)).toContain('/publish/packages?projectId=project%20one')
+      expect(init?.method).toBe('GET')
+      return jsonResponse({ ok: true, type: 'publish-packages', packages: [{ path: 'KINAOU/Renders/final_generic_1.publish.json', sizeBytes: 640, modifiedAt: '2026-09-13T08:02:00.000Z', sourceAvailable: true, document }] })
+    }
+    const client = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl })
+    expect(await client.listPublishPackages(' project one ')).toMatchObject([{ sourceAvailable: true, document: { title: 'Final video' } }])
+    await expect(client.listPublishPackages('')).rejects.toThrow()
+
+    const invalid = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl: async () => jsonResponse({ ok: true, type: 'publish-packages', packages: [{ path: '../outside.publish.json', document }] }) })
+    await expect(invalid.listPublishPackages('project one')).rejects.toThrow()
+  })
+
   it('sends bearer auth and parses health/probe responses', async () => {
     const seen: Array<{ url: string; auth: string | null }> = []
     const fetchImpl: typeof fetch = async (input, init) => {

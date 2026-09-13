@@ -9,7 +9,7 @@ import { parseVideoJob, type VideoJobRecord } from './videoJobs'
 import { parseCaptureJob, type CaptureJobRecord, type CaptureRequest } from './captureJobs'
 import { parseWebCaptureBrowsers, parseWebCaptureJob, type WebCaptureBrowser, type WebCaptureJobRecord, type WebCaptureRequest } from './webCaptureJobs'
 import { assertSafeManagedPath } from './storage'
-import { publishPackageRequestSchema, publishPackageResultSchema, type PublishPackageRequest, type PublishPackageResult } from './publishPackage'
+import { publishPackageListSchema, publishPackageRequestSchema, publishPackageResultSchema, publishProjectIdSchema, type PublishPackageEntry, type PublishPackageRequest, type PublishPackageResult } from './publishPackage'
 
 export interface WorkerClientOptions {
   baseUrl: string
@@ -88,6 +88,13 @@ export class WorkerClient {
     const payload = await this.request('/publish/packages', { method: 'POST', body: JSON.stringify(validated) })
     if (payload?.ok !== true || payload?.type !== 'publish-package') throw new Error('Invalid worker publish package response')
     return publishPackageResultSchema.parse(payload.result)
+  }
+
+  async listPublishPackages(projectId: string): Promise<PublishPackageEntry[]> {
+    const id = publishProjectIdSchema.parse(projectId)
+    const payload = await this.request(`/publish/packages?projectId=${encodeURIComponent(id)}`, { method: 'GET' })
+    if (payload?.ok !== true || payload?.type !== 'publish-packages') throw new Error('Invalid worker publish package list response')
+    return publishPackageListSchema.parse(payload.packages)
   }
 
   async assetAvailability(paths: string[]): Promise<Array<{ path: string; available: boolean }>> {

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -46,6 +46,10 @@ test('publish packages are real non-overwriting sidecars for existing managed ex
       const response = await fetch(`http://127.0.0.1:${PORT}/publish/packages`, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(body) })
       return { status: response.status, payload: await response.json() }
     }
+    const list = async (projectId, token = TOKEN) => {
+      const response = await fetch(`http://127.0.0.1:${PORT}/publish/packages?projectId=${encodeURIComponent(projectId)}`, { headers: { authorization: `Bearer ${token}` } })
+      return { status: response.status, payload: await response.json() }
+    }
 
     const first = await call(valid)
     assert.equal(first.status, 201)
@@ -69,6 +73,33 @@ test('publish packages are real non-overwriting sidecars for existing managed ex
     assert.equal(second.status, 201)
     assert.notEqual(second.payload.result.path, first.payload.result.path)
     assert.equal((await readFile(source, 'utf8')), 'real rendered bytes')
+
+    const otherProject = await call({ ...valid, projectId: 'project-2', title: 'Other project' })
+    assert.equal(otherProject.status, 201)
+    await writeFile(path.join(renders, 'malformed.publish.json'), '{not-json')
+    await symlink(path.join(managedRoot, first.payload.result.path.slice('KINAOU/'.length)), path.join(renders, 'linked.publish.json'))
+    const library = await list('project-1')
+    assert.equal(library.status, 200)
+    assert.equal(library.payload.type, 'publish-packages')
+    assert.equal(library.payload.packages.length, 2)
+    assert.ok(library.payload.packages.every((entry) => entry.document.projectId === 'project-1'))
+    assert.ok(library.payload.packages.every((entry) => entry.document.kind === 'kinaou-publish-package'))
+    assert.ok(library.payload.packages.every((entry) => entry.sourceAvailable === true))
+    assert.ok(library.payload.packages.every((entry) => entry.path.endsWith('.publish.json')))
+    assert.ok(!library.payload.packages.some((entry) => entry.path === otherProject.payload.result.path))
+
+    await symlink(source, path.join(renders, 'linked.mp4'))
+    const symlinkedSource = await call({ ...valid, export: { ...valid.export, outputRelativePath: 'KINAOU/Renders/linked.mp4' } })
+    assert.equal(symlinkedSource.status, 400)
+    assert.match(symlinkedSource.payload.error.message, /missing or empty/)
+
+    await rm(source)
+    const missingSourceLibrary = await list('project-1')
+    assert.ok(missingSourceLibrary.payload.packages.every((entry) => entry.sourceAvailable === false))
+    const invalidProject = await list(' ')
+    assert.equal(invalidProject.status, 400)
+    const unauthorizedList = await list('project-1', 'wrong')
+    assert.equal(unauthorizedList.status, 401)
 
     const missing = await call({ ...valid, export: { ...valid.export, outputRelativePath: 'KINAOU/Renders/missing.mp4' } })
     assert.equal(missing.status, 400)

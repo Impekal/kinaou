@@ -13,13 +13,15 @@ export const publishTargetLabels: Record<PublishTarget, string> = {
   generic: 'Generic handoff'
 }
 
+export const publishProjectIdSchema = z.string().trim().min(1).max(200)
+
 const publishTagsSchema = z.array(z.string().trim().min(1).max(80)).max(30).refine((tags) => {
   return new Set(tags.map((tag) => tag.toLocaleLowerCase())).size === tags.length
 }, 'Publish tags must be unique')
 
 export const publishPackageRequestSchema = z.object({
   schemaVersion: z.literal(1),
-  projectId: z.string().trim().min(1).max(200),
+  projectId: publishProjectIdSchema,
   export: exportReceiptSchema,
   platform: publishTargetSchema,
   title: z.string().trim().min(1).max(200),
@@ -43,8 +45,32 @@ export const publishPackageResultSchema = z.object({
   sizeBytes: z.number().int().positive()
 })
 
+export const publishPackageDocumentSchema = z.object({
+  schemaVersion: z.literal(1),
+  kind: z.literal('kinaou-publish-package'),
+  createdAt: z.string().datetime(),
+  projectId: publishProjectIdSchema,
+  platform: publishTargetSchema,
+  title: z.string().trim().min(1).max(200),
+  description: z.string().trim().max(5000),
+  tags: publishTagsSchema,
+  media: exportReceiptSchema.extend({ sizeBytes: z.number().int().positive() })
+})
+
+export const publishPackageEntrySchema = z.object({
+  path: managedPublishPathSchema,
+  sizeBytes: z.number().int().positive(),
+  modifiedAt: z.string().datetime(),
+  sourceAvailable: z.boolean(),
+  document: publishPackageDocumentSchema
+})
+
+export const publishPackageListSchema = z.array(publishPackageEntrySchema).max(200)
+
 export type PublishPackageRequest = z.infer<typeof publishPackageRequestSchema>
 export type PublishPackageResult = z.infer<typeof publishPackageResultSchema>
+export type PublishPackageDocument = z.infer<typeof publishPackageDocumentSchema>
+export type PublishPackageEntry = z.infer<typeof publishPackageEntrySchema>
 
 export function parsePublishTags(input: string): string[] {
   const tags: string[] = []
