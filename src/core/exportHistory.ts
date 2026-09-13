@@ -4,7 +4,7 @@ import { assertSafeManagedPath } from './storage'
 
 const MAX_EXPORT_RECEIPTS = 50
 
-const managedRenderPathSchema = z.string().min(1).max(500).refine((value) => {
+export const managedRenderPathSchema = z.string().min(1).max(500).refine((value) => {
   try {
     return assertSafeManagedPath(value) === value && value.startsWith('KINAOU/Renders/') && value.endsWith('.mp4')
   } catch {

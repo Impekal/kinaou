@@ -9,6 +9,7 @@ import { parseVideoJob, type VideoJobRecord } from './videoJobs'
 import { parseCaptureJob, type CaptureJobRecord, type CaptureRequest } from './captureJobs'
 import { parseWebCaptureBrowsers, parseWebCaptureJob, type WebCaptureBrowser, type WebCaptureJobRecord, type WebCaptureRequest } from './webCaptureJobs'
 import { assertSafeManagedPath } from './storage'
+import { publishPackageRequestSchema, publishPackageResultSchema, type PublishPackageRequest, type PublishPackageResult } from './publishPackage'
 
 export interface WorkerClientOptions {
   baseUrl: string
@@ -80,6 +81,13 @@ export class WorkerClient {
     const payload = await this.request('/projects/restore', { method: 'POST', body: JSON.stringify({ id }) })
     if (payload?.ok !== true || payload?.type !== 'project-backup' || payload.project === undefined || payload.project === null) throw new Error('Invalid worker backup response')
     return payload.project
+  }
+
+  async createPublishPackage(request: PublishPackageRequest): Promise<PublishPackageResult> {
+    const validated = publishPackageRequestSchema.parse(request)
+    const payload = await this.request('/publish/packages', { method: 'POST', body: JSON.stringify(validated) })
+    if (payload?.ok !== true || payload?.type !== 'publish-package') throw new Error('Invalid worker publish package response')
+    return publishPackageResultSchema.parse(payload.result)
   }
 
   async assetAvailability(paths: string[]): Promise<Array<{ path: string; available: boolean }>> {
