@@ -20,6 +20,7 @@ interface RenderPanelProps {
 }
 
 const terminalStates = new Set(['succeeded', 'failed', 'cancelled'])
+const targetFormats = Object.keys(formatProfiles) as TargetFormat[]
 type SubmittedExportReceipt = Omit<SuccessfulExportReceiptInput, 'completedAt' | 'sizeBytes'>
 interface ExportFileCheck { byPath: Record<string, boolean>; available: number; missing: number; checkedAt: string }
 
@@ -58,6 +59,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const shortCandidateSignature = shortExports.candidates.map((candidate) => `${candidate.id}:${candidate.inMs}:${candidate.outMs}:${candidate.titles.join('\u0000')}`).join('|')
   const [selectedShortId, setSelectedShortId] = useState('')
   const [batchSelectedIds, setBatchSelectedIds] = useState<string[]>([])
+  const [batchFormats, setBatchFormats] = useState<TargetFormat[]>([format])
   const [batchItems, setBatchItems] = useState<ShortBatchRenderItem[]>([])
   const batchPlans = useRef(new Map<string, RenderPlan>())
   const batchSubmitting = useRef(false)
@@ -90,6 +92,10 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   useEffect(() => {
     setBatchSelectedIds([])
   }, [shortCandidateSignature])
+
+  useEffect(() => {
+    setBatchFormats([format])
+  }, [format])
 
   useEffect(() => {
     setShortMaximumSeconds(String(shortMaximumMs / 1000))
@@ -365,10 +371,10 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     if (!readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting) return
     setError('')
     try {
-      const planned = planShortExportBatch(project, shortExports.candidates, batchSelectedIds, format, new Date())
+      const planned = planShortExportBatch(project, shortExports.candidates, batchSelectedIds, batchFormats, new Date())
       const plans = new Map<string, RenderPlan>()
       for (const item of planned) {
-        const fullPlan = createRenderPlan(project, profile.export, item.outputPath, { audioDucking: duckingSettings, loudnessNormalization: { ...defaultLoudnessNormalization, enabled: normalizeLoudness } })
+        const fullPlan = createRenderPlan(project, formatProfiles[item.format].export, item.outputPath, { audioDucking: duckingSettings, loudnessNormalization: { ...defaultLoudnessNormalization, enabled: normalizeLoudness } })
         plans.set(item.id, createRangeRenderPlan(fullPlan, { inMs: item.inMs, outMs: item.outMs }, item.outputPath))
       }
       batchPlans.current = plans
@@ -401,13 +407,13 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         <div>
           <div className="eyebrow">REAL LOCAL RENDER</div>
           <h3>Render timeline</h3>
-          <p>{profile.export.name} is rendered by the authenticated local worker into <code>KINAOU/Renders</code>. The format belongs to the project, so the composed preview above shows exactly what you export.</p>
+          <p>{profile.export.name} is rendered by the authenticated local worker into <code>KINAOU/Renders</code>. The project format drives single renders and composed preview; reviewed Shorts can be adapted to several formats in one sequential batch below.</p>
         </div>
         <span className={workerConnected ? 'status online' : 'status'}>{workerConnected ? 'WORKER READY' : 'WORKER OFFLINE'}</span>
       </div>
 
       <div className="formatChooser" role="group" aria-label="Output format">
-        {(Object.keys(formatProfiles) as TargetFormat[]).map((id) => (
+        {targetFormats.map((id) => (
           <button key={id} className={id === format ? 'formatOption active' : 'formatOption'} disabled={busy} onClick={() => onProjectChange(setProjectTargetFormat(project, id))}>
             <strong>{formatProfiles[id].label}</strong>
             <small>{formatProfiles[id].aspect} · {formatProfiles[id].export.width}×{formatProfiles[id].export.height}</small>
@@ -438,10 +444,24 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         <div className="fieldGrid"><label>Custom maximum (seconds)<input type="number" min="1" max="600" step="0.001" value={shortMaximumSeconds} disabled={busy} onChange={(event) => setShortMaximumSeconds(event.target.value)} /></label></div>
         <div className="renderActions"><button disabled={busy || Boolean(customShortMaximumError) || customShortMaximumMs === shortMaximumMs} onClick={() => onProjectChange(setProjectShortExportMaximum(project, customShortMaximumMs))}>Apply custom maximum</button></div>
         {customShortMaximumError && <div className="warning">{customShortMaximumError}</div>}
+        <div className="renderJobHead"><strong>Batch output formats</strong><span>{batchFormats.length} selected</span></div>
+        <p className="cardBody">Choose one or more local adaptations. This does not change the project's main format or the selected Short preview.</p>
+        <div className="formatChooser" role="group" aria-label="Short batch output formats">
+          {targetFormats.map((id) => <button key={id} className={batchFormats.includes(id) ? 'formatOption active' : 'formatOption'} aria-pressed={batchFormats.includes(id)} disabled={busy} onClick={() => setBatchFormats((current) => {
+            const selected = new Set(current)
+            if (selected.has(id)) selected.delete(id)
+            else selected.add(id)
+            return targetFormats.filter((candidate) => selected.has(candidate))
+          })}>
+            <strong>{formatProfiles[id].label}</strong>
+            <small>{formatProfiles[id].aspect} · {formatProfiles[id].export.width}×{formatProfiles[id].export.height}</small>
+          </button>)}
+        </div>
+        {!batchFormats.length && <div className="warning">Select at least one output format for the Short batch.</div>}
         {shortExports.candidates.map((candidate) => <div className="renderMeta" key={candidate.id}>
           <span><strong>{candidate.titles.join(' + ')}</strong> · {(candidate.durationMs / 1000).toFixed(1)} s · {(candidate.inMs / 1000).toFixed(1)}–{(candidate.outMs / 1000).toFixed(1)} s</span>
           <div className="renderActions">
-            <label className="checkRow"><input type="checkbox" checked={batchSelectedIds.includes(candidate.id)} disabled={busy} onChange={(event) => setBatchSelectedIds((ids) => event.target.checked ? [...ids, candidate.id] : ids.filter((id) => id !== candidate.id))} />Batch</label>
+            <label className="checkRow"><input type="checkbox" checked={batchSelectedIds.includes(candidate.id)} disabled={busy} onChange={(event) => setBatchSelectedIds((ids) => event.target.checked ? [...ids, candidate.id] : ids.filter((id) => id !== candidate.id))} />Include</label>
             <button disabled={busy} onClick={() => { setInSeconds(String(candidate.inMs / 1000)); setOutSeconds(String(candidate.outMs / 1000)); setSelectedShortId(candidate.id) }}>{selectedShort?.id === candidate.id ? 'Selected' : 'Use this range'}</button>
           </div>
         </div>)}
@@ -449,7 +469,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         {shortExports.skipped.map((item) => <div className="warning" key={item.sceneId}><strong>{item.title}:</strong> {item.reason}</div>)}
         {shortExports.candidates.length > 0 && <div className="renderActions">
           <button disabled={busy} onClick={() => setBatchSelectedIds(batchSelectedIds.length === shortExports.candidates.length ? [] : shortExports.candidates.map((candidate) => candidate.id))}>{batchSelectedIds.length === shortExports.candidates.length ? 'Clear selection' : 'Select all'}</button>
-          <button className="primary" disabled={!batchSelectedIds.length || !readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting} onClick={startShortBatch}>Export selected Shorts ({batchSelectedIds.length})</button>
+          <button className="primary" disabled={!batchSelectedIds.length || !batchFormats.length || !readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting} onClick={startShortBatch}>Export selected variants ({batchSelectedIds.length * batchFormats.length})</button>
         </div>}
       </div>}
 
@@ -501,7 +521,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         <div className="renderJobHead"><strong>SHORT EXPORT BATCH</strong><span>{batchItems.filter((item) => shortBatchTerminalStates.has(item.state)).length}/{batchItems.length} finished</span></div>
         <p className="cardBody">Exports run one at a time so local FFmpeg work stays bounded. A failed item is reported without hiding the remaining results.</p>
         {batchItems.map((item) => <div className="renderJob" key={item.id}>
-          <div className="renderJobHead"><strong>{item.title}</strong><span>{item.state.toUpperCase()} · {Math.round(item.progress * 100)}%</span></div>
+          <div className="renderJobHead"><strong>{item.title}</strong><span>{formatProfiles[item.format].label} · {item.state.toUpperCase()} · {Math.round(item.progress * 100)}%</span></div>
           <div className="progressTrack" aria-label={`${item.title} render progress ${Math.round(item.progress * 100)}%`}><div className="progressFill" style={{ width: `${Math.round(item.progress * 100)}%` }} /></div>
           <div className="renderMeta"><code>{item.renderedPath ?? item.outputPath}</code>{item.sizeBytes !== undefined && <span>{(item.sizeBytes / 1024 / 1024).toFixed(1)} MB</span>}</div>
           {item.error && <div className="errorBox">{item.error}</div>}

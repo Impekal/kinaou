@@ -86,10 +86,10 @@ describe('short export range planning', () => {
   it('plans selected reviewed candidates as unique managed batch outputs in timeline order', () => {
     const input = project()
     const candidates = planShortExportRanges(input).candidates
-    const items = planShortExportBatch(input, candidates, ['s3', 's1--s2'], 'vertical', new Date('2026-09-12T08:00:00.000Z'))
+    const items = planShortExportBatch(input, candidates, ['s3', 's1--s2'], ['vertical'], new Date('2026-09-12T08:00:00.000Z'))
     expect(items.map((item) => ({ id: item.id, inMs: item.inMs, outMs: item.outMs }))).toEqual([
-      { id: 's1--s2', inMs: 0, outMs: 49_500 },
-      { id: 's3', inMs: 70_000, outMs: 80_000 }
+      { id: 's1--s2:vertical', inMs: 0, outMs: 49_500 },
+      { id: 's3:vertical', inMs: 70_000, outMs: 80_000 }
     ])
     expect(items.map((item) => ({ format: item.format, sceneIds: item.sceneIds }))).toEqual([
       { format: 'vertical', sceneIds: ['s1', 's2'] },
@@ -105,10 +105,30 @@ describe('short export range planning', () => {
     expect(plans[1].clips.map((clip) => ({ id: clip.clipId, startMs: clip.startMs }))).toEqual([{ id: 'c3', startMs: 0 }])
   })
 
+  it('expands reviewed candidates into unique sequential format variants', () => {
+    const input = project()
+    const candidate = planShortExportRanges(input).candidates[1]
+    const items = planShortExportBatch(input, [candidate], [candidate.id], ['vertical', 'square', 'vertical'], new Date('2026-09-12T09:00:00.000Z'))
+    expect(items.map((item) => ({ id: item.id, format: item.format, sceneIds: item.sceneIds }))).toEqual([
+      { id: 's3:vertical', format: 'vertical', sceneIds: ['s3'] },
+      { id: 's3:square', format: 'square', sceneIds: ['s3'] }
+    ])
+    expect(items.map((item) => ({ width: formatProfiles[item.format].export.width, height: formatProfiles[item.format].export.height }))).toEqual([
+      { width: 1080, height: 1920 },
+      { width: 1080, height: 1080 }
+    ])
+    expect(items.map((item) => item.outputPath)).toEqual([
+      'KINAOU/Renders/shorts_verticalshortcta7000080000_2026-09-12_09-00-00-000.mp4',
+      'KINAOU/Renders/shorts_squareshortcta7000080000_2026-09-12_09-00-00-000.mp4'
+    ])
+  })
+
   it('refuses empty or stale batch selections', () => {
     const input = project()
     const candidates = planShortExportRanges(input).candidates
-    expect(() => planShortExportBatch(input, candidates, [], 'vertical')).toThrow(/Select at least one/)
-    expect(() => planShortExportBatch(input, candidates, ['removed-scene'], 'vertical')).toThrow(/no longer available/)
+    expect(() => planShortExportBatch(input, candidates, [], ['vertical'])).toThrow(/Select at least one/)
+    expect(() => planShortExportBatch(input, candidates, ['removed-scene'], ['vertical'])).toThrow(/no longer available/)
+    expect(() => planShortExportBatch(input, candidates, [candidates[0].id], [])).toThrow(/output format/)
+    expect(() => planShortExportBatch(input, candidates, [candidates[0].id], ['portrait' as never])).toThrow(/not supported/)
   })
 })
