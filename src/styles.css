@@ -183,6 +183,10 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .renderJob { display: grid; gap: 10px; padding: 16px; background: #10131a; border: 1px solid #292f3d; border-radius: 12px; }
 .renderJobHead, .renderMeta, .renderActions { display: flex; align-items: center; gap: 12px; justify-content: space-between; flex-wrap: wrap; }
 .renderJobHead span, .renderMeta span { color: #9099aa; font-size: 12px; }
+.reframingGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.reframingOption { display: grid; gap: 9px; padding: 13px; border: 1px solid #303646; border-radius: 10px; background: #0c0f15; }
+.reframingOption label { display: grid; gap: 6px; }
+.reframingOption small { color: #7d8699; }
 .progressTrack { height: 10px; overflow: hidden; border-radius: 999px; background: #090c12; border: 1px solid #272d39; }
 .progressFill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #6e5de9, #a56cff); transition: width .25s ease; }
 .renderActions { justify-content: flex-start; }
@@ -208,7 +212,7 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
   nav { display: flex; overflow-x: auto; }
   .navItem { white-space: nowrap; }
   .main { padding: 20px; }
-  .hero, .settingsPanel, .captionCreate, .previewControls, .versionCreate, .sttControls { grid-template-columns: 1fr; }
+  .hero, .settingsPanel, .captionCreate, .previewControls, .versionCreate, .sttControls, .reframingGrid { grid-template-columns: 1fr; }
   .versionRow { align-items: flex-start; flex-direction: column; }
   .publishPackageRow { align-items: flex-start; flex-direction: column; }
   .publishPackageActions { justify-content: flex-start; }

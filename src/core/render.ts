@@ -18,6 +18,9 @@ export interface RenderPreset {
    * frame and centre-crops what does not fit — what vertical platforms expect.
    */
   fit?: 'contain' | 'cover'
+  /** Normalized crop alignment used only by `cover`: 0 = left/top, 1 = right/bottom. */
+  focusX?: number
+  focusY?: number
 }
 
 export interface RenderClipStep {
@@ -62,6 +65,13 @@ export const preview1080pPreset: RenderPreset = {
 export const timelinePreviewPreset: RenderPreset = { ...preview1080pPreset, name: 'Timeline Preview 540p', width: 960, height: 540 }
 
 export type TargetFormat = 'landscape' | 'vertical' | 'square'
+export type FormatFit = 'contain' | 'cover'
+
+export interface FormatReframing {
+  fit: FormatFit
+  focusX: number
+  focusY: number
+}
 
 export interface FormatProfile {
   id: TargetFormat
@@ -85,7 +95,7 @@ export const formatProfiles: Record<TargetFormat, FormatProfile> = {
     id: 'vertical',
     label: 'Vertical',
     aspect: '9:16',
-    note: 'Shorts, Reels, TikTok. Wide material is centre-cropped to fill the frame.',
+    note: 'Shorts, Reels, TikTok. Wide material fills the frame; adjust the crop position for this format below.',
     export: { ...preview1080pPreset, name: 'Vertical 1080×1920', width: 1080, height: 1920, fit: 'cover' },
     preview: { ...preview1080pPreset, name: 'Vertical Preview 540×960', width: 540, height: 960, fit: 'cover' }
   },
@@ -93,7 +103,7 @@ export const formatProfiles: Record<TargetFormat, FormatProfile> = {
     id: 'square',
     label: 'Square',
     aspect: '1:1',
-    note: 'Feed posts. Wide material is centre-cropped to fill the frame.',
+    note: 'Feed posts. Wide material fills the frame; adjust the crop position for this format below.',
     export: { ...preview1080pPreset, name: 'Square 1080×1080', width: 1080, height: 1080, fit: 'cover' },
     preview: { ...preview1080pPreset, name: 'Square Preview 720×720', width: 720, height: 720, fit: 'cover' }
   }
@@ -110,11 +120,81 @@ export function setProjectTargetFormat(project: KinaouProject, format: TargetFor
   return touchProject({ ...project, metadata: { ...project.metadata, targetFormat: format } })
 }
 
+const targetFormats = Object.keys(formatProfiles) as TargetFormat[]
+
+function requireTargetFormat(format: TargetFormat): TargetFormat {
+  if (!formatProfiles[format]) throw new Error(`Unknown target format: ${format}`)
+  return format
+}
+
+export function defaultFormatReframing(format: TargetFormat): FormatReframing {
+  const profile = formatProfiles[requireTargetFormat(format)]
+  return { fit: profile.export.fit ?? 'contain', focusX: 0.5, focusY: 0.5 }
+}
+
+function validateFormatReframing(input: FormatReframing): FormatReframing {
+  if (input.fit !== 'contain' && input.fit !== 'cover') throw new Error('Format fit must be contain or cover')
+  if (![input.focusX, input.focusY].every((value) => Number.isFinite(value) && value >= 0 && value <= 1)) throw new Error('Format focus must be between 0 and 1')
+  return { fit: input.fit, focusX: Number(input.focusX.toFixed(3)), focusY: Number(input.focusY.toFixed(3)) }
+}
+
+function sameReframing(left: FormatReframing, right: FormatReframing): boolean {
+  return left.fit === right.fit && left.focusX === right.focusX && left.focusY === right.focusY
+}
+
+export function projectFormatReframing(project: KinaouProject, format: TargetFormat): FormatReframing {
+  requireTargetFormat(format)
+  const stored = project.metadata.formatReframing
+  if (!stored || typeof stored !== 'object' || Array.isArray(stored)) return defaultFormatReframing(format)
+  const candidate = (stored as Record<string, unknown>)[format]
+  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return defaultFormatReframing(format)
+  try {
+    const value = candidate as Partial<FormatReframing>
+    if (typeof value.focusX !== 'number' || typeof value.focusY !== 'number') return defaultFormatReframing(format)
+    return validateFormatReframing({ fit: value.fit as FormatFit, focusX: value.focusX, focusY: value.focusY })
+  } catch {
+    return defaultFormatReframing(format)
+  }
+}
+
+export function setProjectFormatReframing(project: KinaouProject, format: TargetFormat, input: FormatReframing, now = new Date()): KinaouProject {
+  requireTargetFormat(format)
+  const normalized = validateFormatReframing(input)
+  if (sameReframing(projectFormatReframing(project, format), normalized)) return project
+  const formatReframing: Partial<Record<TargetFormat, FormatReframing>> = {}
+  for (const id of targetFormats) {
+    const value = id === format ? normalized : projectFormatReframing(project, id)
+    if (!sameReframing(value, defaultFormatReframing(id))) formatReframing[id] = value
+  }
+  const metadata = { ...project.metadata }
+  if (Object.keys(formatReframing).length) metadata.formatReframing = formatReframing
+  else delete metadata.formatReframing
+  return touchProject({ ...project, metadata }, now)
+}
+
+export function projectFormatPreset(project: KinaouProject, format: TargetFormat, purpose: 'export' | 'preview'): RenderPreset {
+  const preset = formatProfiles[requireTargetFormat(format)][purpose]
+  const reframing = projectFormatReframing(project, format)
+  return {
+    ...preset,
+    fit: reframing.fit,
+    ...(reframing.fit === 'cover' ? { focusX: reframing.focusX, focusY: reframing.focusY } : {})
+  }
+}
+
+export function formatReframingRequiresWorker(project: KinaouProject, format: TargetFormat): boolean {
+  const reframing = projectFormatReframing(project, format)
+  return reframing.fit === 'cover' && (reframing.focusX !== 0.5 || reframing.focusY !== 0.5)
+}
+
 export function createRenderPlan(project: KinaouProject, preset: RenderPreset, outputRelativePath: string, options: { audioDucking?: AudioDuckingSettings; loudnessNormalization?: LoudnessNormalizationSettings } = {}): RenderPlan {
   const safeOutput = assertSafeManagedPath(outputRelativePath)
   const preview = safeOutput.startsWith('KINAOU/Cache/Previews/')
   if (!preview && !safeOutput.startsWith('KINAOU/Renders/')) throw new Error('Render output must stay inside KINAOU/Renders or KINAOU/Cache/Previews')
   if (preset.width <= 0 || preset.height <= 0 || preset.fps <= 0) throw new Error('Invalid render preset')
+  if (preset.fit !== undefined && preset.fit !== 'contain' && preset.fit !== 'cover') throw new Error('Invalid render preset fit mode')
+  if ([preset.focusX, preset.focusY].some((value) => value !== undefined && (!Number.isFinite(value) || value < 0 || value > 1))) throw new Error('Render preset focus must be between 0 and 1')
+  if ((preset.focusX !== undefined || preset.focusY !== undefined) && preset.fit !== 'cover') throw new Error('Render preset focus requires cover fit')
 
   const assets = new Map(project.assets.map((asset) => [asset.id, asset]))
   const clips: RenderClipStep[] = []
@@ -160,7 +240,7 @@ export function createRenderPlan(project: KinaouProject, preset: RenderPreset, o
     outputRelativePath: safeOutput,
     preset,
     durationMs,
-    requiredCapabilities: ['filesystem', 'ffmpeg'],
+    requiredCapabilities: ['filesystem', 'ffmpeg', ...((preset.focusX ?? 0.5) !== 0.5 || (preset.focusY ?? 0.5) !== 0.5 ? ['format-reframing' as const] : [])],
     clips,
     audioDucking: validateAudioDucking(options.audioDucking ?? defaultAudioDucking),
     loudnessNormalization: validateLoudnessNormalization(options.loudnessNormalization ?? defaultLoudnessNormalization)
@@ -170,5 +250,6 @@ export function createRenderPlan(project: KinaouProject, preset: RenderPreset, o
 export function createTimelinePreviewPlan(project: KinaouProject): RenderPlan {
   const id = project.id.replace(/[^a-zA-Z0-9-]/g, '').slice(0, 80)
   if (!id) throw new Error('Project id cannot form a preview path')
-  return createRenderPlan(project, formatProfiles[projectTargetFormat(project)].preview, `KINAOU/Cache/Previews/${id}.mp4`)
+  const format = projectTargetFormat(project)
+  return createRenderPlan(project, projectFormatPreset(project, format, 'preview'), `KINAOU/Cache/Previews/${id}.mp4`)
 }

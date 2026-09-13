@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KinaouProject } from '../core/project'
-import { createRenderPlan, formatProfiles, projectTargetFormat, setProjectTargetFormat, type RenderPlan, type TargetFormat } from '../core/render'
+import { createRenderPlan, defaultFormatReframing, formatProfiles, formatReframingRequiresWorker, projectFormatPreset, projectFormatReframing, projectTargetFormat, setProjectFormatReframing, setProjectTargetFormat, type RenderPlan, type TargetFormat } from '../core/render'
 import type { RenderJobRecord } from '../core/renderJobs'
 import { renderOutputPath, renderReadiness } from '../core/renderUi'
 import { WorkerClient } from '../core/workerClient'
@@ -16,6 +16,7 @@ interface RenderPanelProps {
   workerUrl: string
   workerToken: string
   workerConnected: boolean
+  workerCapabilities: string[]
   onProjectChange: (project: KinaouProject) => void
 }
 
@@ -24,7 +25,7 @@ const targetFormats = Object.keys(formatProfiles) as TargetFormat[]
 type SubmittedExportReceipt = Omit<SuccessfulExportReceiptInput, 'completedAt' | 'sizeBytes'>
 interface ExportFileCheck { byPath: Record<string, boolean>; available: number; missing: number; checkedAt: string }
 
-export function RenderPanel({ project, workerUrl, workerToken, workerConnected, onProjectChange }: RenderPanelProps) {
+export function RenderPanel({ project, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange }: RenderPanelProps) {
   const readiness = useMemo(() => renderReadiness(project), [project])
   const format = projectTargetFormat(project)
   const profile = formatProfiles[format]
@@ -75,12 +76,18 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const [shortPreviewFormat, setShortPreviewFormat] = useState<TargetFormat>(format)
   const [shortPreviewSubmitting, setShortPreviewSubmitting] = useState(false)
   const [shortPreviewSourceConfiguration, setShortPreviewSourceConfiguration] = useState('')
-  const shortPreviewConfiguration = selectedShort ? `${shortPreviewFormat}:${selectedShort.id}:${selectedShort.inMs}:${selectedShort.outMs}:${duckingEnabled}:${duckingReductionDb}:${duckingAttackMs}:${duckingReleaseMs}:${normalizeLoudness}` : ''
+  const shortPreviewReframing = projectFormatReframing(project, shortPreviewFormat)
+  const shortPreviewConfiguration = selectedShort ? `${shortPreviewFormat}:${shortPreviewReframing.fit}:${shortPreviewReframing.focusX}:${shortPreviewReframing.focusY}:${selectedShort.id}:${selectedShort.inMs}:${selectedShort.outMs}:${duckingEnabled}:${duckingReductionDb}:${duckingAttackMs}:${duckingReleaseMs}:${normalizeLoudness}` : ''
   const shortPreviewCurrent = Boolean(shortPreviewSourceConfiguration && shortPreviewSourceConfiguration === shortPreviewConfiguration)
   const shortPreviewBusy = shortPreviewSubmitting || Boolean(shortPreviewJob && !terminalStates.has(shortPreviewJob.state))
   const singleBusy = Boolean(job && !terminalStates.has(job.state))
   const batchBusy = shortBatchBusy(batchItems)
   const busy = singleBusy || batchBusy || shortPreviewBusy
+  const workerSupportsFormatReframing = workerCapabilities.includes('format-reframing')
+  const singleReframingBlocked = formatReframingRequiresWorker(project, format) && !workerSupportsFormatReframing
+  const shortPreviewReframingBlocked = formatReframingRequiresWorker(project, shortPreviewFormat) && !workerSupportsFormatReframing
+  const batchReframingBlocked = batchFormats.some((id) => formatReframingRequiresWorker(project, id)) && !workerSupportsFormatReframing
+  const anyReframingBlocked = targetFormats.some((id) => formatReframingRequiresWorker(project, id)) && !workerSupportsFormatReframing
   const activeBatchItem = batchItems.find((item) => item.jobId && !terminalStates.has(item.state))
   const successfulBatchSignature = batchItems.filter((item) => item.state === 'succeeded' && item.jobId).map((item) => `${item.jobId}:${item.updatedAt}:${item.sizeBytes}`).join('|')
 
@@ -298,12 +305,12 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   }
 
   async function startShortPreview() {
-    if (!selectedShort || !readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy) return
+    if (!selectedShort || !readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || shortPreviewReframingBlocked) return
     setShortPreviewSubmitting(true)
     setShortPreviewError('')
     try {
       const path = shortPreviewOutputPath(project, selectedShort, shortPreviewFormat)
-      const fullPlan = createRenderPlan(project, formatProfiles[shortPreviewFormat].preview, path, { audioDucking: duckingSettings, loudnessNormalization: { ...defaultLoudnessNormalization, enabled: normalizeLoudness } })
+      const fullPlan = createRenderPlan(project, projectFormatPreset(project, shortPreviewFormat, 'preview'), path, { audioDucking: duckingSettings, loudnessNormalization: { ...defaultLoudnessNormalization, enabled: normalizeLoudness } })
       const plan = createRangeRenderPlan(fullPlan, { inMs: selectedShort.inMs, outMs: selectedShort.outMs }, path)
       setShortPreviewJob(null)
       setShortPreviewPath(path)
@@ -330,14 +337,14 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   }
 
   async function startRender() {
-    if (!readiness.ready || !rangeCheck.valid || !duckingCheck.valid || !workerConnected || !workerToken.trim() || submitting) return
+    if (!readiness.ready || !rangeCheck.valid || !duckingCheck.valid || !workerConnected || !workerToken.trim() || submitting || singleReframingBlocked) return
     setSubmitting(true)
     setError('')
     setSubmittedExport(null)
     try {
       const wholeTimeline = range.inMs === 0 && range.outMs === timelineDurationMs
       const path = renderOutputPath(project, new Date(), wholeTimeline ? format : selectedShort ? `${format}-${shortExportVariant(selectedShort)}` : `${format}-range-${range.inMs}-${range.outMs}`)
-      const fullPlan = createRenderPlan(project, profile.export, path, { audioDucking: duckingSettings, loudnessNormalization: { ...defaultLoudnessNormalization, enabled: normalizeLoudness } })
+      const fullPlan = createRenderPlan(project, projectFormatPreset(project, format, 'export'), path, { audioDucking: duckingSettings, loudnessNormalization: { ...defaultLoudnessNormalization, enabled: normalizeLoudness } })
       const plan = wholeTimeline ? fullPlan : createRangeRenderPlan(fullPlan, range, path)
       const next = await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).startRender(plan)
       setOutputPath(path)
@@ -370,13 +377,13 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   }
 
   function startShortBatch() {
-    if (!readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting) return
+    if (!readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting || batchReframingBlocked) return
     setError('')
     try {
       const planned = planShortExportBatch(project, shortExports.candidates, batchSelectedIds, batchFormats, new Date())
       const plans = new Map<string, RenderPlan>()
       for (const item of planned) {
-        const fullPlan = createRenderPlan(project, formatProfiles[item.format].export, item.outputPath, { audioDucking: duckingSettings, loudnessNormalization: { ...defaultLoudnessNormalization, enabled: normalizeLoudness } })
+        const fullPlan = createRenderPlan(project, projectFormatPreset(project, item.format, 'export'), item.outputPath, { audioDucking: duckingSettings, loudnessNormalization: { ...defaultLoudnessNormalization, enabled: normalizeLoudness } })
         plans.set(item.id, createRangeRenderPlan(fullPlan, { inMs: item.inMs, outMs: item.outMs }, item.outputPath))
       }
       batchPlans.current = plans
@@ -423,6 +430,28 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         ))}
       </div>
       <p className="cardBody">{profile.note}</p>
+
+      <div className="renderJob">
+        <div className="renderJobHead"><strong>Framing by output format</strong><span>SAVED WITH PROJECT</span></div>
+        <p className="cardBody">Keep an independent crop position for every adaptation. The same setting is used by timeline preview, Short preview, full export and Short batches.</p>
+        <div className="reframingGrid">
+          {targetFormats.map((id) => {
+            const reframing = projectFormatReframing(project, id)
+            const defaults = defaultFormatReframing(id)
+            const isDefault = reframing.fit === defaults.fit && reframing.focusX === defaults.focusX && reframing.focusY === defaults.focusY
+            return <div className="reframingOption" key={id}>
+              <div className="renderJobHead"><strong>{formatProfiles[id].label}</strong><span>{formatProfiles[id].aspect}</span></div>
+              <label>Frame treatment<select value={reframing.fit} disabled={busy} onChange={(event) => onProjectChange(setProjectFormatReframing(project, id, { ...reframing, fit: event.target.value as 'contain' | 'cover' }))}><option value="cover">Fill frame and crop</option><option value="contain">Show whole image</option></select></label>
+              <label>Horizontal focus · {Math.round(reframing.focusX * 100)}%<input type="range" min="0" max="100" step="1" value={reframing.focusX * 100} disabled={busy || reframing.fit !== 'cover'} onChange={(event) => onProjectChange(setProjectFormatReframing(project, id, { ...reframing, focusX: Number(event.target.value) / 100 }))} /></label>
+              <small>Left 0 · centre 50 · right 100</small>
+              <label>Vertical focus · {Math.round(reframing.focusY * 100)}%<input type="range" min="0" max="100" step="1" value={reframing.focusY * 100} disabled={busy || reframing.fit !== 'cover'} onChange={(event) => onProjectChange(setProjectFormatReframing(project, id, { ...reframing, focusY: Number(event.target.value) / 100 }))} /></label>
+              <small>Top 0 · centre 50 · bottom 100</small>
+              <button disabled={busy || isDefault} onClick={() => onProjectChange(setProjectFormatReframing(project, id, defaults))}>Reset {formatProfiles[id].label}</button>
+            </div>
+          })}
+        </div>
+        {workerConnected && anyReframingBlocked && <div className="warning">Restart the local worker before rendering an off-centre crop. Centred and whole-image framing remain compatible with the connected worker.</div>}
+      </div>
 
       <div className="fieldGrid">
         <label>In (seconds)<input type="number" min="0" step="0.001" value={inSeconds} disabled={busy} onChange={(event) => { setInSeconds(event.target.value); setSelectedShortId('') }} /></label>
@@ -471,7 +500,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         {shortExports.skipped.map((item) => <div className="warning" key={item.sceneId}><strong>{item.title}:</strong> {item.reason}</div>)}
         {shortExports.candidates.length > 0 && <div className="renderActions">
           <button disabled={busy} onClick={() => setBatchSelectedIds(batchSelectedIds.length === shortExports.candidates.length ? [] : shortExports.candidates.map((candidate) => candidate.id))}>{batchSelectedIds.length === shortExports.candidates.length ? 'Clear selection' : 'Select all'}</button>
-          <button className="primary" disabled={!batchSelectedIds.length || !batchFormats.length || !readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting} onClick={startShortBatch}>Export selected variants ({batchSelectedIds.length * batchFormats.length})</button>
+          <button className="primary" disabled={!batchSelectedIds.length || !batchFormats.length || !readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting || batchReframingBlocked} onClick={startShortBatch}>Export selected variants ({batchSelectedIds.length * batchFormats.length})</button>
         </div>}
       </div>}
 
@@ -497,7 +526,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
           </button>)}
         </div>
         <div className="renderActions">
-          <button className="secondaryButton" disabled={!readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy} onClick={startShortPreview}>{shortPreviewBusy ? `Rendering ${shortPreviewPercent}%` : shortPreviewUrl && shortPreviewCurrent ? 'Refresh Short preview' : 'Render Short preview'}</button>
+          <button className="secondaryButton" disabled={!readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || shortPreviewReframingBlocked} onClick={startShortPreview}>{shortPreviewBusy ? `Rendering ${shortPreviewPercent}%` : shortPreviewUrl && shortPreviewCurrent ? 'Refresh Short preview' : 'Render Short preview'}</button>
           {shortPreviewJob && !terminalStates.has(shortPreviewJob.state) && <button className="dangerButton" onClick={cancelShortPreview}>Cancel preview</button>}
         </div>
         {shortPreviewJob && <div className="progressTrack" aria-label={`Short preview progress ${shortPreviewPercent}%`}><div className="progressFill" style={{ width: `${shortPreviewPercent}%` }} /></div>}
@@ -562,7 +591,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       </div>
 
       <div className="renderActions">
-        <button className="primary" disabled={!readiness.ready || !rangeCheck.valid || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting} onClick={startRender}>
+        <button className="primary" disabled={!readiness.ready || !rangeCheck.valid || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting || singleReframingBlocked} onClick={startRender}>
           {submitting ? 'Submitting…' : batchBusy ? 'Short batch in progress' : job && terminalStates.has(job.state) ? 'Render again' : 'Start render'}
         </button>
         {singleBusy && <button className="dangerButton" onClick={cancelRender}>Cancel render</button>}

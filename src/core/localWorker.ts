@@ -144,10 +144,12 @@ function letterboxedSize(asset: KinaouAsset, width: number, height: number): { w
 export function buildCompositeFilter(plan: RenderPlan, subtitleAbsolutePath?: string): CompositeFilter {
   const width = plan.preset.width
   const height = plan.preset.height
-  // contain letterboxes the whole frame; cover fills the canvas and centre-crops
-  // the overflow, which is what vertical/square platform formats expect.
+  const focusX = plan.preset.focusX ?? 0.5
+  const focusY = plan.preset.focusY ?? 0.5
+  // contain letterboxes the whole frame; cover fills the canvas and crops the
+  // overflow at the selected format-specific normalized focus point.
   const fitFilter = plan.preset.fit === 'cover'
-    ? `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}`
+    ? `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}:(iw-${width})*${focusX}:(ih-${height})*${focusY}`
     : `scale=${width}:${height}:force_original_aspect_ratio=decrease`
   // A still scene can drift slowly instead of sitting perfectly still. zoompan needs a
   // fixed output size: cover already fills the canvas, while contain must render into
