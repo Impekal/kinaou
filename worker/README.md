@@ -20,7 +20,7 @@ Core filesystem/media (advertised honestly per detected tool — `ffmpeg`/`media
 - `GET /health` — capability/version handshake with honest chips.
 - `POST /probe` — real ffprobe metadata extraction for an existing managed asset.
 - `POST /assets/import` — browser-streamed upload into `KINAOU/Assets` (size-bounded `.part` + atomic rename; the worker never reads arbitrary source paths).
-- `POST /assets/availability` — per-path real file presence for managed assets, so the PWA can mark media OFFLINE after a drive disconnect and back online after reconnect.
+- `POST /assets/availability` — per-path real file presence inside the managed root, so the PWA can mark assets OFFLINE after drive disconnect/reconnect and verify that recorded export MP4s still exist without modifying them.
 - `POST /assets/proxy` / `POST /assets/thumbnail` / `POST /assets/waveform` — deterministic managed derivatives under `KINAOU/Cache`.
 - `GET /media?path=…` — authenticated streaming of managed originals and generated previews.
 - `POST /render`, `GET /render/jobs/:id`, cancel — the real multi-track FFmpeg compositor: visual layering by track order, audio mixing, caption burn-in, transforms, dissolves, fades and 0.25–4× retiming, for full exports to `KINAOU/Renders` and 540p previews to `KINAOU/Cache/Previews`.

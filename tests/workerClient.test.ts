@@ -76,6 +76,29 @@ describe('worker client', () => {
     await expect(invalid.assetAvailability(['KINAOU/Assets/a.mp4'])).rejects.toThrow(/availability/)
   })
 
+  it('checks only canonical managed export MP4 paths and requires a complete response', async () => {
+    const fetchImpl: typeof fetch = async (input, init) => {
+      expect(String(input)).toContain('/assets/availability')
+      expect(JSON.parse(String(init?.body))).toEqual({ paths: ['KINAOU/Renders/a.mp4', 'KINAOU/Renders/b.mp4'] })
+      return jsonResponse({ ok: true, type: 'asset-availability', results: [
+        { path: 'KINAOU/Renders/a.mp4', available: true },
+        { path: 'KINAOU/Renders/b.mp4', available: false }
+      ] })
+    }
+    const client = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl })
+    expect(await client.exportAvailability(['KINAOU/Renders/a.mp4', 'KINAOU/Renders/a.mp4', 'KINAOU/Renders/b.mp4'])).toEqual([
+      { path: 'KINAOU/Renders/a.mp4', available: true },
+      { path: 'KINAOU/Renders/b.mp4', available: false }
+    ])
+    await expect(client.exportAvailability(['KINAOU/Assets/a.mp4'])).rejects.toThrow(/export path/)
+    await expect(client.exportAvailability(['KINAOU/Renders/../Assets/a.mp4'])).rejects.toThrow(/export path/)
+    await expect(client.exportAvailability(['KINAOU/Renders/a.mov'])).rejects.toThrow(/export path/)
+    await expect(client.exportAvailability(Array.from({ length: 51 }, (_, index) => `KINAOU/Renders/${index}.mp4`))).rejects.toThrow(/at most 50/)
+
+    const incomplete = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl: async () => jsonResponse({ ok: true, type: 'asset-availability', results: [] }) })
+    await expect(incomplete.exportAvailability(['KINAOU/Renders/a.mp4'])).rejects.toThrow(/export availability response/)
+  })
+
   it('sends bearer auth and parses health/probe responses', async () => {
     const seen: Array<{ url: string; auth: string | null }> = []
     const fetchImpl: typeof fetch = async (input, init) => {

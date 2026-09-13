@@ -10,12 +10,14 @@ const workerScript = fileURLToPath(new URL('./mac-worker.mjs', import.meta.url))
 const TOKEN = 'asset-availability-test-token'
 const PORT = 43914
 
-test('availability endpoint reports real file presence and rejects unmanaged paths', async () => {
+test('availability endpoint reports real managed asset and export presence and rejects unmanaged paths', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'kinaou-availability-test-'))
   const managedRoot = path.join(root, 'KINAOU')
   await mkdir(path.join(managedRoot, 'Assets'), { recursive: true })
+  await mkdir(path.join(managedRoot, 'Renders'), { recursive: true })
   await writeFile(path.join(managedRoot, 'Assets', 'present.mp4'), 'real bytes')
   await writeFile(path.join(managedRoot, 'Assets', 'empty.png'), '')
+  await writeFile(path.join(managedRoot, 'Renders', 'finished.mp4'), 'render bytes')
 
   const child = spawn(process.execPath, [workerScript], {
     env: { PATH: process.env.PATH, KINAOU_MANAGED_ROOT: managedRoot, KINAOU_WORKER_TOKEN: TOKEN, KINAOU_WORKER_PORT: String(PORT) },
@@ -48,6 +50,13 @@ test('availability endpoint reports real file presence and rejects unmanaged pat
       { path: 'KINAOU/Assets/present.mp4', available: true },
       { path: 'KINAOU/Assets/missing.mov', available: false },
       { path: 'KINAOU/Assets/empty.png', available: false }
+    ])
+
+    const exports = await call({ paths: ['KINAOU/Renders/finished.mp4', 'KINAOU/Renders/missing.mp4'] })
+    assert.equal(exports.status, 200)
+    assert.deepEqual(exports.payload.results, [
+      { path: 'KINAOU/Renders/finished.mp4', available: true },
+      { path: 'KINAOU/Renders/missing.mp4', available: false }
     ])
 
     const escape = await call({ paths: ['KINAOU/../outside.txt'] })

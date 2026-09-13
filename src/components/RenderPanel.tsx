@@ -21,6 +21,7 @@ interface RenderPanelProps {
 
 const terminalStates = new Set(['succeeded', 'failed', 'cancelled'])
 type SubmittedExportReceipt = Omit<SuccessfulExportReceiptInput, 'completedAt' | 'sizeBytes'>
+interface ExportFileCheck { byPath: Record<string, boolean>; available: number; missing: number; checkedAt: string }
 
 export function RenderPanel({ project, workerUrl, workerToken, workerConnected, onProjectChange }: RenderPanelProps) {
   const readiness = useMemo(() => renderReadiness(project), [project])
@@ -33,6 +34,10 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const [submittedExport, setSubmittedExport] = useState<SubmittedExportReceipt | null>(null)
   const recordedExportJobs = useRef(new Set<string>())
   const exportHistory = projectExportHistory(project)
+  const exportPathSignature = exportHistory.map((receipt) => receipt.outputRelativePath).join('\u0000')
+  const [exportFileCheck, setExportFileCheck] = useState<ExportFileCheck | null>(null)
+  const [checkingExportFiles, setCheckingExportFiles] = useState(false)
+  const [exportAvailabilityError, setExportAvailabilityError] = useState('')
   const timelineDurationMs = useMemo(() => project.tracks.flatMap((track) => track.muted ? [] : track.clips).reduce((end, clip) => Math.max(end, clip.startMs + clip.durationMs), 0), [project])
   const [inSeconds, setInSeconds] = useState('0')
   const [outSeconds, setOutSeconds] = useState(() => String(timelineDurationMs / 1000))
@@ -89,6 +94,11 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   useEffect(() => {
     setShortMaximumSeconds(String(shortMaximumMs / 1000))
   }, [shortMaximumMs])
+
+  useEffect(() => {
+    setExportFileCheck(null)
+    setExportAvailabilityError('')
+  }, [exportPathSignature])
 
   useEffect(() => {
     if (shortPreviewBusy || !shortPreviewSourceConfiguration || shortPreviewCurrent) return
@@ -261,6 +271,23 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       setError(historyError instanceof Error ? historyError.message : 'Could not record successful Short export')
     }
   }, [batchItems, onProjectChange, project, successfulBatchSignature])
+
+  async function checkExportFiles() {
+    if (!workerConnected || !workerToken.trim() || checkingExportFiles || !exportHistory.length) return
+    setCheckingExportFiles(true)
+    setExportAvailabilityError('')
+    try {
+      const results = await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).exportAvailability(exportHistory.map((receipt) => receipt.outputRelativePath))
+      const byPath = Object.fromEntries(results.map((result) => [result.path, result.available]))
+      const available = results.filter((result) => result.available).length
+      setExportFileCheck({ byPath, available, missing: results.length - available, checkedAt: new Date().toISOString() })
+    } catch (availabilityError) {
+      setExportFileCheck(null)
+      setExportAvailabilityError(availabilityError instanceof Error ? availabilityError.message : 'Could not check export files')
+    } finally {
+      setCheckingExportFiles(false)
+    }
+  }
 
   async function startShortPreview() {
     if (!selectedShort || !readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy) return
@@ -486,15 +513,23 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         <div className="renderJobHead"><strong>Successful exports</strong><span>{exportHistory.length}/50 recorded</span></div>
         <p className="cardBody">This project keeps a bounded receipt for each successful worker render. Forgetting a receipt only removes this list entry — the MP4 in <code>KINAOU/Renders</code> is never deleted.</p>
         {!exportHistory.length && <p className="cardBody">No successful export recorded yet.</p>}
-        {exportHistory.map((receipt) => <div className="renderJob" key={receipt.jobId}>
-          <div className="renderJobHead"><strong>{receipt.label}</strong><span>{formatProfiles[receipt.format].label} · {(receipt.durationMs / 1000).toFixed(1)} s · {new Date(receipt.completedAt).toLocaleString()}</span></div>
-          <div className="renderMeta">
-            <code>{receipt.outputRelativePath}</code>
-            {receipt.sizeBytes !== undefined && <span>{(receipt.sizeBytes / 1024 / 1024).toFixed(1)} MB</span>}
-            <span>{(receipt.range.inMs / 1000).toFixed(3)}–{(receipt.range.outMs / 1000).toFixed(3)} s{receipt.sceneIds.length ? ` · ${receipt.sceneIds.length} scene${receipt.sceneIds.length === 1 ? '' : 's'}` : ''}</span>
-            <button disabled={busy} onClick={() => { try { onProjectChange(forgetExportReceipt(project, receipt.jobId)) } catch (historyError) { setError(historyError instanceof Error ? historyError.message : 'Could not forget export receipt') } }}>Forget receipt (keep MP4)</button>
+        {exportHistory.length > 0 && <div className="renderActions">
+          <button className="secondaryButton" disabled={!workerConnected || !workerToken.trim() || checkingExportFiles} onClick={checkExportFiles}>{checkingExportFiles ? 'Checking export files…' : 'Check export files'}</button>
+          {exportFileCheck && <span className="cardBody">{exportFileCheck.available} available · {exportFileCheck.missing} missing · checked {new Date(exportFileCheck.checkedAt).toLocaleString()}</span>}
+        </div>}
+        {exportAvailabilityError && <div className="errorBox">{exportAvailabilityError}</div>}
+        {exportHistory.map((receipt) => {
+          const fileAvailable = exportFileCheck?.byPath[receipt.outputRelativePath]
+          return <div className="renderJob" key={receipt.jobId}>
+            <div className="renderJobHead"><strong>{receipt.label}</strong><span>{formatProfiles[receipt.format].label} · {(receipt.durationMs / 1000).toFixed(1)} s · {new Date(receipt.completedAt).toLocaleString()}</span>{fileAvailable !== undefined && <span className={fileAvailable ? 'status online' : 'status missing'}>{fileAvailable ? 'FILE AVAILABLE' : 'FILE MISSING'}</span>}</div>
+            <div className="renderMeta">
+              <code>{receipt.outputRelativePath}</code>
+              {receipt.sizeBytes !== undefined && <span>{(receipt.sizeBytes / 1024 / 1024).toFixed(1)} MB</span>}
+              <span>{(receipt.range.inMs / 1000).toFixed(3)}–{(receipt.range.outMs / 1000).toFixed(3)} s{receipt.sceneIds.length ? ` · ${receipt.sceneIds.length} scene${receipt.sceneIds.length === 1 ? '' : 's'}` : ''}</span>
+              <button disabled={busy || checkingExportFiles} onClick={() => { try { onProjectChange(forgetExportReceipt(project, receipt.jobId)) } catch (historyError) { setError(historyError instanceof Error ? historyError.message : 'Could not forget export receipt') } }}>Forget receipt (keep MP4)</button>
+            </div>
           </div>
-        </div>)}
+        })}
       </div>
 
       <div className="renderActions">
