@@ -1,7 +1,7 @@
 import http from 'node:http'
 import { spawn } from 'node:child_process'
-import { createReadStream, createWriteStream } from 'node:fs'
-import { access, mkdir, readdir, readFile, rename, rm, stat, unlink, writeFile } from 'node:fs/promises'
+import { constants as fsConstants, createReadStream, createWriteStream } from 'node:fs'
+import { access, lstat, mkdir, open, readdir, readFile, rename, rm, stat, unlink, writeFile } from 'node:fs/promises'
 import { Readable, Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import path from 'node:path'
@@ -16,7 +16,7 @@ import { buildPiperCommand, piperVoiceRelativePaths, ttsPaths, validateTtsText }
 import { DEFAULT_OSASCRIPT_PATH, DEFAULT_SCREENCAPTURE_PATH, buildAppActivateCommand, buildAppWindowBoundsCommand, buildCaptureCommand, buildCaptureProvenance, captureAssetRelativePath, captureTempRelativePath, parseAppWindowBounds, validateCaptureRequest } from './capture.mjs'
 import os from 'node:os'
 import { buildWebCaptureCommand, buildWebCaptureProvenance, validateWebCaptureRequest, webCaptureBrowserCandidates, webCaptureProfileDirectory, webCapturePaths } from './webcapture.mjs'
-import { buildPublishPackageDocument, publishPackageRelativePath, validatePublishPackageRequest } from './publish-package.mjs'
+import { buildPublishPackageDocument, publishPackageRelativePath, validatePublishPackageDocument, validatePublishPackageRequest, validatePublishProjectId } from './publish-package.mjs'
 
 const HOST = '127.0.0.1'
 const PORT = Number(process.env.KINAOU_WORKER_PORT ?? 43117)
@@ -105,7 +105,7 @@ const server = http.createServer(async (request, response) => {
           name: 'KINAOU Mac Worker',
           platform: process.platform,
           version: VERSION,
-          capabilities: ['filesystem', 'asset-upload', 'publish-package', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe'] : []), ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(PIPER_CLI && piperVoices.length && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : [])],
+          capabilities: ['filesystem', 'asset-upload', 'publish-package', 'publish-package-library', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe'] : []), ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(PIPER_CLI && piperVoices.length && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : [])],
           managedRoots: [MANAGED_ROOT],
           ffmpegVersion: versions.ffmpeg,
           ffprobeVersion: versions.ffprobe
@@ -315,7 +315,7 @@ const server = http.createServer(async (request, response) => {
       if (!sourceRelativePath.startsWith('KINAOU/Renders/') || !sourceRelativePath.endsWith('.mp4')) throw unauthorizedPath('Publish source must be an MP4 inside KINAOU/Renders')
       const input = validatePublishPackageRequest(body)
       const sourceAbsolutePath = resolveManaged(sourceRelativePath)
-      const sourceInfo = await stat(sourceAbsolutePath).catch(() => null)
+      const sourceInfo = await lstat(sourceAbsolutePath).catch(() => null)
       if (!sourceInfo?.isFile() || sourceInfo.size <= 0) throw new Error('Publish source MP4 is missing or empty')
       const createdAt = new Date().toISOString()
       const relativePath = publishPackageRelativePath(sourceRelativePath, input.platform, createdAt, crypto.randomUUID())
@@ -325,6 +325,13 @@ const server = http.createServer(async (request, response) => {
       await writeFile(absolutePath, JSON.stringify(document, null, 2), { encoding: 'utf8', flag: 'wx' })
       const packageInfo = await stat(absolutePath)
       return send(response, 201, { ok: true, type: 'publish-package', result: { path: relativePath, sourcePath: sourceRelativePath, platform: input.platform, createdAt, sizeBytes: packageInfo.size } })
+    }
+
+    if (request.method === 'GET' && request.url?.startsWith('/publish/packages?')) {
+      const requestUrl = new URL(request.url, `http://${HOST}:${PORT}`)
+      const projectId = validatePublishProjectId(requestUrl.searchParams.get('projectId'))
+      const packages = await listPublishPackages(projectId)
+      return send(response, 200, { ok: true, type: 'publish-packages', packages })
     }
 
     if (request.method === 'POST' && request.url === '/projects/save') {
@@ -515,6 +522,64 @@ async function assertManagedRootExists(root) {
 }
 
 const MAX_PROJECT_BACKUP_BYTES = 5 * 1024 * 1024
+const MAX_PUBLISH_PACKAGE_BYTES = 256 * 1024
+const MAX_PUBLISH_SCAN_ENTRIES = 5000
+const MAX_PUBLISH_SCAN_DEPTH = 8
+const MAX_PUBLISH_RESULTS = 200
+
+async function listPublishPackages(projectId) {
+  const rendersPath = resolveManaged('KINAOU/Renders')
+  const packageFiles = []
+  let scannedEntries = 0
+
+  async function walk(directory, relativeDirectory, depth) {
+    const entries = await readdir(directory, { withFileTypes: true }).catch((error) => {
+      if (error?.code === 'ENOENT') return []
+      throw error
+    })
+    for (const entry of entries) {
+      scannedEntries += 1
+      if (scannedEntries > MAX_PUBLISH_SCAN_ENTRIES) throw new Error(`Publish package scan exceeds ${MAX_PUBLISH_SCAN_ENTRIES} managed render entries`)
+      const absolutePath = path.join(directory, entry.name)
+      const relativePath = `${relativeDirectory}/${entry.name}`
+      if (entry.isDirectory()) {
+        if (depth < MAX_PUBLISH_SCAN_DEPTH) await walk(absolutePath, relativePath, depth + 1)
+      } else if (entry.isFile() && entry.name.endsWith('.publish.json')) {
+        packageFiles.push({ absolutePath, relativePath })
+      }
+    }
+  }
+
+  await walk(rendersPath, 'KINAOU/Renders', 0)
+  const packages = []
+  for (const file of packageFiles) {
+    try {
+      const handle = await open(file.absolutePath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW)
+      let info
+      let serialized
+      try {
+        info = await handle.stat()
+        if (!info.isFile() || info.size <= 0 || info.size > MAX_PUBLISH_PACKAGE_BYTES) continue
+        serialized = await handle.readFile('utf8')
+      } finally {
+        await handle.close()
+      }
+      const document = validatePublishPackageDocument(JSON.parse(serialized))
+      if (document.projectId !== projectId) continue
+      const sourceInfo = await lstat(resolveManaged(document.media.outputRelativePath)).catch(() => null)
+      packages.push({
+        path: file.relativePath,
+        sizeBytes: info.size,
+        modifiedAt: info.mtime.toISOString(),
+        sourceAvailable: Boolean(sourceInfo?.isFile() && sourceInfo.size > 0),
+        document
+      })
+    } catch { /* malformed or unreadable local sidecars are omitted from the trusted library */ }
+  }
+  return packages
+    .sort((left, right) => right.document.createdAt.localeCompare(left.document.createdAt) || right.modifiedAt.localeCompare(left.modifiedAt) || left.path.localeCompare(right.path))
+    .slice(0, MAX_PUBLISH_RESULTS)
+}
 
 function requireBackupId(value) {
   if (typeof value !== 'string' || !/^[A-Za-z0-9-]{1,64}$/.test(value)) throw new Error('Invalid project backup id')

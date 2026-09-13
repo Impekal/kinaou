@@ -69,6 +69,38 @@ export function validatePublishPackageRequest(value) {
   }
 }
 
+export function validatePublishProjectId(value) {
+  return text(value, 'Project id', 1, 200)
+}
+
+export function validatePublishPackageDocument(value) {
+  const document = object(value, 'Publish package document')
+  if (document.kind !== 'kinaou-publish-package') throw new Error('Publish package kind is invalid')
+  const createdAt = isoDate(document.createdAt, 'Publish creation time')
+  const media = object(document.media, 'Publish package media')
+  const sourceSizeBytes = integer(media.sizeBytes, 'Source size', 1)
+  const request = validatePublishPackageRequest({
+    schemaVersion: document.schemaVersion,
+    projectId: document.projectId,
+    export: media,
+    platform: document.platform,
+    title: document.title,
+    description: document.description,
+    tags: document.tags
+  })
+  return {
+    schemaVersion: 1,
+    kind: 'kinaou-publish-package',
+    createdAt,
+    projectId: request.projectId,
+    platform: request.platform,
+    title: request.title,
+    description: request.description,
+    tags: request.tags,
+    media: { ...request.export, sizeBytes: sourceSizeBytes }
+  }
+}
+
 export function publishPackageRelativePath(sourcePath, platform, createdAt, id) {
   managedRenderPath(sourcePath)
   if (!publishTargets.has(platform)) throw new Error('Publish target is not supported')
@@ -84,7 +116,7 @@ export function buildPublishPackageDocument(input, options) {
   const request = validatePublishPackageRequest(input)
   const createdAt = isoDate(options?.createdAt, 'Publish creation time')
   const sourceSizeBytes = integer(options?.sourceSizeBytes, 'Source size', 1)
-  return {
+  return validatePublishPackageDocument({
     schemaVersion: 1,
     kind: 'kinaou-publish-package',
     createdAt,
@@ -94,5 +126,5 @@ export function buildPublishPackageDocument(input, options) {
     description: request.description,
     tags: request.tags,
     media: { ...request.export, sizeBytes: sourceSizeBytes }
-  }
+  })
 }

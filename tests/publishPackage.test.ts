@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { exportReceiptSchema } from '../src/core/exportHistory'
-import { buildPublishPackageRequest, parsePublishTags, publishPackageResultSchema } from '../src/core/publishPackage'
+import { buildPublishPackageRequest, parsePublishTags, publishPackageEntrySchema, publishPackageListSchema, publishPackageResultSchema } from '../src/core/publishPackage'
 import { createProject } from '../src/core/project'
 
 const receipt = exportReceiptSchema.parse({
@@ -47,5 +47,30 @@ describe('local publish packages', () => {
     expect(publishPackageResultSchema.parse({ path: 'KINAOU/Renders/demo_youtube_1.publish.json', sourcePath: receipt.outputRelativePath, platform: 'youtube', createdAt: '2026-09-13T08:01:00.000Z', sizeBytes: 512 }).sizeBytes).toBe(512)
     expect(() => publishPackageResultSchema.parse({ path: 'KINAOU/Assets/demo.publish.json', sourcePath: receipt.outputRelativePath, platform: 'youtube', createdAt: '2026-09-13T08:01:00.000Z', sizeBytes: 512 })).toThrow()
     expect(() => publishPackageResultSchema.parse({ path: 'KINAOU/Renders/demo.publish.json', sourcePath: receipt.outputRelativePath, platform: 'youtube', createdAt: '2026-09-13T08:01:00.000Z', sizeBytes: 0 })).toThrow()
+  })
+
+  it('validates reopened package documents and their live source status', () => {
+    const entry = publishPackageEntrySchema.parse({
+      path: 'KINAOU/Renders/demo_youtube_1.publish.json',
+      sizeBytes: 640,
+      modifiedAt: '2026-09-13T08:02:00.000Z',
+      sourceAvailable: false,
+      document: {
+        schemaVersion: 1,
+        kind: 'kinaou-publish-package',
+        createdAt: '2026-09-13T08:01:00.000Z',
+        projectId: 'project-1',
+        platform: 'youtube',
+        title: 'Reviewed title',
+        description: 'Reviewed description',
+        tags: ['KINAOU'],
+        media: { ...receipt, sizeBytes: 1234 }
+      }
+    })
+    expect(entry.document.media.outputRelativePath).toBe(receipt.outputRelativePath)
+    expect(entry.sourceAvailable).toBe(false)
+    expect(() => publishPackageEntrySchema.parse({ ...entry, document: { ...entry.document, kind: 'unknown' } })).toThrow()
+    expect(() => publishPackageEntrySchema.parse({ ...entry, document: { ...entry.document, media: { ...entry.document.media, outputRelativePath: '../outside.mp4' } } })).toThrow()
+    expect(() => publishPackageListSchema.parse(Array.from({ length: 201 }, () => entry))).toThrow()
   })
 })
