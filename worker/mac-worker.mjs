@@ -814,6 +814,7 @@ async function executeRenderJob(id) {
       inputPaths.push(input)
     }
     await mkdir(path.dirname(outputPath), { recursive: true })
+    if (plan.purpose === 'export' && await lstat(outputPath).catch(() => null)) throw new Error('Render output already exists; KINAOU will not overwrite an export')
     let subtitlePath
     if (captionClips.length) {
       const temp = captionTempPaths(MANAGED_ROOT, job.id)
@@ -903,7 +904,9 @@ function letterboxedSize(asset, width, height) {
 }
 
 function buildCompositeArgs(plan, mediaClips, inputPaths, outputPath, subtitlePath) {
-  const args = ['-y']
+  // Durable exports have unique identities and must never replace an existing
+  // file. Deterministic cache previews are intentionally refreshable.
+  const args = [plan.purpose === 'export' ? '-n' : '-y']
   mediaClips.forEach((clip, index) => {
     if (clip.asset.kind === 'image') args.push('-loop', '1')
     args.push('-ss', seconds(clip.sourceOffsetMs), '-t', seconds(clip.durationMs * (clip.asset.kind === 'image' ? 1 : clip.speed)), '-i', inputPaths[index])
