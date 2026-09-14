@@ -100,6 +100,7 @@ describe('worker client', () => {
   })
 
   it('validates local publish package requests and responses', async () => {
+    const digest = 'a'.repeat(64)
     const request = {
       schemaVersion: 1 as const,
       projectId: 'p1',
@@ -112,7 +113,7 @@ describe('worker client', () => {
     const fetchImpl: typeof fetch = async (input, init) => {
       expect(String(input)).toContain('/publish/packages')
       expect(JSON.parse(String(init?.body))).toEqual(request)
-      return jsonResponse({ ok: true, type: 'publish-package', result: { path: 'KINAOU/Renders/final_generic_1.publish.json', sourcePath: 'KINAOU/Renders/final.mp4', platform: 'generic', createdAt: '2026-09-13T08:01:00.000Z', sizeBytes: 640 } }, 201)
+      return jsonResponse({ ok: true, type: 'publish-package', result: { schemaVersion: 2, path: 'KINAOU/Renders/final_generic_1.publish.json', sourcePath: 'KINAOU/Renders/final.mp4', platform: 'generic', createdAt: '2026-09-13T08:01:00.000Z', sizeBytes: 640, sourceSha256: digest } }, 201)
     }
     const client = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl })
     expect(await client.createPublishPackage(request)).toMatchObject({ platform: 'generic', sizeBytes: 640 })
@@ -120,6 +121,23 @@ describe('worker client', () => {
     await expect(client.createPublishPackage({ ...request, export: { ...request.export, outputRelativePath: 'KINAOU/Assets/final.mp4' } })).rejects.toThrow()
     const invalid = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl: async () => jsonResponse({ ok: true, type: 'publish-package', result: { path: '../outside.json' } }) })
     await expect(invalid.createPublishPackage(request)).rejects.toThrow()
+  })
+
+  it('requests one bounded publish package integrity verification', async () => {
+    const packagePath = 'KINAOU/Renders/final_generic_1.publish.json'
+    const digest = 'a'.repeat(64)
+    const result = { schemaVersion: 1, packagePath, sourcePath: 'KINAOU/Renders/final.mp4', checkedAt: '2026-09-13T08:03:00.000Z', status: 'unchanged', expectedSha256: digest, actualSha256: digest, sizeBytes: 1200 }
+    const fetchImpl: typeof fetch = async (input, init) => {
+      expect(String(input)).toContain('/publish/packages/integrity')
+      expect(JSON.parse(String(init?.body))).toEqual({ path: packagePath })
+      return jsonResponse({ ok: true, type: 'publish-package-integrity', result })
+    }
+    const client = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl })
+    expect(await client.verifyPublishPackageIntegrity(packagePath)).toEqual(result)
+    await expect(client.verifyPublishPackageIntegrity('../outside.publish.json')).rejects.toThrow()
+
+    const mismatched = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl: async () => jsonResponse({ ok: true, type: 'publish-package-integrity', result: { ...result, packagePath: 'KINAOU/Renders/other.publish.json' } }) })
+    await expect(mismatched.verifyPublishPackageIntegrity(packagePath)).rejects.toThrow(/does not match/)
   })
 
   it('requests and strictly validates a real publish preflight', async () => {

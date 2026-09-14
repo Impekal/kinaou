@@ -1,4 +1,4 @@
-export type WorkerCapability = 'filesystem' | 'publish-package' | 'publish-package-library' | 'publish-preflight' | 'format-reframing' | 'ffmpeg' | 'media-probe' | 'asset-upload' | 'media-proxy' | 'media-thumbnail' | 'media-waveform' | 'llm' | 'image-generation' | 'video-generation' | 'screen-capture' | 'web-capture' | 'speech-to-text' | 'text-to-speech' | 'avatar'
+export type WorkerCapability = 'filesystem' | 'publish-package' | 'publish-package-library' | 'publish-package-integrity' | 'publish-preflight' | 'format-reframing' | 'ffmpeg' | 'media-probe' | 'asset-upload' | 'media-proxy' | 'media-thumbnail' | 'media-waveform' | 'llm' | 'image-generation' | 'video-generation' | 'screen-capture' | 'web-capture' | 'speech-to-text' | 'text-to-speech' | 'avatar'
 
 export interface WorkerDescriptor {
   id: string

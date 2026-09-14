@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { projectExportHistory } from '../core/exportHistory'
-import { buildPublishPackageRequest, clearProjectPublishDefaults, projectPublishDefaults, publishPreflightMatchesReceipt, publishTargetLabels, saveProjectPublishDefaults, type PublishPackageEntry, type PublishPackageResult, type PublishPreflightResult, type PublishTarget } from '../core/publishPackage'
+import { buildPublishPackageRequest, clearProjectPublishDefaults, projectPublishDefaults, publishPreflightMatchesReceipt, publishTargetLabels, saveProjectPublishDefaults, type PublishIntegrityResult, type PublishPackageEntry, type PublishPackageResult, type PublishPreflightResult, type PublishTarget } from '../core/publishPackage'
 import type { KinaouProject } from '../core/project'
 import { WorkerClient } from '../core/workerClient'
 
@@ -30,13 +30,16 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
   const [listBusy, setListBusy] = useState(false)
   const [listError, setListError] = useState('')
   const [libraryMessage, setLibraryMessage] = useState('')
+  const [integrityByPath, setIntegrityByPath] = useState<Record<string, PublishIntegrityResult>>({})
+  const [integrityBusyPath, setIntegrityBusyPath] = useState('')
   const [defaultsMessage, setDefaultsMessage] = useState('')
   const selected = receipts.find((receipt) => receipt.jobId === selectedJobId) ?? receipts[0]
   const packageSupported = workerCapabilities.includes('publish-package')
   const preflightSupported = workerCapabilities.includes('publish-preflight')
   const librarySupported = workerCapabilities.includes('publish-package-library')
+  const integritySupported = workerCapabilities.includes('publish-package-integrity')
   const currentPreflight = publishPreflightMatchesReceipt(preflight, selected) ? preflight : null
-  const operationBusy = busy || preflightBusy
+  const operationBusy = busy || preflightBusy || Boolean(integrityBusyPath)
 
   useEffect(() => {
     const defaults = projectPublishDefaults(project)
@@ -52,6 +55,8 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
     setPackages(null)
     setListError('')
     setLibraryMessage('')
+    setIntegrityByPath({})
+    setIntegrityBusyPath('')
     setDefaultsMessage('')
   }, [project.id])
 
@@ -90,11 +95,12 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
   }
 
   async function refreshPackages(client = new WorkerClient({ baseUrl: workerUrl, token: workerToken })) {
-    if (!workerConnected || !librarySupported || !workerToken.trim() || listBusy) return
+    if (!workerConnected || !librarySupported || !workerToken.trim() || listBusy || integrityBusyPath) return
     setListBusy(true)
     setListError('')
     try {
       setPackages(await client.listPublishPackages(project.id))
+      setIntegrityByPath({})
     } catch (cause) {
       setListError(cause instanceof Error ? cause.message : 'Could not load local publish packages')
     } finally {
@@ -103,7 +109,7 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
   }
 
   async function createPackage() {
-    if (!selected || !workerConnected || !packageSupported || !preflightSupported || !currentPreflight?.ready || operationBusy) return
+    if (!selected || !workerConnected || !packageSupported || !preflightSupported || !integritySupported || !currentPreflight?.ready || operationBusy) return
     setBusy(true)
     setError('')
     setResult(null)
@@ -149,13 +155,27 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
       : `Opened metadata from ${entry.path}. Its original export is no longer in this project's recorded history, so the current export selection was kept.`)
   }
 
+  async function verifyPackage(entry: PublishPackageEntry) {
+    if (!workerConnected || !integritySupported || integrityBusyPath || entry.document.schemaVersion !== 2) return
+    setIntegrityBusyPath(entry.path)
+    setListError('')
+    try {
+      const verification = await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).verifyPublishPackageIntegrity(entry.path)
+      setIntegrityByPath((current) => ({ ...current, [entry.path]: verification }))
+    } catch (cause) {
+      setListError(cause instanceof Error ? cause.message : 'Could not verify publish package integrity')
+    } finally {
+      setIntegrityBusyPath('')
+    }
+  }
+
   return (
     <section className="stack">
-      <div className="sectionLead"><div><div className="eyebrow">LOCAL PUBLISH HANDOFF</div><h2>Prepare a finished export</h2></div><span className={packageSupported && preflightSupported ? 'status online' : 'status'}>{packageSupported && preflightSupported ? 'PREFLIGHT READY' : workerConnected ? 'FFPROBE / RESTART NEEDED' : 'WORKER OFFLINE'}</span></div>
+      <div className="sectionLead"><div><div className="eyebrow">LOCAL PUBLISH HANDOFF</div><h2>Prepare a finished export</h2></div><span className={packageSupported && preflightSupported && integritySupported ? 'status online' : 'status'}>{packageSupported && preflightSupported && integritySupported ? 'VERIFIED HANDOFF READY' : workerConnected ? 'FFPROBE / RESTART NEEDED' : 'WORKER OFFLINE'}</span></div>
       <div className="card settingsPanel">
         <div>
           <h3>MP4 plus attributable metadata</h3>
-          <p>Select a successful KINAOU export. The worker reads the MP4 with ffprobe and checks its size, video stream, output dimensions and duration before it can write a JSON sidecar beside it in <code>KINAOU/Renders</code>. It never uploads, publishes, changes or deletes the video.</p>
+          <p>Select a successful KINAOU export. The worker reads the MP4 with ffprobe, validates its media facts and streams a SHA-256 fingerprint before it writes a JSON sidecar beside it in <code>KINAOU/Renders</code>. It never uploads, publishes, changes or deletes the video.</p>
           {selected && <div className="note"><strong>{selected.label}</strong><br />{selected.format} · {(selected.durationMs / 1000).toFixed(1)} s<br /><code>{selected.outputRelativePath}</code></div>}
         </div>
         <div className="formStack">
@@ -173,9 +193,9 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
           {savedDefaults && <small>Saved for this project · {publishTargetLabels[savedDefaults.platform]} · updated {new Date(savedDefaults.updatedAt).toLocaleString()}</small>}
           {defaultsMessage && <div className="note">{defaultsMessage}</div>}
           <button className="secondaryButton" disabled={!selected || !workerConnected || !preflightSupported || !workerToken.trim() || operationBusy} onClick={checkPreflight}>{preflightBusy ? 'Inspecting MP4…' : currentPreflight ? 'Refresh export preflight' : 'Check export file'}</button>
-          <button className="primary" disabled={!selected || !workerConnected || !packageSupported || !preflightSupported || !currentPreflight?.ready || !workerToken.trim() || !title.trim() || operationBusy} onClick={createPackage}>{busy ? 'Rechecking and writing…' : 'Create local publish package'}</button>
+          <button className="primary" disabled={!selected || !workerConnected || !packageSupported || !preflightSupported || !integritySupported || !currentPreflight?.ready || !workerToken.trim() || !title.trim() || operationBusy} onClick={createPackage}>{busy ? 'Rechecking, fingerprinting and writing…' : 'Create local publish package'}</button>
           {!workerConnected && <small>Connect the local worker in Settings first.</small>}
-          {workerConnected && (!packageSupported || !preflightSupported) && <small>Publish preflight needs ffprobe and the worker from this KINAOU build. Install ffprobe if missing, restart the worker and reconnect.</small>}
+          {workerConnected && (!packageSupported || !preflightSupported || !integritySupported) && <small>Verified publish handoff needs ffprobe and the worker from this KINAOU build. Install ffprobe if missing, restart the worker and reconnect.</small>}
           {!receipts.length && <small>Complete a render export first; previews are intentionally not publishable.</small>}
         </div>
       </div>
@@ -187,19 +207,24 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
         </div>
         <small>Checked {new Date(currentPreflight.checkedAt).toLocaleString()} · {(currentPreflight.actual.sizeBytes / 1024 / 1024).toFixed(1)} MB · the worker checks again immediately before writing a package.</small>
       </div>}
-      {result && <div className="card availabilityPanel"><div className="eyebrow">PACKAGE CREATED</div><h3>{publishTargetLabels[result.platform]} handoff is ready</h3><p>The MP4 is unchanged. This new sidecar captures the reviewed export identity, exact range, scenes, format, title, description, tags and creation time.</p><code>{result.path}</code><small>{result.sizeBytes} bytes · {new Date(result.createdAt).toLocaleString()}</small></div>}
+      {result && <div className="card availabilityPanel"><div className="eyebrow">PACKAGE CREATED</div><h3>{publishTargetLabels[result.platform]} handoff is ready</h3><p>The new sidecar captures the reviewed export identity, media facts and a streaming SHA-256 fingerprint, alongside its range, scenes, format and metadata.</p><code>{result.path}</code><small>{result.sizeBytes} bytes · SHA-256 {result.sourceSha256.slice(0, 12)}… · {new Date(result.createdAt).toLocaleString()}</small></div>}
       {error && <div className="card errorBox">{error}</div>}
       <div className="card publishLibrary">
-        <div className="sectionLead"><div><div className="eyebrow">LOCAL PACKAGE LIBRARY</div><h3>Reopen earlier handoffs</h3></div><button className="secondaryButton" disabled={!workerConnected || !librarySupported || !workerToken.trim() || listBusy} onClick={() => void refreshPackages()}>{listBusy ? 'Checking drive…' : 'Refresh packages'}</button></div>
-        <p>This reads only validated <code>*.publish.json</code> files for this project from <code>KINAOU/Renders</code>. Opening one restores its reviewed metadata; it never uploads or changes the package or MP4.</p>
+        <div className="sectionLead"><div><div className="eyebrow">LOCAL PACKAGE LIBRARY</div><h3>Reopen earlier handoffs</h3></div><button className="secondaryButton" disabled={!workerConnected || !librarySupported || !workerToken.trim() || listBusy || Boolean(integrityBusyPath)} onClick={() => void refreshPackages()}>{listBusy ? 'Checking drive…' : 'Refresh packages'}</button></div>
+        <p>This reads only validated <code>*.publish.json</code> files for this project from <code>KINAOU/Renders</code>. Opening one restores its reviewed metadata. Integrity checks stream only the selected MP4 on demand; refresh never hashes the whole library.</p>
         {workerConnected && !librarySupported && <small>Restart the local worker from this KINAOU build and reconnect to enable the package library.</small>}
         {libraryMessage && <div className="note">{libraryMessage}</div>}
         {packages === null && !listError && <small>Refresh to read the current package library from the connected KINAOU drive.</small>}
         {packages?.length === 0 && <small>No valid publish packages were found for this project.</small>}
-        {packages && packages.length > 0 && <div className="publishPackageList">{packages.map((entry) => <div className="publishPackageRow" key={entry.path}>
-          <div><strong>{entry.document.title}</strong><small>{publishTargetLabels[entry.document.platform]} · {entry.document.media.format} · {new Date(entry.document.createdAt).toLocaleString()}</small><code>{entry.path}</code></div>
-          <div className="publishPackageActions"><span className={entry.sourceAvailable ? 'badge' : 'badge offline'}>{entry.sourceAvailable ? 'MP4 AVAILABLE' : 'MP4 MISSING'}</span><button className="secondaryButton" disabled={busy || listBusy} onClick={() => openPackage(entry)}>Open metadata</button></div>
-        </div>)}</div>}
+        {packages && packages.length > 0 && <div className="publishPackageList">{packages.map((entry) => {
+          const verification = integrityByPath[entry.path]
+          const integrityLabel = entry.document.schemaVersion === 1 ? 'NO DIGEST · LEGACY' : verification ? verification.status.toUpperCase() : 'NOT VERIFIED'
+          const integrityGood = verification?.status === 'unchanged'
+          return <div className="publishPackageRow" key={entry.path}>
+            <div><strong>{entry.document.title}</strong><small>{publishTargetLabels[entry.document.platform]} · {entry.document.media.format} · {new Date(entry.document.createdAt).toLocaleString()}</small><code>{entry.path}</code>{verification && <small>Integrity checked {new Date(verification.checkedAt).toLocaleString()}{verification.actualSha256 ? ` · SHA-256 ${verification.actualSha256.slice(0, 12)}…` : ''}</small>}</div>
+            <div className="publishPackageActions"><span className={entry.sourceAvailable ? 'badge' : 'badge offline'}>{entry.sourceAvailable ? 'MP4 AVAILABLE' : 'MP4 MISSING'}</span><span className={integrityGood ? 'badge' : 'badge offline'}>{integrityLabel}</span>{entry.document.schemaVersion === 2 && <button className="secondaryButton" disabled={busy || listBusy || !integritySupported || Boolean(integrityBusyPath)} onClick={() => void verifyPackage(entry)}>{integrityBusyPath === entry.path ? 'Hashing MP4…' : 'Verify integrity'}</button>}<button className="secondaryButton" disabled={busy || listBusy} onClick={() => openPackage(entry)}>Open metadata</button></div>
+          </div>
+        })}</div>}
         {listError && <div className="errorBox">{listError}</div>}
       </div>
     </section>

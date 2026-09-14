@@ -8,6 +8,7 @@ const publishFormatDimensions = {
   square: { width: 1080, height: 1080 }
 }
 const PUBLISH_DURATION_TOLERANCE_MS = 250
+const sha256Pattern = /^[a-f0-9]{64}$/
 
 function object(value, label) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} must be an object`)
@@ -43,6 +44,29 @@ function managedRenderPath(value) {
   text(value, 'Export path', 1, 500)
   if (value.includes('\\') || path.posix.normalize(value) !== value || !value.startsWith('KINAOU/Renders/') || !value.endsWith('.mp4')) throw new Error('Export path must be a canonical managed MP4 under KINAOU/Renders')
   return value
+}
+
+export function validatePublishPackagePath(value) {
+  text(value, 'Publish package path', 1, 700)
+  if (value.includes('\\') || path.posix.normalize(value) !== value || !value.startsWith('KINAOU/Renders/') || !value.endsWith('.publish.json')) throw new Error('Publish package must be a canonical managed JSON file under KINAOU/Renders')
+  return value
+}
+
+function sha256(value, label = 'Source SHA-256') {
+  if (typeof value !== 'string' || !sha256Pattern.test(value)) throw new Error(`${label} must be a lowercase SHA-256 digest`)
+  return value
+}
+
+function validateActualMediaFacts(value) {
+  const source = object(value, 'Publish integrity media facts')
+  return {
+    sizeBytes: integer(source.sizeBytes, 'Actual publish size', 1),
+    ...(optionalInteger(source.durationMs, 'Actual publish duration') === undefined ? {} : { durationMs: source.durationMs }),
+    ...(optionalInteger(source.width, 'Actual publish width', 1) === undefined ? {} : { width: source.width }),
+    ...(optionalInteger(source.height, 'Actual publish height', 1) === undefined ? {} : { height: source.height }),
+    ...(optionalText(source.videoCodec, 'Actual publish video codec') === undefined ? {} : { videoCodec: source.videoCodec }),
+    ...(optionalText(source.audioCodec, 'Actual publish audio codec') === undefined ? {} : { audioCodec: source.audioCodec })
+  }
 }
 
 export function validatePublishExportReceipt(value) {
@@ -91,14 +115,7 @@ export function buildPublishPreflightResult(exportReceipt, probe, checkedAt) {
   const receipt = validatePublishExportReceipt(exportReceipt)
   const source = object(probe, 'Publish media probe')
   const expectedDimensions = publishFormatDimensions[receipt.format]
-  const actual = {
-    sizeBytes: integer(source.sizeBytes, 'Actual publish size', 1),
-    ...(optionalInteger(source.durationMs, 'Actual publish duration') === undefined ? {} : { durationMs: source.durationMs }),
-    ...(optionalInteger(source.width, 'Actual publish width', 1) === undefined ? {} : { width: source.width }),
-    ...(optionalInteger(source.height, 'Actual publish height', 1) === undefined ? {} : { height: source.height }),
-    ...(optionalText(source.videoCodec, 'Actual publish video codec') === undefined ? {} : { videoCodec: source.videoCodec }),
-    ...(optionalText(source.audioCodec, 'Actual publish audio codec') === undefined ? {} : { audioCodec: source.audioCodec })
-  }
+  const actual = validateActualMediaFacts(source)
   const expected = {
     jobId: receipt.jobId,
     format: receipt.format,
@@ -131,12 +148,13 @@ export function validatePublishProjectId(value) {
 
 export function validatePublishPackageDocument(value) {
   const document = object(value, 'Publish package document')
+  if (document.schemaVersion !== 1 && document.schemaVersion !== 2) throw new Error('Publish package schemaVersion must be 1 or 2')
   if (document.kind !== 'kinaou-publish-package') throw new Error('Publish package kind is invalid')
   const createdAt = isoDate(document.createdAt, 'Publish creation time')
   const media = object(document.media, 'Publish package media')
   const sourceSizeBytes = integer(media.sizeBytes, 'Source size', 1)
   const request = validatePublishPackageRequest({
-    schemaVersion: document.schemaVersion,
+    schemaVersion: 1,
     projectId: document.projectId,
     export: media,
     platform: document.platform,
@@ -144,8 +162,8 @@ export function validatePublishPackageDocument(value) {
     description: document.description,
     tags: document.tags
   })
-  return {
-    schemaVersion: 1,
+  const validated = {
+    schemaVersion: document.schemaVersion,
     kind: 'kinaou-publish-package',
     createdAt,
     projectId: request.projectId,
@@ -154,6 +172,18 @@ export function validatePublishPackageDocument(value) {
     description: request.description,
     tags: request.tags,
     media: { ...request.export, sizeBytes: sourceSizeBytes }
+  }
+  if (document.schemaVersion === 1) return validated
+  const integrity = object(document.integrity, 'Publish package integrity')
+  const actual = validateActualMediaFacts(integrity.actual)
+  if (actual.sizeBytes !== sourceSizeBytes) throw new Error('Publish integrity size must match the media receipt')
+  return {
+    ...validated,
+    integrity: {
+      checkedAt: isoDate(integrity.checkedAt, 'Publish integrity check time'),
+      actual,
+      sha256: sha256(integrity.sha256)
+    }
   }
 }
 
@@ -171,9 +201,11 @@ export function publishPackageRelativePath(sourcePath, platform, createdAt, id) 
 export function buildPublishPackageDocument(input, options) {
   const request = validatePublishPackageRequest(input)
   const createdAt = isoDate(options?.createdAt, 'Publish creation time')
-  const sourceSizeBytes = integer(options?.sourceSizeBytes, 'Source size', 1)
+  const preflight = object(options?.preflight, 'Publish preflight')
+  const actual = validateActualMediaFacts(preflight.actual)
+  const sourceSha256 = sha256(options?.sourceSha256)
   return validatePublishPackageDocument({
-    schemaVersion: 1,
+    schemaVersion: 2,
     kind: 'kinaou-publish-package',
     createdAt,
     projectId: request.projectId,
@@ -181,6 +213,11 @@ export function buildPublishPackageDocument(input, options) {
     title: request.title,
     description: request.description,
     tags: request.tags,
-    media: { ...request.export, sizeBytes: sourceSizeBytes }
+    media: { ...request.export, sizeBytes: actual.sizeBytes },
+    integrity: {
+      checkedAt: isoDate(preflight.checkedAt, 'Publish preflight time'),
+      actual,
+      sha256: sourceSha256
+    }
   })
 }

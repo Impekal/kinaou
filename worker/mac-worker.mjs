@@ -16,7 +16,7 @@ import { buildPiperCommand, piperVoiceRelativePaths, ttsPaths, validateTtsText }
 import { DEFAULT_OSASCRIPT_PATH, DEFAULT_SCREENCAPTURE_PATH, buildAppActivateCommand, buildAppWindowBoundsCommand, buildCaptureCommand, buildCaptureProvenance, captureAssetRelativePath, captureTempRelativePath, parseAppWindowBounds, validateCaptureRequest } from './capture.mjs'
 import os from 'node:os'
 import { buildWebCaptureCommand, buildWebCaptureProvenance, validateWebCaptureRequest, webCaptureBrowserCandidates, webCaptureProfileDirectory, webCapturePaths } from './webcapture.mjs'
-import { buildPublishPackageDocument, buildPublishPreflightResult, publishPackageRelativePath, validatePublishExportReceipt, validatePublishPackageDocument, validatePublishPackageRequest, validatePublishProjectId } from './publish-package.mjs'
+import { buildPublishPackageDocument, buildPublishPreflightResult, publishPackageRelativePath, validatePublishExportReceipt, validatePublishPackageDocument, validatePublishPackagePath, validatePublishPackageRequest, validatePublishProjectId } from './publish-package.mjs'
 
 const HOST = '127.0.0.1'
 const PORT = Number(process.env.KINAOU_WORKER_PORT ?? 43117)
@@ -105,7 +105,7 @@ const server = http.createServer(async (request, response) => {
           name: 'KINAOU Mac Worker',
           platform: process.platform,
           version: VERSION,
-          capabilities: ['filesystem', 'asset-upload', 'publish-package-library', 'format-reframing', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe', 'publish-preflight', 'publish-package'] : []), ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(PIPER_CLI && piperVoices.length && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : [])],
+          capabilities: ['filesystem', 'asset-upload', 'publish-package-library', 'publish-package-integrity', 'format-reframing', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe', 'publish-preflight', 'publish-package'] : []), ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(PIPER_CLI && piperVoices.length && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : [])],
           managedRoots: [MANAGED_ROOT],
           ffmpegVersion: versions.ffmpeg,
           ffprobeVersion: versions.ffprobe
@@ -331,11 +331,19 @@ const server = http.createServer(async (request, response) => {
       const createdAt = new Date().toISOString()
       const relativePath = publishPackageRelativePath(sourceRelativePath, input.platform, createdAt, crypto.randomUUID())
       const absolutePath = resolveManaged(relativePath)
-      const document = buildPublishPackageDocument(input, { createdAt, sourceSizeBytes: preflight.actual.sizeBytes })
+      const sourceSha256 = await sha256ManagedFile(sourceRelativePath, preflight.actual.sizeBytes)
+      const document = buildPublishPackageDocument(input, { createdAt, preflight, sourceSha256 })
       await mkdir(path.dirname(absolutePath), { recursive: true })
       await writeFile(absolutePath, JSON.stringify(document, null, 2), { encoding: 'utf8', flag: 'wx' })
       const packageInfo = await stat(absolutePath)
-      return send(response, 201, { ok: true, type: 'publish-package', result: { path: relativePath, sourcePath: sourceRelativePath, platform: input.platform, createdAt, sizeBytes: packageInfo.size } })
+      return send(response, 201, { ok: true, type: 'publish-package', result: { schemaVersion: 2, path: relativePath, sourcePath: sourceRelativePath, platform: input.platform, createdAt, sizeBytes: packageInfo.size, sourceSha256 } })
+    }
+
+    if (request.method === 'POST' && request.url === '/publish/packages/integrity') {
+      const body = await readJson(request)
+      const packageRelativePath = validatePublishPackagePath(requireManagedRelativePath(body?.path))
+      const result = await verifyPublishPackageIntegrity(packageRelativePath)
+      return send(response, 200, { ok: true, type: 'publish-package-integrity', result })
     }
 
     if (request.method === 'GET' && request.url?.startsWith('/publish/packages?')) {
@@ -546,6 +554,65 @@ async function preflightPublishExport(exportReceipt) {
   return buildPublishPreflightResult(exportReceipt, { ...probe, sizeBytes: sourceInfo.size }, new Date().toISOString())
 }
 
+async function sha256ManagedFile(relativePath, expectedSize) {
+  const absolutePath = resolveManaged(relativePath)
+  const handle = await open(absolutePath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW)
+  const buffer = Buffer.allocUnsafe(1024 * 1024)
+  try {
+    const before = await handle.stat()
+    if (!before.isFile() || before.size <= 0 || before.size !== expectedSize) throw new Error('Publish source changed before its integrity fingerprint could be captured')
+    const hash = crypto.createHash('sha256')
+    let position = 0
+    while (position < before.size) {
+      const { bytesRead } = await handle.read(buffer, 0, Math.min(buffer.length, before.size - position), position)
+      if (bytesRead <= 0) throw new Error('Publish source ended while its integrity fingerprint was being captured')
+      hash.update(buffer.subarray(0, bytesRead))
+      position += bytesRead
+    }
+    const after = await handle.stat()
+    if (after.size !== before.size || after.mtimeMs !== before.mtimeMs || after.ctimeMs !== before.ctimeMs || after.ino !== before.ino || after.dev !== before.dev) throw new Error('Publish source changed while its integrity fingerprint was being captured')
+    return hash.digest('hex')
+  } finally {
+    await handle.close()
+  }
+}
+
+async function readPublishPackage(packageRelativePath) {
+  validatePublishPackagePath(packageRelativePath)
+  const absolutePath = resolveManaged(packageRelativePath)
+  const handle = await open(absolutePath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW)
+  try {
+    const info = await handle.stat()
+    if (!info.isFile() || info.size <= 0 || info.size > MAX_PUBLISH_PACKAGE_BYTES) throw new Error('Publish package is empty, oversized or not a regular file')
+    return { document: validatePublishPackageDocument(JSON.parse(await handle.readFile('utf8'))), info }
+  } finally {
+    await handle.close()
+  }
+}
+
+async function verifyPublishPackageIntegrity(packageRelativePath) {
+  const { document } = await readPublishPackage(packageRelativePath)
+  const base = {
+    schemaVersion: 1,
+    packagePath: packageRelativePath,
+    sourcePath: document.media.outputRelativePath,
+    checkedAt: new Date().toISOString()
+  }
+  if (document.schemaVersion === 1) return { ...base, status: 'unverifiable' }
+  const expectedSha256 = document.integrity.sha256
+  const sourceInfo = await lstat(resolveManaged(document.media.outputRelativePath)).catch(() => null)
+  if (!sourceInfo?.isFile() || sourceInfo.size <= 0) return { ...base, status: 'missing', expectedSha256 }
+  if (sourceInfo.size !== document.integrity.actual.sizeBytes) return { ...base, status: 'modified', expectedSha256, sizeBytes: sourceInfo.size }
+  const actualSha256 = await sha256ManagedFile(document.media.outputRelativePath, sourceInfo.size)
+  return {
+    ...base,
+    status: actualSha256 === expectedSha256 ? 'unchanged' : 'modified',
+    expectedSha256,
+    actualSha256,
+    sizeBytes: sourceInfo.size
+  }
+}
+
 async function listPublishPackages(projectId) {
   const rendersPath = resolveManaged('KINAOU/Renders')
   const packageFiles = []
@@ -573,17 +640,7 @@ async function listPublishPackages(projectId) {
   const packages = []
   for (const file of packageFiles) {
     try {
-      const handle = await open(file.absolutePath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW)
-      let info
-      let serialized
-      try {
-        info = await handle.stat()
-        if (!info.isFile() || info.size <= 0 || info.size > MAX_PUBLISH_PACKAGE_BYTES) continue
-        serialized = await handle.readFile('utf8')
-      } finally {
-        await handle.close()
-      }
-      const document = validatePublishPackageDocument(JSON.parse(serialized))
+      const { document, info } = await readPublishPackage(file.relativePath)
       if (document.projectId !== projectId) continue
       const sourceInfo = await lstat(resolveManaged(document.media.outputRelativePath)).catch(() => null)
       packages.push({
