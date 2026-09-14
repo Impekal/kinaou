@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cancelPendingShortBatchItems, clearProjectShortBatch, createPersistedShortBatch, failMissingShortBatchJob, nextShortBatchItem, projectPersistedShortBatch, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, requeueMissingShortBatchJob, shortBatchBusy, shortBatchPlanSignature, storeProjectShortBatch, type ShortBatchRenderItem } from '../src/core/shortExportBatch'
+import { cancelPendingShortBatchItems, clearProjectShortBatch, createPersistedShortBatch, failMissingShortBatchJob, nextShortBatchItem, planSelectiveShortBatchRetry, projectPersistedShortBatch, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, requeueMissingShortBatchJob, retryableShortBatchItems, shortBatchBusy, shortBatchPlanSignature, storeProjectShortBatch, type ShortBatchRenderItem } from '../src/core/shortExportBatch'
 import { assetSchema, clipSchema, createProject, parseProject, trackSchema } from '../src/core/project'
 import { createRenderPlan, formatProfiles, type RenderPlan } from '../src/core/render'
 import { createRangeRenderPlan } from '../src/core/renderRange'
@@ -58,6 +58,9 @@ describe('Short export batch scheduling', () => {
     const reloaded = parseProject(JSON.parse(JSON.stringify(stored)))
     expect(projectPersistedShortBatch(reloaded)).toEqual(batch)
     expect([...rebuildPersistedShortBatchPlans(reloaded, batch).keys()]).toEqual(batch.items.map((entry) => entry.id))
+    const legacyBatch = JSON.parse(JSON.stringify(batch))
+    for (const entry of legacyBatch.items) { delete entry.candidateId; delete entry.attempt }
+    expect(projectPersistedShortBatch({ ...project, metadata: { ...project.metadata, shortExportBatch: legacyBatch } })?.items).toEqual(legacyBatch.items)
 
     const terminalItems = batch.items.map((entry, index) => index === 0 ? { ...entry, state: 'succeeded' as const, progress: 1, jobId: 'job-1', createdAt: '2026-09-14T08:03:00.000Z', updatedAt: '2026-09-14T08:04:00.000Z', renderedPath: entry.outputPath, sizeBytes: 2048 } : entry)
     const updated = replacePersistedShortBatchItems(batch, terminalItems, new Date('2026-09-14T08:04:00.000Z'))
@@ -83,5 +86,51 @@ describe('Short export batch scheduling', () => {
     expect(requeueMissingShortBatchJob([active, succeeded], 'b')).toEqual([active, succeeded])
     expect(failMissingShortBatchJob([active, succeeded], 'a', 'Existing output was left untouched.')).toEqual([{ ...active, state: 'failed', error: 'Existing output was left untouched.' }, succeeded])
     expect(() => failMissingShortBatchJob([active], 'a', ' ')).toThrow(/at most 2000/)
+  })
+
+  it('selectively retries only the latest terminal failure with a fresh output identity', () => {
+    const { project, items, plans } = durableFixture()
+    const original = createPersistedShortBatch(items, plans, new Date('2026-09-14T08:02:00.000Z'), '33333333-3333-4333-8333-333333333333')
+    const terminal = replacePersistedShortBatchItems(original, original.items.map((entry, index) => index === 0
+      ? { ...entry, state: 'succeeded' as const, progress: 1, jobId: 'job-success', createdAt: '2026-09-14T08:03:00.000Z', updatedAt: '2026-09-14T08:04:00.000Z', renderedPath: entry.outputPath, sizeBytes: 2048 }
+      : { ...entry, state: 'failed' as const, error: 'Encoder stopped.' }), new Date('2026-09-14T08:04:00.000Z'))
+    expect(retryableShortBatchItems(terminal).map((entry) => entry.id)).toEqual([terminal.items[1].id])
+    const retry = planSelectiveShortBatchRetry(project, terminal, planShortExportRanges(project).candidates, [terminal.items[1].id], {
+      audioDucking: { enabled: true, reductionDb: 20, attackMs: 100, releaseMs: 300 },
+      loudnessNormalization: { enabled: true, targetLufs: -14, truePeakDb: -1.5, loudnessRange: 11 }
+    }, new Date('2026-09-14T08:05:00.000Z'))
+    expect(retry.batch.items.slice(0, 2)).toEqual(terminal.items)
+    const attempt = retry.batch.items[2]
+    expect(attempt).toMatchObject({ candidateId: 'scene-1', format: 'square', state: 'queued', progress: 0, attempt: 2, retryOfId: terminal.items[1].id })
+    expect(attempt.id).toBe('scene-1:square:retry-2')
+    expect(attempt.outputPath).not.toBe(terminal.items[1].outputPath)
+    expect(attempt.outputPath).toContain('retry2')
+    expect(retry.batch.audioDucking.reductionDb).toBe(20)
+    expect(retry.batch.loudnessNormalization.enabled).toBe(true)
+    expect(retry.plans.get(attempt.id)?.outputRelativePath).toBe(attempt.outputPath)
+    const reloaded = parseProject(JSON.parse(JSON.stringify(storeProjectShortBatch(project, retry.batch))))
+    const restored = projectPersistedShortBatch(reloaded)
+    expect(restored).not.toBeNull()
+    expect([...rebuildPersistedShortBatchPlans(reloaded, restored!).keys()]).toEqual([attempt.id])
+    expect(retryableShortBatchItems(retry.batch)).toEqual([])
+    expect(nextShortBatchItem(retry.batch.items)?.id).toBe(attempt.id)
+  })
+
+  it('refuses stale, duplicate, successful or nonterminal retry selections', () => {
+    const { project, items, plans } = durableFixture()
+    const original = createPersistedShortBatch(items, plans, new Date('2026-09-14T08:02:00.000Z'), '44444444-4444-4444-8444-444444444444')
+    const failed = replacePersistedShortBatchItems(original, original.items.map((entry) => ({ ...entry, state: 'failed' as const, error: 'Failed.' })))
+    const candidates = planShortExportRanges(project).candidates
+    const settings = { audioDucking: plans.values().next().value!.audioDucking!, loudnessNormalization: plans.values().next().value!.loudnessNormalization! }
+    expect(() => planSelectiveShortBatchRetry(project, failed, candidates, [failed.items[0].id, failed.items[0].id], settings)).toThrow(/only once/)
+    expect(() => planSelectiveShortBatchRetry(project, failed, candidates, ['unknown'], settings)).toThrow(/not the latest/)
+    expect(() => planSelectiveShortBatchRetry(project, failed, [{ ...candidates[0], outMs: 4000, durationMs: 4000 }], [failed.items[0].id], settings)).toThrow(/range changed/)
+
+    const succeeded = replacePersistedShortBatchItems(original, original.items.map((entry) => ({ ...entry, state: 'succeeded' as const, progress: 1, jobId: `job-${entry.id}`, createdAt: '2026-09-14T08:03:00.000Z', updatedAt: '2026-09-14T08:04:00.000Z', renderedPath: entry.outputPath, sizeBytes: 1024 })))
+    expect(() => planSelectiveShortBatchRetry(project, succeeded, candidates, [succeeded.items[0].id], settings)).toThrow(/not the latest/)
+    expect(() => planSelectiveShortBatchRetry(project, original, candidates, [original.items[0].id], settings)).toThrow(/finish or cancel/)
+
+    const invalidLineage = { ...failed, items: [...failed.items, { ...failed.items[0], id: 'scene-1:vertical:retry-2', outputPath: 'KINAOU/Renders/retry-2.mp4', attempt: 2, candidateId: 'scene-1', retryOfId: failed.items[1].id }] }
+    expect(() => replacePersistedShortBatchItems(failed, invalidLineage.items)).toThrow(/lineage is inconsistent/)
   })
 })

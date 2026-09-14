@@ -1,12 +1,13 @@
 import { z } from 'zod'
-import { validateAudioDucking } from './audioDucking'
-import { validateLoudnessNormalization } from './audioLoudness'
+import { validateAudioDucking, type AudioDuckingSettings } from './audioDucking'
+import { validateLoudnessNormalization, type LoudnessNormalizationSettings } from './audioLoudness'
 import { managedRenderPathSchema } from './exportHistory'
-import { createRenderPlan, formatProfiles, type RenderPlan } from './render'
+import { createRenderPlan, formatProfiles, projectFormatPreset, type RenderPlan } from './render'
 import type { RenderJobState } from './renderJobs'
 import { createRangeRenderPlan } from './renderRange'
-import type { ShortExportBatchItem } from './shortExportRanges'
+import { shortExportVariant, type ShortExportBatchItem, type ShortExportCandidate } from './shortExportRanges'
 import { touchProject, type KinaouProject } from './project'
+import { renderOutputPath } from './renderUi'
 
 export interface ShortBatchRenderItem extends ShortExportBatchItem {
   state: RenderJobState
@@ -66,7 +67,10 @@ export const persistedShortBatchItemSchema = z.object({
   renderedPath: managedRenderPathSchema.optional(),
   error: z.string().trim().min(1).max(2000).optional(),
   preset: renderPresetSchema,
-  planSignature: z.string().regex(/^[a-f0-9]{16}$/)
+  planSignature: z.string().regex(/^[a-f0-9]{16}$/),
+  candidateId: z.string().trim().min(1).max(500).optional(),
+  attempt: z.number().int().min(1).max(100).optional(),
+  retryOfId: z.string().trim().min(1).max(500).optional()
 }).strict().superRefine((item, context) => {
   if (item.outMs <= item.inMs || item.durationMs !== item.outMs - item.inMs) context.addIssue({ code: 'custom', path: ['durationMs'], message: 'Persisted Short batch range is inconsistent' })
   if (new Set(item.sceneIds).size !== item.sceneIds.length) context.addIssue({ code: 'custom', path: ['sceneIds'], message: 'Persisted Short batch scene ids must be unique' })
@@ -74,6 +78,10 @@ export const persistedShortBatchItemSchema = z.object({
   if (item.jobId && (!item.createdAt || !item.updatedAt)) context.addIssue({ code: 'custom', path: ['updatedAt'], message: 'Persisted submitted Short batch item requires worker timestamps' })
   if (item.state === 'succeeded' && (item.progress !== 1 || !item.renderedPath || !item.sizeBytes)) context.addIssue({ code: 'custom', path: ['state'], message: 'Persisted successful Short batch item requires a complete terminal receipt' })
   if (item.renderedPath && item.renderedPath !== item.outputPath) context.addIssue({ code: 'custom', path: ['renderedPath'], message: 'Persisted Short batch result path must match its planned path' })
+  if ((item.attempt ?? 1) > 1 && !item.retryOfId) context.addIssue({ code: 'custom', path: ['retryOfId'], message: 'Persisted Short batch retry must name the previous attempt' })
+  if ((item.attempt ?? 1) > 1 && !item.candidateId) context.addIssue({ code: 'custom', path: ['candidateId'], message: 'Persisted Short batch retry must retain its candidate identity' })
+  if ((item.attempt ?? 1) === 1 && item.retryOfId) context.addIssue({ code: 'custom', path: ['retryOfId'], message: 'A first Short batch attempt cannot retry another item' })
+  if (item.retryOfId === item.id) context.addIssue({ code: 'custom', path: ['retryOfId'], message: 'Persisted Short batch retry cannot reference itself' })
 })
 
 export const persistedShortBatchSchema = z.object({
@@ -87,10 +95,21 @@ export const persistedShortBatchSchema = z.object({
 }).strict().superRefine((batch, context) => {
   if (new Set(batch.items.map((item) => item.id)).size !== batch.items.length) context.addIssue({ code: 'custom', path: ['items'], message: 'Persisted Short batch item ids must be unique' })
   if (new Set(batch.items.map((item) => item.outputPath)).size !== batch.items.length) context.addIssue({ code: 'custom', path: ['items'], message: 'Persisted Short batch outputs must be unique' })
+  batch.items.forEach((item, index) => {
+    if (!item.retryOfId) return
+    const previousIndex = batch.items.findIndex((candidate) => candidate.id === item.retryOfId)
+    const previous = batch.items[previousIndex]
+    if (!previous || previousIndex >= index) {
+      context.addIssue({ code: 'custom', path: ['items', index, 'retryOfId'], message: 'Persisted Short batch retry must reference an earlier attempt' })
+      return
+    }
+    if (itemCandidateId(previous) !== itemCandidateId(item) || previous.format !== item.format || itemAttempt(item) !== itemAttempt(previous) + 1) context.addIssue({ code: 'custom', path: ['items', index, 'retryOfId'], message: 'Persisted Short batch retry lineage is inconsistent' })
+  })
 })
 
 export type PersistedShortBatchItem = z.infer<typeof persistedShortBatchItemSchema>
 export type PersistedShortBatch = z.infer<typeof persistedShortBatchSchema>
+export interface SelectiveShortBatchRetryResult { batch: PersistedShortBatch; plans: Map<string, RenderPlan> }
 
 export const shortBatchTerminalStates = new Set<RenderJobState>(['succeeded', 'failed', 'cancelled'])
 
@@ -149,7 +168,17 @@ export function shortBatchPlanSignature(plan: RenderPlan): string {
   return `${(left >>> 0).toString(16).padStart(8, '0')}${(right >>> 0).toString(16).padStart(8, '0')}`
 }
 
-export function createPersistedShortBatch(items: ShortBatchRenderItem[], plans: Map<string, RenderPlan>, now = new Date(), id = crypto.randomUUID()): PersistedShortBatch {
+function itemCandidateId(item: Pick<PersistedShortBatchItem, 'id' | 'format' | 'sceneIds' | 'candidateId'>): string {
+  if (item.candidateId) return item.candidateId
+  const suffix = `:${item.format}`
+  return item.id.endsWith(suffix) ? item.id.slice(0, -suffix.length) : item.sceneIds.join('--')
+}
+
+function itemAttempt(item: Pick<PersistedShortBatchItem, 'attempt'>): number {
+  return item.attempt ?? 1
+}
+
+function preparePersistedShortBatchItems(items: ShortBatchRenderItem[], plans: Map<string, RenderPlan>) {
   if (!items.length || items.length > 100) throw new Error('A durable Short batch must contain between 1 and 100 outputs.')
   if (items.some((item) => item.state !== 'queued' || item.jobId)) throw new Error('A new durable Short batch must start with unsubmitted queued outputs.')
   const firstPlan = plans.get(items[0].id)
@@ -163,10 +192,64 @@ export function createPersistedShortBatch(items: ShortBatchRenderItem[], plans: 
     const format = formatProfiles[item.format].export
     if (plan.purpose !== 'export' || plan.outputRelativePath !== item.outputPath || plan.durationMs !== item.durationMs || plan.preset.width !== format.width || plan.preset.height !== format.height) throw new Error(`The render plan for ${item.title} does not match its reviewed range, format or output.`)
     if (JSON.stringify(plan.audioDucking) !== JSON.stringify(audioDucking) || JSON.stringify(plan.loudnessNormalization) !== JSON.stringify(loudnessNormalization)) throw new Error('Every output in a durable Short batch must share its audio settings.')
-    return { ...item, preset: plan.preset, planSignature: shortBatchPlanSignature(plan) }
+    const recovery = item as ShortBatchRenderItem & { candidateId?: string; attempt?: number; retryOfId?: string }
+    const candidateId = recovery.candidateId ?? (() => {
+      const suffix = `:${item.format}`
+      if (!item.id.endsWith(suffix)) throw new Error(`The Short batch identity for ${item.title} does not match its format.`)
+      return item.id.slice(0, -suffix.length)
+    })()
+    return { ...item, candidateId, attempt: recovery.attempt ?? 1, ...(recovery.retryOfId ? { retryOfId: recovery.retryOfId } : {}), preset: plan.preset, planSignature: shortBatchPlanSignature(plan) }
   })
+  return { audioDucking, loudnessNormalization, durableItems }
+}
+
+export function createPersistedShortBatch(items: ShortBatchRenderItem[], plans: Map<string, RenderPlan>, now = new Date(), id: string = crypto.randomUUID()): PersistedShortBatch {
+  const { audioDucking, loudnessNormalization, durableItems } = preparePersistedShortBatchItems(items, plans)
   const timestamp = now.toISOString()
   return persistedShortBatchSchema.parse({ schemaVersion: 1, id, createdAt: timestamp, updatedAt: timestamp, audioDucking, loudnessNormalization, items: durableItems })
+}
+
+export function retryableShortBatchItems(batch: PersistedShortBatch): PersistedShortBatchItem[] {
+  const normalized = persistedShortBatchSchema.parse(batch)
+  const latestByVariant = new Map<string, PersistedShortBatchItem>()
+  for (const item of normalized.items) latestByVariant.set(`${itemCandidateId(item)}\u0000${item.format}`, item)
+  return normalized.items.filter((item) => latestByVariant.get(`${itemCandidateId(item)}\u0000${item.format}`)?.id === item.id && (item.state === 'failed' || item.state === 'cancelled'))
+}
+
+export function planSelectiveShortBatchRetry(project: KinaouProject, batch: PersistedShortBatch, candidates: ShortExportCandidate[], selectedItemIds: string[], settings: { audioDucking: AudioDuckingSettings; loudnessNormalization: LoudnessNormalizationSettings }, now = new Date()): SelectiveShortBatchRetryResult {
+  const normalized = persistedShortBatchSchema.parse(batch)
+  if (shortBatchBusy(normalized.items)) throw new Error('Wait for the current Short batch to finish or cancel it before retrying variants.')
+  const selected = new Set(selectedItemIds)
+  if (!selected.size) throw new Error('Select at least one failed or cancelled Short variant to retry.')
+  if (selected.size !== selectedItemIds.length) throw new Error('Each Short variant can be selected for retry only once.')
+  const retryable = retryableShortBatchItems(normalized)
+  const retryableById = new Map(retryable.map((item) => [item.id, item]))
+  const unknown = [...selected].find((id) => !retryableById.has(id))
+  if (unknown) throw new Error('A selected Short variant is not the latest failed or cancelled attempt.')
+  if (normalized.items.length + selected.size > 100) throw new Error('The saved Short batch cannot exceed 100 attempts. Discard it after reviewing the retained results, then prepare a new batch.')
+  const audioDucking = validateAudioDucking(settings.audioDucking)
+  const loudnessNormalization = validateLoudnessNormalization(settings.loudnessNormalization)
+  const plans = new Map<string, RenderPlan>()
+  const retryItems: Array<ShortBatchRenderItem & { candidateId: string; attempt: number; retryOfId: string }> = []
+  const existingPaths = new Set(normalized.items.map((item) => item.outputPath))
+  const existingIds = new Set(normalized.items.map((item) => item.id))
+  for (const previous of retryable.filter((item) => selected.has(item.id))) {
+    const candidateId = itemCandidateId(previous)
+    const candidate = candidates.find((item) => item.id === candidateId)
+    if (!candidate || candidate.inMs !== previous.inMs || candidate.outMs !== previous.outMs || JSON.stringify(candidate.sceneIds) !== JSON.stringify(previous.sceneIds)) throw new Error(`Cannot retry “${previous.title}” because its reviewed scene range changed. Review and prepare a new batch instead.`)
+    const attempt = Math.max(...normalized.items.filter((item) => itemCandidateId(item) === candidateId && item.format === previous.format).map(itemAttempt)) + 1
+    const id = `${candidate.id}:${previous.format}:retry-${attempt}`
+    if (existingIds.has(id)) throw new Error(`A retry identity already exists for “${previous.title}”.`)
+    const outputPath = renderOutputPath(project, now, `${previous.format}-${shortExportVariant(candidate)}-retry-${attempt}`)
+    if (existingPaths.has(outputPath)) throw new Error(`A retry output identity already exists for “${previous.title}”.`)
+    const item = { id, title: previous.title, sceneIds: [...candidate.sceneIds], format: previous.format, inMs: candidate.inMs, outMs: candidate.outMs, durationMs: candidate.durationMs, outputPath, state: 'queued' as const, progress: 0, candidateId, attempt, retryOfId: previous.id }
+    const fullPlan = createRenderPlan(project, projectFormatPreset(project, item.format, 'export'), item.outputPath, { audioDucking, loudnessNormalization })
+    plans.set(item.id, createRangeRenderPlan(fullPlan, { inMs: item.inMs, outMs: item.outMs }, item.outputPath))
+    retryItems.push(item)
+  }
+  const retries = preparePersistedShortBatchItems(retryItems, plans)
+  const updated = persistedShortBatchSchema.parse({ ...normalized, updatedAt: now.toISOString(), audioDucking, loudnessNormalization, items: [...normalized.items, ...retries.durableItems] })
+  return { batch: updated, plans }
 }
 
 export function projectPersistedShortBatch(project: KinaouProject): PersistedShortBatch | null {
