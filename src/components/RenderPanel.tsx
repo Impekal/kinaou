@@ -8,7 +8,7 @@ import { createRangeRenderPlan, validateRenderRange } from '../core/renderRange'
 import { defaultAudioDucking, validateAudioDucking } from '../core/audioDucking'
 import { defaultLoudnessNormalization } from '../core/audioLoudness'
 import { planShortExportBatch, planShortExportRanges, projectShortExportMaximum, setProjectShortExportMaximum, shortExportMaximumError, shortExportVariant, shortPreviewOutputPath } from '../core/shortExportRanges'
-import { cancelPendingShortBatchItems, clearProjectShortBatch, createPersistedShortBatch, failMissingShortBatchJob, nextShortBatchItem, projectPersistedShortBatch, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, requeueMissingShortBatchJob, shortBatchBusy, shortBatchTerminalStates, storeProjectShortBatch, type PersistedShortBatch, type PersistedShortBatchItem } from '../core/shortExportBatch'
+import { cancelPendingShortBatchItems, clearProjectShortBatch, createPersistedShortBatch, failMissingShortBatchJob, nextShortBatchItem, planSelectiveShortBatchRetry, projectPersistedShortBatch, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, requeueMissingShortBatchJob, retryableShortBatchItems, shortBatchBusy, shortBatchTerminalStates, storeProjectShortBatch, type PersistedShortBatch, type PersistedShortBatchItem } from '../core/shortExportBatch'
 import { forgetExportReceipt, projectExportHistory, recordSuccessfulExport, type SuccessfulExportReceiptInput } from '../core/exportHistory'
 
 interface RenderPanelProps {
@@ -68,6 +68,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const batchCancelRequested = useRef(false)
   const [batchResumeError, setBatchResumeError] = useState('')
   const [batchPersistenceMessage, setBatchPersistenceMessage] = useState('')
+  const [retrySelectedIds, setRetrySelectedIds] = useState<string[]>([])
   const projectBatchId = projectPersistedShortBatch(project)?.id ?? (Object.prototype.hasOwnProperty.call(project.metadata, 'shortExportBatch') ? 'invalid' : '')
   const selectedShort = shortExports.candidates.find((candidate) => candidate.id === selectedShortId && candidate.inMs === range.inMs && candidate.outMs === range.outMs)
   const shortPreviewVideoRef = useRef<HTMLVideoElement>(null)
@@ -92,6 +93,19 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const shortPreviewReframingBlocked = formatReframingRequiresWorker(project, shortPreviewFormat) && !workerSupportsFormatReframing
   const batchReframingBlocked = batchFormats.some((id) => formatReframingRequiresWorker(project, id)) && !workerSupportsFormatReframing
   const anyReframingBlocked = targetFormats.some((id) => formatReframingRequiresWorker(project, id)) && !workerSupportsFormatReframing
+  const retryableBatchItems = useMemo(() => {
+    if (batchBusy || !persistedBatch.current) return []
+    try {
+      const current = replacePersistedShortBatchItems(persistedBatch.current, batchItems, new Date(persistedBatch.current.updatedAt))
+      return retryableShortBatchItems(current)
+    } catch {
+      return []
+    }
+  }, [batchBusy, batchItems])
+  const retryableBatchIds = useMemo(() => new Set(retryableBatchItems.map((item) => item.id)), [retryableBatchItems])
+  const retryableBatchSignature = retryableBatchItems.map((item) => item.id).join('\u0000')
+  const retryFormats = new Set(batchItems.filter((item) => retrySelectedIds.includes(item.id)).map((item) => item.format))
+  const retryReframingBlocked = [...retryFormats].some((id) => formatReframingRequiresWorker(project, id)) && !workerSupportsFormatReframing
   const activeBatchItem = batchItems.find((item) => item.jobId && !terminalStates.has(item.state))
   const successfulBatchSignature = batchItems.filter((item) => item.state === 'succeeded' && item.jobId).map((item) => `${item.jobId}:${item.updatedAt}:${item.sizeBytes}`).join('|')
 
@@ -99,6 +113,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     batchSubmitting.current = false
     batchCancelRequested.current = false
     batchPlans.current = new Map()
+    setRetrySelectedIds([])
     setBatchResumeError('')
     const stored = projectPersistedShortBatch(project)
     if (!stored) {
@@ -147,6 +162,10 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   useEffect(() => {
     setBatchSelectedIds([])
   }, [shortCandidateSignature])
+
+  useEffect(() => {
+    setRetrySelectedIds((ids) => ids.filter((id) => retryableBatchIds.has(id)))
+  }, [retryableBatchIds, retryableBatchSignature])
 
   useEffect(() => {
     setBatchFormats([format])
@@ -450,6 +469,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       }
       batchPlans.current = plans
       batchCancelRequested.current = false
+      setRetrySelectedIds([])
       setBatchResumeError('')
       const durable = createPersistedShortBatch(planned.map((item) => ({ ...item, state: 'queued', progress: 0 })), plans)
       persistedBatch.current = durable
@@ -458,6 +478,28 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       onProjectChange(storeProjectShortBatch(project, durable))
     } catch (batchError) {
       setError(batchError instanceof Error ? batchError.message : 'Could not prepare Short exports')
+    }
+  }
+
+  function startSelectedShortBatchRetries() {
+    const current = persistedBatch.current
+    if (!current || !retrySelectedIds.length || !readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting || retryReframingBlocked || batchResumeError) return
+    setError('')
+    try {
+      const result = planSelectiveShortBatchRetry(project, { ...current, items: batchItems }, shortExports.candidates, retrySelectedIds, {
+        audioDucking: duckingSettings,
+        loudnessNormalization: { ...defaultLoudnessNormalization, enabled: normalizeLoudness }
+      }, new Date())
+      batchPlans.current = result.plans
+      batchCancelRequested.current = false
+      persistedBatch.current = result.batch
+      setBatchItems(result.batch.items)
+      setRetrySelectedIds([])
+      setBatchResumeError('')
+      setBatchPersistenceMessage(`${result.plans.size} selected Short ${result.plans.size === 1 ? 'variant has' : 'variants have'} a fresh retry output. Earlier attempts and completed files stay untouched.`)
+      onProjectChange(storeProjectShortBatch(project, result.batch))
+    } catch (batchError) {
+      setError(batchError instanceof Error ? batchError.message : 'Could not retry the selected Short variants')
     }
   }
 
@@ -480,6 +522,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     persistedBatch.current = null
     batchCancelRequested.current = false
     setBatchItems([])
+    setRetrySelectedIds([])
     setBatchResumeError('')
     setBatchPersistenceMessage('')
     onProjectChange(clearProjectShortBatch(project))
@@ -639,11 +682,23 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         {batchPersistenceMessage && <div className="note">{batchPersistenceMessage}</div>}
         {batchResumeError && <div className="errorBox">{batchResumeError}</div>}
         {batchItems.map((item) => <div className="renderJob" key={item.id}>
-          <div className="renderJobHead"><strong>{item.title}</strong><span>{formatProfiles[item.format].label} · {item.state.toUpperCase()} · {Math.round(item.progress * 100)}%</span></div>
+          <div className="renderJobHead"><strong>{item.title}</strong><span>{formatProfiles[item.format].label} · attempt {item.attempt ?? 1} · {item.state.toUpperCase()} · {Math.round(item.progress * 100)}%</span></div>
           <div className="progressTrack" aria-label={`${item.title} render progress ${Math.round(item.progress * 100)}%`}><div className="progressFill" style={{ width: `${Math.round(item.progress * 100)}%` }} /></div>
-          <div className="renderMeta"><code>{item.renderedPath ?? item.outputPath}</code>{item.sizeBytes !== undefined && <span>{(item.sizeBytes / 1024 / 1024).toFixed(1)} MB</span>}</div>
+          <div className="renderMeta">
+            <code>{item.renderedPath ?? item.outputPath}</code>
+            {item.sizeBytes !== undefined && <span>{(item.sizeBytes / 1024 / 1024).toFixed(1)} MB</span>}
+            {retryableBatchIds.has(item.id) && <label className="checkRow"><input type="checkbox" checked={retrySelectedIds.includes(item.id)} onChange={(event) => setRetrySelectedIds((ids) => event.target.checked ? [...ids, item.id] : ids.filter((id) => id !== item.id))} />Retry this variant</label>}
+          </div>
           {item.error && <div className="errorBox">{item.error}</div>}
         </div>)}
+        {retryableBatchItems.length > 0 && <>
+          <p className="cardBody">Retry only the failed or cancelled variants you choose. KINAOU revalidates the current scene ranges and export settings, then creates new output names; successful files and earlier attempts are never overwritten.</p>
+          <div className="renderActions">
+            <button disabled={busy} onClick={() => setRetrySelectedIds(retrySelectedIds.length === retryableBatchItems.length ? [] : retryableBatchItems.map((item) => item.id))}>{retrySelectedIds.length === retryableBatchItems.length ? 'Clear retry selection' : 'Select all retryable'}</button>
+            <button className="primary" disabled={!retrySelectedIds.length || !readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting || retryReframingBlocked || Boolean(batchResumeError)} onClick={startSelectedShortBatchRetries}>Retry selected variants ({retrySelectedIds.length})</button>
+          </div>
+          {retryReframingBlocked && <div className="warning">Restart the local worker before retrying the selected off-centre crop variants.</div>}
+        </>}
         <div className="renderActions">{batchBusy && !batchResumeError && <button className="dangerButton" onClick={cancelShortBatch}>Cancel batch</button>}{!activeBatchItem && (!batchBusy || Boolean(batchResumeError)) && <button className="secondaryButton" onClick={discardShortBatch}>Discard saved batch</button>}</div>
       </div>}
       {!batchItems.length && batchResumeError && <div className="renderJob"><div className="errorBox">{batchResumeError}</div><div className="renderActions"><button className="secondaryButton" onClick={discardShortBatch}>Discard malformed saved batch</button></div></div>}
