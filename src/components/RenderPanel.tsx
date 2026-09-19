@@ -8,7 +8,7 @@ import { createRangeRenderPlan, validateRenderRange } from '../core/renderRange'
 import { defaultAudioDucking, validateAudioDucking } from '../core/audioDucking'
 import { defaultLoudnessNormalization } from '../core/audioLoudness'
 import { planShortExportBatch, planShortExportRanges, projectShortExportMaximum, setProjectShortExportMaximum, shortExportMaximumError, shortExportVariant, shortPreviewOutputPath } from '../core/shortExportRanges'
-import { cancelPendingShortBatchItems, clearProjectShortBatch, createPersistedShortBatch, failMissingShortBatchJob, nextShortBatchItem, planSelectiveShortBatchRetry, projectPersistedShortBatch, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, requeueMissingShortBatchJob, retryableShortBatchItems, shortBatchBusy, shortBatchTerminalStates, storeProjectShortBatch, type PersistedShortBatch, type PersistedShortBatchItem } from '../core/shortExportBatch'
+import { archiveProjectShortBatch, cancelPendingShortBatchItems, clearProjectShortBatch, createPersistedShortBatch, failMissingShortBatchJob, forgetProjectShortBatchArchiveEntry, nextShortBatchItem, planSelectiveShortBatchRetry, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, requeueMissingShortBatchJob, retryableShortBatchItems, shortBatchArchiveLimit, shortBatchBusy, shortBatchTerminalStates, storeProjectShortBatch, type PersistedShortBatch, type PersistedShortBatchItem } from '../core/shortExportBatch'
 import { forgetExportReceipt, projectExportHistory, recordSuccessfulExport, type SuccessfulExportReceiptInput } from '../core/exportHistory'
 
 interface RenderPanelProps {
@@ -69,6 +69,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const [batchResumeError, setBatchResumeError] = useState('')
   const [batchPersistenceMessage, setBatchPersistenceMessage] = useState('')
   const [retrySelectedIds, setRetrySelectedIds] = useState<string[]>([])
+  const batchArchive = projectShortBatchArchive(project)
   const projectBatchId = projectPersistedShortBatch(project)?.id ?? (Object.prototype.hasOwnProperty.call(project.metadata, 'shortExportBatch') ? 'invalid' : '')
   const selectedShort = shortExports.candidates.find((candidate) => candidate.id === selectedShortId && candidate.inMs === range.inMs && candidate.outMs === range.outMs)
   const shortPreviewVideoRef = useRef<HTMLVideoElement>(null)
@@ -461,21 +462,25 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     if (!readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting || batchReframingBlocked || batchResumeError) return
     setError('')
     try {
-      const planned = planShortExportBatch(project, shortExports.candidates, batchSelectedIds, batchFormats, new Date())
+      const now = new Date()
+      const previousBatch = persistedBatch.current
+      const planned = planShortExportBatch(project, shortExports.candidates, batchSelectedIds, batchFormats, now)
       const plans = new Map<string, RenderPlan>()
       for (const item of planned) {
         const fullPlan = createRenderPlan(project, projectFormatPreset(project, item.format, 'export'), item.outputPath, { audioDucking: duckingSettings, loudnessNormalization: { ...defaultLoudnessNormalization, enabled: normalizeLoudness } })
         plans.set(item.id, createRangeRenderPlan(fullPlan, { inMs: item.inMs, outMs: item.outMs }, item.outputPath))
       }
+      const durable = createPersistedShortBatch(planned.map((item) => ({ ...item, state: 'queued', progress: 0 })), plans, now)
+      const archivedProject = previousBatch && batchItems.length ? archiveProjectShortBatch(project, { ...previousBatch, items: batchItems }, now) : project
+      const nextProject = storeProjectShortBatch(archivedProject, durable, now)
       batchPlans.current = plans
       batchCancelRequested.current = false
-      setRetrySelectedIds([])
-      setBatchResumeError('')
-      const durable = createPersistedShortBatch(planned.map((item) => ({ ...item, state: 'queued', progress: 0 })), plans)
       persistedBatch.current = durable
       setBatchItems(durable.items)
+      setRetrySelectedIds([])
+      setBatchResumeError('')
       setBatchPersistenceMessage('This reviewed batch is saved with the project. Reloading keeps completed results and continues only unfinished outputs.')
-      onProjectChange(storeProjectShortBatch(project, durable))
+      onProjectChange(nextProject)
     } catch (batchError) {
       setError(batchError instanceof Error ? batchError.message : 'Could not prepare Short exports')
     }
@@ -518,6 +523,9 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
 
   function discardShortBatch() {
     if (activeBatchItem) return
+    const current = persistedBatch.current
+    const now = new Date()
+    const archivedProject = current && batchItems.length && !shortBatchBusy(batchItems) ? archiveProjectShortBatch(project, { ...current, items: batchItems }, now) : project
     batchPlans.current = new Map()
     persistedBatch.current = null
     batchCancelRequested.current = false
@@ -525,7 +533,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     setRetrySelectedIds([])
     setBatchResumeError('')
     setBatchPersistenceMessage('')
-    onProjectChange(clearProjectShortBatch(project))
+    onProjectChange(clearProjectShortBatch(archivedProject, now))
   }
 
   const percent = Math.round((job?.progress ?? 0) * 100)
@@ -678,7 +686,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
 
       {batchItems.length > 0 && <div className="renderJob">
         <div className="renderJobHead"><strong>SHORT EXPORT BATCH · SAVED WITH PROJECT</strong><span>{batchItems.filter((item) => shortBatchTerminalStates.has(item.state)).length}/{batchItems.length} finished</span></div>
-        <p className="cardBody">Exports run one at a time so local FFmpeg work stays bounded. Reloading keeps terminal receipts and resumes only unfinished entries whose exact timeline and render configuration still match.</p>
+        <p className="cardBody">Exports run one at a time so local FFmpeg work stays bounded. Reloading keeps terminal receipts and resumes only unfinished entries whose exact timeline and render configuration still match. Once every attempt is terminal, starting another batch or clearing this one first archives a compact project-local summary.</p>
         {batchPersistenceMessage && <div className="note">{batchPersistenceMessage}</div>}
         {batchResumeError && <div className="errorBox">{batchResumeError}</div>}
         {batchItems.map((item) => <div className="renderJob" key={item.id}>
@@ -699,9 +707,29 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
           </div>
           {retryReframingBlocked && <div className="warning">Restart the local worker before retrying the selected off-centre crop variants.</div>}
         </>}
-        <div className="renderActions">{batchBusy && !batchResumeError && <button className="dangerButton" onClick={cancelShortBatch}>Cancel batch</button>}{!activeBatchItem && (!batchBusy || Boolean(batchResumeError)) && <button className="secondaryButton" onClick={discardShortBatch}>Discard saved batch</button>}</div>
+        <div className="renderActions">{batchBusy && !batchResumeError && <button className="dangerButton" onClick={cancelShortBatch}>Cancel batch</button>}{!activeBatchItem && (!batchBusy || Boolean(batchResumeError)) && <button className="secondaryButton" onClick={discardShortBatch}>{!batchBusy && persistedBatch.current ? 'Archive and clear current batch' : 'Discard saved batch'}</button>}</div>
       </div>}
       {!batchItems.length && batchResumeError && <div className="renderJob"><div className="errorBox">{batchResumeError}</div><div className="renderActions"><button className="secondaryButton" onClick={discardShortBatch}>Discard malformed saved batch</button></div></div>}
+
+      {batchArchive.length > 0 && <div className="renderJob">
+        <div className="renderJobHead"><strong>PAST SHORT BATCHES · SAVED WITH PROJECT</strong><span>{batchArchive.length}/{shortBatchArchiveLimit} retained</span></div>
+        <p className="cardBody">KINAOU keeps compact summaries for the latest completed batches before a new queue replaces them. These are recorded paths, not file-availability claims. Forgetting a summary never deletes or changes an MP4.</p>
+        {batchArchive.map((entry) => {
+          const succeeded = entry.items.filter((item) => item.state === 'succeeded').length
+          const failed = entry.items.filter((item) => item.state === 'failed').length
+          const cancelled = entry.items.filter((item) => item.state === 'cancelled').length
+          return <details className="renderJob" key={entry.batchId}>
+            <summary className="renderJobHead"><strong>{new Date(entry.completedAt).toLocaleString()}</strong><span>{entry.items.length} attempt{entry.items.length === 1 ? '' : 's'} · {succeeded} succeeded · {failed} failed · {cancelled} cancelled</span></summary>
+            <p className="cardBody">Prepared {new Date(entry.createdAt).toLocaleString()} · archived {new Date(entry.archivedAt).toLocaleString()}</p>
+            {entry.items.map((item) => <div className="renderMeta" key={item.id}>
+              <span><strong>{item.title}</strong> · {formatProfiles[item.format].label} · attempt {item.attempt} · {item.state.toUpperCase()}</span>
+              <code>{item.outputPath}</code>
+              {item.sizeBytes !== undefined && <span>{(item.sizeBytes / 1024 / 1024).toFixed(1)} MB</span>}
+            </div>)}
+            <div className="renderActions"><button disabled={busy} onClick={() => { try { onProjectChange(forgetProjectShortBatchArchiveEntry(project, entry.batchId)) } catch (archiveError) { setError(archiveError instanceof Error ? archiveError.message : 'Could not forget the Short batch summary') } }}>Forget summary (keep every file)</button></div>
+          </details>
+        })}
+      </div>}
 
       <div className="renderJob">
         <div className="renderJobHead"><strong>Successful exports</strong><span>{exportHistory.length}/50 recorded</span></div>
