@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cancelPendingShortBatchItems, clearProjectShortBatch, createPersistedShortBatch, failMissingShortBatchJob, nextShortBatchItem, planSelectiveShortBatchRetry, projectPersistedShortBatch, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, requeueMissingShortBatchJob, retryableShortBatchItems, shortBatchBusy, shortBatchPlanSignature, storeProjectShortBatch, type ShortBatchRenderItem } from '../src/core/shortExportBatch'
+import { archiveProjectShortBatch, cancelPendingShortBatchItems, clearProjectShortBatch, createPersistedShortBatch, failMissingShortBatchJob, forgetProjectShortBatchArchiveEntry, nextShortBatchItem, planSelectiveShortBatchRetry, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, requeueMissingShortBatchJob, retryableShortBatchItems, shortBatchArchiveLimit, shortBatchBusy, shortBatchPlanSignature, storeProjectShortBatch, type ShortBatchRenderItem } from '../src/core/shortExportBatch'
 import { assetSchema, clipSchema, createProject, parseProject, trackSchema } from '../src/core/project'
 import { createRenderPlan, formatProfiles, type RenderPlan } from '../src/core/render'
 import { createRangeRenderPlan } from '../src/core/renderRange'
@@ -132,5 +132,55 @@ describe('Short export batch scheduling', () => {
 
     const invalidLineage = { ...failed, items: [...failed.items, { ...failed.items[0], id: 'scene-1:vertical:retry-2', outputPath: 'KINAOU/Renders/retry-2.mp4', attempt: 2, candidateId: 'scene-1', retryOfId: failed.items[1].id }] }
     expect(() => replacePersistedShortBatchItems(failed, invalidLineage.items)).toThrow(/lineage is inconsistent/)
+  })
+
+  it('archives a compact terminal batch summary that survives reload and never replaces output references', () => {
+    const { project, items, plans } = durableFixture()
+    const original = createPersistedShortBatch(items, plans, new Date('2026-09-14T08:02:00.000Z'), '55555555-5555-4555-8555-555555555555')
+    const terminal = replacePersistedShortBatchItems(original, original.items.map((entry, index) => index === 0
+      ? { ...entry, state: 'succeeded' as const, progress: 1, jobId: 'job-success', createdAt: '2026-09-14T08:03:00.000Z', updatedAt: '2026-09-14T08:04:00.000Z', renderedPath: entry.outputPath, sizeBytes: 4096 }
+      : { ...entry, state: 'failed' as const, error: 'Encoder stopped.' }), new Date('2026-09-14T08:04:00.000Z'))
+    const stored = storeProjectShortBatch(project, terminal)
+    const archived = archiveProjectShortBatch(stored, terminal, new Date('2026-09-14T08:05:00.000Z'))
+    const cleared = clearProjectShortBatch(archived, new Date('2026-09-14T08:05:00.000Z'))
+    const reloaded = parseProject(JSON.parse(JSON.stringify(cleared)))
+    const history = projectShortBatchArchive(reloaded)
+    expect(projectPersistedShortBatch(reloaded)).toBeNull()
+    expect(history).toHaveLength(1)
+    expect(history[0]).toMatchObject({ schemaVersion: 1, batchId: terminal.id, createdAt: terminal.createdAt, completedAt: terminal.updatedAt, archivedAt: '2026-09-14T08:05:00.000Z' })
+    expect(history[0].items).toEqual([
+      expect.objectContaining({ id: terminal.items[0].id, candidateId: 'scene-1', state: 'succeeded', attempt: 1, outputPath: terminal.items[0].outputPath, sizeBytes: 4096 }),
+      expect.objectContaining({ id: terminal.items[1].id, candidateId: 'scene-1', state: 'failed', attempt: 1, outputPath: terminal.items[1].outputPath })
+    ])
+    expect(history[0].items[0]).not.toHaveProperty('preset')
+    expect(history[0].items[1]).not.toHaveProperty('error')
+    const sanitized = projectShortBatchArchive({ ...reloaded, metadata: { ...reloaded.metadata, shortExportBatchArchive: [{ schemaVersion: 999 }, history[0], history[0]] } })
+    expect(sanitized.map((entry) => entry.batchId)).toEqual([terminal.id])
+    const forgotten = forgetProjectShortBatchArchiveEntry(reloaded, terminal.id, new Date('2026-09-14T08:06:00.000Z'))
+    expect(projectShortBatchArchive(forgotten)).toEqual([])
+    expect(forgotten.metadata.shortExportBatchArchive).toBeUndefined()
+  })
+
+  it('rejects unfinished archives and retains only ten unique newest terminal runs', () => {
+    const { project, items, plans } = durableFixture()
+    const queued = createPersistedShortBatch(items, plans, new Date('2026-09-14T08:02:00.000Z'), '66666666-6666-4666-8666-666666666666')
+    expect(() => archiveProjectShortBatch(project, queued)).toThrow(/fully finished/)
+    const terminal = replacePersistedShortBatchItems(queued, queued.items.map((entry) => ({ ...entry, state: 'cancelled' as const })), new Date('2026-09-14T08:03:00.000Z'))
+    let archived = project
+    const ids: string[] = []
+    for (let index = 1; index <= shortBatchArchiveLimit + 1; index += 1) {
+      const marker = String(index).padStart(8, '0')
+      const id = `${marker}-0000-4000-8000-${String(index).padStart(12, '0')}`
+      ids.push(id)
+      archived = archiveProjectShortBatch(archived, { ...terminal, id }, new Date(`2026-09-14T${String(index + 8).padStart(2, '0')}:00:00.000Z`))
+    }
+    expect(projectShortBatchArchive(archived).map((entry) => entry.batchId)).toEqual(ids.slice(1).reverse())
+    const retained = { ...terminal, id: ids[4] }
+    const moved = archiveProjectShortBatch(archived, retained, new Date('2026-09-14T21:00:00.000Z'))
+    expect(projectShortBatchArchive(moved)).toHaveLength(shortBatchArchiveLimit)
+    expect(projectShortBatchArchive(moved)[0].batchId).toBe(ids[4])
+    expect(new Set(projectShortBatchArchive(moved).map((entry) => entry.batchId)).size).toBe(shortBatchArchiveLimit)
+    expect(forgetProjectShortBatchArchiveEntry(moved, '77777777-7777-4777-8777-777777777777')).toBe(moved)
+    expect(projectShortBatchArchive({ ...project, metadata: { shortExportBatchArchive: [{ schemaVersion: 999 }] } })).toEqual([])
   })
 })

@@ -107,8 +107,45 @@ export const persistedShortBatchSchema = z.object({
   })
 })
 
+export const shortBatchArchiveLimit = 10
+
+export const persistedShortBatchArchiveItemSchema = z.object({
+  id: z.string().trim().min(1).max(500),
+  candidateId: z.string().trim().min(1).max(500),
+  title: z.string().trim().min(1).max(240),
+  format: z.enum(['landscape', 'vertical', 'square']),
+  inMs: z.number().int().nonnegative(),
+  outMs: z.number().int().positive(),
+  durationMs: z.number().int().positive(),
+  outputPath: managedRenderPathSchema,
+  state: z.enum(['succeeded', 'failed', 'cancelled']),
+  attempt: z.number().int().min(1).max(100),
+  sizeBytes: z.number().int().positive().optional()
+}).strict().superRefine((item, context) => {
+  if (item.outMs <= item.inMs || item.durationMs !== item.outMs - item.inMs) context.addIssue({ code: 'custom', path: ['durationMs'], message: 'Archived Short batch range is inconsistent' })
+  if (item.state !== 'succeeded' && item.sizeBytes !== undefined) context.addIssue({ code: 'custom', path: ['sizeBytes'], message: 'Only a successful archived Short attempt can retain an output size' })
+  if (item.state === 'succeeded' && item.sizeBytes === undefined) context.addIssue({ code: 'custom', path: ['sizeBytes'], message: 'A successful archived Short attempt must retain its output size' })
+})
+
+export const persistedShortBatchArchiveEntrySchema = z.object({
+  schemaVersion: z.literal(1),
+  batchId: z.string().uuid(),
+  createdAt: z.string().datetime(),
+  completedAt: z.string().datetime(),
+  archivedAt: z.string().datetime(),
+  items: z.array(persistedShortBatchArchiveItemSchema).min(1).max(100)
+}).strict().superRefine((entry, context) => {
+  if (new Set(entry.items.map((item) => item.id)).size !== entry.items.length) context.addIssue({ code: 'custom', path: ['items'], message: 'Archived Short batch item ids must be unique' })
+  if (new Set(entry.items.map((item) => item.outputPath)).size !== entry.items.length) context.addIssue({ code: 'custom', path: ['items'], message: 'Archived Short batch output paths must be unique' })
+})
+
+export const persistedShortBatchArchiveSchema = z.array(persistedShortBatchArchiveEntrySchema).max(shortBatchArchiveLimit).superRefine((entries, context) => {
+  if (new Set(entries.map((entry) => entry.batchId)).size !== entries.length) context.addIssue({ code: 'custom', message: 'Archived Short batch ids must be unique' })
+})
+
 export type PersistedShortBatchItem = z.infer<typeof persistedShortBatchItemSchema>
 export type PersistedShortBatch = z.infer<typeof persistedShortBatchSchema>
+export type PersistedShortBatchArchiveEntry = z.infer<typeof persistedShortBatchArchiveEntrySchema>
 export interface SelectiveShortBatchRetryResult { batch: PersistedShortBatch; plans: Map<string, RenderPlan> }
 
 export const shortBatchTerminalStates = new Set<RenderJobState>(['succeeded', 'failed', 'cancelled'])
@@ -255,6 +292,62 @@ export function planSelectiveShortBatchRetry(project: KinaouProject, batch: Pers
 export function projectPersistedShortBatch(project: KinaouProject): PersistedShortBatch | null {
   const parsed = persistedShortBatchSchema.safeParse(project.metadata.shortExportBatch)
   return parsed.success ? parsed.data : null
+}
+
+export function projectShortBatchArchive(project: KinaouProject): PersistedShortBatchArchiveEntry[] {
+  if (!Array.isArray(project.metadata.shortExportBatchArchive)) return []
+  const entries: PersistedShortBatchArchiveEntry[] = []
+  const seenBatchIds = new Set<string>()
+  for (const value of project.metadata.shortExportBatchArchive.slice(0, shortBatchArchiveLimit * 4)) {
+    const parsed = persistedShortBatchArchiveEntrySchema.safeParse(value)
+    if (parsed.success && !seenBatchIds.has(parsed.data.batchId)) {
+      entries.push(parsed.data)
+      seenBatchIds.add(parsed.data.batchId)
+    }
+    if (entries.length === shortBatchArchiveLimit) break
+  }
+  return entries
+}
+
+export function archiveProjectShortBatch(project: KinaouProject, batch: PersistedShortBatch, now = new Date()): KinaouProject {
+  const normalized = persistedShortBatchSchema.parse(batch)
+  if (shortBatchBusy(normalized.items)) throw new Error('Only a fully finished Short batch can be archived.')
+  const archivedAt = now.toISOString()
+  const entry = persistedShortBatchArchiveEntrySchema.parse({
+    schemaVersion: 1,
+    batchId: normalized.id,
+    createdAt: normalized.createdAt,
+    completedAt: normalized.updatedAt,
+    archivedAt,
+    items: normalized.items.map((item) => ({
+      id: item.id,
+      candidateId: itemCandidateId(item),
+      title: item.title,
+      format: item.format,
+      inMs: item.inMs,
+      outMs: item.outMs,
+      durationMs: item.durationMs,
+      outputPath: item.outputPath,
+      state: item.state,
+      attempt: itemAttempt(item),
+      ...(item.state === 'succeeded' && item.sizeBytes !== undefined ? { sizeBytes: item.sizeBytes } : {})
+    }))
+  })
+  const current = projectShortBatchArchive(project)
+  const archive = persistedShortBatchArchiveSchema.parse([entry, ...current.filter((item) => item.batchId !== entry.batchId)].slice(0, shortBatchArchiveLimit))
+  if (JSON.stringify(current) === JSON.stringify(archive)) return project
+  return touchProject({ ...project, metadata: { ...project.metadata, shortExportBatchArchive: archive } }, now)
+}
+
+export function forgetProjectShortBatchArchiveEntry(project: KinaouProject, batchId: string, now = new Date()): KinaouProject {
+  const normalizedId = z.string().uuid().parse(batchId)
+  const current = projectShortBatchArchive(project)
+  const archive = current.filter((entry) => entry.batchId !== normalizedId)
+  if (archive.length === current.length) return project
+  const metadata = { ...project.metadata }
+  if (archive.length) metadata.shortExportBatchArchive = persistedShortBatchArchiveSchema.parse(archive)
+  else delete metadata.shortExportBatchArchive
+  return touchProject({ ...project, metadata }, now)
 }
 
 export function storeProjectShortBatch(project: KinaouProject, batch: PersistedShortBatch, now = new Date()): KinaouProject {
