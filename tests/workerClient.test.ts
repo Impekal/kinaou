@@ -99,6 +99,26 @@ describe('worker client', () => {
     await expect(incomplete.exportAvailability(['KINAOU/Renders/a.mp4'])).rejects.toThrow(/export availability response/)
   })
 
+  it('checks one archived batch in validated chunks without exceeding the per-request bound', async () => {
+    const requested: string[][] = []
+    const fetchImpl: typeof fetch = async (_input, init) => {
+      const paths = JSON.parse(String(init?.body)).paths as string[]
+      requested.push(paths)
+      return jsonResponse({ ok: true, type: 'asset-availability', results: paths.map((path, index) => ({ path, available: index % 2 === 0 })) })
+    }
+    const client = new WorkerClient({ baseUrl: 'http://127.0.0.1:43117', token: 'secret', fetchImpl })
+    const paths = Array.from({ length: 100 }, (_, index) => `KINAOU/Renders/archive-${index}.mp4`)
+    const results = await client.exportAvailabilityBatched(paths)
+    expect(requested.map((chunk) => chunk.length)).toEqual([50, 50])
+    expect(requested.flat()).toEqual(paths)
+    expect(results).toHaveLength(100)
+    expect(results[0]).toEqual({ path: paths[0], available: true })
+    expect(results[51]).toEqual({ path: paths[51], available: false })
+    await expect(client.exportAvailabilityBatched([...paths, 'KINAOU/Renders/overflow.mp4'])).rejects.toThrow(/at most 100/)
+    await expect(client.exportAvailabilityBatched(['KINAOU/Assets/not-an-export.mp4'])).rejects.toThrow(/export path/)
+    expect(requested).toHaveLength(2)
+  })
+
   it('validates local publish package requests and responses', async () => {
     const digest = 'a'.repeat(64)
     const request = {

@@ -137,6 +137,20 @@ export class WorkerClient {
     return uniquePaths.map((path) => ({ path, available: byPath.get(path)! }))
   }
 
+  async exportAvailabilityBatched(paths: string[]): Promise<Array<{ path: string; available: boolean }>> {
+    if (!paths.length) return []
+    if (paths.length > 100) throw new Error('Batched export availability accepts at most 100 paths')
+    const uniquePaths = [...new Set(paths)]
+    for (const path of uniquePaths) {
+      let canonical = ''
+      try { canonical = assertSafeManagedPath(path) } catch { /* normalized below */ }
+      if (canonical !== path || !path.startsWith('KINAOU/Renders/') || !path.endsWith('.mp4')) throw new Error('Invalid managed export path')
+    }
+    const results: Array<{ path: string; available: boolean }> = []
+    for (let offset = 0; offset < uniquePaths.length; offset += 50) results.push(...await this.exportAvailability(uniquePaths.slice(offset, offset + 50)))
+    return results
+  }
+
   async listLocalModels(): Promise<Array<{ id: string; sizeBytes: number }>> {
     const payload = await this.request('/models/local', { method: 'GET' })
     if (payload?.ok !== true || payload?.type !== 'local-models' || !Array.isArray(payload.models)) throw new Error('Invalid local model response')
