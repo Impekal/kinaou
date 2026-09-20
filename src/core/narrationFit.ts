@@ -15,6 +15,7 @@ export interface NarrationOverrun {
   extendableMs: number
   /** Why the visual cannot cover the whole overrun, when it cannot. */
   limit?: string
+  limitCode?: 'missing' | 'unknown' | 'exhausted'
 }
 
 export interface NarrationFitResult {
@@ -47,16 +48,16 @@ function narrationEnd(project: KinaouProject, voiceTrack: TimelineTrack, sceneId
  * source length to outlive; footage of unknown length is left alone rather than
  * stretched into frozen frames nobody asked for.
  */
-function extendableBy(asset: KinaouAsset | undefined, clip: TimelineClip): { ms: number; limit?: string } {
-  if (!asset) return { ms: 0, limit: 'Its asset is missing from the project' }
+function extendableBy(asset: KinaouAsset | undefined, clip: TimelineClip): { ms: number; limit?: string; limitCode?: NarrationOverrun['limitCode'] } {
+  if (!asset) return { ms: 0, limitCode: 'missing', limit: 'Its asset is missing from the project' }
   if (asset.kind === 'image') return { ms: Number.POSITIVE_INFINITY }
   const sourceMs = typeof asset.metadata.durationMs === 'number' ? asset.metadata.durationMs : undefined
-  if (sourceMs === undefined) return { ms: 0, limit: 'The source length of this footage is unknown, so it cannot be extended safely' }
+  if (sourceMs === undefined) return { ms: 0, limitCode: 'unknown', limit: 'The source length of this footage is unknown, so it cannot be extended safely' }
   const speed = clip.speed || 1
   const spare = Math.max(0, Math.floor((sourceMs - clip.sourceOffsetMs - clip.durationMs * speed) / speed))
   // The reason travels with the ceiling even when some room is left: a partial
   // extension needs to say why it stopped just as much as a refused one does.
-  return { ms: spare, limit: 'The footage runs out before the narration does' }
+  return { ms: spare, limitCode: 'exhausted', limit: 'The footage runs out before the narration does' }
 }
 
 function sceneClips(project: KinaouProject, visualTrack: TimelineTrack): { sceneId: string; title: string; clip: TimelineClip }[] {
@@ -95,7 +96,7 @@ export function planNarrationFit(project: KinaouProject, visualTrackId: string, 
     if (endMs === undefined) continue
     const overrunMs = endMs - (scene.clip.startMs + scene.clip.durationMs)
     if (overrunMs <= 0) continue
-    const { ms, limit } = extendableBy(project.assets.find((entry) => entry.id === scene.clip.assetId), scene.clip)
+    const { ms, limit, limitCode } = extendableBy(project.assets.find((entry) => entry.id === scene.clip.assetId), scene.clip)
     const extendableMs = Math.min(overrunMs, ms)
     overruns.push({
       sceneId: scene.sceneId,
@@ -106,7 +107,7 @@ export function planNarrationFit(project: KinaouProject, visualTrackId: string, 
       narrationEndMs: endMs,
       overrunMs,
       extendableMs,
-      ...(extendableMs < overrunMs && limit ? { limit } : {})
+      ...(extendableMs < overrunMs && limit ? { limit, limitCode } : {})
     })
   }
   return overruns

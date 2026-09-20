@@ -205,7 +205,7 @@ export function App() {
             <AiEditorPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
             <StoryboardAssemblyPanel key={`assembly-${project.id}`} project={project} history={versionHistory} onProjectChange={persistProject} />
             <ScriptCaptionsPanel key={`script-captions-${project.id}`} project={project} history={versionHistory} onProjectChange={persistProject} />
-            <SceneVoiceoverPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
+            <SceneVoiceoverPanel key={`narration-${project.id}`} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
             <TimelineEditor key={`timeline-${project.id}`} project={project} history={versionHistory} onProjectChange={persistProject} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} />
             <CaptionEditor key={`captions-${project.id}`} project={project} history={versionHistory} onProjectChange={persistProject} />
             <RenderPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />

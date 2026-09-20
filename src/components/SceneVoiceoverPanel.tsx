@@ -3,11 +3,14 @@ import { projectContentProfile } from '../core/contentProfile'
 import type { VoiceDetails } from '../core/voiceLanguage'
 import { PiperVoiceSelect } from './PiperVoiceSelect'
 import { assemblyTargetTracks } from '../core/storyboardAssembly'
-import { placeSceneNarration, planSceneVoiceovers, voiceoverTargetTracks, type NarratedScene, type SkippedVoiceoverScene } from '../core/sceneVoiceover'
-import { fitScenesToNarration, planNarrationFit, type NarrationOverrun } from '../core/narrationFit'
+import { voiceoverTargetTracks } from '../core/sceneVoiceover'
+import { fitScenesToNarration, planNarrationFit, type NarrationFitResult } from '../core/narrationFit'
 import type { KinaouProject } from '../core/project'
 import type { PersistentVersionHistory } from '../core/versioning'
 import { WorkerClient } from '../core/workerClient'
+import { SceneNarrationSession, type NarrationFeedback } from '../core/sceneNarrationSession'
+import { commitStoryboardChange } from '../core/storyboardEditing'
+import { useUiLanguage } from './UiLanguageProvider'
 
 interface Props {
   project: KinaouProject
@@ -19,177 +22,124 @@ interface Props {
   onProjectChange: (project: KinaouProject) => void
 }
 
-const terminal = new Set(['succeeded', 'failed', 'cancelled'])
-
 export function SceneVoiceoverPanel({ project, history, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange }: Props) {
+  const { language, t } = useUiLanguage()
+  const seconds = (ms: number) => (ms / 1000).toLocaleString(language, { maximumFractionDigits: 3 })
   const visualTracks = useMemo(() => assemblyTargetTracks(project), [project])
   const voiceTracks = useMemo(() => voiceoverTargetTracks(project), [project])
   const [visualId, setVisualId] = useState('')
   const [voiceId, setVoiceId] = useState('')
   const [voices, setVoices] = useState<VoiceDetails[]>([])
   const [voice, setVoice] = useState('')
-  const [busy, setBusy] = useState('')
-  const [narrated, setNarrated] = useState<NarratedScene[] | null>(null)
-  const [skipped, setSkipped] = useState<SkippedVoiceoverScene[]>([])
+  const [detecting, setDetecting] = useState(false)
+  const [noVoices, setNoVoices] = useState(false)
+  const [feedback, setFeedback] = useState<NarrationFeedback | null>(null)
   const [error, setError] = useState('')
-  const [fitted, setFitted] = useState('')
-  const voiceDiscovery = useRef(0)
-
+  const [fitted, setFitted] = useState<NarrationFitResult | null>(null)
+  const discovery = useRef(0)
+  const session = useRef<SceneNarrationSession | null>(null)
+  const available = workerConnected && workerCapabilities.includes('text-to-speech')
+  const context = useRef({ project, workerUrl, workerToken, available })
+  context.current = { project, workerUrl, workerToken, available }
   const effectiveVisual = visualTracks.some((track) => track.id === visualId) ? visualId : visualTracks[0]?.id ?? ''
   const effectiveVoice = voiceTracks.some((track) => track.id === voiceId) ? voiceId : voiceTracks[0]?.id ?? ''
   const selectedVoiceTrack = voiceTracks.find((track) => track.id === effectiveVoice)
-  const overruns = useMemo<NarrationOverrun[]>(() => {
-    if (!effectiveVisual || !effectiveVoice) return []
-    try {
-      return planNarrationFit(project, effectiveVisual, effectiveVoice)
-    } catch {
-      // A timeline the fit cannot read is not a reason to blank the whole panel.
-      return []
-    }
+  const busy = Boolean(feedback && ['starting', 'queued', 'running', 'saving'].includes(feedback.phase))
+  const unresolved = Boolean(feedback && ['startFailed', 'pollFailed', 'saveFailed'].includes(feedback.phase))
+  const locked = busy || unresolved || detecting
+  const plan = useMemo(() => {
+    if (!effectiveVisual || !effectiveVoice) return { entries: [], error: '' }
+    try { return { entries: planNarrationFit(project, effectiveVisual, effectiveVoice), error: '' } }
+    catch (cause) { return { entries: [], error: String(cause) } }
   }, [project, effectiveVisual, effectiveVoice])
-  const fittableMs = overruns.reduce((total, entry) => total + entry.extendableMs, 0)
+  const fittableMs = plan.entries.reduce((total, entry) => total + entry.extendableMs, 0)
 
-  const available = workerConnected && workerCapabilities.includes('text-to-speech')
-  const client = () => new WorkerClient({ baseUrl: workerUrl, token: workerToken })
-
+  function detach() {
+    session.current?.detach()
+    session.current = null
+    setFeedback((previous) => previous && previous.phase !== 'complete' ? { ...previous, phase: 'detached', detail: undefined, done: [], skipped: [] } : null)
+  }
   useEffect(() => {
-    voiceDiscovery.current++
-    setVoices([])
-    setVoice('')
-    return () => { voiceDiscovery.current++ }
-  }, [workerUrl, workerToken, workerConnected])
+    discovery.current++
+    setVoices([]); setVoice(''); setDetecting(false); setNoVoices(false)
+    detach()
+    return () => { discovery.current++; session.current?.detach() }
+  }, [workerUrl, workerToken, available])
+  useEffect(() => {
+    if (session.current && session.current.project !== project) detach()
+  }, [project])
 
-  const blockedReason = !project.storyboard.length
-    ? 'This project has no storyboard scenes yet. Create a Director plan first.'
-    : !available
-      ? 'Local text-to-speech is not available. Install Piper and put a voice into KINAOU/Models, then reconnect the worker.'
-      : !voiceTracks.length
-        ? 'This project has no voice track.'
-        : selectedVoiceTrack?.locked
-          ? `"${selectedVoiceTrack.name}" is locked. Unlock it in the timeline below.`
-          : !effectiveVisual
-            ? 'No visual track to read scene timings from.'
-            : !voice
-              ? 'Detect voices, then choose one for the narration.'
-              : ''
+  const blockedReason = !project.storyboard.length ? t('assembly.noScenes')
+    : !available ? t('narration.unavailable')
+      : !voiceTracks.length ? t('narration.noTrack')
+        : selectedVoiceTrack?.locked ? t('assembly.locked', { track: selectedVoiceTrack.name })
+          : !effectiveVisual ? t('assembly.noTrack')
+            : !voice || !voices.some((entry) => entry.path === voice) ? t('narration.chooseFirst') : ''
 
   async function detect() {
-    const request = ++voiceDiscovery.current
-    setError('')
-    setVoices([])
-    setVoice('')
+    const request = ++discovery.current
+    setError(''); setVoices([]); setVoice(''); setDetecting(true); setNoVoices(false)
     try {
-      const found = await client().listTtsVoiceDetails()
-      if (request !== voiceDiscovery.current) return
-      setVoices(found)
-      if (!found.length) setError('No managed Piper voice (an .onnx file with its .json) was found under KINAOU/Models.')
-    } catch (cause) {
-      if (request === voiceDiscovery.current) setError(cause instanceof Error ? cause.message : 'Voice discovery failed')
-    }
+      const found = await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).listTtsVoiceDetails()
+      if (request !== discovery.current) return
+      setVoices(found); setNoVoices(!found.length)
+    } catch (cause) { if (request === discovery.current) setError(String(cause)) }
+    finally { if (request === discovery.current) setDetecting(false) }
   }
-
-  async function awaitJob(id: string) {
-    for (let attempt = 0; attempt < 600; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      const job = await client().ttsStatus(id)
-      if (terminal.has(job.state)) return job
-    }
-    throw new Error('Narration did not finish in time')
-  }
-
+  function clearResults() { setFeedback(null); setFitted(null); setError('') }
   function fitScenes() {
-    if (!fittableMs || busy) return
-    setError('')
-    setFitted('')
+    if (!fittableMs || locked) return
+    clearResults()
     try {
-      history.snapshot(project, 'Before fitting scenes to the narration', 'system')
-      const result = fitScenesToNarration(project, effectiveVisual, effectiveVoice)
-      onProjectChange(result.project)
-      const grown = `${result.fitted.length} ${result.fitted.length === 1 ? 'scene' : 'scenes'} now cover their narration — the video got ${(result.addedMs / 1000).toFixed(1)}s longer.`
-      setFitted(result.remaining.length ? `${grown} ${result.remaining.length} still ${result.remaining.length === 1 ? 'overruns' : 'overrun'}; see the list above.` : grown)
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Fitting the scenes failed')
-    }
+      const result = commitStoryboardChange(project, () => fitScenesToNarration(project, effectiveVisual, effectiveVoice), history, onProjectChange, 'Before fitting scenes to the narration')
+      setFitted(result)
+    } catch (cause) { setError(String(cause)) }
   }
-
-  async function narrate() {
-    if (blockedReason || busy) return
-    setError('')
-    setNarrated(null)
-    setSkipped([])
-    let current = project
-    const done: NarratedScene[] = []
+  function narrate() {
+    if (blockedReason || locked) return
+    clearResults()
     try {
-      const plan = planSceneVoiceovers(current, effectiveVisual)
-      setSkipped(plan.skipped)
-      if (!plan.pending.length) {
-        setNarrated([])
-        return
-      }
-      history.snapshot(current, 'Before generating scene narration', 'system')
-
-      for (const scene of plan.pending) {
-        setBusy(`Narrating “${scene.title}” · ${done.length + 1} of ${plan.pending.length}`)
-        const started = await client().startTts(scene.text, voice)
-        const job = await awaitJob(started.id)
-        if (job.state !== 'succeeded') {
-          setSkipped((previous) => [...previous, { sceneId: scene.sceneId, title: scene.title, reason: job.error ?? `Narration ${job.state}` }])
-          continue
-        }
-        const placed = placeSceneNarration(current, scene, job, effectiveVoice)
-        current = placed.project
-        done.push(placed.narrated)
-        // Persist after every scene: a long run stays useful even if a later one fails.
-        onProjectChange(current)
-        setNarrated([...done])
-      }
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Generating narration failed')
-    } finally {
-      setBusy('')
-      setNarrated((previous) => previous ?? done)
-    }
+      session.current?.detach()
+      const run = new SceneNarrationSession(project, effectiveVisual, effectiveVoice, voice, {
+        client: new WorkerClient({ baseUrl: workerUrl, token: workerToken }),
+        current: (expected) => context.current.project === expected && context.current.workerUrl === workerUrl && context.current.workerToken === workerToken && context.current.available,
+        snapshot: () => history.snapshot(project, 'Before generating scene narration', 'system'),
+        persist: (next) => { onProjectChange(next); context.current.project = next },
+        publish: setFeedback
+      })
+      session.current = run
+      void run.run()
+    } catch (cause) { setError(String(cause)) }
   }
+  const details = (message: string) => <details><summary>{t('common.details')}</summary>{message}</details>
 
-  return (
-    <div className="card availabilityPanel">
-      <div>
-        <div className="eyebrow">SCRIPT → NARRATION</div>
-        <h3>Speak each scene with a local voice</h3>
-        <p>Reads each scene's spoken text through your installed Piper voice and places the result under that scene. An explicit empty narration keeps a scene silent; older scenes without a narration field still use their description. Narration keeps its natural length, and anything that runs past its scene is reported instead of trimmed. Existing narration is skipped, and restoring the automatic version removes the batch.</p>
-      </div>
-      <div className="directorActions">
-        <button className="secondaryButton" disabled={!available || Boolean(busy)} onClick={detect}>Detect voices</button>
-        <PiperVoiceSelect voices={voices} value={voice} language={projectContentProfile(project).outputLanguage} disabled={!available || Boolean(busy)} onChange={setVoice} />
-        <label>Scene timings from<select aria-label="Track to read scene timings from" value={effectiveVisual} onChange={(event) => setVisualId(event.target.value)}>{visualTracks.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}</select></label>
-        <label>Narration track<select aria-label="Track for the narration" value={effectiveVoice} onChange={(event) => setVoiceId(event.target.value)}>{voiceTracks.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}</select></label>
-        <button className="primary" disabled={Boolean(blockedReason) || Boolean(busy)} onClick={narrate}>{busy || 'Narrate the scenes'}</button>
-      </div>
-      {blockedReason && <div className="warning">{blockedReason}</div>}
-      {overruns.length > 0 && <div className="warning">
-        <strong>{overruns.length} {overruns.length === 1 ? 'scene is' : 'scenes are'} shorter than {overruns.length === 1 ? 'its' : 'their'} narration.</strong> Nothing is cut — the voice simply runs past the picture. Fitting extends each of those visuals to cover its own narration and moves everything after it by the same amount, so the cross-dissolves stay as wide as they were.
-        <div className="directorActions">
-          <button className="secondaryButton" disabled={!fittableMs || Boolean(busy)} onClick={fitScenes}>{fittableMs ? `Fit the scenes to the narration (+${(fittableMs / 1000).toFixed(1)}s)` : 'Nothing here can be extended'}</button>
-        </div>
-        <div className="assetList">
-          {overruns.map((entry) => <div className="assetRow" key={entry.sceneId}>
-            <div><strong>{entry.title}</strong><small>{(entry.overrunMs / 1000).toFixed(1)}s past its picture{entry.limit ? ` · ${entry.limit} — shorten the text or replace the footage` : ''}</small></div>
-            <span className="badge offline">{entry.extendableMs >= entry.overrunMs ? 'FITTABLE' : entry.extendableMs > 0 ? 'PARTLY FITTABLE' : 'OVERRUNS'}</span>
-          </div>)}
-        </div>
-      </div>}
-      {fitted && <div className="successBox">{fitted}</div>}
-      {error && <div className="errorBox">{error}</div>}
-      {(narrated || skipped.length > 0) && <div className="assetList">
-        {(narrated ?? []).map((entry) => <div className="assetRow" key={entry.sceneId}>
-          <div><strong>{entry.title}</strong><small>{(entry.narrationMs / 1000).toFixed(1)}s of narration from {(entry.startMs / 1000).toFixed(1)}s{entry.overrunMs ? ` · ${(entry.overrunMs / 1000).toFixed(1)}s longer than the scene — fit the scenes to it above, or shorten the text` : ''}</small></div>
-          <span className={entry.overrunMs ? 'badge offline' : 'badge'}>{entry.overrunMs ? 'OVERRUNS' : 'NARRATED'}</span>
-        </div>)}
-        {skipped.map((entry) => <div className="assetRow" key={entry.sceneId}>
-          <div><strong>{entry.title}</strong><small>{entry.reason}</small></div>
-          <span className="badge offline">SKIPPED</span>
-        </div>)}
-      </div>}
+  return <div className="card availabilityPanel">
+    <div><div className="eyebrow">{t('narration.eyebrow')}</div><h3>{t('narration.heading')}</h3><p>{t('narration.help')}</p><p>{t('narration.quality')}</p><p>{t('narration.scopeHelp')}</p></div>
+    <div className="directorActions">
+      <button className="secondaryButton" disabled={!available || locked} onClick={detect}>{t(detecting ? 'narration.detecting' : 'narration.detect')}</button>
+      <PiperVoiceSelect voices={voices} value={voice} language={projectContentProfile(project).outputLanguage} uiLanguage={language} disabled={!available || locked} onChange={(value) => { setVoice(value); clearResults() }} />
+      <label>{t('narration.visual')}<select disabled={locked} value={effectiveVisual} onChange={(event) => { setVisualId(event.target.value); clearResults() }}>{visualTracks.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}</select></label>
+      <label>{t('narration.target')}<select disabled={locked} value={effectiveVoice} onChange={(event) => { setVoiceId(event.target.value); clearResults() }}>{voiceTracks.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}</select></label>
+      <button className="primary" disabled={Boolean(blockedReason) || locked} onClick={narrate}>{t('narration.start')}</button>
     </div>
-  )
+    {blockedReason && <div className="warning">{blockedReason}</div>}
+    {noVoices && <div className="warning">{t('narration.noVoices')}</div>}
+    {plan.error && <div className="errorBox" role="alert">{t('narration.failure')}{details(plan.error)}</div>}
+    {plan.entries.length > 0 && <div className="warning">
+      <strong>{t('narration.fitHeading', { count: plan.entries.length })}</strong><p>{t('narration.fitHelp')}</p>
+      <button className="secondaryButton" disabled={!fittableMs || locked || visualTracks.find((track) => track.id === effectiveVisual)?.locked} onClick={fitScenes}>{t('narration.fit', { seconds: seconds(fittableMs) })}</button>
+      <div className="assetList">{plan.entries.map((entry) => <div className="assetRow" key={entry.sceneId}><div><strong>{entry.title}</strong><small>{t('narration.overrun', { seconds: seconds(entry.overrunMs) })}</small>{entry.limitCode && <small>{t(`narration.limit.${entry.limitCode}`)}</small>}</div></div>)}</div>
+    </div>}
+    {fitted?.project === project && <div className="successBox" role="status">{t('narration.fitSaved', { count: fitted.fitted.length, seconds: seconds(fitted.addedMs), remaining: fitted.remaining.length })}</div>}
+    {error && <div className="errorBox" role="alert">{t('narration.failure')}{details(error)}</div>}
+    {feedback && <div role="status">
+      <p>{t(`narration.phase.${feedback.phase}`)}</p>
+      {busy && <p>{t('narration.progress', { title: feedback.title ?? '', index: feedback.index, total: feedback.total, saved: feedback.done.length })}</p>}
+      {feedback.detail && details(feedback.detail)}
+      {['pollFailed', 'saveFailed'].includes(feedback.phase) && <button onClick={() => { void session.current?.run() }}>{t('narration.retry')}</button>}
+      {(busy || unresolved) && <button onClick={detach}>{t('narration.detach')}</button>}
+      <div className="assetList">{feedback.done.map((entry) => <div className="assetRow" key={entry.sceneId}><div><strong>{entry.title}</strong><small>{t('narration.savedTiming', { duration: seconds(entry.narrationMs), start: seconds(entry.startMs) })}</small>{entry.overrunMs > 0 && <small>{t('narration.overrun', { seconds: seconds(entry.overrunMs) })}</small>}</div></div>)}
+      {feedback.skipped.map((entry) => <div className="assetRow" key={entry.sceneId}><div><strong>{entry.title}</strong><small>{t(`narration.reason.${entry.code}`, entry.values)}</small>{['failed', 'cancelled'].includes(entry.code) && details(entry.reason)}</div><span className="badge offline">{t('assembly.skipped')}</span></div>)}</div>
+    </div>}
+  </div>
 }
