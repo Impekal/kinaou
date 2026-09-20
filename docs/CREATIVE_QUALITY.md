@@ -53,9 +53,11 @@ User clarification 2026-09-20: support cartoons, engaging short children's conte
 - No recurring subscriptions, paid inference or cloud APIs in the requested workflow. Use locally installed compatible open runtimes and authorized assets, with transparent model licenses and provenance. Local execution still consumes electricity, storage and hardware capacity; do not promise zero operating costs or silently install large models. Private use does not authorize license/terms circumvention.
 - Export/recommendation does not publish. Recheck the relevant platform's current children/AI/disclosure settings when implementing its publication checks; do not infer compliance or revenue eligibility from a local export.
 
-## Manual editing usability (current state)
+## Football and sports formats
 
 Additional format requirement (2026-09-20): football and other sports, including analysis, tactics explanations, instructional content, current topics and Shorts. Keep match results, dates, statistics and claimed trends attributable to checked sources. Use original/authorized footage and preserve provenance; an illustration or generated recreation must not be presented as an authentic match recording. These are acceptance targets, not shipped live sports-data or highlight-acquisition features. The no-recurring-provider-cost constraint still applies.
+
+## Manual editing usability (current state)
 
 The user asked about conventional software such as MAGIX. KINAOU already applies real multi-track move/trim, gain, fades, dissolve, transform and speed operations, but these are still largely button-driven; its composed preview is rendered before playback. Do not equate a working compositor with a finished interactive editor. The usability roadmap includes direct clip dragging, trim handles, playhead splitting, precise timing/snapping, clear selection/undo behavior and a responsive preview. Keyframes and richer effect workflows remain later work, not implemented features or a promise to copy another product's entire catalogue.
 
