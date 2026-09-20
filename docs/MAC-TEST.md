@@ -106,6 +106,14 @@ What to check along the way:
 
 The complete loop was rehearsed in the development sandbox against the real worker: two captures → assembly with alternating zoom and a 0.5s cross-dissolve → narration per scene → captions → vertical format → a rendered 1080×1920 MP4 of 13.5s with an audio track. Your Mac run verifies the same path on real hardware with a real Piper voice.
 
+## Optional course outline and lesson export check (PR #185)
+
+Use a separate test project with a working timeline of at least two distinct video sections plus audio. Course → add a module and two named lessons → set non-overlapping In/Out ranges within that timeline, objectives and course language → Save course outline. Reload and reopen Course: all fields must remain. Studio → Version History should contain the pre-save safety version. A later saved outline change can be restored without changing any media file.
+
+In Studio → Render → Course lesson export, choose the first lesson. The exact saved range must appear, but no render starts until **Start render**. Export, then select/export the second lesson. Both MP4s must exist independently; inspect their actual first/last frames, duration and audio. Successful receipts show the correct course/module/lesson and outline revision. Rename the course or remove a lesson from the saved outline: earlier receipts must keep the submitted identities and both MP4s must remain. An Out point beyond the active timeline must disable that lesson in the selector. Manually editing the Render In/Out controls must clear the course selection so a custom range is not falsely attributed to a saved lesson.
+
+No AI runtime is needed for this optional test. Save before leaving Course; unsaved form edits are drafts. Course language is not an automatic translation or voice-profile change. These checks do not verify pedagogical quality or Udemy approval; see COURSE-PRODUCTION.md.
+
 ## Troubleshooting
 
 ### Spoken-text regression check (after PR #181)

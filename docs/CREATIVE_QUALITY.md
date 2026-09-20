@@ -26,6 +26,8 @@ User clarification: 2026-09-20. These are acceptance targets, not a claim that t
 
 ## Complete course production
 
+Implemented foundation (#185): one project can persist a revisioned course/module/lesson outline with explicit timeline ranges and export each selected lesson through the actual worker. Receipts preserve submitted course identities. Lesson resources/exercises/solutions, verified demonstrations and instructor review remain future slices; see COURSE-PRODUCTION.md. This is not a complete course generator.
+
 Course workflow target: audience/prerequisites → learning outcomes → modules → lectures → verified examples/demonstrations → scripts and narration → visuals/screen recordings → captions → practice and reviewed solutions → per-lecture media/resource exports → instructor review.
 
 - Retain course/module/lecture relationships and individual project/source/export references; one lecture must be replaceable without rebuilding the entire course.
