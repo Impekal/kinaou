@@ -8,6 +8,7 @@ import { uiTimelineMessages } from './uiTimelineMessages'
 import { uiPreviewMessages } from './uiPreviewMessages'
 import { uiStoryboardMessages } from './uiStoryboardMessages'
 import { uiNarrationMessages } from './uiNarrationMessages'
+import { uiExportMessages } from './uiExportMessages'
 
 // Ordered de/en/fr tuples make missing language entries a compile-time error.
 export const uiMessages = {
@@ -20,6 +21,7 @@ export const uiMessages = {
   ...uiPreviewMessages,
   ...uiStoryboardMessages,
   ...uiNarrationMessages,
+  ...uiExportMessages,
   'nav.Projects': ['Projekte', 'Projects', 'Projets'],
   'nav.Create': ['Erstellen', 'Create', 'Créer'],
   'nav.Director': ['Regie', 'Director', 'Réalisation'],
