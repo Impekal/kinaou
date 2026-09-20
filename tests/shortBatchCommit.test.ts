@@ -68,3 +68,8 @@ it.each(uiLanguages)('keeps blocked/malformed recovery and retained notices tran
   expect(empty).toContain(translateUi(language, 'shortBatch.discardMalformed'))
   expect(empty).not.toContain(translateUi(language, 'shortBatch.cancel'))
 })
+it.each(uiLanguages)('shows pending cancellation without a second cancel action in %s', language => {
+  const html = renderToStaticMarkup(createElement(UiLanguageProvider, { initialLanguage: language, children: createElement(ShortBatchStatus, { ...props(), canCancel: true, cancelling: true }) }))
+  expect(html).toContain(translateUi(language, 'shortBatch.cancelling'))
+  expect(html).toMatch(/class="dangerButton" disabled=""/)
+})

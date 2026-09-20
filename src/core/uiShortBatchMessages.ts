@@ -16,6 +16,7 @@ export const uiShortBatchMessages = {
   'shortBatch.retryAll': ['Alle wiederholbaren Versuche auswählen', 'Select all retryable', 'Sélectionner toutes les reprises possibles'],
   'shortBatch.retry': ['Auswahl erneut exportieren ({count})', 'Retry selected variants ({count})', 'Réessayer les variantes sélectionnées ({count})'],
   'shortBatch.cancel': ['Stapel abbrechen', 'Cancel batch', 'Annuler le lot'],
+  'shortBatch.cancelling': ['Abbruch wird geprüft …', 'Checking cancellation…', 'Vérification de l’annulation…'],
   'shortBatch.archive': ['Stapel archivieren und leeren', 'Archive and clear current batch', 'Archiver et vider le lot'],
   'shortBatch.discard': ['Gespeicherten Stapel verwerfen (Dateien behalten)', 'Discard saved batch (keep files)', 'Retirer le lot enregistré (garder les fichiers)'],
   'shortBatch.discardMalformed': ['Beschädigten Stapel verwerfen (Dateien behalten)', 'Discard malformed batch (keep files)', 'Retirer le lot invalide (garder les fichiers)'],
