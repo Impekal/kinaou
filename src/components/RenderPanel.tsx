@@ -8,7 +8,7 @@ import { createRangeRenderPlan, validateRenderRange } from '../core/renderRange'
 import { defaultAudioDucking, validateAudioDucking } from '../core/audioDucking'
 import { defaultLoudnessNormalization } from '../core/audioLoudness'
 import { planShortExportBatch, planShortExportRanges, projectShortExportMaximum, setProjectShortExportMaximum, shortExportMaximumError, shortExportVariant, shortPreviewOutputPath } from '../core/shortExportRanges'
-import { archiveProjectShortBatch, cancelPendingShortBatchItems, clearProjectShortBatch, createPersistedShortBatch, failMissingShortBatchJob, forgetProjectShortBatchArchiveEntry, nextShortBatchItem, planSelectiveShortBatchRetry, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, requeueMissingShortBatchJob, retryableShortBatchItems, shortBatchArchiveLimit, shortBatchBusy, shortBatchTerminalStates, storeProjectShortBatch, type PersistedShortBatch, type PersistedShortBatchItem } from '../core/shortExportBatch'
+import { archiveProjectShortBatch, cancelPendingShortBatchItems, clearProjectShortBatch, createPersistedShortBatch, failMissingShortBatchJob, forgetProjectShortBatchArchiveEntry, nextShortBatchItem, planSelectiveShortBatchRetry, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, requeueMissingShortBatchJob, retryableShortBatchItems, reviewArchivedShortBatchSelection, shortBatchArchiveLimit, shortBatchBusy, shortBatchTerminalStates, storeProjectShortBatch, type PersistedShortBatch, type PersistedShortBatchItem } from '../core/shortExportBatch'
 import { forgetExportReceipt, projectExportHistory, recordSuccessfulExport, type SuccessfulExportReceiptInput } from '../core/exportHistory'
 
 interface RenderPanelProps {
@@ -25,6 +25,7 @@ const targetFormats = Object.keys(formatProfiles) as TargetFormat[]
 type SubmittedExportReceipt = Omit<SuccessfulExportReceiptInput, 'completedAt' | 'sizeBytes'>
 interface ExportFileCheck { byPath: Record<string, boolean>; available: number; missing: number; checkedAt: string }
 interface ArchivedBatchFileCheck extends ExportFileCheck { batchId: string }
+interface ArchivedBatchSelectionReview { batchId: string; unavailable: Array<{ candidateId: string; title: string }> }
 
 export function RenderPanel({ project, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange }: RenderPanelProps) {
   const readiness = useMemo(() => renderReadiness(project), [project])
@@ -76,6 +77,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const [checkingArchivedBatchId, setCheckingArchivedBatchId] = useState('')
   const [archivedBatchAvailabilityError, setArchivedBatchAvailabilityError] = useState('')
   const archivedBatchAvailabilityRequest = useRef(0)
+  const [archivedBatchSelectionReview, setArchivedBatchSelectionReview] = useState<ArchivedBatchSelectionReview | null>(null)
   const projectBatchId = projectPersistedShortBatch(project)?.id ?? (Object.prototype.hasOwnProperty.call(project.metadata, 'shortExportBatch') ? 'invalid' : '')
   const selectedShort = shortExports.candidates.find((candidate) => candidate.id === selectedShortId && candidate.inMs === range.inMs && candidate.outMs === range.outMs)
   const shortPreviewVideoRef = useRef<HTMLVideoElement>(null)
@@ -168,6 +170,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
 
   useEffect(() => {
     setBatchSelectedIds([])
+    setArchivedBatchSelectionReview(null)
   }, [shortCandidateSignature])
 
   useEffect(() => {
@@ -422,6 +425,22 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     }
   }
 
+  function reviewArchivedBatchSelection(batchId: string) {
+    if (busy) return
+    const entry = batchArchive.find((item) => item.batchId === batchId)
+    if (!entry) return
+    setError('')
+    try {
+      const review = reviewArchivedShortBatchSelection(entry, shortExports.candidates)
+      setBatchSelectedIds(review.candidateIds)
+      setBatchFormats(review.formats)
+      setArchivedBatchSelectionReview({ batchId, unavailable: review.unavailable })
+    } catch (reviewError) {
+      setArchivedBatchSelectionReview(null)
+      setError(reviewError instanceof Error ? reviewError.message : 'Could not restore the archived Short selection for review')
+    }
+  }
+
   async function startShortPreview() {
     if (!selectedShort || !readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || shortPreviewReframingBlocked) return
     setShortPreviewSubmitting(true)
@@ -514,6 +533,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       persistedBatch.current = durable
       setBatchItems(durable.items)
       setRetrySelectedIds([])
+      setArchivedBatchSelectionReview(null)
       setBatchResumeError('')
       setBatchPersistenceMessage('This reviewed batch is saved with the project. Reloading keeps completed results and continues only unfinished outputs.')
       onProjectChange(nextProject)
@@ -654,6 +674,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
           </button>)}
         </div>
         {!batchFormats.length && <div className="warning">Select at least one output format for the Short batch.</div>}
+        {archivedBatchSelectionReview && <div className="warning">Restored an archived selection for review only. {batchSelectedIds.length} currently available candidate{batchSelectedIds.length === 1 ? '' : 's'} and {batchFormats.length} format{batchFormats.length === 1 ? '' : 's'} are selected below; review the current ranges before explicitly starting a new batch. New outputs receive fresh identities and no archived file is changed.{archivedBatchSelectionReview.unavailable.length > 0 && <> Unavailable now: {archivedBatchSelectionReview.unavailable.map((item) => item.title).join(', ')}.</>}</div>}
         {shortExports.candidates.map((candidate) => <div className="renderMeta" key={candidate.id}>
           <span><strong>{candidate.titles.join(' + ')}</strong> · {(candidate.durationMs / 1000).toFixed(1)} s · {(candidate.inMs / 1000).toFixed(1)}–{(candidate.outMs / 1000).toFixed(1)} s</span>
           <div className="renderActions">
@@ -770,6 +791,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
               </div>
             })}
             <div className="renderActions">
+              <button className="secondaryButton" disabled={busy || Boolean(checkingArchivedBatchId)} onClick={() => reviewArchivedBatchSelection(entry.batchId)}>Review current selections</button>
               <button className="secondaryButton" disabled={!workerConnected || !workerToken.trim() || Boolean(checkingArchivedBatchId)} onClick={() => void checkArchivedBatchFiles(entry.batchId)}>{checkingArchivedBatchId === entry.batchId ? 'Checking recorded files…' : 'Check recorded files'}</button>
               <button disabled={busy || Boolean(checkingArchivedBatchId)} onClick={() => { try { onProjectChange(forgetProjectShortBatchArchiveEntry(project, entry.batchId)) } catch (archiveError) { setError(archiveError instanceof Error ? archiveError.message : 'Could not forget the Short batch summary') } }}>Forget summary (keep every file)</button>
             </div>

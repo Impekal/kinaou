@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { validateAudioDucking, type AudioDuckingSettings } from './audioDucking'
 import { validateLoudnessNormalization, type LoudnessNormalizationSettings } from './audioLoudness'
 import { managedRenderPathSchema } from './exportHistory'
-import { createRenderPlan, formatProfiles, projectFormatPreset, type RenderPlan } from './render'
+import { createRenderPlan, formatProfiles, projectFormatPreset, type RenderPlan, type TargetFormat } from './render'
 import type { RenderJobState } from './renderJobs'
 import { createRangeRenderPlan } from './renderRange'
 import { shortExportVariant, type ShortExportBatchItem, type ShortExportCandidate } from './shortExportRanges'
@@ -147,6 +147,11 @@ export type PersistedShortBatchItem = z.infer<typeof persistedShortBatchItemSche
 export type PersistedShortBatch = z.infer<typeof persistedShortBatchSchema>
 export type PersistedShortBatchArchiveEntry = z.infer<typeof persistedShortBatchArchiveEntrySchema>
 export interface SelectiveShortBatchRetryResult { batch: PersistedShortBatch; plans: Map<string, RenderPlan> }
+export interface ArchivedShortBatchSelectionReview {
+  candidateIds: string[]
+  formats: TargetFormat[]
+  unavailable: Array<{ candidateId: string; title: string }>
+}
 
 export const shortBatchTerminalStates = new Set<RenderJobState>(['succeeded', 'failed', 'cancelled'])
 
@@ -307,6 +312,23 @@ export function projectShortBatchArchive(project: KinaouProject): PersistedShort
     if (entries.length === shortBatchArchiveLimit) break
   }
   return entries
+}
+
+export function reviewArchivedShortBatchSelection(entry: PersistedShortBatchArchiveEntry, candidates: ShortExportCandidate[]): ArchivedShortBatchSelectionReview {
+  const archived = persistedShortBatchArchiveEntrySchema.parse(entry)
+  const candidateIds = [...new Set(archived.items.map((item) => item.candidateId))]
+  const formats = [...new Set(archived.items.map((item) => item.format))] as TargetFormat[]
+  const archivedPairs = new Set(archived.items.map((item) => `${item.candidateId}\u0000${item.format}`))
+  const missingPair = candidateIds.flatMap((candidateId) => formats.map((format) => `${candidateId}\u0000${format}`)).find((pair) => !archivedPairs.has(pair))
+  if (missingPair) throw new Error('This archived Short batch does not contain a complete candidate × format selection and cannot be safely restored.')
+  const current = new Set(candidates.map((candidate) => candidate.id))
+  const titles = new Map(archived.items.map((item) => [item.candidateId, item.title]))
+  const available = candidateIds.filter((id) => current.has(id))
+  return {
+    candidateIds: available,
+    formats,
+    unavailable: candidateIds.filter((id) => !current.has(id)).map((candidateId) => ({ candidateId, title: titles.get(candidateId) ?? candidateId }))
+  }
 }
 
 export function archiveProjectShortBatch(project: KinaouProject, batch: PersistedShortBatch, now = new Date()): KinaouProject {
