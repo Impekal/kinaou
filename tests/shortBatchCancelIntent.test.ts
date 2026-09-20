@@ -78,4 +78,8 @@ it.each(uiLanguages)('explains persisted cancellation without claiming worker co
   expect(html).toContain(translateUi(language,'shortBatch.cancelSaved'))
   expect(html).toContain(translateUi(language,'shortBatch.queued'))
   expect(html).not.toContain(translateUi(language,'shortBatch.cancelled'))
+  const uncertain = renderToStaticMarkup(createElement(UiLanguageProvider,{initialLanguage:language,children:createElement(ShortBatchStatus,{...props,cancelRequested:false,items:[{...batch.items[0],submissionStartedAt:batch.createdAt}]})}))
+  expect(uncertain).toContain(translateUi(language,'shortBatch.unconfirmed'))
+  expect(uncertain).toContain(translateUi(language,'shortBatch.unconfirmedHelp'))
+  expect(uncertain).not.toContain(translateUi(language,'shortBatch.queued'))
 })

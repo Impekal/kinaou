@@ -28,11 +28,12 @@ export function ShortBatchStatus(props: ShortBatchStatusProps) {
   return <div className="renderJob">
     <div className="renderJobHead"><strong>{t('shortBatch.heading')}</strong><span>{t('shortBatch.finished', { done: props.items.filter(item => shortBatchTerminalStates.has(item.state)).length, count: props.items.length })}</span></div>
     <p className="cardBody">{t('shortBatch.help')}</p>
+    {props.items.some(item => item.submissionStartedAt) && <p className="note" role="status">{t('shortBatch.unconfirmedHelp')}</p>}
     {props.cancelRequested && <p className="note" role="status">{t('shortBatch.cancelSaved')}</p>}
     {props.notice && <div className="note" role="status">{t(`shortBatch.${props.notice.kind}`, props.notice.kind === 'restored' ? { date: new Date(props.notice.date).toLocaleString(language) } : props.notice.kind === 'retrySaved' ? { count: props.notice.count } : {})}</div>}
     {error}
     {props.items.map(item => <div className="renderJob" key={item.id}>
-      <div className="renderJobHead"><strong>{item.title}</strong><span>{t(`export.${item.format}`)} · {t('shortArchive.attempt', { count: item.attempt ?? 1 })} · {t(`shortBatch.${item.state}`)} · {Math.round(item.progress * 100).toLocaleString(language)}%</span></div>
+      <div className="renderJobHead"><strong>{item.title}</strong><span>{t(`export.${item.format}`)} · {t('shortArchive.attempt', { count: item.attempt ?? 1 })} · {item.submissionStartedAt ? t('shortBatch.unconfirmed') : t(`shortBatch.${item.state}`)} · {Math.round(item.progress * 100).toLocaleString(language)}%</span></div>
       <div className="progressTrack" aria-label={t('shortBatch.progress', { title: item.title, percent: Math.round(item.progress * 100) })}><div className="progressFill" style={{ width: `${Math.round(item.progress * 100)}%` }} /></div>
       <div className="renderMeta"><code>{item.renderedPath ?? item.outputPath}</code>
         {item.sizeBytes !== undefined && <span>{(item.sizeBytes / 1024 / 1024).toLocaleString(language, { maximumFractionDigits: 1 })} MB</span>}

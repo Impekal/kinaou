@@ -7,7 +7,7 @@ import { createRangeRenderPlan, validateRenderRange } from '../core/renderRange'
 import { defaultAudioDucking, validateAudioDucking } from '../core/audioDucking'
 import { defaultLoudnessNormalization } from '../core/audioLoudness'
 import { planShortExportBatch, planShortExportRanges, projectShortExportMaximum, setProjectShortExportMaximum, shortExportMaximumError, shortExportVariant } from '../core/shortExportRanges'
-import { acceptShortBatchJob, archiveProjectShortBatch, requestPersistedShortBatchCancellation, clearProjectShortBatch, createPersistedShortBatch, nextShortBatchItem, planSelectiveShortBatchRetry, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, retryableShortBatchItems, reviewArchivedShortBatchSelection, shortBatchBusy, storeProjectShortBatch, type PersistedShortBatch, type PersistedShortBatchItem } from '../core/shortExportBatch'
+import { archiveProjectShortBatch, requestPersistedShortBatchCancellation, clearProjectShortBatch, createPersistedShortBatch, nextShortBatchItem, planSelectiveShortBatchRetry, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, retryableShortBatchItems, reviewArchivedShortBatchSelection, shortBatchBusy, storeProjectShortBatch, type PersistedShortBatch, type PersistedShortBatchItem } from '../core/shortExportBatch'
 import { forgetProjectShortExportRecipe, projectShortExportRecipes, reviewShortExportRecipe, saveProjectShortExportRecipe, shortExportRecipeLimit } from '../core/shortExportRecipes'
 import { recordSuccessfulExport } from '../core/exportHistory'
 import { courseLessonChoices, planCourseLessonExport } from '../core/course'
@@ -23,6 +23,7 @@ import { ShortBatchArchivePanel } from './ShortBatchArchivePanel'
 import { ShortBatchStatus, ShortBatchReceiptRecovery } from './ShortBatchStatus'
 import { persistShortBatchReceipts } from '../core/shortBatchReceipts'
 import { ShortBatchJobMonitor } from '../core/shortBatchJobMonitor'
+import { markShortBatchSubmission, ShortBatchSubmission } from '../core/shortBatchSubmission'
 import { commitShortBatchChange, type ShortBatchNotice } from '../core/shortBatchCommit'
 
 interface RenderPanelProps {
@@ -88,12 +89,14 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const [shortRecipeReview, setShortRecipeReview] = useState<ShortRecipeReview | null>(null)
   const shortRecipes = projectShortExportRecipes(project)
   const [batchItems, setBatchItems] = useState<PersistedShortBatchItem[]>([])
+  const [batchItemsBatchId, setBatchItemsBatchId] = useState('')
   const batchPlans = useRef(new Map<string, RenderPlan>())
   const persistedBatch = useRef<PersistedShortBatch | null>(null)
   const batchMonitor = useRef<ShortBatchJobMonitor | null>(null)
   const [batchCancelling, setBatchCancelling] = useState(false)
   const batchSubmitting = useRef(false)
   const batchSubmittingId = useRef<string | undefined>(undefined)
+  const batchSubmission = useRef<ShortBatchSubmission | null>(null)
   const batchCancelRequested = useRef(false)
   const [batchResumeError, setBatchResumeError] = useState('')
   const [batchPersistenceMessage, setBatchPersistenceMessage] = useState<ShortBatchNotice | null>(null)
@@ -101,6 +104,9 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const batchArchive = projectShortBatchArchive(project)
   const [archivedBatchSelectionReview, setArchivedBatchSelectionReview] = useState<ArchivedBatchSelectionReview | null>(null)
   const projectBatchId = projectPersistedShortBatch(project)?.id ?? (Object.prototype.hasOwnProperty.call(project.metadata, 'shortExportBatch') ? 'invalid' : '')
+  const submissionScope = useMemo(() => ({}), [project.id, projectBatchId, workerUrl, workerToken, workerConnected])
+  const currentSubmissionScope = useRef(submissionScope)
+  currentSubmissionScope.current = submissionScope
   const selectedShort = shortExports.candidates.find((candidate) => candidate.id === selectedShortId && candidate.inMs === range.inMs && candidate.outMs === range.outMs)
   const [shortPreviewFormat, setShortPreviewFormat] = useState<TargetFormat>(format)
   const [shortPreviewBusy, setShortPreviewBusy] = useState(false)
@@ -127,6 +133,17 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const activeBatchItem = batchItems.find((item) => item.jobId && !terminalStates.has(item.state))
 
   useEffect(() => {
+    batchSubmission.current?.detach()
+    batchSubmission.current = null
+    batchSubmitting.current = false
+    batchSubmittingId.current = undefined
+    if (projectPersistedShortBatch(latest.current.project)?.items.some(item => item.submissionStartedAt)) {
+      setBatchResumeError('A Short submission has no saved worker acknowledgement. Inspect the original worker and output before deliberately discarding this batch. No export will be submitted automatically.')
+    }
+    return () => { batchSubmission.current?.detach() }
+  }, [submissionScope])
+
+  useEffect(() => {
     setBatchReceiptError('')
     batchSubmitting.current = false
     batchSubmittingId.current = undefined
@@ -137,12 +154,14 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     const stored = projectPersistedShortBatch(project)
     if (!stored) {
       persistedBatch.current = null
+      setBatchItemsBatchId('')
       setBatchItems([])
       setBatchPersistenceMessage(null)
       if (Object.prototype.hasOwnProperty.call(project.metadata, 'shortExportBatch')) setBatchResumeError('The saved Short batch is malformed and was ignored. Discard it before preparing a new batch.')
       return
     }
     persistedBatch.current = stored
+    setBatchItemsBatchId(stored.id)
     batchCancelRequested.current = stored.cancelRequested === true
     setBatchItems(stored.items)
     setDuckingEnabled(stored.audioDucking.enabled)
@@ -160,7 +179,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
 
   useEffect(() => {
     const current = persistedBatch.current
-    if (!current || !batchItems.length) return
+    if (!current || !batchItems.length || batchItemsBatchId !== projectBatchId) return
     const stored = projectPersistedShortBatch(project)
     if (stored?.id === current.id && JSON.stringify(stored.items) === JSON.stringify(batchItems)) return
     try {
@@ -171,7 +190,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     } catch (persistenceError) {
       setBatchResumeError(persistenceError instanceof Error ? persistenceError.message : 'Could not save the Short batch with this project.')
     }
-  }, [batchItems, onProjectChange, project])
+  }, [batchItems, batchItemsBatchId, projectBatchId, onProjectChange, project])
 
   useEffect(() => {
     setInSeconds('0')
@@ -201,7 +220,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
 
   useEffect(() => {
     setBatchCancelling(false)
-    if (!activeBatchItem?.jobId || !workerConnected || !workerToken.trim()) return
+    if (batchItemsBatchId !== projectBatchId || !activeBatchItem?.jobId || !workerConnected || !workerToken.trim()) return
     const monitor = new ShortBatchJobMonitor(activeBatchItem, {
       client: new WorkerClient({ baseUrl: workerUrl, token: workerToken }),
       publish: accepted => setBatchItems(items => items.map(item => item.id === accepted.id ? accepted : item)),
@@ -216,44 +235,56 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       monitor.detach()
       if (batchMonitor.current === monitor) batchMonitor.current = null
     }
-  }, [project.id, projectBatchId, activeBatchItem?.id, activeBatchItem?.jobId, workerConnected, workerToken, workerUrl])
+  }, [project.id, projectBatchId, batchItemsBatchId, activeBatchItem?.id, activeBatchItem?.jobId, workerConnected, workerToken, workerUrl])
 
   useEffect(() => {
-    if (batchCancelRequested.current || batchSubmitting.current || activeBatchItem || batchResumeError || !workerConnected || !workerToken.trim()) return
+    if (batchItemsBatchId !== projectBatchId || batchCancelRequested.current || batchSubmitting.current || activeBatchItem || batchResumeError || !workerConnected || !workerToken.trim()) return
     const nextItem = nextShortBatchItem(batchItems)
     if (!nextItem) return
-    const plan = batchPlans.current.get(nextItem.id)
-    if (!plan) {
-      setBatchItems((items) => items.map((item) => item.id === nextItem.id ? { ...item, state: 'failed', error: 'The prepared render plan is missing.' } : item))
+    const current = persistedBatch.current
+    const saved = projectPersistedShortBatch(latest.current.project)
+    if (!current || current.id !== projectBatchId || saved?.id !== current.id || !saved.items.some(item => item.id === nextItem.id && item.outputPath === nextItem.outputPath)) return
+    let plan: RenderPlan | undefined
+    try {
+      // Revalidate the actual current edit before every POST, not just on reload.
+      plan = rebuildPersistedShortBatchPlans(latest.current.project, { ...current, items: batchItems }).get(nextItem.id)
+      if (!plan) throw new Error('The prepared render plan is missing.')
+    } catch (cause) {
+      setBatchResumeError(cause instanceof Error ? cause.message : String(cause))
       return
     }
     batchSubmitting.current = true
     batchSubmittingId.current = nextItem.id
-    const client = new WorkerClient({ baseUrl: workerUrl, token: workerToken })
-    client.startRender(plan).then(async (next) => {
-      const accepted = acceptShortBatchJob(nextItem, next)
-      if (batchCancelRequested.current) {
-        try {
-          const cancelled = await client.cancelRender(next.id)
-          const result = acceptShortBatchJob(accepted, cancelled)
-          setBatchItems((items) => items.map((item) => item.id === nextItem.id ? result : item))
-        } catch (cancelError) {
-          const message = cancelError instanceof Error ? cancelError.message : 'Could not cancel submitted Short export'
-          setBatchItems((items) => items.map((item) => item.id === nextItem.id ? { ...accepted, error: message } : item))
-          setError(message)
-        }
-        return
-      }
-      setBatchItems((items) => items.map((item) => item.id === nextItem.id ? accepted : item))
-    }).catch((batchError) => {
-      setBatchItems((items) => items.map((item) => item.id === nextItem.id ? { ...item, state: 'failed', error: batchError instanceof Error ? batchError.message : 'Could not start Short export' } : item))
-    }).finally(() => { batchSubmitting.current = false; batchSubmittingId.current = undefined })
-  }, [activeBatchItem, batchItems, batchResumeError, workerConnected, workerToken, workerUrl])
+    const session = new ShortBatchSubmission({
+      plan,
+      client: new WorkerClient({ baseUrl: workerUrl, token: workerToken }),
+      isCurrent: () => currentSubmissionScope.current === submissionScope,
+      saveIntent: () => {
+        const target = latest.current
+        const marked = markShortBatchSubmission({ ...current, items: batchItems }, nextItem.id)
+        const nextProject = storeProjectShortBatch(target.project, marked)
+        commitShortBatchChange(nextProject, target.onProjectChange, () => {
+          latest.current = { ...target, project: nextProject }
+          persistedBatch.current = marked
+          setBatchItems(marked.items)
+        })
+        return marked.items.find(item => item.id === nextItem.id)!
+      },
+      accepted: accepted => {
+        // The accepted-job monitor handles saved cancellation on this exact job.
+        setBatchItems(items => items.map(item => item.id === accepted.id ? accepted : item))
+      },
+      error: setBatchResumeError,
+      finished: () => { batchSubmitting.current = false; batchSubmittingId.current = undefined }
+    })
+    batchSubmission.current = session
+    void session.run()
+  }, [activeBatchItem, batchItems, batchItemsBatchId, batchResumeError, projectBatchId, submissionScope, workerConnected, workerToken, workerUrl])
 
 
   function saveBatchReceipts() {
     const current = persistedBatch.current
-    if (!current || !batchItems.length) return
+    if (!current || !batchItems.length || batchItemsBatchId !== projectBatchId) return
     try {
       const target = latest.current
       persistShortBatchReceipts(target.project, current.id, batchItems, target.onProjectChange)
@@ -262,7 +293,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   }
   useEffect(() => {
     saveBatchReceipts()
-  }, [batchItems, onProjectChange, project])
+  }, [batchItems, batchItemsBatchId, projectBatchId, onProjectChange, project])
 
   function reviewArchivedBatchSelection(batchId: string) {
     if (busy) return
@@ -366,6 +397,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         batchPlans.current = plans
         batchCancelRequested.current = false
         persistedBatch.current = durable
+        setBatchItemsBatchId(durable.id)
         setBatchItems(durable.items)
         setRetrySelectedIds([])
         setArchivedBatchSelectionReview(null)
