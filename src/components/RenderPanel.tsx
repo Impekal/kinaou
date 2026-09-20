@@ -11,6 +11,8 @@ import { planShortExportBatch, planShortExportRanges, projectShortExportMaximum,
 import { archiveProjectShortBatch, cancelPendingShortBatchItems, clearProjectShortBatch, createPersistedShortBatch, failMissingShortBatchJob, forgetProjectShortBatchArchiveEntry, nextShortBatchItem, planSelectiveShortBatchRetry, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, requeueMissingShortBatchJob, retryableShortBatchItems, reviewArchivedShortBatchSelection, shortBatchArchiveLimit, shortBatchBusy, shortBatchTerminalStates, storeProjectShortBatch, type PersistedShortBatch, type PersistedShortBatchItem } from '../core/shortExportBatch'
 import { forgetProjectShortExportRecipe, projectShortExportRecipes, reviewShortExportRecipe, saveProjectShortExportRecipe, shortExportRecipeLimit } from '../core/shortExportRecipes'
 import { forgetExportReceipt, projectExportHistory, recordSuccessfulExport, type SuccessfulExportReceiptInput } from '../core/exportHistory'
+import { courseLessonChoices, planCourseLessonExport } from '../core/course'
+import { CourseLessonSelector } from './CourseLessonSelector'
 
 interface RenderPanelProps {
   project: KinaouProject
@@ -63,6 +65,11 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const shortExports = useMemo(() => planShortExportRanges(project, shortMaximumMs), [project, shortMaximumMs])
   const shortCandidateSignature = shortExports.candidates.map((candidate) => `${candidate.id}:${candidate.inMs}:${candidate.outMs}:${candidate.titles.join('\u0000')}`).join('|')
   const [selectedShortId, setSelectedShortId] = useState('')
+  const [selectedLessonId, setSelectedLessonId] = useState('')
+  let lessonChoices: ReturnType<typeof courseLessonChoices> = []
+  let courseError = ''
+  try { lessonChoices = courseLessonChoices(project, timelineDurationMs) } catch (cause) { courseError = (cause as Error).message }
+  const selectedLesson = lessonChoices.find((lesson) => lesson.id === selectedLessonId && lesson.check.valid && lesson.range.inMs === range.inMs && lesson.range.outMs === range.outMs)
   const [batchSelectedIds, setBatchSelectedIds] = useState<string[]>([])
   const [batchFormats, setBatchFormats] = useState<TargetFormat[]>([format])
   const [shortRecipeName, setShortRecipeName] = useState('')
@@ -171,6 +178,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     setInSeconds('0')
     setOutSeconds(String(timelineDurationMs / 1000))
     setSelectedShortId('')
+    setSelectedLessonId('')
   }, [timelineDurationMs])
 
   useEffect(() => {
@@ -509,14 +517,16 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     setSubmittedExport(null)
     try {
       const wholeTimeline = range.inMs === 0 && range.outMs === timelineDurationMs
-      const path = renderOutputPath(project, new Date(), wholeTimeline ? format : selectedShort ? `${format}-${shortExportVariant(selectedShort)}` : `${format}-range-${range.inMs}-${range.outMs}`)
+      const path = renderOutputPath(project, new Date(), selectedLesson ? `${format}-lesson-${selectedLesson.id}-${crypto.randomUUID()}` : wholeTimeline ? format : selectedShort ? `${format}-${shortExportVariant(selectedShort)}` : `${format}-range-${range.inMs}-${range.outMs}`)
       const fullPlan = createRenderPlan(project, projectFormatPreset(project, format, 'export'), path, { audioDucking: duckingSettings, loudnessNormalization: { ...defaultLoudnessNormalization, enabled: normalizeLoudness } })
-      const plan = wholeTimeline ? fullPlan : createRangeRenderPlan(fullPlan, range, path)
+      const lessonExport = selectedLesson ? planCourseLessonExport(project, selectedLesson.id, fullPlan, path) : null
+      const plan = lessonExport?.plan ?? (wholeTimeline ? fullPlan : createRangeRenderPlan(fullPlan, range, path))
       const next = await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).startRender(plan)
       setOutputPath(path)
       setSubmittedExport({
         jobId: next.id,
-        label: wholeTimeline ? 'Whole timeline' : selectedShort ? selectedShort.titles.join(' + ') : `Custom range ${(range.inMs / 1000).toFixed(3)}–${(range.outMs / 1000).toFixed(3)} s`,
+        label: lessonExport?.label ?? (wholeTimeline ? 'Whole timeline' : selectedShort ? selectedShort.titles.join(' + ') : `Custom range ${(range.inMs / 1000).toFixed(3)}–${(range.outMs / 1000).toFixed(3)} s`),
+        ...(lessonExport ? { courseLesson: lessonExport.context } : {}),
         outputRelativePath: path,
         format,
         range: { ...range },
@@ -667,12 +677,14 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         {workerConnected && anyReframingBlocked && <div className="warning">Restart the local worker before rendering an off-centre crop. Centred and whole-image framing remain compatible with the connected worker.</div>}
       </div>
 
+      <CourseLessonSelector lessons={lessonChoices} selectedId={selectedLesson?.id ?? ''} disabled={busy || submitting} onSelect={(id) => { const lesson = lessonChoices.find((entry) => entry.id === id); setSelectedLessonId(id); setSelectedShortId(''); if (lesson?.check.valid) { setInSeconds(String(lesson.range.inMs / 1000)); setOutSeconds(String(lesson.range.outMs / 1000)) } }} />
+      {courseError && <div className="warning">Course lesson selection unavailable: {courseError}</div>}
       <div className="fieldGrid">
-        <label>In (seconds)<input type="number" min="0" step="0.001" value={inSeconds} disabled={busy} onChange={(event) => { setInSeconds(event.target.value); setSelectedShortId('') }} /></label>
-        <label>Out (seconds)<input type="number" min="0" step="0.001" value={outSeconds} disabled={busy} onChange={(event) => { setOutSeconds(event.target.value); setSelectedShortId('') }} /></label>
+        <label>In (seconds)<input type="number" min="0" step="0.001" value={inSeconds} disabled={busy} onChange={(event) => { setInSeconds(event.target.value); setSelectedShortId(''); setSelectedLessonId('') }} /></label>
+        <label>Out (seconds)<input type="number" min="0" step="0.001" value={outSeconds} disabled={busy} onChange={(event) => { setOutSeconds(event.target.value); setSelectedShortId(''); setSelectedLessonId('') }} /></label>
       </div>
       <div className="renderActions">
-        <button disabled={busy || (range.inMs === 0 && range.outMs === timelineDurationMs)} onClick={() => { setInSeconds('0'); setOutSeconds(String(timelineDurationMs / 1000)); setSelectedShortId('') }}>Whole timeline</button>
+        <button disabled={busy || (!selectedLesson && range.inMs === 0 && range.outMs === timelineDurationMs)} onClick={() => { setInSeconds('0'); setOutSeconds(String(timelineDurationMs / 1000)); setSelectedShortId(''); setSelectedLessonId('') }}>Whole timeline</button>
         {rangeCheck.valid && <span className="cardBody">Export range: {(range.inMs / 1000).toFixed(3)}–{(range.outMs / 1000).toFixed(3)} s ({((range.outMs - range.inMs) / 1000).toFixed(3)} s)</span>}
       </div>
       {!rangeCheck.valid && <div className="warning">{rangeCheck.reason}</div>}
@@ -709,7 +721,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
           <span><strong>{candidate.titles.join(' + ')}</strong> · {(candidate.durationMs / 1000).toFixed(1)} s · {(candidate.inMs / 1000).toFixed(1)}–{(candidate.outMs / 1000).toFixed(1)} s</span>
           <div className="renderActions">
             <label className="checkRow"><input type="checkbox" checked={batchSelectedIds.includes(candidate.id)} disabled={busy} onChange={(event) => setBatchSelectedIds((ids) => event.target.checked ? [...ids, candidate.id] : ids.filter((id) => id !== candidate.id))} />Include</label>
-            <button disabled={busy} onClick={() => { setInSeconds(String(candidate.inMs / 1000)); setOutSeconds(String(candidate.outMs / 1000)); setSelectedShortId(candidate.id) }}>{selectedShort?.id === candidate.id ? 'Selected' : 'Use this range'}</button>
+            <button disabled={busy} onClick={() => { setInSeconds(String(candidate.inMs / 1000)); setOutSeconds(String(candidate.outMs / 1000)); setSelectedShortId(candidate.id); setSelectedLessonId('') }}>{selectedShort?.id === candidate.id ? 'Selected' : 'Use this range'}</button>
           </div>
         </div>)}
         {!shortExports.candidates.length && <div className="warning">No exportable scene range yet. Assemble storyboard scenes on an active visual track first.</div>}
@@ -848,6 +860,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
           const fileAvailable = exportFileCheck?.byPath[receipt.outputRelativePath]
           return <div className="renderJob" key={receipt.jobId}>
             <div className="renderJobHead"><strong>{receipt.label}</strong><span>{formatProfiles[receipt.format].label} · {(receipt.durationMs / 1000).toFixed(1)} s · {new Date(receipt.completedAt).toLocaleString()}</span>{fileAvailable !== undefined && <span className={fileAvailable ? 'status online' : 'status missing'}>{fileAvailable ? 'FILE AVAILABLE' : 'FILE MISSING'}</span>}</div>
+            {receipt.courseLesson && <small>Course: {receipt.courseLesson.courseTitle} / {receipt.courseLesson.moduleTitle} / {receipt.courseLesson.lessonTitle} · outline revision {receipt.courseLesson.outlineRevision} · {receipt.courseLesson.language}</small>}
             <div className="renderMeta">
               <code>{receipt.outputRelativePath}</code>
               {receipt.sizeBytes !== undefined && <span>{(receipt.sizeBytes / 1024 / 1024).toFixed(1)} MB</span>}
