@@ -7,7 +7,7 @@ import { createRangeRenderPlan, validateRenderRange } from '../core/renderRange'
 import { defaultAudioDucking, validateAudioDucking } from '../core/audioDucking'
 import { defaultLoudnessNormalization } from '../core/audioLoudness'
 import { planShortExportBatch, planShortExportRanges, projectShortExportMaximum, setProjectShortExportMaximum, shortExportMaximumError, shortExportVariant } from '../core/shortExportRanges'
-import { acceptShortBatchJob, archiveProjectShortBatch, cancelPendingShortBatchItems, clearProjectShortBatch, createPersistedShortBatch, failMissingShortBatchJob, forgetProjectShortBatchArchiveEntry, nextShortBatchItem, planSelectiveShortBatchRetry, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, requeueMissingShortBatchJob, retryableShortBatchItems, reviewArchivedShortBatchSelection, shortBatchArchiveLimit, shortBatchBusy, shortBatchTerminalStates, storeProjectShortBatch, type PersistedShortBatch, type PersistedShortBatchItem } from '../core/shortExportBatch'
+import { acceptShortBatchJob, archiveProjectShortBatch, cancelPendingShortBatchItems, clearProjectShortBatch, createPersistedShortBatch, failMissingShortBatchJob, nextShortBatchItem, planSelectiveShortBatchRetry, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, requeueMissingShortBatchJob, retryableShortBatchItems, reviewArchivedShortBatchSelection, shortBatchBusy, shortBatchTerminalStates, storeProjectShortBatch, type PersistedShortBatch, type PersistedShortBatchItem } from '../core/shortExportBatch'
 import { forgetProjectShortExportRecipe, projectShortExportRecipes, reviewShortExportRecipe, saveProjectShortExportRecipe, shortExportRecipeLimit } from '../core/shortExportRecipes'
 import { recordSuccessfulExport } from '../core/exportHistory'
 import { courseLessonChoices, planCourseLessonExport } from '../core/course'
@@ -19,6 +19,7 @@ import { SingleExportStatus } from './SingleExportStatus'
 import { FormatFramingPanel } from './FormatFramingPanel'
 import { ExportHistoryPanel } from './ExportHistoryPanel'
 import { ShortPreviewPanel } from './ShortPreviewPanel'
+import { ShortBatchArchivePanel } from './ShortBatchArchivePanel'
 
 interface RenderPanelProps {
   project: KinaouProject
@@ -31,8 +32,6 @@ interface RenderPanelProps {
 
 const terminalStates = new Set(['succeeded', 'failed', 'cancelled'])
 const targetFormats = Object.keys(formatProfiles) as TargetFormat[]
-interface ExportFileCheck { byPath: Record<string, boolean>; available: number; missing: number; checkedAt: string }
-interface ArchivedBatchFileCheck extends ExportFileCheck { batchId: string }
 interface ArchivedBatchSelectionReview { batchId: string; unavailable: Array<{ candidateId: string; title: string }> }
 interface ShortRecipeReview { recipeId: string; unavailableCandidateIds: string[] }
 
@@ -93,11 +92,6 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const [batchPersistenceMessage, setBatchPersistenceMessage] = useState('')
   const [retrySelectedIds, setRetrySelectedIds] = useState<string[]>([])
   const batchArchive = projectShortBatchArchive(project)
-  const batchArchivePathSignature = batchArchive.map((entry) => `${entry.batchId}:${entry.items.map((item) => item.outputPath).join('\u0000')}`).join('|')
-  const [archivedBatchFileCheck, setArchivedBatchFileCheck] = useState<ArchivedBatchFileCheck | null>(null)
-  const [checkingArchivedBatchId, setCheckingArchivedBatchId] = useState('')
-  const [archivedBatchAvailabilityError, setArchivedBatchAvailabilityError] = useState('')
-  const archivedBatchAvailabilityRequest = useRef(0)
   const [archivedBatchSelectionReview, setArchivedBatchSelectionReview] = useState<ArchivedBatchSelectionReview | null>(null)
   const projectBatchId = projectPersistedShortBatch(project)?.id ?? (Object.prototype.hasOwnProperty.call(project.metadata, 'shortExportBatch') ? 'invalid' : '')
   const selectedShort = shortExports.candidates.find((candidate) => candidate.id === selectedShortId && candidate.inMs === range.inMs && candidate.outMs === range.outMs)
@@ -197,13 +191,6 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
 
 
   useEffect(() => {
-    archivedBatchAvailabilityRequest.current += 1
-    setArchivedBatchFileCheck(null)
-    setCheckingArchivedBatchId('')
-    setArchivedBatchAvailabilityError('')
-  }, [batchArchivePathSignature])
-
-  useEffect(() => {
     if (!activeBatchItem?.jobId || !workerConnected || !workerToken.trim()) return
     let disposed = false
     let timer: ReturnType<typeof setInterval> | undefined
@@ -299,29 +286,6 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     }
   }, [batchItems, onProjectChange, project, successfulBatchSignature])
 
-  async function checkArchivedBatchFiles(batchId: string) {
-    if (!workerConnected || !workerToken.trim() || checkingArchivedBatchId) return
-    const entry = batchArchive.find((item) => item.batchId === batchId)
-    if (!entry) return
-    const request = archivedBatchAvailabilityRequest.current + 1
-    archivedBatchAvailabilityRequest.current = request
-    setCheckingArchivedBatchId(batchId)
-    setArchivedBatchFileCheck(null)
-    setArchivedBatchAvailabilityError('')
-    try {
-      const results = await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).exportAvailabilityBatched(entry.items.map((item) => item.outputPath))
-      if (archivedBatchAvailabilityRequest.current !== request) return
-      const byPath = Object.fromEntries(results.map((result) => [result.path, result.available]))
-      const available = results.filter((result) => result.available).length
-      setArchivedBatchFileCheck({ batchId, byPath, available, missing: results.length - available, checkedAt: new Date().toISOString() })
-    } catch (availabilityError) {
-      if (archivedBatchAvailabilityRequest.current !== request) return
-      setArchivedBatchAvailabilityError(availabilityError instanceof Error ? availabilityError.message : 'Could not check archived Short outputs')
-    } finally {
-      if (archivedBatchAvailabilityRequest.current === request) setCheckingArchivedBatchId('')
-    }
-  }
-
   function reviewArchivedBatchSelection(batchId: string) {
     if (busy) return
     const entry = batchArchive.find((item) => item.batchId === batchId)
@@ -332,6 +296,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       setBatchSelectedIds(review.candidateIds)
       setBatchFormats(review.formats)
       setArchivedBatchSelectionReview({ batchId, unavailable: review.unavailable })
+      setShortRecipeReview(null)
     } catch (reviewError) {
       setArchivedBatchSelectionReview(null)
       setError(reviewError instanceof Error ? reviewError.message : 'Could not restore the archived Short selection for review')
@@ -623,36 +588,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       </div>}
       {!batchItems.length && batchResumeError && <div className="renderJob"><div className="errorBox">{batchResumeError}</div><div className="renderActions"><button className="secondaryButton" onClick={discardShortBatch}>Discard malformed saved batch</button></div></div>}
 
-      {batchArchive.length > 0 && <div className="renderJob">
-        <div className="renderJobHead"><strong>PAST SHORT BATCHES · SAVED WITH PROJECT</strong><span>{batchArchive.length}/{shortBatchArchiveLimit} retained</span></div>
-        <p className="cardBody">KINAOU keeps compact summaries for the latest completed batches before a new queue replaces them. Check one batch on demand to compare every recorded path with the connected managed drive; the check reads presence only and never hashes or changes media. Forgetting a summary never deletes or changes an MP4.</p>
-        {archivedBatchAvailabilityError && <div className="errorBox">{archivedBatchAvailabilityError}</div>}
-        {batchArchive.map((entry) => {
-          const succeeded = entry.items.filter((item) => item.state === 'succeeded').length
-          const failed = entry.items.filter((item) => item.state === 'failed').length
-          const cancelled = entry.items.filter((item) => item.state === 'cancelled').length
-          const fileCheck = archivedBatchFileCheck?.batchId === entry.batchId ? archivedBatchFileCheck : null
-          return <details className="renderJob" key={entry.batchId}>
-            <summary className="renderJobHead"><strong>{new Date(entry.completedAt).toLocaleString()}</strong><span>{entry.items.length} attempt{entry.items.length === 1 ? '' : 's'} · {succeeded} succeeded · {failed} failed · {cancelled} cancelled</span>{fileCheck && <span className={fileCheck.missing ? 'status missing' : 'status online'}>{fileCheck.available} PRESENT · {fileCheck.missing} MISSING</span>}</summary>
-            <p className="cardBody">Prepared {new Date(entry.createdAt).toLocaleString()} · archived {new Date(entry.archivedAt).toLocaleString()}</p>
-            {fileCheck && <p className="cardBody">Drive checked {new Date(fileCheck.checkedAt).toLocaleString()}.</p>}
-            {entry.items.map((item) => {
-              const fileAvailable = fileCheck?.byPath[item.outputPath]
-              return <div className="renderMeta" key={item.id}>
-                <span><strong>{item.title}</strong> · {formatProfiles[item.format].label} · attempt {item.attempt} · {item.state.toUpperCase()}</span>
-                <code>{item.outputPath}</code>
-                {item.sizeBytes !== undefined && <span>{(item.sizeBytes / 1024 / 1024).toFixed(1)} MB</span>}
-                {fileAvailable !== undefined && <span className={fileAvailable ? 'status online' : 'status missing'}>{fileAvailable ? 'FILE PRESENT' : 'FILE MISSING'}</span>}
-              </div>
-            })}
-            <div className="renderActions">
-              <button className="secondaryButton" disabled={busy || Boolean(checkingArchivedBatchId)} onClick={() => reviewArchivedBatchSelection(entry.batchId)}>Review current selections</button>
-              <button className="secondaryButton" disabled={!workerConnected || !workerToken.trim() || Boolean(checkingArchivedBatchId)} onClick={() => void checkArchivedBatchFiles(entry.batchId)}>{checkingArchivedBatchId === entry.batchId ? 'Checking recorded files…' : 'Check recorded files'}</button>
-              <button disabled={busy || Boolean(checkingArchivedBatchId)} onClick={() => { try { onProjectChange(forgetProjectShortBatchArchiveEntry(project, entry.batchId)) } catch (archiveError) { setError(archiveError instanceof Error ? archiveError.message : 'Could not forget the Short batch summary') } }}>Forget summary (keep every file)</button>
-            </div>
-          </details>
-        })}
-      </div>}
+      <ShortBatchArchivePanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={workerConnected} busy={busy} onProjectChange={onProjectChange} onReview={reviewArchivedBatchSelection} />
 
       <ExportHistoryPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={workerConnected} busy={busy} onProjectChange={onProjectChange} />
 
