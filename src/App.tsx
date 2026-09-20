@@ -204,7 +204,7 @@ export function App() {
             <VersionHistoryPanel key={project.id} project={project} history={versionHistory} onProjectChange={persistProject} />
             <AiEditorPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
             <StoryboardAssemblyPanel project={project} history={versionHistory} onProjectChange={persistProject} />
-            <ScriptCaptionsPanel project={project} history={versionHistory} onProjectChange={persistProject} />
+            <ScriptCaptionsPanel key={`script-captions-${project.id}`} project={project} history={versionHistory} onProjectChange={persistProject} />
             <SceneVoiceoverPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
             <TimelineEditor project={project} onProjectChange={persistProject} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} />
             <CaptionEditor key={`captions-${project.id}`} project={project} history={versionHistory} onProjectChange={persistProject} />

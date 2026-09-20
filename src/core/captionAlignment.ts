@@ -18,6 +18,8 @@ export interface SkippedCaptionAlignment {
   sceneId: string
   title: string
   reason: string
+  code: 'alignMissing' | 'noSpan' | 'tooShort'
+  values?: Record<string, string | number>
 }
 
 export interface CaptionAlignmentResult {
@@ -78,18 +80,18 @@ export function planCaptionAlignment(project: KinaouProject, visualTrackId: stri
     if (!captions.length) continue
     const clip = sceneClip(visualTrack, scene.id, scene.assetId)
     if (!clip) {
-      skipped.push({ sceneId: scene.id, title: scene.title, reason: `Its visual is not on "${visualTrack.name}", so there is nothing to align to` })
+      skipped.push({ sceneId: scene.id, title: scene.title, reason: `Its visual is not on "${visualTrack.name}", so there is nothing to align to`, code: 'alignMissing', values: { track: visualTrack.name } })
       continue
     }
     const fromStartMs = captions[0].startMs
     const fromDurationMs = Math.max(...captions.map((entry) => entry.startMs + entry.durationMs)) - fromStartMs
     if (fromDurationMs <= 0) {
-      skipped.push({ sceneId: scene.id, title: scene.title, reason: 'Its captions have no span to stretch from' })
+      skipped.push({ sceneId: scene.id, title: scene.title, reason: 'Its captions have no span to stretch from', code: 'noSpan' })
       continue
     }
     if (fromStartMs === clip.startMs && fromDurationMs === clip.durationMs) continue
     if (clip.durationMs < captions.length * MIN_CAPTION_MS) {
-      skipped.push({ sceneId: scene.id, title: scene.title, reason: `${captions.length} captions cannot be read in ${(clip.durationMs / 1000).toFixed(1)}s — shorten the text or lengthen the scene` })
+      skipped.push({ sceneId: scene.id, title: scene.title, reason: `${captions.length} captions cannot be read in ${(clip.durationMs / 1000).toFixed(1)}s — shorten the text or lengthen the scene`, code: 'tooShort', values: { count: captions.length, durationMs: clip.durationMs } })
       continue
     }
     drifted.push({

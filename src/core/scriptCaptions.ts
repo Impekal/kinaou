@@ -17,6 +17,8 @@ export interface SkippedCaptionScene {
   sceneId: string
   title: string
   reason: string
+  code: 'existing' | 'noVisual' | 'notPlaced' | 'silent' | 'noText'
+  values?: Record<string, string | number>
 }
 
 export interface ScriptCaptionResult {
@@ -119,22 +121,22 @@ export function captionsFromStoryboard(project: KinaouProject, trackId: string):
 
   for (const scene of project.storyboard) {
     if (alreadyCaptioned.has(scene.id)) {
-      skipped.push({ sceneId: scene.id, title: scene.title, reason: 'This scene already has captions' })
+      skipped.push({ sceneId: scene.id, title: scene.title, reason: 'This scene already has captions', code: 'existing' })
       continue
     }
     if (!scene.assetId) {
-      skipped.push({ sceneId: scene.id, title: scene.title, reason: 'Scene has no visual on the timeline yet' })
+      skipped.push({ sceneId: scene.id, title: scene.title, reason: 'Scene has no visual on the timeline yet', code: 'noVisual' })
       continue
     }
     const clip = clipForScene(track, scene.id, scene.assetId)
     if (!clip) {
-      skipped.push({ sceneId: scene.id, title: scene.title, reason: `Its visual is not on "${track.name}" — assemble the timeline first` })
+      skipped.push({ sceneId: scene.id, title: scene.title, reason: `Its visual is not on "${track.name}" — assemble the timeline first`, code: 'notPlaced', values: { track: track.name } })
       continue
     }
     const { text, source } = sceneSpeech(scene)
     const chunks = splitCaptionText(text)
     if (!chunks.length) {
-      skipped.push({ sceneId: scene.id, title: scene.title, reason: source === 'storyboard-narration' ? 'Scene is intentionally silent (empty narration)' : 'Scene has no description to read out' })
+      skipped.push({ sceneId: scene.id, title: scene.title, reason: source === 'storyboard-narration' ? 'Scene is intentionally silent (empty narration)' : 'Scene has no description to read out', code: source === 'storyboard-narration' ? 'silent' : 'noText' })
       continue
     }
 
