@@ -16,6 +16,7 @@ User clarification: 2026-09-20. These are acceptance targets, not a claim that t
 ## Natural multilingual speech
 
 - German, English and French need idiomatic pronunciation, natural pauses, emphasis, emotion and consistent voice identity across lessons/scenes.
+- Explicit user request: avatars must also support the user's own voice. Distinguish an imported recording (already usable as audio for the voiced-still composition) from generating new speech in that voice (not yet implemented). Future lip-sync input must accept the actual authorized recording without requiring synthetic TTS first. Any voice-reproduction mode needs a compatible installed local model, reviewed authorized reference samples and honest quality tests; importing audio alone is not voice cloning.
 - Piper remains a working baseline. Declared locale matching alone is not a quality assessment or an expressive-voice engine.
 - Expose only controls actually supported by the selected installed model. An emotion prompt is guidance, not a guaranteed acoustic outcome; disable unsupported controls rather than silently ignoring them.
 - Before accepting a voice, audition real speech containing questions, emphasis, numbers, dates, proper names, acronyms and longer paragraphs in the selected language. Listen for robotic cadence, clipping, unstable timbre, missing/repeated words and inconsistent levels.
@@ -31,6 +32,10 @@ Course workflow target: audience/prerequisites → learning outcomes → modules
 - Track instructional accuracy, source dates, prerequisite coverage, duplicate content, exercise-answer consistency and pedagogical progression. Avoid fabricated expertise, certificates, learning outcomes or approval guarantees.
 - Initial content languages: German, English and French. Translation needs a fresh terminology/pronunciation review, not just a changed language tag.
 - No automatic publishing, account creation or instructor impersonation. Course packaging is local; publication is separately authorized.
+
+## Manual editing usability
+
+The user asked about conventional software such as MAGIX. KINAOU already applies real multi-track move/trim, gain, fades, dissolve, transform and speed operations, but these are still largely button-driven; its composed preview is rendered before playback. Do not equate a working compositor with a finished interactive editor. The usability roadmap includes direct clip dragging, trim handles, playhead splitting, precise timing/snapping, clear selection/undo behavior and a responsive preview. Keyframes and richer effect workflows remain later work, not implemented features or a promise to copy another product's entire catalogue.
 
 ### Udemy boundary (official sources checked 2026-09-20)
 
