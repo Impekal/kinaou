@@ -6,7 +6,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { createProject, parseProject } from '../src/core/project'
 import { createRenderPlan, projectFormatPreset } from '../src/core/render'
-import { recordSuccessfulExport, projectExportHistory } from '../src/core/exportHistory'
+import { recordSuccessfulExport, projectExportHistory, forgetExportReceipt } from '../src/core/exportHistory'
+import { ExportFileCheckSession, type ExportCheckFeedback } from '../src/core/exportFileCheck'
 import { SingleExportSession, type ExportFeedback } from '../src/core/singleExportSession'
 import { WorkerClient } from '../src/core/workerClient'
 
@@ -55,6 +56,13 @@ it('executes independent single export sessions with real full-resolution frames
       expect(projectExportHistory(latest).find(receipt => receipt.outputRelativePath === paths[index])?.label).toBe(index === 0 ? 'Original red' : 'Original blue')
     }
     expect(await readFile(path.join(managed, 'Assets/source.mp4'))).toEqual(source)
+    const before = await Promise.all(paths.map(file => readFile(path.join(root, file))))
+    const checks: ExportCheckFeedback[] = []
+    await new ExportFileCheckSession([...paths, paths[0], 'KINAOU/Renders/absent.mp4'], { client, current: () => true, publish: state => checks.push(state) }).run()
+    expect(checks.at(-1)).toMatchObject({ phase: 'checked', result: { available: 2, missing: 1, byPath: { [paths[0]]: true, [paths[1]]: true, 'KINAOU/Renders/absent.mp4': false } } })
+    latest = forgetExportReceipt(latest, projectExportHistory(latest)[0].jobId)
+    expect(projectExportHistory(latest)).toHaveLength(1)
+    expect(await Promise.all(paths.map(file => readFile(path.join(root, file))))).toEqual(before)
   } finally {
     child.kill('SIGKILL')
     await new Promise<void>((resolve) => { child.on('close', () => resolve()); setTimeout(resolve, 3000).unref() })
