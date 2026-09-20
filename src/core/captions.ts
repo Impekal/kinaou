@@ -24,6 +24,7 @@ export function addCaption(project: KinaouProject, input: CaptionInput): KinaouP
 }
 
 export function updateCaptionText(project: KinaouProject, assetId: string, text: string): KinaouProject {
+  if (project.tracks.some((track) => track.locked && track.clips.some((clip) => clip.assetId === assetId))) throw new Error('Caption is used on a locked track')
   const normalized = text.trim()
   if (!normalized) throw new Error('Caption text is required')
   let found = false
