@@ -107,6 +107,10 @@ The complete loop was rehearsed in the development sandbox against the real work
 
 ## Troubleshooting
 
+### Spoken-text regression check (after PR #181)
+
+In a separate test project, review a Director plan containing a visual description such as "Pan across the classroom" but a different `narration` such as "Welcome to this lesson". Review must show both separately. Apply, save/reopen, assign/assemble a visual and generate scene narration/captions. Both must use "Welcome to this lesson", not the camera direction. An explicit empty `narration` must skip speech and script captions with a silent-scene explanation. A legacy scene with the field absent retains its previous description-based behavior. Existing recordings and captions are skipped, not overwritten; use fresh test scenes to test this change. Caption timings are still estimates distributed over the scene, not forced alignment.
+
 | Symptom | Fix |
 |---|---|
 | Worker exits at start: managed root error | `KINAOU_MANAGED_ROOT` must exist and the directory must be named exactly `KINAOU` |
