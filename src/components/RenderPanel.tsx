@@ -20,7 +20,8 @@ import { FormatFramingPanel } from './FormatFramingPanel'
 import { ExportHistoryPanel } from './ExportHistoryPanel'
 import { ShortPreviewPanel } from './ShortPreviewPanel'
 import { ShortBatchArchivePanel } from './ShortBatchArchivePanel'
-import { ShortBatchStatus } from './ShortBatchStatus'
+import { ShortBatchStatus, ShortBatchReceiptRecovery } from './ShortBatchStatus'
+import { persistShortBatchReceipts } from '../core/shortBatchReceipts'
 import { ShortBatchJobMonitor } from '../core/shortBatchJobMonitor'
 import { commitShortBatchChange, type ShortBatchNotice } from '../core/shortBatchCommit'
 
@@ -56,7 +57,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     return () => { singleSession.current?.detach() }
   }, [project.id, workerUrl, workerToken, workerConnected])
   const [error, setError] = useState('')
-  const recordedExportJobs = useRef(new Set<string>())
+  const [batchReceiptError, setBatchReceiptError] = useState('')
   const timelineDurationMs = useMemo(() => project.tracks.flatMap((track) => track.muted ? [] : track.clips).reduce((end, clip) => Math.max(end, clip.startMs + clip.durationMs), 0), [project])
   const [inSeconds, setInSeconds] = useState('0')
   const [outSeconds, setOutSeconds] = useState(() => String(timelineDurationMs / 1000))
@@ -104,7 +105,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const [shortPreviewBusy, setShortPreviewBusy] = useState(false)
   const singleBusy = Boolean(single && !['succeeded', 'failed', 'cancelled', 'detached'].includes(single.phase))
   const batchBusy = shortBatchBusy(batchItems)
-  const busy = singleBusy || batchBusy || shortPreviewBusy
+  const busy = singleBusy || batchBusy || shortPreviewBusy || Boolean(batchReceiptError)
   const workerSupportsFormatReframing = workerCapabilities.includes('format-reframing')
   const singleReframingBlocked = formatReframingRequiresWorker(project, format) && !workerSupportsFormatReframing
   const batchReframingBlocked = batchFormats.some((id) => formatReframingRequiresWorker(project, id)) && !workerSupportsFormatReframing
@@ -123,9 +124,9 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const retryFormats = new Set(batchItems.filter((item) => retrySelectedIds.includes(item.id)).map((item) => item.format))
   const retryReframingBlocked = [...retryFormats].some((id) => formatReframingRequiresWorker(project, id)) && !workerSupportsFormatReframing
   const activeBatchItem = batchItems.find((item) => item.jobId && !terminalStates.has(item.state))
-  const successfulBatchSignature = batchItems.filter((item) => item.state === 'succeeded' && item.jobId).map((item) => `${item.jobId}:${item.updatedAt}:${item.sizeBytes}`).join('|')
 
   useEffect(() => {
+    setBatchReceiptError('')
     batchSubmitting.current = false
     batchCancelRequested.current = false
     batchPlans.current = new Map()
@@ -245,30 +246,18 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   }, [activeBatchItem, batchItems, batchResumeError, workerConnected, workerToken, workerUrl])
 
 
-  useEffect(() => {
-    if (!successfulBatchSignature) return
+  function saveBatchReceipts() {
+    const current = persistedBatch.current
+    if (!current || !batchItems.length) return
     try {
-      let next = project
-      for (const item of batchItems.filter((candidate) => candidate.state === 'succeeded' && candidate.jobId)) {
-        if (recordedExportJobs.current.has(item.jobId!)) continue
-        next = recordSuccessfulExport(next, {
-          jobId: item.jobId!,
-          label: item.title,
-          outputRelativePath: item.outputPath,
-          format: item.format,
-          range: { inMs: item.inMs, outMs: item.outMs },
-          sceneIds: item.sceneIds,
-          durationMs: item.durationMs,
-          ...(item.sizeBytes !== undefined ? { sizeBytes: item.sizeBytes } : {}),
-          completedAt: item.updatedAt ?? new Date().toISOString()
-        })
-        recordedExportJobs.current.add(item.jobId!)
-      }
-      if (next !== project) onProjectChange(next)
-    } catch (historyError) {
-      setError(historyError instanceof Error ? historyError.message : 'Could not record successful Short export')
-    }
-  }, [batchItems, onProjectChange, project, successfulBatchSignature])
+      const target = latest.current
+      persistShortBatchReceipts(target.project, current.id, batchItems, target.onProjectChange)
+      setBatchReceiptError('')
+    } catch (cause) { setBatchReceiptError(cause instanceof Error ? cause.message : 'Could not save Short export receipts') }
+  }
+  useEffect(() => {
+    saveBatchReceipts()
+  }, [batchItems, onProjectChange, project])
 
   function reviewArchivedBatchSelection(batchId: string) {
     if (busy) return
@@ -419,7 +408,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   }
 
   function discardShortBatch() {
-    if (activeBatchItem) return
+    if (activeBatchItem || batchReceiptError) return
     setError('')
     try {
       const current = persistedBatch.current
@@ -549,7 +538,9 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
 
       {single && <SingleExportStatus feedback={single} onRetry={() => { void singleSession.current?.run() }} onCancel={() => { void singleSession.current?.cancel() }} onDetach={detachSingle} />}
 
-      <ShortBatchStatus items={batchItems} notice={batchPersistenceMessage} resumeError={batchResumeError} retryableIds={retryableBatchIds} retrySelectedIds={retrySelectedIds} setRetrySelectedIds={setRetrySelectedIds} busy={busy} retryDisabled={!retrySelectedIds.length || !readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting || retryReframingBlocked || Boolean(batchResumeError)} retryReframingBlocked={retryReframingBlocked} cancelling={batchCancelling} canCancel={batchBusy && !batchResumeError} canDiscard={!activeBatchItem && (!batchBusy || Boolean(batchResumeError))} archiveOnDiscard={!batchBusy && Boolean(persistedBatch.current)} onRetry={startSelectedShortBatchRetries} onCancel={() => { void cancelShortBatch() }} onDiscard={discardShortBatch} />
+      <ShortBatchStatus items={batchItems} notice={batchPersistenceMessage} resumeError={batchResumeError} retryableIds={retryableBatchIds} retrySelectedIds={retrySelectedIds} setRetrySelectedIds={setRetrySelectedIds} busy={busy} retryDisabled={!retrySelectedIds.length || !readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting || retryReframingBlocked || Boolean(batchResumeError)} retryReframingBlocked={retryReframingBlocked} cancelling={batchCancelling} canCancel={batchBusy && !batchResumeError} canDiscard={!batchReceiptError && !activeBatchItem && (!batchBusy || Boolean(batchResumeError))} archiveOnDiscard={!batchBusy && Boolean(persistedBatch.current)} onRetry={startSelectedShortBatchRetries} onCancel={() => { void cancelShortBatch() }} onDiscard={discardShortBatch} />
+
+      {batchReceiptError && <ShortBatchReceiptRecovery detail={batchReceiptError} onRetry={saveBatchReceipts} />}
 
       <ShortBatchArchivePanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={workerConnected} busy={busy} onProjectChange={onProjectChange} onReview={reviewArchivedBatchSelection} />
 

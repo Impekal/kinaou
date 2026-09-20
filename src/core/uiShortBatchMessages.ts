@@ -17,6 +17,8 @@ export const uiShortBatchMessages = {
   'shortBatch.retry': ['Auswahl erneut exportieren ({count})', 'Retry selected variants ({count})', 'Réessayer les variantes sélectionnées ({count})'],
   'shortBatch.cancel': ['Stapel abbrechen', 'Cancel batch', 'Annuler le lot'],
   'shortBatch.cancelling': ['Abbruch wird geprüft …', 'Checking cancellation…', 'Vérification de l’annulation…'],
+  'shortBatch.receiptFailed': ['Exportbelege konnten nicht gespeichert werden. Bereits angenommene Aufträge können weiterlaufen; vorhandene Videos bleiben unverändert. Speichern erneut versuchen, ohne noch einmal zu rendern. Bis dahin kann der Stapel nicht ersetzt oder geleert werden.', 'Export receipts could not be saved. Accepted jobs may continue; existing videos stay unchanged. Retry saving without rendering again. The batch cannot be replaced or cleared until then.', 'Les reçus d’export n’ont pas pu être enregistrés. Les tâches acceptées peuvent continuer ; les vidéos existantes restent intactes. Réessayez l’enregistrement sans refaire le rendu. Le lot ne peut pas être remplacé ou vidé entre-temps.'],
+  'shortBatch.retryReceipt': ['Belege erneut speichern (kein neuer Export)', 'Retry saving receipts (no new export)', 'Réessayer les reçus (sans nouvel export)'],
   'shortBatch.archive': ['Stapel archivieren und leeren', 'Archive and clear current batch', 'Archiver et vider le lot'],
   'shortBatch.discard': ['Gespeicherten Stapel verwerfen (Dateien behalten)', 'Discard saved batch (keep files)', 'Retirer le lot enregistré (garder les fichiers)'],
   'shortBatch.discardMalformed': ['Beschädigten Stapel verwerfen (Dateien behalten)', 'Discard malformed batch (keep files)', 'Retirer le lot invalide (garder les fichiers)'],

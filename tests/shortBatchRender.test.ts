@@ -1,13 +1,15 @@
 import { it, expect } from 'vitest'
 import { execFile, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { createProject, parseProject } from '../src/core/project'
 import { createRenderPlan, formatProfiles } from '../src/core/render'
 import { WorkerClient } from '../src/core/workerClient'
 import { ShortBatchJobMonitor } from '../src/core/shortBatchJobMonitor'
+import { persistShortBatchReceipts } from '../src/core/shortBatchReceipts'
+import { forgetExportReceipt, projectExportHistory } from '../src/core/exportHistory'
 import { acceptShortBatchJob, archiveProjectShortBatch, createPersistedShortBatch, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, storeProjectShortBatch } from '../src/core/shortExportBatch'
 
 const exec = promisify(execFile)
@@ -66,6 +68,14 @@ it('persists a real worker absolute-path result as a portable terminal Short rec
     const probe = JSON.parse((await exec('ffprobe', ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', path.join(root, outputPath)])).stdout)
     expect(Number(probe.format.duration)).toBeCloseTo(1, 1)
     expect(probe.streams[0].width).toBe(1920)
+    const bytes = await readFile(path.join(root, outputPath))
+    let withReceipts = reloaded
+    persistShortBatchReceipts(withReceipts, terminal.id, terminal.items, project => { withReceipts = project })
+    expect(projectExportHistory(withReceipts)[0].outputRelativePath).toBe(outputPath)
+    withReceipts = parseProject(JSON.parse(JSON.stringify(forgetExportReceipt(withReceipts, job.id))))
+    persistShortBatchReceipts(withReceipts, terminal.id, terminal.items, () => { throw new Error('A forgotten acknowledged receipt must not be reinserted') })
+    expect(projectExportHistory(withReceipts)).toEqual([])
+    expect(await readFile(path.join(root, outputPath))).toEqual(bytes)
   } finally {
     child.kill('SIGKILL')
     await new Promise<void>(resolve => { child.on('close', () => resolve()); setTimeout(resolve, 3000).unref() })
