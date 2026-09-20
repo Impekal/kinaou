@@ -7,7 +7,7 @@ import { createRangeRenderPlan, validateRenderRange } from '../core/renderRange'
 import { defaultAudioDucking, validateAudioDucking } from '../core/audioDucking'
 import { defaultLoudnessNormalization } from '../core/audioLoudness'
 import { planShortExportBatch, planShortExportRanges, projectShortExportMaximum, setProjectShortExportMaximum, shortExportMaximumError, shortExportVariant } from '../core/shortExportRanges'
-import { acceptShortBatchJob, archiveProjectShortBatch, cancelPendingShortBatchItems, clearProjectShortBatch, createPersistedShortBatch, nextShortBatchItem, planSelectiveShortBatchRetry, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, retryableShortBatchItems, reviewArchivedShortBatchSelection, shortBatchBusy, storeProjectShortBatch, type PersistedShortBatch, type PersistedShortBatchItem } from '../core/shortExportBatch'
+import { acceptShortBatchJob, archiveProjectShortBatch, requestPersistedShortBatchCancellation, clearProjectShortBatch, createPersistedShortBatch, nextShortBatchItem, planSelectiveShortBatchRetry, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, retryableShortBatchItems, reviewArchivedShortBatchSelection, shortBatchBusy, storeProjectShortBatch, type PersistedShortBatch, type PersistedShortBatchItem } from '../core/shortExportBatch'
 import { forgetProjectShortExportRecipe, projectShortExportRecipes, reviewShortExportRecipe, saveProjectShortExportRecipe, shortExportRecipeLimit } from '../core/shortExportRecipes'
 import { recordSuccessfulExport } from '../core/exportHistory'
 import { courseLessonChoices, planCourseLessonExport } from '../core/course'
@@ -93,6 +93,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const batchMonitor = useRef<ShortBatchJobMonitor | null>(null)
   const [batchCancelling, setBatchCancelling] = useState(false)
   const batchSubmitting = useRef(false)
+  const batchSubmittingId = useRef<string | undefined>(undefined)
   const batchCancelRequested = useRef(false)
   const [batchResumeError, setBatchResumeError] = useState('')
   const [batchPersistenceMessage, setBatchPersistenceMessage] = useState<ShortBatchNotice | null>(null)
@@ -128,6 +129,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   useEffect(() => {
     setBatchReceiptError('')
     batchSubmitting.current = false
+    batchSubmittingId.current = undefined
     batchCancelRequested.current = false
     batchPlans.current = new Map()
     setRetrySelectedIds([])
@@ -141,6 +143,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       return
     }
     persistedBatch.current = stored
+    batchCancelRequested.current = stored.cancelRequested === true
     setBatchItems(stored.items)
     setDuckingEnabled(stored.audioDucking.enabled)
     setDuckingReductionDb(String(stored.audioDucking.reductionDb))
@@ -207,7 +210,8 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       onCancelling: setBatchCancelling
     })
     batchMonitor.current = monitor
-    void monitor.run()
+    if (persistedBatch.current?.cancelRequested) void monitor.cancel()
+    else void monitor.run()
     return () => {
       monitor.detach()
       if (batchMonitor.current === monitor) batchMonitor.current = null
@@ -224,6 +228,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       return
     }
     batchSubmitting.current = true
+    batchSubmittingId.current = nextItem.id
     const client = new WorkerClient({ baseUrl: workerUrl, token: workerToken })
     client.startRender(plan).then(async (next) => {
       const accepted = acceptShortBatchJob(nextItem, next)
@@ -242,7 +247,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       setBatchItems((items) => items.map((item) => item.id === nextItem.id ? accepted : item))
     }).catch((batchError) => {
       setBatchItems((items) => items.map((item) => item.id === nextItem.id ? { ...item, state: 'failed', error: batchError instanceof Error ? batchError.message : 'Could not start Short export' } : item))
-    }).finally(() => { batchSubmitting.current = false })
+    }).finally(() => { batchSubmitting.current = false; batchSubmittingId.current = undefined })
   }, [activeBatchItem, batchItems, batchResumeError, workerConnected, workerToken, workerUrl])
 
 
@@ -397,8 +402,22 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
 
   async function cancelShortBatch() {
     if (!batchBusy) return
-    batchCancelRequested.current = true
-    setBatchItems(cancelPendingShortBatchItems)
+    const current = persistedBatch.current
+    if (!current) return
+    try {
+      const cancelled = requestPersistedShortBatchCancellation({ ...current, items: batchItems }, batchSubmittingId.current)
+      const target = latest.current
+      const nextProject = storeProjectShortBatch(target.project, cancelled)
+      commitShortBatchChange(nextProject, target.onProjectChange, () => {
+        latest.current = { ...target, project: nextProject }
+        persistedBatch.current = cancelled
+        batchCancelRequested.current = true
+        setBatchItems(cancelled.items)
+      })
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not save the cancellation request')
+      return
+    }
     if (!activeBatchItem?.jobId) return
     if (!batchMonitor.current) {
       setError('Connect the original local worker before cancelling the accepted Short job.')
@@ -408,7 +427,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   }
 
   function discardShortBatch() {
-    if (activeBatchItem || batchReceiptError) return
+    if (activeBatchItem || batchSubmitting.current || batchReceiptError) return
     setError('')
     try {
       const current = persistedBatch.current
@@ -538,7 +557,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
 
       {single && <SingleExportStatus feedback={single} onRetry={() => { void singleSession.current?.run() }} onCancel={() => { void singleSession.current?.cancel() }} onDetach={detachSingle} />}
 
-      <ShortBatchStatus items={batchItems} notice={batchPersistenceMessage} resumeError={batchResumeError} retryableIds={retryableBatchIds} retrySelectedIds={retrySelectedIds} setRetrySelectedIds={setRetrySelectedIds} busy={busy} retryDisabled={!retrySelectedIds.length || !readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting || retryReframingBlocked || Boolean(batchResumeError)} retryReframingBlocked={retryReframingBlocked} cancelling={batchCancelling} canCancel={batchBusy && !batchResumeError} canDiscard={!batchReceiptError && !activeBatchItem && (!batchBusy || Boolean(batchResumeError))} archiveOnDiscard={!batchBusy && Boolean(persistedBatch.current)} onRetry={startSelectedShortBatchRetries} onCancel={() => { void cancelShortBatch() }} onDiscard={discardShortBatch} />
+      <ShortBatchStatus items={batchItems} notice={batchPersistenceMessage} resumeError={batchResumeError} retryableIds={retryableBatchIds} retrySelectedIds={retrySelectedIds} setRetrySelectedIds={setRetrySelectedIds} busy={busy} retryDisabled={!retrySelectedIds.length || !readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting || retryReframingBlocked || Boolean(batchResumeError)} retryReframingBlocked={retryReframingBlocked} cancelRequested={persistedBatch.current?.cancelRequested} cancelling={batchCancelling} canCancel={batchBusy && !batchResumeError} canDiscard={!batchReceiptError && !batchSubmitting.current && !activeBatchItem && (!batchBusy || Boolean(batchResumeError))} archiveOnDiscard={!batchBusy && Boolean(persistedBatch.current)} onRetry={startSelectedShortBatchRetries} onCancel={() => { void cancelShortBatch() }} onDiscard={discardShortBatch} />
 
       {batchReceiptError && <ShortBatchReceiptRecovery detail={batchReceiptError} onRetry={saveBatchReceipts} />}
 

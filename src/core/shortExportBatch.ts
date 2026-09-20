@@ -89,6 +89,7 @@ export const persistedShortBatchSchema = z.object({
   id: z.string().uuid(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
+  cancelRequested: z.boolean().optional(),
   audioDucking: audioDuckingSchema,
   loudnessNormalization: loudnessNormalizationSchema,
   items: z.array(persistedShortBatchItemSchema).min(1).max(100)
@@ -183,8 +184,14 @@ export function nextShortBatchItem<T extends ShortBatchRenderItem>(items: T[]): 
   return items.find((item) => item.state === 'queued' && !item.jobId)
 }
 
-export function cancelPendingShortBatchItems<T extends ShortBatchRenderItem>(items: T[]): T[] {
-  return items.map((item) => item.state === 'queued' && !item.jobId ? { ...item, state: 'cancelled' } : item) as T[]
+export function cancelPendingShortBatchItems<T extends ShortBatchRenderItem>(items: T[], submittingId?: string): T[] {
+  return items.map((item) => item.state === 'queued' && !item.jobId && item.id !== submittingId ? { ...item, state: 'cancelled' } : item) as T[]
+}
+
+/** An in-flight POST is not an unsubmitted queue entry and must not be labelled cancelled. */
+export function requestPersistedShortBatchCancellation(batch: PersistedShortBatch, submittingId?: string, now = new Date()): PersistedShortBatch {
+  const normalized = persistedShortBatchSchema.parse(batch)
+  return persistedShortBatchSchema.parse({ ...normalized, cancelRequested: true, updatedAt: now.toISOString(), items: cancelPendingShortBatchItems(normalized.items, submittingId) })
 }
 
 export function requeueMissingShortBatchJob<T extends ShortBatchRenderItem>(items: T[], itemId: string): T[] {
@@ -309,7 +316,7 @@ export function planSelectiveShortBatchRetry(project: KinaouProject, batch: Pers
     retryItems.push(item)
   }
   const retries = preparePersistedShortBatchItems(retryItems, plans)
-  const updated = persistedShortBatchSchema.parse({ ...normalized, updatedAt: now.toISOString(), audioDucking, loudnessNormalization, items: [...normalized.items, ...retries.durableItems] })
+  const updated = persistedShortBatchSchema.parse({ ...normalized, cancelRequested: false, updatedAt: now.toISOString(), audioDucking, loudnessNormalization, items: [...normalized.items, ...retries.durableItems] })
   return { batch: updated, plans }
 }
 
@@ -411,6 +418,10 @@ export function clearProjectShortBatch(project: KinaouProject, now = new Date())
 export function rebuildPersistedShortBatchPlans(project: KinaouProject, batch: PersistedShortBatch): Map<string, RenderPlan> {
   const normalized = persistedShortBatchSchema.parse(batch)
   const plans = new Map<string, RenderPlan>()
+  if (normalized.cancelRequested) {
+    if (normalized.items.some(item => !shortBatchTerminalStates.has(item.state) && !item.jobId)) throw new Error('Cancellation was saved while submission was unconfirmed. The worker may still be running. Inspect its output before discarding this saved batch; no export will be submitted automatically.')
+    return plans // Cancel known accepted jobs even if the current edit no longer matches their original plan.
+  }
   for (const item of normalized.items) {
     if (shortBatchTerminalStates.has(item.state)) continue
     try {
