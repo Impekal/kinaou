@@ -19,7 +19,7 @@ export const uiExportHistoryMessages = {
   'exports.empty': ['Noch kein erfolgreicher Export gespeichert.', 'No successful export recorded yet.', 'Aucun export réussi enregistré.'],
   'exports.check': ['Exportdateien prüfen', 'Check export files', 'Vérifier les fichiers exportés'],
   'exports.checking': ['Exportdateien werden geprüft…', 'Checking export files…', 'Vérification des fichiers exportés…'],
-  'exports.checked': ['{available} vorhanden · {missing} fehlen · geprüft {time}', '{available} present · {missing} missing · checked {time}', '{available} présents · {missing} manquants · vérifiés le {time}'],
+  'exports.checked': ['Vorhanden: {available} · fehlend: {missing} · geprüft: {time}', 'Present: {available} · missing: {missing} · checked: {time}', 'Présents : {available} · manquants : {missing} · vérifiés le {time}'],
   'exports.present': ['DATEI VORHANDEN', 'FILE PRESENT', 'FICHIER PRÉSENT'],
   'exports.missing': ['DATEI FEHLT', 'FILE MISSING', 'FICHIER MANQUANT'],
   'exports.unchecked': ['DATEI NICHT GEPRÜFT', 'FILE NOT CHECKED', 'FICHIER NON VÉRIFIÉ'],
