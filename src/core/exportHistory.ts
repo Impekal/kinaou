@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { touchProject, type KinaouProject } from './project'
 import { assertSafeManagedPath } from './storage'
+import { courseExportContextSchema } from './course'
 
 const MAX_EXPORT_RECEIPTS = 50
 
@@ -20,6 +21,7 @@ export const exportReceiptSchema = z.object({
   format: z.enum(['landscape', 'vertical', 'square']),
   range: z.object({ inMs: z.number().int().nonnegative(), outMs: z.number().int().positive() }).refine((value) => value.outMs > value.inMs, 'Export receipt range must have Out after In'),
   sceneIds: z.array(z.string().min(1).max(200)).max(100).default([]),
+  courseLesson: courseExportContextSchema.optional(),
   durationMs: z.number().int().positive(),
   sizeBytes: z.number().int().nonnegative().optional(),
   completedAt: z.string().datetime()
