@@ -8,7 +8,7 @@ export interface ShortBatchStatusProps {
   items: PersistedShortBatchItem[]; notice: ShortBatchNotice | null; resumeError: string
   retryableIds: Set<string>; retrySelectedIds: string[]; setRetrySelectedIds: Dispatch<SetStateAction<string[]>>
   retryDisabled: boolean; busy: boolean; retryReframingBlocked: boolean
-  canCancel: boolean; canDiscard: boolean; archiveOnDiscard: boolean
+  canCancel: boolean; canDiscard: boolean; archiveOnDiscard: boolean; cancelling?: boolean
   onRetry: () => void; onCancel: () => void; onDiscard: () => void
 }
 export function ShortBatchStatus(props: ShortBatchStatusProps) {
@@ -39,7 +39,7 @@ export function ShortBatchStatus(props: ShortBatchStatusProps) {
       {props.retryReframingBlocked && <div className="warning">{t('preview.restart')}</div>}
     </>}
     <div className="renderActions">
-      {props.canCancel && <button className="dangerButton" onClick={props.onCancel}>{t('shortBatch.cancel')}</button>}
+      {props.canCancel && <button className="dangerButton" disabled={props.cancelling} onClick={props.onCancel}>{t(props.cancelling ? 'shortBatch.cancelling' : 'shortBatch.cancel')}</button>}
       {props.canDiscard && <button className="secondaryButton" onClick={props.onDiscard}>{t(props.archiveOnDiscard ? 'shortBatch.archive' : 'shortBatch.discard')}</button>}
     </div>
   </div>

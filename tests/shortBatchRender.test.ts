@@ -7,6 +7,7 @@ import path from 'node:path'
 import { createProject, parseProject } from '../src/core/project'
 import { createRenderPlan, formatProfiles } from '../src/core/render'
 import { WorkerClient } from '../src/core/workerClient'
+import { ShortBatchJobMonitor } from '../src/core/shortBatchJobMonitor'
 import { acceptShortBatchJob, archiveProjectShortBatch, createPersistedShortBatch, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, storeProjectShortBatch } from '../src/core/shortExportBatch'
 
 const exec = promisify(execFile)
@@ -33,12 +34,27 @@ it('persists a real worker absolute-path result as a portable terminal Short rec
     const client = new WorkerClient({ baseUrl: 'http://127.0.0.1:43945', token: 'short-receipt-test' })
     let job = await client.startRender(plan)
     let item = acceptShortBatchJob(batch.items[0], job)
-    for (let i = 0; i < 200 && ['queued', 'running'].includes(job.state); i++) {
-      await new Promise(resolve => setTimeout(resolve, 50))
-      job = await client.renderStatus(job.id)
-      item = acceptShortBatchJob(item, job)
-      expect(projectPersistedShortBatch(storeProjectShortBatch(project, replacePersistedShortBatchItems(batch, [item])))?.items[0]).toEqual(item)
-    }
+    const errors: string[] = [], renderDeadline = Date.now() + 15000
+    const monitor = new ShortBatchJobMonitor(item, {
+      client: {
+        renderStatus: async id => { job = await client.renderStatus(id); return job },
+        cancelRender: id => client.cancelRender(id),
+        exportAvailability: paths => client.exportAvailability(paths)
+      },
+      publish: result => {
+        item = result
+        expect(projectPersistedShortBatch(storeProjectShortBatch(project, replacePersistedShortBatchItems(batch, [item])))?.items[0]).toEqual(item)
+      },
+      error: message => { errors.push(message) },
+      notice: () => { throw new Error('A live real-worker job must not require missing-job recovery') },
+      onCancelling: () => {},
+      wait: async () => {
+        if (Date.now() > renderDeadline) monitor.detach()
+        await new Promise(resolve => setTimeout(resolve, 50))
+      }
+    })
+    await monitor.run()
+    expect(errors).toEqual([])
     expect(job.state, job.error).toBe('succeeded')
     expect(path.isAbsolute(job.outputPath!)).toBe(true)
     expect(item.renderedPath).toBe(outputPath)
