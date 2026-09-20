@@ -15,6 +15,9 @@ Saved outlines travel with ordinary project serialization, drive backups and Ver
 
 ## Boundaries to review
 
+- Lesson-export UI is localized in DE/EN/FR (#211). App language does not rewrite course/module/lesson names or the course language. Selection is only an in-session review, not a render or a persisted approval.
+- A selected lesson is bound to its project, saved range and outline context/revision. Changed/missing/out-of-bounds selections block single export until explicitly reviewed again or cleared. Manual In/Out edits, Whole timeline or choosing a Short deliberately remove course attribution. Reload/leaving Studio clears the in-session selection; select the lesson again. This does not detect every semantic timeline change or verify academic quality: absolute boundaries still need human review.
+
 - One course outline currently belongs to **one project/timeline**. Cross-project lesson libraries and separate lesson-project authoring are future work.
 - Lesson bounds are absolute timeline milliseconds. Moving/inserting clips does not update them automatically. Review after editing; selecting a lesson outside the active timeline is blocked. Empty modules and future ranges may be saved for planning. Overlaps are allowed for deliberately shared content.
 - The existing range renderer determines clipping, source offsets, retiming, captions, transitions and fades. This slice does not introduce a new compositor or promise sample-identical full-timeline motion/fade continuation across arbitrary range cuts. Existing managed-media readiness applies to the full source project.
@@ -30,6 +33,8 @@ The full PR gate passed 289 app tests, 82 native worker tests, production build 
 The local browser displayed the new Course entry/form and language options on a separate test origin. The full save/reload/export behavior is covered by automated tests; the optional manual checklist is in MAC-TEST.md. No real teaching course has been reviewed or approved.
 
 ## Next course slices
+
+PR #211 verification: full 498 application + 82 native tests and build/syntax gate passed. Sixteen regressions cover stale revision/range/project identity, removed/ineligible lessons, DE/EN/FR controls and stable range diagnostic codes. Isolated localhost:5192 with a synthetic video and temporary worker verified language-switch selection retention, disabled future bounds, stale blocking after a 4→3s trim, explicit re-review, a real 2s Full-HD MP4 and exact 1–3s receipt with unchanged names/revision/course language, custom-range deselection and receipt persistence after reload. Browser console clean; test processes stopped. Existing real-worker retiming/audio/independent-lesson execution tests remain green.
 
 Build lesson-level scripts/source references, actual demonstration evidence, exercises with solutions, downloadable resources, review status invalidation after edits, and a durable per-lesson output/resource manifest. Preserve instructor expertise and human verification rather than making an unattended-generation approval claim.
 
