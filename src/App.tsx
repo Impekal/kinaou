@@ -26,19 +26,19 @@ import { StoryboardAssemblyPanel } from './components/StoryboardAssemblyPanel'
 import { AiEditorPanel } from './components/AiEditorPanel'
 import { PublishPanel } from './components/PublishPanel'
 import { CoursePanel } from './components/CoursePanel'
+import { SettingsPanel } from './components/SettingsPanel'
 import { UiLanguageSelector, useUiLanguage } from './components/UiLanguageProvider'
 import { createProjectFromInput, type CreationInputKind } from './core/create'
 import { importProbedMedia, type ImportableMediaKind } from './core/mediaImport'
 import { ProjectRepository, StorageSettingsRepository } from './core/persistence'
 import { parseProject, type KinaouProject } from './core/project'
-import { configureWorkspaceRoot, storageTarget, type StorageBackend, type StorageSettings } from './core/storage'
+import { configureWorkspaceRoot, type StorageBackend, type StorageSettings } from './core/storage'
 import { WorkerClient } from './core/workerClient'
 import type { MediaProbeResult, WorkerHandshake } from './core/workerProtocol'
 import { PersistentVersionHistory } from './core/versioning'
 
 const nav = ['Projects', 'Create', 'Director', 'Studio', 'Course', 'Assets', 'Avatar', 'Audio', 'Images', 'Video', 'Capture', 'Publish', 'Analytics', 'Settings'] as const
 const creationKinds = ['idea', 'document', 'url', 'image', 'audio', 'video'] as const
-const storageAreas = ['models', 'projects', 'assets', 'cache', 'temp', 'renders', 'archive'] as const
 
 export function App() {
   const { t, language } = useUiLanguage()
@@ -234,13 +234,13 @@ export function App() {
           </>}
         </section>}
 
-        {section === 'Settings' && <section className="stack">
-          <div className="card settingsPanel"><div><div className="eyebrow">LOCAL WORKER</div><h2>Connect the Mac worker</h2><p>The token stays in memory only. KINAOU accepts localhost HTTP endpoints only.</p></div><div className="formStack"><label>Worker URL<input value={workerUrl} onChange={(event) => { setWorkerUrl(event.target.value); setWorkerHandshake(null) }} /></label><label>Session token<input type="password" value={workerToken} onChange={(event) => { setWorkerToken(event.target.value); setWorkerHandshake(null) }} placeholder="Paste the worker token" /></label><button className="primary" disabled={workerBusy || !workerToken.trim()} onClick={testWorkerConnection}>{workerBusy ? 'Connecting…' : 'Test connection'}</button></div></div>
-          {workerHandshake && <div className="card workerCard"><div className="sectionLead"><div><div className="eyebrow">WORKER ONLINE</div><h3>{workerHandshake.name}</h3></div><span className="status online">CONNECTED</span></div><p>{workerHandshake.platform} · {workerHandshake.version}</p><div className="chipRow">{workerHandshake.capabilities.map((capability) => <span className="chip" key={capability}>{capability}</span>)}</div></div>}
-          {workerError && <div className="card errorBox">{workerError}</div>}
-          <div className="card settingsPanel"><div><div className="eyebrow">STORAGE PROFILE</div><h2>Internal or external storage</h2><p>KINAOU only owns paths below its managed <code>KINAOU/</code> directory.</p></div><div className="formStack"><label>Backend<select value={storageBackend} onChange={(event) => setStorageBackend(event.target.value as StorageBackend)}><option value="browser">Browser storage</option><option value="desktop-worker">Desktop worker / filesystem</option></select></label><label>Workspace root<input value={workspaceRoot} onChange={(event) => setWorkspaceRoot(event.target.value)} placeholder="/Volumes/YourSSD" /></label><button className="primary" onClick={saveStorageProfile}>Save storage profile</button></div></div>
-          <div className="card"><div className="eyebrow">MANAGED TARGETS</div><ul className="paths">{storageAreas.map((area) => <li key={area}><span>{area}</span><code>{storageTarget(storage, area)}</code></li>)}</ul><div className="note">{storage.backend === 'desktop-worker' ? 'External filesystem profile configured. Real media access is available when the local worker is running and authenticated.' : 'Browser mode stores project metadata locally. Heavy media should use the desktop worker / external SSD adapter.'}</div></div>
-        </section>}
+        {section === 'Settings' && <SettingsPanel
+          workerUrl={workerUrl} workerToken={workerToken} workerBusy={workerBusy} workerError={workerError} workerHandshake={workerHandshake}
+          onWorkerUrlChange={(value) => { setWorkerUrl(value); setWorkerHandshake(null); setWorkerError('') }}
+          onWorkerTokenChange={(value) => { setWorkerToken(value); setWorkerHandshake(null); setWorkerError('') }}
+          onTestConnection={testWorkerConnection} storage={storage} workspaceRoot={workspaceRoot} storageBackend={storageBackend}
+          onWorkspaceRootChange={setWorkspaceRoot} onStorageBackendChange={setStorageBackend} onSaveStorage={saveStorageProfile}
+        />}
 
         {!['Projects', 'Create', 'Director', 'Studio', 'Course', 'Assets', 'Avatar', 'Audio', 'Images', 'Video', 'Capture', 'Publish', 'Settings'].includes(section) && <section className="card emptyState"><div className="eyebrow">{t(`nav.${section}`)}</div><h2>{t('shell.reserved')}</h2><p>{t('shell.reservedHelp')}</p></section>}
       </main>
