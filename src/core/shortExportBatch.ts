@@ -18,6 +18,7 @@ export interface ShortBatchRenderItem extends ShortExportBatchItem {
   sizeBytes?: number
   renderedPath?: string
   error?: string
+  submissionStartedAt?: string
 }
 
 const renderPresetSchema = z.object({
@@ -66,12 +67,14 @@ export const persistedShortBatchItemSchema = z.object({
   sizeBytes: z.number().int().positive().optional(),
   renderedPath: managedRenderPathSchema.optional(),
   error: z.string().trim().min(1).max(2000).optional(),
+  submissionStartedAt: z.string().datetime().optional(),
   preset: renderPresetSchema,
   planSignature: z.string().regex(/^[a-f0-9]{16}$/),
   candidateId: z.string().trim().min(1).max(500).optional(),
   attempt: z.number().int().min(1).max(100).optional(),
   retryOfId: z.string().trim().min(1).max(500).optional()
 }).strict().superRefine((item, context) => {
+  if (item.submissionStartedAt && (item.jobId || item.state !== 'queued')) context.addIssue({ code: 'custom', path: ['submissionStartedAt'], message: 'Unconfirmed Short submission must remain queued without a known job' })
   if (item.outMs <= item.inMs || item.durationMs !== item.outMs - item.inMs) context.addIssue({ code: 'custom', path: ['durationMs'], message: 'Persisted Short batch range is inconsistent' })
   if (new Set(item.sceneIds).size !== item.sceneIds.length) context.addIssue({ code: 'custom', path: ['sceneIds'], message: 'Persisted Short batch scene ids must be unique' })
   if ((item.state === 'running' || item.state === 'succeeded') && !item.jobId) context.addIssue({ code: 'custom', path: ['jobId'], message: 'Persisted active or successful Short batch item requires a job id' })
@@ -157,7 +160,7 @@ export function acceptShortBatchJob(item: PersistedShortBatchItem, job: RenderJo
   }
   if (job.state === 'succeeded' && !job.outputPath) throw new Error('Successful Short export has no output path')
   return persistedShortBatchItemSchema.parse({
-    ...item, jobId: job.id, state: job.state, progress: job.progress,
+    ...item, submissionStartedAt: undefined, jobId: job.id, state: job.state, progress: job.progress,
     createdAt: job.createdAt, updatedAt: job.updatedAt,
     ...(job.outputPath ? { renderedPath: item.outputPath } : {}),
     ...(job.sizeBytes !== undefined ? { sizeBytes: job.sizeBytes } : {}),
@@ -180,12 +183,13 @@ export function shortBatchBusy(items: ShortBatchRenderItem[]): boolean {
 }
 
 export function nextShortBatchItem<T extends ShortBatchRenderItem>(items: T[]): T | undefined {
+  if (items.some(item => item.submissionStartedAt)) return undefined
   if (items.some((item) => item.jobId && !shortBatchTerminalStates.has(item.state))) return undefined
   return items.find((item) => item.state === 'queued' && !item.jobId)
 }
 
 export function cancelPendingShortBatchItems<T extends ShortBatchRenderItem>(items: T[], submittingId?: string): T[] {
-  return items.map((item) => item.state === 'queued' && !item.jobId && item.id !== submittingId ? { ...item, state: 'cancelled' } : item) as T[]
+  return items.map((item) => item.state === 'queued' && !item.jobId && !item.submissionStartedAt && item.id !== submittingId ? { ...item, state: 'cancelled' } : item) as T[]
 }
 
 /** An in-flight POST is not an unsubmitted queue entry and must not be labelled cancelled. */
@@ -418,6 +422,7 @@ export function clearProjectShortBatch(project: KinaouProject, now = new Date())
 export function rebuildPersistedShortBatchPlans(project: KinaouProject, batch: PersistedShortBatch): Map<string, RenderPlan> {
   const normalized = persistedShortBatchSchema.parse(batch)
   const plans = new Map<string, RenderPlan>()
+  if (normalized.items.some(item => item.submissionStartedAt)) throw new Error('A Short submission has no saved worker acknowledgement. Inspect the original worker and output before deliberately discarding this batch. No export will be submitted automatically.')
   if (normalized.cancelRequested) {
     if (normalized.items.some(item => !shortBatchTerminalStates.has(item.state) && !item.jobId)) throw new Error('Cancellation was saved while submission was unconfirmed. The worker may still be running. Inspect its output before discarding this saved batch; no export will be submitted automatically.')
     return plans // Cancel known accepted jobs even if the current edit no longer matches their original plan.

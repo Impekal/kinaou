@@ -8,6 +8,8 @@ import { createProject, parseProject } from '../src/core/project'
 import { createRenderPlan, formatProfiles } from '../src/core/render'
 import { WorkerClient } from '../src/core/workerClient'
 import { ShortBatchJobMonitor } from '../src/core/shortBatchJobMonitor'
+import { markShortBatchSubmission, ShortBatchSubmission } from '../src/core/shortBatchSubmission'
+import type { RenderJobRecord } from '../src/core/renderJobs'
 import { persistShortBatchReceipts } from '../src/core/shortBatchReceipts'
 import { forgetExportReceipt, projectExportHistory } from '../src/core/exportHistory'
 import { acceptShortBatchJob, archiveProjectShortBatch, createPersistedShortBatch, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, requestPersistedShortBatchCancellation, storeProjectShortBatch } from '../src/core/shortExportBatch'
@@ -34,8 +36,34 @@ it('persists a real worker absolute-path result as a portable terminal Short rec
     const plan = createRenderPlan(project, formatProfiles.landscape.export, outputPath)
     const batch = createPersistedShortBatch([{ id: 'short:landscape', title: 'Original', sceneIds: [], format: 'landscape', inMs: 0, outMs: 1000, durationMs: 1000, outputPath, state: 'queued', progress: 0 }], new Map([['short:landscape', plan]]))
     const client = new WorkerClient({ baseUrl: 'http://127.0.0.1:43945', token: 'short-receipt-test' })
-    let job = await client.startRender(plan)
-    let item = acceptShortBatchJob(batch.items[0], job)
+    let job!: RenderJobRecord
+    let item = batch.items[0]
+    let saved = storeProjectShortBatch(project, batch)
+    let postCount = 0
+    const submission = new ShortBatchSubmission({
+      plan,
+      client: { startRender: async value => {
+        postCount++
+        const loaded = projectPersistedShortBatch(parseProject(JSON.parse(JSON.stringify(saved))))!
+        expect(loaded.items[0].submissionStartedAt).toBeTruthy()
+        expect(() => rebuildPersistedShortBatchPlans(saved, loaded)).toThrow(/acknowledgement/)
+        job = await client.startRender(value)
+        return job
+      } },
+      isCurrent: () => true,
+      saveIntent: () => {
+        const marked = markShortBatchSubmission(batch, batch.items[0].id)
+        saved = storeProjectShortBatch(project, marked)
+        return marked.items[0]
+      },
+      accepted: value => { item = value },
+      error: detail => { throw new Error(detail) },
+      finished: () => {}
+    })
+    await submission.run(); await submission.run()
+    expect(postCount).toBe(1)
+    expect(item.jobId).toBe(job.id)
+    expect(item.submissionStartedAt).toBeUndefined()
     const errors: string[] = [], renderDeadline = Date.now() + 15000
     const monitor = new ShortBatchJobMonitor(item, {
       client: {
