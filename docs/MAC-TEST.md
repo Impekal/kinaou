@@ -114,6 +114,12 @@ In Studio → Render → Course lesson export, choose the first lesson. The exac
 
 No AI runtime is needed for this optional test. Save before leaving Course; unsaved form edits are drafts. Course language is not an automatic translation or voice-profile change. These checks do not verify pedagogical quality or Udemy approval; see COURSE-PRODUCTION.md.
 
+## Optional application-language check (PR #187, no worker/SSD needed)
+
+In a separate test project, change **App language / App-Sprache / Langue de l’application** between Deutsch, English and Français. Navigation and Create/Course labels should switch immediately, while the notice explains that other specialist panels remain English. Type a project title/brief before switching: both must remain unchanged. In Course, type a draft title, add a module/lesson and choose a different content language; switching app language must preserve that entire unsaved draft and the content-language selection.
+
+Try saving a whitespace-only course title. The save must be rejected with a translated summary and original technical details; switch app language while the error is shown to check it changes too. Correct/save or explicitly discard the test draft. Reload: the app language and saved course must remain, with the original names/content language and no unintended revision. Unsaved edits are not promised to survive reload or leaving Course. Use the normal origin for your own projects; an isolated test origin intentionally has separate browser storage.
+
 ## Troubleshooting
 
 ### Spoken-text regression check (after PR #181)
