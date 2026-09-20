@@ -9,6 +9,7 @@ import { defaultAudioDucking, validateAudioDucking } from '../core/audioDucking'
 import { defaultLoudnessNormalization } from '../core/audioLoudness'
 import { planShortExportBatch, planShortExportRanges, projectShortExportMaximum, setProjectShortExportMaximum, shortExportMaximumError, shortExportVariant, shortPreviewOutputPath } from '../core/shortExportRanges'
 import { archiveProjectShortBatch, cancelPendingShortBatchItems, clearProjectShortBatch, createPersistedShortBatch, failMissingShortBatchJob, forgetProjectShortBatchArchiveEntry, nextShortBatchItem, planSelectiveShortBatchRetry, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, requeueMissingShortBatchJob, retryableShortBatchItems, reviewArchivedShortBatchSelection, shortBatchArchiveLimit, shortBatchBusy, shortBatchTerminalStates, storeProjectShortBatch, type PersistedShortBatch, type PersistedShortBatchItem } from '../core/shortExportBatch'
+import { forgetProjectShortExportRecipe, projectShortExportRecipes, reviewShortExportRecipe, saveProjectShortExportRecipe, shortExportRecipeLimit } from '../core/shortExportRecipes'
 import { forgetExportReceipt, projectExportHistory, recordSuccessfulExport, type SuccessfulExportReceiptInput } from '../core/exportHistory'
 
 interface RenderPanelProps {
@@ -26,6 +27,7 @@ type SubmittedExportReceipt = Omit<SuccessfulExportReceiptInput, 'completedAt' |
 interface ExportFileCheck { byPath: Record<string, boolean>; available: number; missing: number; checkedAt: string }
 interface ArchivedBatchFileCheck extends ExportFileCheck { batchId: string }
 interface ArchivedBatchSelectionReview { batchId: string; unavailable: Array<{ candidateId: string; title: string }> }
+interface ShortRecipeReview { recipeId: string; unavailableCandidateIds: string[] }
 
 export function RenderPanel({ project, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange }: RenderPanelProps) {
   const readiness = useMemo(() => renderReadiness(project), [project])
@@ -63,6 +65,9 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const [selectedShortId, setSelectedShortId] = useState('')
   const [batchSelectedIds, setBatchSelectedIds] = useState<string[]>([])
   const [batchFormats, setBatchFormats] = useState<TargetFormat[]>([format])
+  const [shortRecipeName, setShortRecipeName] = useState('')
+  const [shortRecipeReview, setShortRecipeReview] = useState<ShortRecipeReview | null>(null)
+  const shortRecipes = projectShortExportRecipes(project)
   const [batchItems, setBatchItems] = useState<PersistedShortBatchItem[]>([])
   const batchPlans = useRef(new Map<string, RenderPlan>())
   const persistedBatch = useRef<PersistedShortBatch | null>(null)
@@ -171,6 +176,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   useEffect(() => {
     setBatchSelectedIds([])
     setArchivedBatchSelectionReview(null)
+    setShortRecipeReview(null)
   }, [shortCandidateSignature])
 
   useEffect(() => {
@@ -441,6 +447,29 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     }
   }
 
+  function saveShortRecipe() {
+    if (busy) return
+    setError('')
+    try {
+      onProjectChange(saveProjectShortExportRecipe(project, { name: shortRecipeName, candidateIds: batchSelectedIds, formats: batchFormats }, shortExports.candidates))
+      setShortRecipeName('')
+    } catch (recipeError) {
+      setError(recipeError instanceof Error ? recipeError.message : 'Could not save the Short recipe')
+    }
+  }
+
+  function reviewRecipe(recipeId: string) {
+    if (busy) return
+    const recipe = shortRecipes.find((item) => item.id === recipeId)
+    if (!recipe) return
+    const review = reviewShortExportRecipe(recipe, shortExports.candidates)
+    setBatchSelectedIds(review.candidateIds)
+    setBatchFormats(review.formats)
+    setShortRecipeReview({ recipeId, unavailableCandidateIds: review.unavailableCandidateIds })
+    setArchivedBatchSelectionReview(null)
+    setError('')
+  }
+
   async function startShortPreview() {
     if (!selectedShort || !readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || shortPreviewReframingBlocked) return
     setShortPreviewSubmitting(true)
@@ -675,6 +704,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         </div>
         {!batchFormats.length && <div className="warning">Select at least one output format for the Short batch.</div>}
         {archivedBatchSelectionReview && <div className="warning">Restored an archived selection for review only. {batchSelectedIds.length} currently available candidate{batchSelectedIds.length === 1 ? '' : 's'} and {batchFormats.length} format{batchFormats.length === 1 ? '' : 's'} are selected below; review the current ranges before explicitly starting a new batch. New outputs receive fresh identities and no archived file is changed.{archivedBatchSelectionReview.unavailable.length > 0 && <> Unavailable now: {archivedBatchSelectionReview.unavailable.map((item) => item.title).join(', ')}.</>}</div>}
+        {shortRecipeReview && <div className="warning">Restored the named Short recipe for review only. {batchSelectedIds.length} currently available candidate{batchSelectedIds.length === 1 ? '' : 's'} and {batchFormats.length} format{batchFormats.length === 1 ? '' : 's'} are selected below; inspect the current ranges before explicitly starting a new batch.{shortRecipeReview.unavailableCandidateIds.length > 0 && <> {shortRecipeReview.unavailableCandidateIds.length} saved candidate{shortRecipeReview.unavailableCandidateIds.length === 1 ? ' is' : 's are'} no longer available.</>}</div>}
         {shortExports.candidates.map((candidate) => <div className="renderMeta" key={candidate.id}>
           <span><strong>{candidate.titles.join(' + ')}</strong> · {(candidate.durationMs / 1000).toFixed(1)} s · {(candidate.inMs / 1000).toFixed(1)}–{(candidate.outMs / 1000).toFixed(1)} s</span>
           <div className="renderActions">
@@ -688,6 +718,12 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
           <button disabled={busy} onClick={() => setBatchSelectedIds(batchSelectedIds.length === shortExports.candidates.length ? [] : shortExports.candidates.map((candidate) => candidate.id))}>{batchSelectedIds.length === shortExports.candidates.length ? 'Clear selection' : 'Select all'}</button>
           <button className="primary" disabled={!batchSelectedIds.length || !batchFormats.length || !readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting || batchReframingBlocked || Boolean(batchResumeError)} onClick={startShortBatch}>Export selected variants ({batchSelectedIds.length * batchFormats.length})</button>
         </div>}
+        <div className="renderJob">
+          <div className="renderJobHead"><strong>NAMED SHORT RECIPES</strong><span>{shortRecipes.length}/{shortExportRecipeLimit} saved</span></div>
+          <p className="cardBody">A recipe saves only your current candidate selection and output formats. It never saves render plans, output paths or media, and reopening it only prepares the visible controls for review.</p>
+          <div className="renderActions"><input aria-label="Short recipe name" value={shortRecipeName} maxLength={80} disabled={busy} placeholder="Recipe name" onChange={(event) => setShortRecipeName(event.target.value)} /><button disabled={busy || !shortRecipeName.trim() || !batchSelectedIds.length || !batchFormats.length} onClick={saveShortRecipe}>Save current selection</button></div>
+          {shortRecipes.map((recipe) => <div className="renderMeta" key={recipe.id}><span><strong>{recipe.name}</strong> · {recipe.candidateIds.length} candidate{recipe.candidateIds.length === 1 ? '' : 's'} · {recipe.formats.map((id) => formatProfiles[id].label).join(', ')}</span><div className="renderActions"><button className="secondaryButton" disabled={busy} onClick={() => reviewRecipe(recipe.id)}>Review recipe</button><button disabled={busy} onClick={() => { try { onProjectChange(forgetProjectShortExportRecipe(project, recipe.id)); if (shortRecipeReview?.recipeId === recipe.id) setShortRecipeReview(null) } catch (recipeError) { setError(recipeError instanceof Error ? recipeError.message : 'Could not forget the Short recipe') } }}>Forget recipe</button></div></div>)}
+        </div>
       </div>}
 
       <label className="checkRow"><input type="checkbox" checked={duckingEnabled} disabled={busy} onChange={(event) => setDuckingEnabled(event.target.checked)} />Lower music while voice or dialogue is playing</label>
