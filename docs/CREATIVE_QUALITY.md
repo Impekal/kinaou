@@ -38,9 +38,20 @@ Course workflow target: audience/prerequisites → learning outcomes → modules
 
 ## Application languages and main-video/Short planning
 
-User clarification 2026-09-20: **the application interface itself** must be usable in German, English and French, independently of course/video content language. Translate navigation, controls, validation, progress, help and empty states; preserve project text, identifiers and source metadata. A language selector or content-language field alone does not meet this acceptance criterion. Current UI is still predominantly English.
+User clarification 2026-09-20: **the application interface itself** must be usable in German, English and French, independently of course/video content language. Translate navigation, controls, validation, progress, help and empty states; preserve project text, identifiers and source metadata. A language selector or content-language field alone does not meet this acceptance criterion. PR #187 provides persisted UI choice, translated navigation/project creation/course forms and translated course error summaries, preserving drafts and content language. Specialist panels remain English, with an explicit coverage notice. Full localization is still open; see UI-LANGUAGES.md.
 
 For YouTube, support a main video plus related Shorts as one production plan. Existing scene-range suggestions, previews and multi-format Short exports are a technical foundation, not a completed editorial/publishing adviser. Propose which excerpts work as self-contained Shorts and when to publish the main video and related Shorts. Timing must identify audience region/timezone and distinguish actual channel/audience observations from generic test hypotheses. Without attributable analytics, never call a suggested slot a measured best time, invent demand/view counts or promise reach. A local schedule/recommendation is not automatic platform publishing; remote scheduling needs a separately implemented, explicitly authorized connection.
+
+## Cartoons, children's formats and educational content without recurring provider costs
+
+User clarification 2026-09-20: support cartoons, engaging short children's content and learning videos, with optional trend research followed by production. These are acceptance targets, not a claim of an installed cartoon-animation engine or validated children's-content generator.
+
+- Keep visual style separate from audience: a cartoon can target adults, and children's content needs an explicit age range, language, topic and learning/entertainment purpose. Avoid equating fast edits, sensory overload or manipulative engagement with quality.
+- Preserve original/licensed character and voice references; check character continuity, motion, comprehensibility and age-appropriate pacing in actual generated samples. Do not silently obtain proprietary characters, voices or paid assets.
+- Educational claims, examples and answers need attributable sources and review. Include checks for frightening/inappropriate material, unsafe imitable actions and misleading factual claims. Do not claim guaranteed child suitability from a style preset or model label.
+- Trend research is optional. Any current trend result must record source, observation time, country/language and measurement limits; model-only ideas must be labelled ideas, not measured search demand. Missing live access should produce an honest unavailable state and allow reviewed user-supplied evidence, not fabricated rankings.
+- No recurring subscriptions, paid inference or cloud APIs in the requested workflow. Use locally installed compatible open runtimes and authorized assets, with transparent model licenses and provenance. Local execution still consumes electricity, storage and hardware capacity; do not promise zero operating costs or silently install large models. Private use does not authorize license/terms circumvention.
+- Export/recommendation does not publish. Recheck the relevant platform's current children/AI/disclosure settings when implementing its publication checks; do not infer compliance or revenue eligibility from a local export.
 
 ## Manual editing usability (current state)
 
