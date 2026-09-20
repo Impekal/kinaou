@@ -1,9 +1,11 @@
 import type { UiLanguage } from './uiLanguage'
 import { uiSettingsMessages } from './uiSettingsMessages'
+import { uiHistoryMessages } from './uiHistoryMessages'
 
 // Ordered de/en/fr tuples make missing language entries a compile-time error.
 export const uiMessages = {
   ...uiSettingsMessages,
+  ...uiHistoryMessages,
   'nav.Projects': ['Projekte', 'Projects', 'Projets'],
   'nav.Create': ['Erstellen', 'Create', 'Créer'],
   'nav.Director': ['Regie', 'Director', 'Réalisation'],
@@ -20,7 +22,7 @@ export const uiMessages = {
   'nav.Settings': ['Einstellungen', 'Settings', 'Paramètres'],
   'ui.language': ['App-Sprache', 'App language', 'Langue de l’application'],
   'ui.independent': ['Die App-Sprache ändert keine Skripte, Stimmen oder Kurse.', 'App language does not change scripts, voices or courses.', 'La langue de l’application ne modifie ni les scripts, ni les voix, ni les cours.'],
-  'ui.partial': ['Übersetzung im Ausbau: Navigation, Projektstart, Kursformular und Einstellungen sind übersetzt. Weitere Fachbereiche und technische Fehlermeldungen erscheinen noch auf Englisch.', 'Translation in progress: navigation, project creation, the course form and Settings are translated. Other specialist panels and technical error details remain in English.', 'Traduction en cours : la navigation, la création de projets, le formulaire de cours et les paramètres sont traduits. Les autres modules et détails d’erreurs techniques restent en anglais.'],
+  'ui.partial': ['Übersetzung im Ausbau: Navigation, Projektstart, Kursformular, Einstellungen und Versionshistorie sind übersetzt. Weitere Fachbereiche und technische Fehlermeldungen erscheinen noch auf Englisch.', 'Translation in progress: navigation, project creation, the course form, Settings and Version History are translated. Other specialist panels and technical error details remain in English.', 'Traduction en cours : la navigation, la création de projets, le formulaire de cours, les paramètres et l’historique des versions sont traduits. Les autres modules et détails d’erreurs techniques restent en anglais.'],
   'ui.unsaved': ['Die Sprachwahl gilt für diese Sitzung, konnte aber nicht gespeichert werden.', 'Language changed for this session, but the preference could not be saved.', 'La langue a changé pour cette session, mais ce choix n’a pas pu être enregistré.'],
   'shell.tagline': ['Die KI arbeitet. Du behältst die Kontrolle.', 'AI does the work. You stay in control.', 'L’IA travaille. Vous gardez le contrôle.'],
   'shell.status': ['LOKAL · STUDIO-KERN', 'LOCAL-FIRST · STUDIO CORE', 'LOCAL · CŒUR DU STUDIO'],
