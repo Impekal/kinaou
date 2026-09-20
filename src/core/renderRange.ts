@@ -9,13 +9,14 @@ export interface RenderRange {
 export interface RenderRangeCheck {
   valid: boolean
   reason?: string
+  code?: 'milliseconds' | 'beforeStart' | 'order' | 'afterEnd'
 }
 
 export function validateRenderRange(range: RenderRange, timelineDurationMs: number): RenderRangeCheck {
-  if (!Number.isInteger(range.inMs) || !Number.isInteger(range.outMs)) return { valid: false, reason: 'In and Out must resolve to whole milliseconds.' }
-  if (range.inMs < 0) return { valid: false, reason: 'In cannot be before the start of the timeline.' }
-  if (range.outMs <= range.inMs) return { valid: false, reason: 'Out must be later than In.' }
-  if (range.outMs > timelineDurationMs) return { valid: false, reason: 'Out cannot be later than the end of the timeline.' }
+  if (!Number.isInteger(range.inMs) || !Number.isInteger(range.outMs)) return { valid: false, code: 'milliseconds', reason: 'In and Out must resolve to whole milliseconds.' }
+  if (range.inMs < 0) return { valid: false, code: 'beforeStart', reason: 'In cannot be before the start of the timeline.' }
+  if (range.outMs <= range.inMs) return { valid: false, code: 'order', reason: 'Out must be later than In.' }
+  if (range.outMs > timelineDurationMs) return { valid: false, code: 'afterEnd', reason: 'Out cannot be later than the end of the timeline.' }
   return { valid: true }
 }
 

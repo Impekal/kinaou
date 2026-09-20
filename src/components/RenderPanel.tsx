@@ -13,6 +13,7 @@ import { forgetProjectShortExportRecipe, projectShortExportRecipes, reviewShortE
 import { recordSuccessfulExport } from '../core/exportHistory'
 import { courseLessonChoices, planCourseLessonExport } from '../core/course'
 import { CourseLessonSelector } from './CourseLessonSelector'
+import { reviewCourseExport, resolveCourseExportReview, type CourseExportReview } from '../core/courseExportReview'
 import { SingleExportSession, type ExportFeedback } from '../core/singleExportSession'
 import { useUiLanguage } from './UiLanguageProvider'
 import { SingleExportStatus } from './SingleExportStatus'
@@ -73,11 +74,11 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const shortExports = useMemo(() => planShortExportRanges(project, shortMaximumMs), [project, shortMaximumMs])
   const shortCandidateSignature = shortExports.candidates.map((candidate) => `${candidate.id}:${candidate.inMs}:${candidate.outMs}:${candidate.titles.join('\u0000')}`).join('|')
   const [selectedShortId, setSelectedShortId] = useState('')
-  const [selectedLessonId, setSelectedLessonId] = useState('')
+  const [lessonReview, setLessonReview] = useState<CourseExportReview | null>(null)
   let lessonChoices: ReturnType<typeof courseLessonChoices> = []
   let courseError = ''
   try { lessonChoices = courseLessonChoices(project, timelineDurationMs) } catch (cause) { courseError = (cause as Error).message }
-  const selectedLesson = lessonChoices.find((lesson) => lesson.id === selectedLessonId && lesson.check.valid && lesson.range.inMs === range.inMs && lesson.range.outMs === range.outMs)
+  const { lesson: selectedLesson, stale: lessonReviewStale } = resolveCourseExportReview(project.id, lessonReview, lessonChoices, range)
   const [batchSelectedIds, setBatchSelectedIds] = useState<string[]>([])
   const [batchFormats, setBatchFormats] = useState<TargetFormat[]>([format])
   const [shortRecipeName, setShortRecipeName] = useState('')
@@ -186,7 +187,6 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     setInSeconds('0')
     setOutSeconds(String(timelineDurationMs / 1000))
     setSelectedShortId('')
-    setSelectedLessonId('')
   }, [timelineDurationMs])
 
   useEffect(() => {
@@ -459,7 +459,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   }
 
   function startRender() {
-    if (!readiness.ready || !rangeCheck.valid || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || singleSession.current?.busy || singleReframingBlocked) return
+    if (!readiness.ready || !rangeCheck.valid || lessonReviewStale || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || singleSession.current?.busy || singleReframingBlocked) return
     setError('')
     try {
       const wholeTimeline = range.inMs === 0 && range.outMs === timelineDurationMs
@@ -598,14 +598,22 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
 
       <FormatFramingPanel project={project} busy={busy} workerBlocked={workerConnected && anyReframingBlocked} onProjectChange={onProjectChange} />
 
-      <CourseLessonSelector lessons={lessonChoices} selectedId={selectedLesson?.id ?? ''} disabled={busy || submitting} onSelect={(id) => { const lesson = lessonChoices.find((entry) => entry.id === id); setSelectedLessonId(id); setSelectedShortId(''); if (lesson?.check.valid) { setInSeconds(String(lesson.range.inMs / 1000)); setOutSeconds(String(lesson.range.outMs / 1000)) } }} />
-      {courseError && <div className="warning">Course lesson selection unavailable: {courseError}</div>}
+      <CourseLessonSelector lessons={lessonChoices} selectedId={lessonReview?.lessonId ?? ''} stale={lessonReviewStale} disabled={busy || submitting} onSelect={(id) => {
+        const lesson = lessonChoices.find(entry => entry.id === id)
+        if (!id) { setLessonReview(null); return }
+        if (!lesson?.check.valid) return
+        setLessonReview(reviewCourseExport(project.id, lesson))
+        setSelectedShortId('')
+        setInSeconds(String(lesson.range.inMs / 1000))
+        setOutSeconds(String(lesson.range.outMs / 1000))
+      }} />
+      {courseError && <div className="warning" role="alert">{t('lessonExport.error')}<details><summary>{t('common.details')}</summary>{courseError}</details></div>}
       <div className="fieldGrid">
-        <label>{t('export.in')}<input type="number" min="0" step="0.001" value={inSeconds} disabled={busy} onChange={(event) => { setInSeconds(event.target.value); setSelectedShortId(''); setSelectedLessonId('') }} /></label>
-        <label>{t('export.out')}<input type="number" min="0" step="0.001" value={outSeconds} disabled={busy} onChange={(event) => { setOutSeconds(event.target.value); setSelectedShortId(''); setSelectedLessonId('') }} /></label>
+        <label>{t('export.in')}<input type="number" min="0" step="0.001" value={inSeconds} disabled={busy} onChange={(event) => { setInSeconds(event.target.value); setSelectedShortId(''); setLessonReview(null) }} /></label>
+        <label>{t('export.out')}<input type="number" min="0" step="0.001" value={outSeconds} disabled={busy} onChange={(event) => { setOutSeconds(event.target.value); setSelectedShortId(''); setLessonReview(null) }} /></label>
       </div>
       <div className="renderActions">
-        <button disabled={busy || (!selectedLesson && range.inMs === 0 && range.outMs === timelineDurationMs)} onClick={() => { setInSeconds('0'); setOutSeconds(String(timelineDurationMs / 1000)); setSelectedShortId(''); setSelectedLessonId('') }}>{t('export.whole')}</button>
+        <button disabled={busy || (!selectedLesson && range.inMs === 0 && range.outMs === timelineDurationMs)} onClick={() => { setInSeconds('0'); setOutSeconds(String(timelineDurationMs / 1000)); setSelectedShortId(''); setLessonReview(null) }}>{t('export.whole')}</button>
         {rangeCheck.valid && <span className="cardBody">{t('export.range', { start: (range.inMs / 1000).toLocaleString(language), end: (range.outMs / 1000).toLocaleString(language), duration: ((range.outMs - range.inMs) / 1000).toLocaleString(language) })}</span>}
       </div>
       {!rangeCheck.valid && <div className="warning">{t('export.invalidRange')}<details><summary>{t('common.details')}</summary>{rangeCheck.reason}</details></div>}
@@ -642,7 +650,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
           <span><strong>{candidate.titles.join(' + ')}</strong> · {(candidate.durationMs / 1000).toFixed(1)} s · {(candidate.inMs / 1000).toFixed(1)}–{(candidate.outMs / 1000).toFixed(1)} s</span>
           <div className="renderActions">
             <label className="checkRow"><input type="checkbox" checked={batchSelectedIds.includes(candidate.id)} disabled={busy} onChange={(event) => setBatchSelectedIds((ids) => event.target.checked ? [...ids, candidate.id] : ids.filter((id) => id !== candidate.id))} />Include</label>
-            <button disabled={busy} onClick={() => { setInSeconds(String(candidate.inMs / 1000)); setOutSeconds(String(candidate.outMs / 1000)); setSelectedShortId(candidate.id); setSelectedLessonId('') }}>{selectedShort?.id === candidate.id ? 'Selected' : 'Use this range'}</button>
+            <button disabled={busy} onClick={() => { setInSeconds(String(candidate.inMs / 1000)); setOutSeconds(String(candidate.outMs / 1000)); setSelectedShortId(candidate.id); setLessonReview(null) }}>{selectedShort?.id === candidate.id ? 'Selected' : 'Use this range'}</button>
           </div>
         </div>)}
         {!shortExports.candidates.length && <div className="warning">No exportable scene range yet. Assemble storyboard scenes on an active visual track first.</div>}
@@ -760,7 +768,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       <ExportHistoryPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={workerConnected} busy={busy} onProjectChange={onProjectChange} />
 
       <div className="renderActions">
-        <button className="primary" disabled={!readiness.ready || !rangeCheck.valid || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting || singleReframingBlocked} onClick={startRender}>
+        <button className="primary" disabled={!readiness.ready || !rangeCheck.valid || lessonReviewStale || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting || singleReframingBlocked} onClick={startRender}>
           {t(submitting ? 'export.submitting' : batchBusy ? 'export.batchBusy' : job && terminalStates.has(job.state) ? 'export.again' : 'export.start')}
         </button>
       </div>
