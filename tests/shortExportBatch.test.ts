@@ -4,6 +4,7 @@ import { assetSchema, clipSchema, createProject, parseProject, trackSchema } fro
 import { createRenderPlan, formatProfiles, type RenderPlan } from '../src/core/render'
 import { createRangeRenderPlan } from '../src/core/renderRange'
 import { planShortExportBatch, planShortExportRanges } from '../src/core/shortExportRanges'
+import { acceptShortBatchJob } from '../src/core/shortExportBatch'
 
 function item(id: string, state: ShortBatchRenderItem['state'] = 'queued', jobId?: string): ShortBatchRenderItem {
   return { id, title: id, sceneIds: [id], format: 'vertical', inMs: 0, outMs: 1000, durationMs: 1000, outputPath: `KINAOU/Renders/${id}.mp4`, state, progress: 0, ...(jobId ? { jobId } : {}) }
@@ -31,6 +32,37 @@ function durableFixture() {
 }
 
 describe('Short export batch scheduling', () => {
+  it('normalizes real worker absolute paths before saving terminal results and archiving', () => {
+    const { project, items, plans } = durableFixture()
+    const batch = createPersistedShortBatch(items, plans)
+    const finished = batch.items.map((item, index) => acceptShortBatchJob(item, {
+      id: 'job-' + index, state: 'succeeded', progress: 1, sizeBytes: 1000,
+      outputPath: '/Volumes/Test SSD/' + item.outputPath,
+      createdAt: batch.createdAt, updatedAt: batch.createdAt
+    }))
+    expect(finished.map(item => item.renderedPath)).toEqual(items.map(item => item.outputPath))
+    const saved = storeProjectShortBatch(project, replacePersistedShortBatchItems(batch, finished))
+    const reloaded = parseProject(JSON.parse(JSON.stringify(saved)))
+    expect(projectPersistedShortBatch(reloaded)?.items).toEqual(finished)
+    expect(rebuildPersistedShortBatchPlans(reloaded, projectPersistedShortBatch(reloaded)!).size).toBe(0)
+    expect(projectShortBatchArchive(archiveProjectShortBatch(reloaded, projectPersistedShortBatch(reloaded)!))[0].items).toHaveLength(2)
+  })
+
+  it('rejects another job, mismatched or noncanonical output and incomplete success without mutating the batch', () => {
+    const { items, plans } = durableFixture()
+    const item = { ...createPersistedShortBatch(items, plans).items[0], jobId: 'job-1' }
+    const before = JSON.stringify(item)
+    const job = { id: 'job-1', state: 'succeeded' as const, progress: 1, sizeBytes: 1000, outputPath: item.outputPath, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+    expect(acceptShortBatchJob(item, job).renderedPath).toBe(item.outputPath)
+    expect(() => acceptShortBatchJob(item, { ...job, id: 'another' })).toThrow(/another job/)
+    for (const outputPath of ['KINAOU/Renders/other.mp4', '/tmp/not-' + item.outputPath, '/tmp/../' + item.outputPath, 'relative/' + item.outputPath, undefined]) {
+      expect(() => acceptShortBatchJob(item, { ...job, outputPath })).toThrow()
+    }
+    expect(() => acceptShortBatchJob(item, { ...job, sizeBytes: undefined })).toThrow()
+    expect(() => acceptShortBatchJob(item, { ...job, progress: 0.5 })).toThrow()
+    expect(JSON.stringify(item)).toBe(before)
+  })
+
   it('allows only the first unsubmitted item while no worker job is active', () => {
     expect(nextShortBatchItem([item('a'), item('b')])?.id).toBe('a')
     expect(nextShortBatchItem([item('a', 'running', 'job-a'), item('b')])).toBeUndefined()

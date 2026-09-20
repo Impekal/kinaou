@@ -8,7 +8,7 @@ import { createRangeRenderPlan, validateRenderRange } from '../core/renderRange'
 import { defaultAudioDucking, validateAudioDucking } from '../core/audioDucking'
 import { defaultLoudnessNormalization } from '../core/audioLoudness'
 import { planShortExportBatch, planShortExportRanges, projectShortExportMaximum, setProjectShortExportMaximum, shortExportMaximumError, shortExportVariant, shortPreviewOutputPath } from '../core/shortExportRanges'
-import { archiveProjectShortBatch, cancelPendingShortBatchItems, clearProjectShortBatch, createPersistedShortBatch, failMissingShortBatchJob, forgetProjectShortBatchArchiveEntry, nextShortBatchItem, planSelectiveShortBatchRetry, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, requeueMissingShortBatchJob, retryableShortBatchItems, reviewArchivedShortBatchSelection, shortBatchArchiveLimit, shortBatchBusy, shortBatchTerminalStates, storeProjectShortBatch, type PersistedShortBatch, type PersistedShortBatchItem } from '../core/shortExportBatch'
+import { acceptShortBatchJob, archiveProjectShortBatch, cancelPendingShortBatchItems, clearProjectShortBatch, createPersistedShortBatch, failMissingShortBatchJob, forgetProjectShortBatchArchiveEntry, nextShortBatchItem, planSelectiveShortBatchRetry, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, requeueMissingShortBatchJob, retryableShortBatchItems, reviewArchivedShortBatchSelection, shortBatchArchiveLimit, shortBatchBusy, shortBatchTerminalStates, storeProjectShortBatch, type PersistedShortBatch, type PersistedShortBatchItem } from '../core/shortExportBatch'
 import { forgetProjectShortExportRecipe, projectShortExportRecipes, reviewShortExportRecipe, saveProjectShortExportRecipe, shortExportRecipeLimit } from '../core/shortExportRecipes'
 import { recordSuccessfulExport } from '../core/exportHistory'
 import { courseLessonChoices, planCourseLessonExport } from '../core/course'
@@ -271,16 +271,8 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       try {
         const next = await client.renderStatus(activeBatchItem.jobId!)
         if (disposed) return
-        setBatchItems((items) => items.map((item) => item.id === activeBatchItem.id ? {
-          ...item,
-          state: next.state,
-          progress: next.progress,
-          createdAt: next.createdAt,
-          updatedAt: next.updatedAt,
-          ...(next.outputPath ? { renderedPath: next.outputPath } : {}),
-          ...(next.sizeBytes !== undefined ? { sizeBytes: next.sizeBytes } : {}),
-          ...(next.error ? { error: next.error } : {})
-        } : item))
+        const accepted = acceptShortBatchJob(activeBatchItem, next)
+        setBatchItems((items) => items.map((item) => item.id === activeBatchItem.id ? accepted : item))
         if (terminalStates.has(next.state) && timer) clearInterval(timer)
       } catch (pollError) {
         if (disposed) return
@@ -321,18 +313,20 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     batchSubmitting.current = true
     const client = new WorkerClient({ baseUrl: workerUrl, token: workerToken })
     client.startRender(plan).then(async (next) => {
+      const accepted = acceptShortBatchJob(nextItem, next)
       if (batchCancelRequested.current) {
         try {
           const cancelled = await client.cancelRender(next.id)
-          setBatchItems((items) => items.map((item) => item.id === nextItem.id ? { ...item, jobId: next.id, state: cancelled.state, progress: cancelled.progress, createdAt: cancelled.createdAt, updatedAt: cancelled.updatedAt } : item))
+          const result = acceptShortBatchJob(accepted, cancelled)
+          setBatchItems((items) => items.map((item) => item.id === nextItem.id ? result : item))
         } catch (cancelError) {
           const message = cancelError instanceof Error ? cancelError.message : 'Could not cancel submitted Short export'
-          setBatchItems((items) => items.map((item) => item.id === nextItem.id ? { ...item, jobId: next.id, state: next.state, progress: next.progress, createdAt: next.createdAt, updatedAt: next.updatedAt, error: message } : item))
+          setBatchItems((items) => items.map((item) => item.id === nextItem.id ? { ...accepted, error: message } : item))
           setError(message)
         }
         return
       }
-      setBatchItems((items) => items.map((item) => item.id === nextItem.id ? { ...item, jobId: next.id, state: next.state, progress: next.progress, createdAt: next.createdAt, updatedAt: next.updatedAt } : item))
+      setBatchItems((items) => items.map((item) => item.id === nextItem.id ? accepted : item))
     }).catch((batchError) => {
       setBatchItems((items) => items.map((item) => item.id === nextItem.id ? { ...item, state: 'failed', error: batchError instanceof Error ? batchError.message : 'Could not start Short export' } : item))
     }).finally(() => { batchSubmitting.current = false })
@@ -401,6 +395,13 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       setArchivedBatchSelectionReview(null)
       setError(reviewError instanceof Error ? reviewError.message : 'Could not restore the archived Short selection for review')
     }
+  }
+
+  function applyShortMaximum(value: number) {
+    if (busy) return
+    setError('')
+    try { onProjectChange(setProjectShortExportMaximum(project, value)) }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save the Short maximum') }
   }
 
   function saveShortRecipe() {
@@ -552,7 +553,8 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     if (!activeBatchItem?.jobId) return
     try {
       const next = await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).cancelRender(activeBatchItem.jobId)
-      setBatchItems((items) => items.map((item) => item.id === activeBatchItem.id ? { ...item, state: next.state, progress: next.progress, createdAt: next.createdAt, updatedAt: next.updatedAt } : item))
+      const accepted = acceptShortBatchJob(activeBatchItem, next)
+      setBatchItems((items) => items.map((item) => item.id === activeBatchItem.id ? accepted : item))
     } catch (cancelError) {
       setError(cancelError instanceof Error ? cancelError.message : 'Could not cancel Short export batch')
     }
@@ -619,20 +621,21 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       {!rangeCheck.valid && <div className="warning">{t('export.invalidRange')}<details><summary>{t('common.details')}</summary>{rangeCheck.reason}</details></div>}
 
       {project.storyboard.length > 0 && <div className="renderJob">
-        <div className="renderJobHead"><strong>Scene short ranges</strong><span>up to {shortMaximumMs / 1000} s</span></div>
-        <p className="cardBody">Reviewable ranges built only from contiguous storyboard scenes that are already anchored on active visual tracks.</p>
-        <div className="formatChooser" role="group" aria-label="Maximum Short length">
-          {[15, 30, 60, 90].map((seconds) => <button key={seconds} className={shortMaximumMs === seconds * 1000 ? 'formatOption active' : 'formatOption'} disabled={busy} onClick={() => onProjectChange(setProjectShortExportMaximum(project, seconds * 1000))}>
-            <strong>{seconds} seconds</strong>
-            <small>Replan scene groups</small>
+        <div className="renderJobHead"><strong>{t('shortSelect.heading')}</strong><span>{t('shortSelect.limit', { seconds: (shortMaximumMs / 1000).toLocaleString(language) })}</span></div>
+        <p className="cardBody">{t('shortSelect.help')}</p>
+        <div className="formatChooser" role="group" aria-label={t('shortSelect.max')}>
+          {[15, 30, 60, 90].map((seconds) => <button key={seconds} className={shortMaximumMs === seconds * 1000 ? 'formatOption active' : 'formatOption'} disabled={busy} onClick={() => applyShortMaximum(seconds * 1000)}>
+            <strong>{t('shortSelect.seconds', { seconds })}</strong>
+            <small>{t('shortSelect.replan')}</small>
           </button>)}
         </div>
-        <div className="fieldGrid"><label>Custom maximum (seconds)<input type="number" min="1" max="600" step="0.001" value={shortMaximumSeconds} disabled={busy} onChange={(event) => setShortMaximumSeconds(event.target.value)} /></label></div>
-        <div className="renderActions"><button disabled={busy || Boolean(customShortMaximumError) || customShortMaximumMs === shortMaximumMs} onClick={() => onProjectChange(setProjectShortExportMaximum(project, customShortMaximumMs))}>Apply custom maximum</button></div>
-        {customShortMaximumError && <div className="warning">{customShortMaximumError}</div>}
-        <div className="renderJobHead"><strong>Batch output formats</strong><span>{batchFormats.length} selected</span></div>
-        <p className="cardBody">Choose one or more local adaptations. This does not change the project's main format or the selected Short preview.</p>
-        <div className="formatChooser" role="group" aria-label="Short batch output formats">
+        <div className="fieldGrid"><label>{t('shortSelect.custom')}<input type="number" min="1" max="600" step="0.001" value={shortMaximumSeconds} disabled={busy} onChange={(event) => setShortMaximumSeconds(event.target.value)} /></label></div>
+        <div className="renderActions"><button disabled={busy || Boolean(customShortMaximumError) || customShortMaximumMs === shortMaximumMs} onClick={() => applyShortMaximum(customShortMaximumMs)}>{t('shortSelect.apply')}</button></div>
+        {customShortMaximumError && <div className="warning">{t('shortSelect.invalid')}</div>}
+        <p className="cardBody">{t('shortSelect.limitHelp')}</p>
+        <div className="renderJobHead"><strong>{t('shortSelect.formats')}</strong><span>{t('shortSelect.selectedCount', { count: batchFormats.length })}</span></div>
+        <p className="cardBody">{t('shortSelect.formatHelp')}</p>
+        <div className="formatChooser" role="group" aria-label={t('shortSelect.formatGroup')}>
           {targetFormats.map((id) => <button key={id} className={batchFormats.includes(id) ? 'formatOption active' : 'formatOption'} aria-pressed={batchFormats.includes(id)} disabled={busy} onClick={() => setBatchFormats((current) => {
             const selected = new Set(current)
             if (selected.has(id)) selected.delete(id)
@@ -643,27 +646,27 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
             <small>{formatProfiles[id].aspect} · {formatProfiles[id].export.width}×{formatProfiles[id].export.height}</small>
           </button>)}
         </div>
-        {!batchFormats.length && <div className="warning">Select at least one output format for the Short batch.</div>}
-        {archivedBatchSelectionReview && <div className="warning">Restored an archived selection for review only. {batchSelectedIds.length} currently available candidate{batchSelectedIds.length === 1 ? '' : 's'} and {batchFormats.length} format{batchFormats.length === 1 ? '' : 's'} are selected below; review the current ranges before explicitly starting a new batch. New outputs receive fresh identities and no archived file is changed.{archivedBatchSelectionReview.unavailable.length > 0 && <> Unavailable now: {archivedBatchSelectionReview.unavailable.map((item) => item.title).join(', ')}.</>}</div>}
-        {shortRecipeReview && <div className="warning">Restored the named Short recipe for review only. {batchSelectedIds.length} currently available candidate{batchSelectedIds.length === 1 ? '' : 's'} and {batchFormats.length} format{batchFormats.length === 1 ? '' : 's'} are selected below; inspect the current ranges before explicitly starting a new batch.{shortRecipeReview.unavailableCandidateIds.length > 0 && <> {shortRecipeReview.unavailableCandidateIds.length} saved candidate{shortRecipeReview.unavailableCandidateIds.length === 1 ? ' is' : 's are'} no longer available.</>}</div>}
+        {!batchFormats.length && <div className="warning">{t('shortSelect.noFormats')}</div>}
+        {archivedBatchSelectionReview && <div className="warning">{t('shortSelect.archiveReview', { candidates: batchSelectedIds.length, formats: batchFormats.length })}{archivedBatchSelectionReview.unavailable.length > 0 && <> {t('shortSelect.unavailable', { names: archivedBatchSelectionReview.unavailable.map((item) => item.title).join(', ') })}</>}</div>}
+        {shortRecipeReview && <div className="warning">{t('shortSelect.recipeReview', { candidates: batchSelectedIds.length, formats: batchFormats.length, missing: shortRecipeReview.unavailableCandidateIds.length })}</div>}
         {shortExports.candidates.map((candidate) => <div className="renderMeta" key={candidate.id}>
-          <span><strong>{candidate.titles.join(' + ')}</strong> · {(candidate.durationMs / 1000).toFixed(1)} s · {(candidate.inMs / 1000).toFixed(1)}–{(candidate.outMs / 1000).toFixed(1)} s</span>
+          <span><strong>{candidate.titles.join(' + ')}</strong> · {(candidate.durationMs / 1000).toLocaleString(language)} s · {(candidate.inMs / 1000).toLocaleString(language)}–{(candidate.outMs / 1000).toLocaleString(language)} s</span>
           <div className="renderActions">
-            <label className="checkRow"><input type="checkbox" checked={batchSelectedIds.includes(candidate.id)} disabled={busy} onChange={(event) => setBatchSelectedIds((ids) => event.target.checked ? [...ids, candidate.id] : ids.filter((id) => id !== candidate.id))} />Include</label>
-            <button disabled={busy} onClick={() => { setInSeconds(String(candidate.inMs / 1000)); setOutSeconds(String(candidate.outMs / 1000)); setSelectedShortId(candidate.id); setLessonReview(null) }}>{selectedShort?.id === candidate.id ? 'Selected' : 'Use this range'}</button>
+            <label className="checkRow"><input type="checkbox" checked={batchSelectedIds.includes(candidate.id)} disabled={busy} onChange={(event) => setBatchSelectedIds((ids) => event.target.checked ? [...ids, candidate.id] : ids.filter((id) => id !== candidate.id))} />{t('shortSelect.include')}</label>
+            <button disabled={busy} onClick={() => { setInSeconds(String(candidate.inMs / 1000)); setOutSeconds(String(candidate.outMs / 1000)); setSelectedShortId(candidate.id); setLessonReview(null) }}>{t(selectedShort?.id === candidate.id ? 'shortSelect.selected' : 'shortSelect.use')}</button>
           </div>
         </div>)}
-        {!shortExports.candidates.length && <div className="warning">No exportable scene range yet. Assemble storyboard scenes on an active visual track first.</div>}
-        {shortExports.skipped.map((item) => <div className="warning" key={item.sceneId}><strong>{item.title}:</strong> {item.reason}</div>)}
+        {!shortExports.candidates.length && <div className="warning">{t('shortSelect.empty')}</div>}
+        {shortExports.skipped.map((item) => <div className="warning" key={item.sceneId}><strong>{item.title}:</strong> {t(`shortSelect.skip.${item.code}`, { seconds: ((item.limitMs ?? shortMaximumMs) / 1000).toLocaleString(language) })}</div>)}
         {shortExports.candidates.length > 0 && <div className="renderActions">
-          <button disabled={busy} onClick={() => setBatchSelectedIds(batchSelectedIds.length === shortExports.candidates.length ? [] : shortExports.candidates.map((candidate) => candidate.id))}>{batchSelectedIds.length === shortExports.candidates.length ? 'Clear selection' : 'Select all'}</button>
-          <button className="primary" disabled={!batchSelectedIds.length || !batchFormats.length || !readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting || batchReframingBlocked || Boolean(batchResumeError)} onClick={startShortBatch}>Export selected variants ({batchSelectedIds.length * batchFormats.length})</button>
+          <button disabled={busy} onClick={() => setBatchSelectedIds(batchSelectedIds.length === shortExports.candidates.length ? [] : shortExports.candidates.map((candidate) => candidate.id))}>{t(batchSelectedIds.length === shortExports.candidates.length ? 'shortSelect.clear' : 'shortSelect.all')}</button>
+          <button className="primary" disabled={!batchSelectedIds.length || !batchFormats.length || !readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting || batchReframingBlocked || Boolean(batchResumeError)} onClick={startShortBatch}>{t('shortSelect.export', { count: batchSelectedIds.length * batchFormats.length })}</button>
         </div>}
         <div className="renderJob">
-          <div className="renderJobHead"><strong>NAMED SHORT RECIPES</strong><span>{shortRecipes.length}/{shortExportRecipeLimit} saved</span></div>
-          <p className="cardBody">A recipe saves only your current candidate selection and output formats. It never saves render plans, output paths or media, and reopening it only prepares the visible controls for review.</p>
-          <div className="renderActions"><input aria-label="Short recipe name" value={shortRecipeName} maxLength={80} disabled={busy} placeholder="Recipe name" onChange={(event) => setShortRecipeName(event.target.value)} /><button disabled={busy || !shortRecipeName.trim() || !batchSelectedIds.length || !batchFormats.length} onClick={saveShortRecipe}>Save current selection</button></div>
-          {shortRecipes.map((recipe) => <div className="renderMeta" key={recipe.id}><span><strong>{recipe.name}</strong> · {recipe.candidateIds.length} candidate{recipe.candidateIds.length === 1 ? '' : 's'} · {recipe.formats.map((id) => formatProfiles[id].label).join(', ')}</span><div className="renderActions"><button className="secondaryButton" disabled={busy} onClick={() => reviewRecipe(recipe.id)}>Review recipe</button><button disabled={busy} onClick={() => { try { onProjectChange(forgetProjectShortExportRecipe(project, recipe.id)); if (shortRecipeReview?.recipeId === recipe.id) setShortRecipeReview(null) } catch (recipeError) { setError(recipeError instanceof Error ? recipeError.message : 'Could not forget the Short recipe') } }}>Forget recipe</button></div></div>)}
+          <div className="renderJobHead"><strong>{t('shortRecipe.heading')}</strong><span>{t('shortRecipe.count', { count: shortRecipes.length, limit: shortExportRecipeLimit })}</span></div>
+          <p className="cardBody">{t('shortRecipe.help')}</p>
+          <div className="renderActions"><input aria-label={t('shortRecipe.name')} value={shortRecipeName} maxLength={80} disabled={busy} placeholder={t('shortRecipe.name')} onChange={(event) => setShortRecipeName(event.target.value)} /><button disabled={busy || !shortRecipeName.trim() || !batchSelectedIds.length || !batchFormats.length} onClick={saveShortRecipe}>{t('shortRecipe.save')}</button></div>
+          {shortRecipes.map((recipe) => <div className="renderMeta" key={recipe.id}><span><strong>{recipe.name}</strong> · {t('shortRecipe.candidates', { count: recipe.candidateIds.length })} · {recipe.formats.map((id) => t(`export.${id}`)).join(', ')}</span><div className="renderActions"><button className="secondaryButton" disabled={busy} onClick={() => reviewRecipe(recipe.id)}>{t('shortRecipe.review')}</button><button disabled={busy} onClick={() => { try { onProjectChange(forgetProjectShortExportRecipe(project, recipe.id)); if (shortRecipeReview?.recipeId === recipe.id) setShortRecipeReview(null) } catch (recipeError) { setError(recipeError instanceof Error ? recipeError.message : 'Could not forget the Short recipe') } }}>{t('shortRecipe.forget')}</button></div></div>)}
         </div>
       </div>}
 

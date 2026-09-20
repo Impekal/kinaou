@@ -27,7 +27,7 @@ describe('short export range planning', () => {
       { id: 's1--s2', sceneIds: ['s1', 's2'], titles: ['Hook', 'Proof'], inMs: 0, outMs: 49_500, durationMs: 49_500 },
       { id: 's3', sceneIds: ['s3'], titles: ['CTA'], inMs: 70_000, outMs: 80_000, durationMs: 10_000 }
     ])
-    expect(result.skipped).toEqual([{ sceneId: 'missing', title: 'Missing', reason: 'Scene is not anchored to an active visual timeline clip.' }])
+    expect(result.skipped).toEqual([{ sceneId: 'missing', title: 'Missing', code: 'unanchored', reason: 'Scene is not anchored to an active visual timeline clip.' }])
   })
 
   it('reports a scene that exceeds the chosen duration instead of silently truncating it', () => {
