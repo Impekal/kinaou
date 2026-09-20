@@ -7,6 +7,7 @@ import { pipeline } from 'node:stream/promises'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import { managedUploadPaths } from './asset-upload.mjs'
+import { validateReferenceBindings, validateReferences, uploadComfyReferences } from './comfy-inputs.mjs'
 import { buildAssDocument, captionTempPaths, escapeSubtitleFilterPath } from './captions.mjs'
 import { buildProxyArgs, buildThumbnailArgs, buildWaveformArgs, previewMediaType, proxyRelativePath, thumbnailRelativePath, waveformRelativePath } from './proxies.mjs'
 import { generateAiEditorProposal, generateDirectorPlan, generateMediaAcquisitionPlan, listOllamaModels, normalizeOllamaUrl } from './ollama.mjs'
@@ -1152,7 +1153,7 @@ async function listComfyTemplates() {
       const absolutePath = resolveManaged(relativePath)
       if ((await stat(absolutePath)).size > MAX_WORKFLOW_FILE_BYTES) continue
       const template = validateComfyTemplate(JSON.parse(await readFile(absolutePath, 'utf8')))
-      templates.push({ path: relativePath, id: template.id, label: template.label, mediaType: templateMediaType(template), supportsNegativePrompt: Boolean(template.bindings.negativePrompt), supportsWidth: Boolean(template.bindings.width), supportsHeight: Boolean(template.bindings.height) })
+      templates.push({ path: relativePath, id: template.id, label: template.label, mediaType: templateMediaType(template), supportsNegativePrompt: Boolean(template.bindings.negativePrompt), supportsWidth: Boolean(template.bindings.width), supportsHeight: Boolean(template.bindings.height), referenceRoles: validateReferenceBindings(template) })
     } catch { /* an unreadable or invalid template file must not break discovery of the valid ones */ }
   }
   return templates
@@ -1166,11 +1167,13 @@ async function createGenerationJob(input, mediaType) {
   if (!templates.some((template) => template.path === templatePath && template.mediaType === mediaType)) throw capabilityError(`Requested ComfyUI ${mediaType} workflow template is not available`)
   const template = JSON.parse(await readFile(resolveManaged(templatePath), 'utf8'))
   const id = crypto.randomUUID()
+  const references = validateReferences(template, input.references)
   const request = buildComfyPromptRequest(template, { positivePrompt: input.positivePrompt, negativePrompt: input.negativePrompt, seed: input.seed, width: input.width, height: input.height }, id)
   const now = new Date().toISOString()
   const job = {
     id, mediaType, state: 'queued', progress: 0, createdAt: now, updatedAt: now, templatePath,
     request: request.body, promptId: null, tempPath: null, missingPolls: 0,
+    references, template, abortController: new AbortController(),
     provenance: { ...request.provenance, mediaType, positivePrompt: String(input.positivePrompt).trim(), negativePrompt: typeof input.negativePrompt === 'string' ? input.negativePrompt.trim() : '' }
   }
   generationJobs.set(job.id, job)
@@ -1197,6 +1200,10 @@ async function executeGenerationJob(id) {
   if (!job || job.state === 'cancelled') return
   job.state = 'running'; job.progress = 0.05; touchGenerationJob(job)
   try {
+    if (job.references.length) {
+      job.provenance.references = await uploadComfyReferences({ root: MANAGED_ROOT, baseUrl: COMFYUI_URL, jobId: job.id, references: job.references, template: job.template, workflow: job.request.prompt, signal: job.abortController.signal })
+    }
+    if (job.state === 'cancelled') return
     const submitted = await comfyJson('/prompt', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(job.request) })
     job.promptId = parseComfyPromptResponse(submitted)
     job.progress = 0.1; touchGenerationJob(job)
@@ -1279,6 +1286,7 @@ async function downloadComfyOutputTo(absolutePath, output, maxBytes) {
 function cancelGenerationJob(job) {
   if (['succeeded', 'failed', 'cancelled'].includes(job.state)) return
   job.state = 'cancelled'; touchGenerationJob(job)
+  job.abortController.abort()
   const promptId = job.promptId
   if (!promptId) return
   queueMicrotask(async () => {

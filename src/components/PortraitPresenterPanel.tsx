@@ -35,6 +35,7 @@ export function PortraitPresenterPanel({ project, history, onProjectChange, onOp
     <div className="sectionLead"><div><div className="eyebrow">LOCAL PRESENTER</div><h2>A portrait with your narration</h2><p>Combine an existing portrait with an existing voice recording. The portrait stays on screen for the full recording, without cutting the voice.</p></div><span className="badge">VOICED STILL · NO LIP SYNC</span></div>
     <div className="card availabilityPanel">
       <p>This is a still-image presenter, not animated speech. Generate an attributable fictional portrait in Images or import an image you may use in Assets. Generate narration in Audio or import your recording. Their original source metadata remains unchanged.</p>
+      <p>For an installed audio-driven video workflow, open Video and check its required references. Compatible templates can receive your portrait and your own speech recording. Animation and lip-sync quality still depend on that local model; this panel remains a voiced still.</p>
       {!portraits.length && <div className="warning">No online managed portrait yet. Generate an image in Images or import one in Assets.</div>}
       {!narrations.length && <div className="warning">No online managed recording yet. Generate a voice in Audio or import a recording in Assets.</div>}
       <label>Presenter name<input maxLength={80} value={name} onChange={(event) => setName(event.target.value)} /></label>

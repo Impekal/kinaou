@@ -7,6 +7,8 @@ import type { VideoJobRecord } from '../core/videoJobs'
 import type { KinaouProject } from '../core/project'
 import type { PersistentVersionHistory } from '../core/versioning'
 import { WorkerClient } from '../core/workerClient'
+import { buildGenerationReferences, type ReferenceRole } from '../core/generationReferences'
+import { VideoReferenceInputs } from './VideoReferenceInputs'
 
 interface Props { project: KinaouProject; history: PersistentVersionHistory; workerUrl: string; workerToken: string; workerConnected: boolean; workerCapabilities: string[]; onProjectChange: (project: KinaouProject) => void }
 const terminal = new Set(['succeeded', 'failed', 'cancelled'])
@@ -23,6 +25,8 @@ export function VideoStudioPanel({ project, history, workerUrl, workerToken, wor
   const [height, setHeight] = useState('576')
   const [job, setJob] = useState<VideoJobRecord | null>(null)
   const [error, setError] = useState('')
+  const [selectedReferences, setSelectedReferences] = useState<Partial<Record<ReferenceRole, string>>>({})
+  const [authorizedReferences, setAuthorizedReferences] = useState<Partial<Record<ReferenceRole, boolean>>>({})
   const registered = useRef(new Set<string>())
   const client = () => new WorkerClient({ baseUrl: workerUrl, token: workerToken })
 
@@ -50,6 +54,11 @@ export function VideoStudioPanel({ project, history, workerUrl, workerToken, wor
   }
 
   const template = availability?.templates.find((entry) => entry.path === templatePath) ?? null
+  const referenceRoles = template?.referenceRoles ?? []
+  useEffect(() => { setSelectedReferences({}); setAuthorizedReferences({}) }, [project.id, templatePath, workerUrl, workerToken])
+  let referencesError = ''
+  try { buildGenerationReferences(project, referenceRoles, selectedReferences, authorizedReferences) }
+  catch (cause) { referencesError = cause instanceof Error ? cause.message : 'Select and authorize references' }
   const seedValue = Number(seed)
   const seedValid = Number.isSafeInteger(seedValue) && seedValue >= 0
   const widthValue = Number(width)
@@ -62,6 +71,7 @@ export function VideoStudioPanel({ project, history, workerUrl, workerToken, wor
     try {
       setJob(await client().startVideoJob({
         templatePath: template.path,
+        ...(referenceRoles.length ? { references: buildGenerationReferences(project, referenceRoles, selectedReferences, authorizedReferences) } : {}),
         positivePrompt: positivePrompt.trim(),
         ...(template.supportsNegativePrompt && negativePrompt.trim() ? { negativePrompt: negativePrompt.trim() } : {}),
         seed: seedValue,
@@ -82,7 +92,7 @@ export function VideoStudioPanel({ project, history, workerUrl, workerToken, wor
 
   const capabilityReady = workerConnected && workerCapabilities.includes('video-generation')
   const running = Boolean(job && !terminal.has(job.state))
-  const canGenerate = workerConnected && Boolean(availability?.comfyui.available) && Boolean(template) && Boolean(positivePrompt.trim()) && seedValid && dimensionsValid && !running
+  const canGenerate = workerConnected && Boolean(availability?.comfyui.available) && Boolean(template) && Boolean(positivePrompt.trim()) && seedValid && dimensionsValid && !running && !referencesError
   const generated = project.assets.filter((asset) => asset.kind === 'video' && asset.metadata.adapterId === 'comfyui' && asset.metadata.generated === true)
 
   return <section className="stack">
@@ -91,6 +101,8 @@ export function VideoStudioPanel({ project, history, workerUrl, workerToken, wor
       <div className="directorActions"><button className="secondaryButton" disabled={!workerConnected || running} onClick={detect}>Check availability</button>{availability && <small>{availability.comfyui.available ? `ComfyUI reachable${availability.comfyui.version ? ` · ${availability.comfyui.version}` : ''}` : 'ComfyUI not reachable'} · {availability.templates.length} video template{availability.templates.length === 1 ? '' : 's'}</small>}</div>
       <label>Managed video workflow template<select value={templatePath} onChange={(event) => setTemplatePath(event.target.value)}><option value="">Check availability first</option>{availability?.templates.map((entry) => <option key={entry.path} value={entry.path}>{entry.label}</option>)}</select></label>
       <label>Prompt<textarea value={positivePrompt} onChange={(event) => setPositivePrompt(event.target.value)} placeholder="Describe the scene motion…" /></label>
+      <VideoReferenceInputs project={project} roles={referenceRoles} selected={selectedReferences} authorized={authorizedReferences} disabled={running} onSelect={(role, id) => { setSelectedReferences((previous) => ({ ...previous, [role]: id })); setAuthorizedReferences((previous) => ({ ...previous, [role]: false })) }} onAuthorize={(role, authorized) => setAuthorizedReferences((previous) => ({ ...previous, [role]: authorized }))} />
+      {referencesError && <small>{referencesError}</small>}
       {template?.supportsNegativePrompt && <label>Negative prompt (optional)<textarea value={negativePrompt} onChange={(event) => setNegativePrompt(event.target.value)} placeholder="What to avoid…" /></label>}
       <div className="formRow">
         <label>Seed<input value={seed} onChange={(event) => setSeed(event.target.value)} inputMode="numeric" /></label>

@@ -1,3 +1,5 @@
+import { parseReferenceProvenance, parseReferenceRoles, type GenerationReferences, type ReferenceProvenance, type ReferenceRole } from './generationReferences'
+
 export type ImageJobState = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled'
 
 export interface ImageGenerationProvenance {
@@ -10,6 +12,7 @@ export interface ImageGenerationProvenance {
   height: number | null
   positivePrompt: string
   negativePrompt: string
+  references?: ReferenceProvenance[]
 }
 
 export interface ImageJobRecord {
@@ -33,6 +36,7 @@ export interface ComfyTemplateDescriptor {
   supportsNegativePrompt: boolean
   supportsWidth: boolean
   supportsHeight: boolean
+  referenceRoles?: ReferenceRole[]
 }
 
 export interface ImageGenerationAvailability {
@@ -47,6 +51,7 @@ export interface ImageJobParameters {
   seed: number
   width?: number
   height?: number
+  references?: GenerationReferences
 }
 
 const TEMPLATE_PREFIX = 'KINAOU/Models/ComfyUI/Workflows/'
@@ -60,6 +65,7 @@ export function parseImageGenerationProvenance(value: unknown): ImageGenerationP
   if (!Number.isSafeInteger(provenance.seed) || (provenance.seed as number) < 0) throw new Error('Invalid image generation provenance seed')
   for (const dimension of [provenance.width, provenance.height]) if (dimension !== null && !Number.isInteger(dimension)) throw new Error('Invalid image generation provenance dimensions')
   if (typeof provenance.positivePrompt !== 'string' || !provenance.positivePrompt.trim() || typeof provenance.negativePrompt !== 'string') throw new Error('Invalid image generation provenance prompts')
+  if (provenance.references !== undefined) parseReferenceProvenance(provenance.references)
   return provenance as ImageGenerationProvenance
 }
 
@@ -86,6 +92,8 @@ export function parseImageGenerationAvailability(value: unknown): ImageGeneratio
     if (typeof template.id !== 'string' || !template.id || typeof template.label !== 'string' || !template.label) throw new Error('Invalid ComfyUI template identity')
     if (!['image', 'video'].includes(String(template.mediaType))) throw new Error('Invalid ComfyUI template media type')
     if (![template.supportsNegativePrompt, template.supportsWidth, template.supportsHeight].every((flag) => typeof flag === 'boolean')) throw new Error('Invalid ComfyUI template capability flags')
+    const referenceRoles = parseReferenceRoles(template.referenceRoles)
+    if (referenceRoles.length && template.mediaType !== 'video') throw new Error('References require a video template')
     return template as ComfyTemplateDescriptor
   })
   return { comfyui: { available: comfyui.available, ...(comfyui.version ? { version: comfyui.version } : {}) }, templates }
