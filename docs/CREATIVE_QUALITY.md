@@ -26,6 +26,8 @@ User clarification: 2026-09-20. These are acceptance targets, not a claim that t
 
 ## Complete course production
 
+Implemented foundation (#185): one project can persist a revisioned course/module/lesson outline with explicit timeline ranges and export each selected lesson through the actual worker. Receipts preserve submitted course identities. Lesson resources/exercises/solutions, verified demonstrations and instructor review remain future slices; see COURSE-PRODUCTION.md. This is not a complete course generator.
+
 Course workflow target: audience/prerequisites → learning outcomes → modules → lectures → verified examples/demonstrations → scripts and narration → visuals/screen recordings → captions → practice and reviewed solutions → per-lecture media/resource exports → instructor review.
 
 - Retain course/module/lecture relationships and individual project/source/export references; one lecture must be replaceable without rebuilding the entire course.
@@ -34,7 +36,13 @@ Course workflow target: audience/prerequisites → learning outcomes → modules
 - Initial content languages: German, English and French. Translation needs a fresh terminology/pronunciation review, not just a changed language tag.
 - No automatic publishing, account creation or instructor impersonation. Course packaging is local; publication is separately authorized.
 
-## Manual editing usability
+## Application languages and main-video/Short planning
+
+User clarification 2026-09-20: **the application interface itself** must be usable in German, English and French, independently of course/video content language. Translate navigation, controls, validation, progress, help and empty states; preserve project text, identifiers and source metadata. A language selector or content-language field alone does not meet this acceptance criterion. Current UI is still predominantly English.
+
+For YouTube, support a main video plus related Shorts as one production plan. Existing scene-range suggestions, previews and multi-format Short exports are a technical foundation, not a completed editorial/publishing adviser. Propose which excerpts work as self-contained Shorts and when to publish the main video and related Shorts. Timing must identify audience region/timezone and distinguish actual channel/audience observations from generic test hypotheses. Without attributable analytics, never call a suggested slot a measured best time, invent demand/view counts or promise reach. A local schedule/recommendation is not automatic platform publishing; remote scheduling needs a separately implemented, explicitly authorized connection.
+
+## Manual editing usability (current state)
 
 The user asked about conventional software such as MAGIX. KINAOU already applies real multi-track move/trim, gain, fades, dissolve, transform and speed operations, but these are still largely button-driven; its composed preview is rendered before playback. Do not equate a working compositor with a finished interactive editor. The usability roadmap includes direct clip dragging, trim handles, playhead splitting, precise timing/snapping, clear selection/undo behavior and a responsive preview. Keyframes and richer effect workflows remain later work, not implemented features or a promise to copy another product's entire catalogue.
 
