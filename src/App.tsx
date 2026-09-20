@@ -198,7 +198,7 @@ export function App() {
 
         {section === 'Studio' && <section className="stack">
           {!project ? <div className="card emptyState">{t('shell.openProject')}</div> : <>
-            <div className="sectionLead"><div><div className="eyebrow">NON-DESTRUCTIVE TIMELINE</div><h2>Studio</h2></div><span className="status">AUTO-SAVED</span></div>
+            <div className="sectionLead"><div><div className="eyebrow">{t('timeline.heading')}</div><h2>Studio</h2></div><span className="status">{t('timeline.status')}</span></div>
             <StudioProxyPreview project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} />
             <TimelinePreview project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} />
             <VersionHistoryPanel key={project.id} project={project} history={versionHistory} onProjectChange={persistProject} />
@@ -206,10 +206,10 @@ export function App() {
             <StoryboardAssemblyPanel project={project} history={versionHistory} onProjectChange={persistProject} />
             <ScriptCaptionsPanel key={`script-captions-${project.id}`} project={project} history={versionHistory} onProjectChange={persistProject} />
             <SceneVoiceoverPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
-            <TimelineEditor project={project} onProjectChange={persistProject} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} />
+            <TimelineEditor key={`timeline-${project.id}`} project={project} history={versionHistory} onProjectChange={persistProject} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} />
             <CaptionEditor key={`captions-${project.id}`} project={project} history={versionHistory} onProjectChange={persistProject} />
             <RenderPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
-            <div className="card note"><strong>Current render boundary:</strong> multi-track visuals/audio, captions, dissolves, fades, transforms and speed retiming are real. Keyframes and interactive proxy preview remain upcoming.</div>
+            <div className="card note">{t('timeline.boundary')}</div>
           </>}
         </section>}
 
