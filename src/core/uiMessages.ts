@@ -15,6 +15,7 @@ import { uiShortSelectionMessages } from './uiShortSelectionMessages'
 import { uiShortPreviewMessages } from './uiShortPreviewMessages'
 import { uiShortArchiveMessages } from './uiShortArchiveMessages'
 import { uiShortBatchMessages } from './uiShortBatchMessages'
+import { uiPresenterMessages } from './uiPresenterMessages'
 
 // Ordered de/en/fr tuples make missing language entries a compile-time error.
 export const uiMessages = {
@@ -34,6 +35,7 @@ export const uiMessages = {
   ...uiShortPreviewMessages,
   ...uiShortArchiveMessages,
   ...uiShortBatchMessages,
+  ...uiPresenterMessages,
   'nav.Projects': ['Projekte', 'Projects', 'Projets'],
   'nav.Create': ['Erstellen', 'Create', 'Créer'],
   'nav.Director': ['Regie', 'Director', 'Réalisation'],
