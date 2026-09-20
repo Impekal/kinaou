@@ -10,6 +10,20 @@ const workerScript = fileURLToPath(new URL('./mac-worker.mjs', import.meta.url))
 const TOKEN = 'render-ducking-test-token'
 const PORT = 43926
 
+function trackChild(child) {
+  // Subscribe immediately: cleanup must also work when an early exit already emitted close.
+  const closed = new Promise((resolve) => child.once('close', resolve))
+  return { closed, async stop() { child.kill('SIGKILL'); await closed } }
+}
+
+test('ducking cleanup handles a child that already closed', { timeout: 5000 }, async () => {
+  const child = spawn(process.execPath, ['-e', 'process.exit(0)'], { stdio: 'ignore' })
+  const lifetime = trackChild(child)
+  await lifetime.closed
+  await lifetime.stop()
+  assert.equal(child.exitCode, 0)
+})
+
 function run(command, args) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { shell: false }); const stdout = []; let stderr = ''
@@ -33,8 +47,7 @@ test('music is measurably quieter during a voice interval', { timeout: 300_000 }
   await run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000:duration=6', path.join(managedRoot, 'Assets', 'music.wav')])
   await run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=mono', '-t', '2', path.join(managedRoot, 'Assets', 'voice.wav')])
   const child = spawn(process.execPath, [workerScript], { env: { PATH: process.env.PATH, KINAOU_MANAGED_ROOT: managedRoot, KINAOU_WORKER_TOKEN: TOKEN, KINAOU_WORKER_PORT: String(PORT) }, stdio: ['ignore', 'pipe', 'pipe'] })
-  // Subscribe immediately: an early worker exit must not leave cleanup awaiting an already-emitted event.
-  const closed = new Promise((resolve) => child.once('close', resolve))
+  const lifetime = trackChild(child)
   let output = ''; child.stdout.on('data', (data) => { output += data }); child.stderr.on('data', (data) => { output += data })
   try {
     const deadline = Date.now() + 15_000
@@ -53,5 +66,5 @@ test('music is measurably quieter during a voice interval', { timeout: 300_000 }
     const file = path.join(managedRoot, 'Renders', 'ducking.mp4'); const outside = await volumeDb(file, 0.5, 0.8); const during = await volumeDb(file, 2.5, 0.8)
     t.diagnostic(`measured music mean volume: outside ${outside} dB, during voice ${during} dB`)
     assert.ok(during < outside - 9, `12 dB ducking should be measurable (outside ${outside} dB, during ${during} dB)`)
-  } finally { child.kill('SIGKILL'); await closed; await rm(root, { recursive: true, force: true }) }
+  } finally { await lifetime.stop(); await rm(root, { recursive: true, force: true }) }
 })
