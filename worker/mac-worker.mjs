@@ -12,7 +12,7 @@ import { buildProxyArgs, buildThumbnailArgs, buildWaveformArgs, previewMediaType
 import { generateAiEditorProposal, generateDirectorPlan, generateMediaAcquisitionPlan, listOllamaModels, normalizeOllamaUrl } from './ollama.mjs'
 import { MAX_GENERATED_IMAGE_BYTES, MAX_GENERATED_VIDEO_BYTES, MAX_WORKFLOW_FILE_BYTES, buildComfyPromptRequest, comfyHistoryStatus, comfyOutputQuery, comfyQueuePhase, comfyTempImageRelativePath, comfyTempVideoRelativePath, comfyWorkflowRelativePaths, detectComfyUi, generatedMediaExtensionFor, generatedImageRelativePath, generatedVideoRelativePath, normalizeComfyUrl, parseComfyPromptResponse, pickComfyOutputForMediaType, templateMediaType, validateComfyTemplate } from './comfyui.mjs'
 import { buildSttCommands, normalizeWhisperTranscript, sttPaths, whisperModelRelativePaths } from './whisper.mjs'
-import { buildPiperCommand, piperVoiceRelativePaths, ttsPaths, validateTtsText } from './piper.mjs'
+import { buildPiperCommand, piperVoiceDetails, piperVoiceRelativePaths, ttsPaths, validateTtsText } from './piper.mjs'
 import { DEFAULT_OSASCRIPT_PATH, DEFAULT_SCREENCAPTURE_PATH, buildAppActivateCommand, buildAppWindowBoundsCommand, buildCaptureCommand, buildCaptureProvenance, captureAssetRelativePath, captureTempRelativePath, parseAppWindowBounds, validateCaptureRequest } from './capture.mjs'
 import os from 'node:os'
 import { buildWebCaptureCommand, buildWebCaptureProvenance, validateWebCaptureRequest, webCaptureBrowserCandidates, webCaptureProfileDirectory, webCapturePaths } from './webcapture.mjs'
@@ -165,7 +165,10 @@ const server = http.createServer(async (request, response) => {
       return send(response, 200, { ok: true, type: 'stt-job', job: publicSttJob(job) })
     }
 
-    if (request.method === 'GET' && request.url === '/tts/voices') return send(response, 200, { ok: true, type: 'tts-voices', voices: await listPiperVoices() })
+    if (request.method === 'GET' && request.url === '/tts/voices') {
+      const voices = await listPiperVoices()
+      return send(response, 200, { ok: true, type: 'tts-voices', voices, details: await piperVoiceDetails(voices, resolveManaged) })
+    }
     if (request.method === 'POST' && request.url === '/tts/jobs') {
       const job = await createTtsJob(await readJson(request))
       queueMicrotask(() => executeTtsJob(job.id).catch(() => {}))

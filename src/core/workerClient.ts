@@ -199,6 +199,17 @@ export class WorkerClient {
     return parseSttJob(payload.job)
   }
 
+  async listTtsVoiceDetails(): Promise<Array<{ path: string; locale: string | null }>> {
+    const payload = await this.request('/tts/voices', { method: 'GET' })
+    if (payload?.ok !== true || payload?.type !== 'tts-voices' || !Array.isArray(payload.voices)) throw new Error('Invalid TTS voice response')
+    return payload.voices.map((path: unknown) => {
+      if (typeof path !== 'string' || assertSafeManagedPath(path) !== path || !/^KINAOU\/Models\/[\w.-]+\.onnx$/.test(path)) throw new Error('Invalid TTS voice path')
+      const detail = Array.isArray(payload.details) ? payload.details.find((item: any) => item?.path === path) : undefined
+      const locale = typeof detail?.locale === 'string' && /^[a-z]{2,3}(?:-[A-Za-z]{2,4})?$/.test(detail.locale) ? detail.locale : null
+      return { path, locale }
+    })
+  }
+
   async listTtsVoices(): Promise<string[]> {
     const payload = await this.request('/tts/voices', { method: 'GET' })
     if (payload?.ok !== true || payload?.type !== 'tts-voices' || !Array.isArray(payload.voices) || !payload.voices.every((item: unknown) => typeof item === 'string' && item.startsWith('KINAOU/Models/'))) throw new Error('Invalid TTS voice response')

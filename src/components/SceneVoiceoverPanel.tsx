@@ -1,4 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { projectContentProfile } from '../core/contentProfile'
+import type { VoiceDetails } from '../core/voiceLanguage'
+import { PiperVoiceSelect } from './PiperVoiceSelect'
 import { assemblyTargetTracks } from '../core/storyboardAssembly'
 import { placeSceneNarration, planSceneVoiceovers, voiceoverTargetTracks, type NarratedScene, type SkippedVoiceoverScene } from '../core/sceneVoiceover'
 import { fitScenesToNarration, planNarrationFit, type NarrationOverrun } from '../core/narrationFit'
@@ -23,13 +26,14 @@ export function SceneVoiceoverPanel({ project, history, workerUrl, workerToken, 
   const voiceTracks = useMemo(() => voiceoverTargetTracks(project), [project])
   const [visualId, setVisualId] = useState('')
   const [voiceId, setVoiceId] = useState('')
-  const [voices, setVoices] = useState<string[]>([])
+  const [voices, setVoices] = useState<VoiceDetails[]>([])
   const [voice, setVoice] = useState('')
   const [busy, setBusy] = useState('')
   const [narrated, setNarrated] = useState<NarratedScene[] | null>(null)
   const [skipped, setSkipped] = useState<SkippedVoiceoverScene[]>([])
   const [error, setError] = useState('')
   const [fitted, setFitted] = useState('')
+  const voiceDiscovery = useRef(0)
 
   const effectiveVisual = visualTracks.some((track) => track.id === visualId) ? visualId : visualTracks[0]?.id ?? ''
   const effectiveVoice = voiceTracks.some((track) => track.id === voiceId) ? voiceId : voiceTracks[0]?.id ?? ''
@@ -48,6 +52,13 @@ export function SceneVoiceoverPanel({ project, history, workerUrl, workerToken, 
   const available = workerConnected && workerCapabilities.includes('text-to-speech')
   const client = () => new WorkerClient({ baseUrl: workerUrl, token: workerToken })
 
+  useEffect(() => {
+    voiceDiscovery.current++
+    setVoices([])
+    setVoice('')
+    return () => { voiceDiscovery.current++ }
+  }, [workerUrl, workerToken, workerConnected])
+
   const blockedReason = !project.storyboard.length
     ? 'This project has no storyboard scenes yet. Create a Director plan first.'
     : !available
@@ -59,18 +70,21 @@ export function SceneVoiceoverPanel({ project, history, workerUrl, workerToken, 
           : !effectiveVisual
             ? 'No visual track to read scene timings from.'
             : !voice
-              ? 'Detect a Piper voice first.'
+              ? 'Detect voices, then choose one for the narration.'
               : ''
 
   async function detect() {
+    const request = ++voiceDiscovery.current
     setError('')
+    setVoices([])
+    setVoice('')
     try {
-      const found = await client().listTtsVoices()
+      const found = await client().listTtsVoiceDetails()
+      if (request !== voiceDiscovery.current) return
       setVoices(found)
-      setVoice(found[0] ?? '')
       if (!found.length) setError('No managed Piper voice (an .onnx file with its .json) was found under KINAOU/Models.')
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Voice discovery failed')
+      if (request === voiceDiscovery.current) setError(cause instanceof Error ? cause.message : 'Voice discovery failed')
     }
   }
 
@@ -146,7 +160,7 @@ export function SceneVoiceoverPanel({ project, history, workerUrl, workerToken, 
       </div>
       <div className="directorActions">
         <button className="secondaryButton" disabled={!available || Boolean(busy)} onClick={detect}>Detect voices</button>
-        <label>Voice<select aria-label="Piper voice" value={voice} onChange={(event) => setVoice(event.target.value)}><option value="">Detect a voice first</option>{voices.map((path) => <option key={path} value={path}>{path.split('/').pop()}</option>)}</select></label>
+        <PiperVoiceSelect voices={voices} value={voice} language={projectContentProfile(project).outputLanguage} disabled={!available || Boolean(busy)} onChange={setVoice} />
         <label>Scene timings from<select aria-label="Track to read scene timings from" value={effectiveVisual} onChange={(event) => setVisualId(event.target.value)}>{visualTracks.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}</select></label>
         <label>Narration track<select aria-label="Track for the narration" value={effectiveVoice} onChange={(event) => setVoiceId(event.target.value)}>{voiceTracks.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}</select></label>
         <button className="primary" disabled={Boolean(blockedReason) || Boolean(busy)} onClick={narrate}>{busy || 'Narrate the scenes'}</button>

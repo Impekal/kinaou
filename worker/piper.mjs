@@ -1,4 +1,35 @@
 import path from 'node:path'
+import { constants } from 'node:fs'
+import { open } from 'node:fs/promises'
+
+// Read through a no-follow handle and cap actual bytes, including files that grow.
+export async function piperVoiceDetails(voices, resolveManaged) {
+  const details = []
+  for (const voicePath of voices.slice(0, 200)) {
+    let locale = null
+    let handle
+    try {
+      handle = await open(resolveManaged(`${voicePath}.json`), constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK)
+      const info = await handle.stat()
+      if (info.isFile() && info.size <= 65536) {
+        const buffer = Buffer.alloc(65537)
+        let size = 0
+        while (size < buffer.length) {
+          const { bytesRead } = await handle.read(buffer, size, buffer.length - size, null)
+          if (!bytesRead) break
+          size += bytesRead
+        }
+        if (size <= 65536) {
+          const code = JSON.parse(buffer.subarray(0, size).toString('utf8'))?.language?.code
+          if (typeof code === 'string' && /^[a-z]{2,3}(?:[_-][A-Za-z]{2,4})?$/.test(code)) locale = code.replace('_', '-')
+        }
+      }
+    } catch { /* Missing, malformed or unsafe configuration has unknown language. */ }
+    finally { await handle?.close() }
+    details.push({ path: voicePath, locale })
+  }
+  return details
+}
 
 export function piperVoiceRelativePaths(entries) {
   if (!Array.isArray(entries)) return []
