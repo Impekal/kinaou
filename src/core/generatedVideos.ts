@@ -32,6 +32,7 @@ export function registerGeneratedVideo(project: KinaouProject, job: VideoJobReco
       seed: provenance.seed,
       positivePrompt: provenance.positivePrompt,
       negativePrompt: provenance.negativePrompt,
+      ...(provenance.references ? { references: structuredClone(provenance.references) } : {}),
       generatedAt: job.updatedAt
     }
   }] }))

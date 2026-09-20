@@ -1,3 +1,5 @@
+import { validateReferenceBindings } from './comfy-inputs.mjs'
+
 const MAX_PROMPT_LENGTH = 20_000
 const MAX_WORKFLOW_BYTES = 1_000_000
 const BINDING_KEYS = ['positivePrompt', 'negativePrompt', 'seed', 'width', 'height']
@@ -65,6 +67,7 @@ export function validateComfyTemplate(value) {
     const node = value.workflow[binding.nodeId]
     if (!node || !Object.hasOwn(node.inputs, binding.input)) throw new Error(`ComfyUI ${key} binding does not reference an existing input`)
   }
+  validateReferenceBindings(value)
   return value
 }
 
