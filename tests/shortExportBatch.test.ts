@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { archiveProjectShortBatch, cancelPendingShortBatchItems, clearProjectShortBatch, createPersistedShortBatch, failMissingShortBatchJob, forgetProjectShortBatchArchiveEntry, nextShortBatchItem, planSelectiveShortBatchRetry, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, requeueMissingShortBatchJob, retryableShortBatchItems, shortBatchArchiveLimit, shortBatchBusy, shortBatchPlanSignature, storeProjectShortBatch, type ShortBatchRenderItem } from '../src/core/shortExportBatch'
+import { archiveProjectShortBatch, cancelPendingShortBatchItems, clearProjectShortBatch, createPersistedShortBatch, failMissingShortBatchJob, forgetProjectShortBatchArchiveEntry, nextShortBatchItem, planSelectiveShortBatchRetry, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, requeueMissingShortBatchJob, retryableShortBatchItems, reviewArchivedShortBatchSelection, shortBatchArchiveLimit, shortBatchBusy, shortBatchPlanSignature, storeProjectShortBatch, type ShortBatchRenderItem } from '../src/core/shortExportBatch'
 import { assetSchema, clipSchema, createProject, parseProject, trackSchema } from '../src/core/project'
 import { createRenderPlan, formatProfiles, type RenderPlan } from '../src/core/render'
 import { createRangeRenderPlan } from '../src/core/renderRange'
@@ -159,6 +159,19 @@ describe('Short export batch scheduling', () => {
     const forgotten = forgetProjectShortBatchArchiveEntry(reloaded, terminal.id, new Date('2026-09-14T08:06:00.000Z'))
     expect(projectShortBatchArchive(forgotten)).toEqual([])
     expect(forgotten.metadata.shortExportBatchArchive).toBeUndefined()
+  })
+
+  it('restores only current reviewed candidates from a complete archived selection without starting a batch', () => {
+    const { project, items, plans } = durableFixture()
+    const original = createPersistedShortBatch(items, plans, new Date('2026-09-14T08:02:00.000Z'), 'abababab-0000-4000-8000-000000000001')
+    const terminal = replacePersistedShortBatchItems(original, original.items.map((entry, index) => index === 0
+      ? { ...entry, state: 'succeeded' as const, progress: 1, jobId: 'job-success', createdAt: '2026-09-14T08:03:00.000Z', updatedAt: '2026-09-14T08:04:00.000Z', renderedPath: entry.outputPath, sizeBytes: 2048 }
+      : { ...entry, state: 'cancelled' as const }), new Date('2026-09-14T08:04:00.000Z'))
+    const archived = projectShortBatchArchive(archiveProjectShortBatch(project, terminal, new Date('2026-09-14T08:05:00.000Z')))[0]
+    const candidates = planShortExportRanges(project).candidates
+    expect(reviewArchivedShortBatchSelection(archived, candidates)).toEqual({ candidateIds: [candidates[0].id], formats: ['vertical', 'square'], unavailable: [] })
+    expect(reviewArchivedShortBatchSelection(archived, [])).toEqual({ candidateIds: [], formats: ['vertical', 'square'], unavailable: [{ candidateId: candidates[0].id, title: 'Hook' }] })
+    expect(() => reviewArchivedShortBatchSelection({ ...archived, items: [...archived.items, { ...archived.items[0], id: 'other:vertical', candidateId: 'other', title: 'Other', outputPath: 'KINAOU/Renders/other.mp4' }] }, candidates)).toThrow(/complete candidate/)
   })
 
   it('rejects unfinished archives and retains only ten unique newest terminal runs', () => {
