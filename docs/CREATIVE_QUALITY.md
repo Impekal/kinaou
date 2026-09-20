@@ -38,6 +38,14 @@ Course workflow target: audience/prerequisites → learning outcomes → modules
 
 ## Manual editing usability
 
+## Application languages and main-video/Short planning
+
+User clarification 2026-09-20: **the application interface itself** must be usable in German, English and French, independently of course/video content language. Translate navigation, controls, validation, progress, help and empty states; preserve project text, identifiers and source metadata. A language selector or content-language field alone does not meet this acceptance criterion. Current UI is still predominantly English.
+
+For YouTube, support a main video plus related Shorts as one production plan. Existing scene-range suggestions, previews and multi-format Short exports are a technical foundation, not a completed editorial/publishing adviser. Propose which excerpts work as self-contained Shorts and when to publish the main video and related Shorts. Timing must identify audience region/timezone and distinguish actual channel/audience observations from generic test hypotheses. Without attributable analytics, never call a suggested slot a measured best time, invent demand/view counts or promise reach. A local schedule/recommendation is not automatic platform publishing; remote scheduling needs a separately implemented, explicitly authorized connection.
+
+## Manual editing usability (current state)
+
 The user asked about conventional software such as MAGIX. KINAOU already applies real multi-track move/trim, gain, fades, dissolve, transform and speed operations, but these are still largely button-driven; its composed preview is rendered before playback. Do not equate a working compositor with a finished interactive editor. The usability roadmap includes direct clip dragging, trim handles, playhead splitting, precise timing/snapping, clear selection/undo behavior and a responsive preview. Keyframes and richer effect workflows remain later work, not implemented features or a promise to copy another product's entire catalogue.
 
 ### Udemy boundary (official sources checked 2026-09-20)
