@@ -26,6 +26,8 @@ export interface SkippedVoiceoverScene {
   sceneId: string
   title: string
   reason: string
+  code: 'existing' | 'silent' | 'empty' | 'visual' | 'unplaced' | 'failed' | 'cancelled'
+  values?: { track: string }
 }
 
 export function voiceoverTargetTracks(project: KinaouProject): TimelineTrack[] {
@@ -64,21 +66,21 @@ export function planSceneVoiceovers(project: KinaouProject, visualTrackId: strin
 
   for (const scene of project.storyboard) {
     if (alreadyNarrated.has(scene.id)) {
-      skipped.push({ sceneId: scene.id, title: scene.title, reason: 'This scene already has narration' })
+      skipped.push({ sceneId: scene.id, title: scene.title, code: 'existing', reason: 'This scene already has narration' })
       continue
     }
     const { text, source } = sceneSpeech(scene)
     if (!text) {
-      skipped.push({ sceneId: scene.id, title: scene.title, reason: source === 'storyboard-narration' ? 'Scene is intentionally silent (empty narration)' : 'Scene has no description to read out' })
+      skipped.push({ sceneId: scene.id, title: scene.title, code: source === 'storyboard-narration' ? 'silent' : 'empty', reason: source === 'storyboard-narration' ? 'Scene is intentionally silent (empty narration)' : 'Scene has no description to read out' })
       continue
     }
     if (!scene.assetId) {
-      skipped.push({ sceneId: scene.id, title: scene.title, reason: 'Scene has no visual on the timeline yet' })
+      skipped.push({ sceneId: scene.id, title: scene.title, code: 'visual', reason: 'Scene has no visual on the timeline yet' })
       continue
     }
     const clip = clipForScene(visualTrack, scene.id, scene.assetId)
     if (!clip) {
-      skipped.push({ sceneId: scene.id, title: scene.title, reason: `Its visual is not on "${visualTrack.name}" — assemble the timeline first` })
+      skipped.push({ sceneId: scene.id, title: scene.title, code: 'unplaced', values: { track: visualTrack.name }, reason: `Its visual is not on "${visualTrack.name}" — assemble the timeline first` })
       continue
     }
     pending.push({ sceneId: scene.id, title: scene.title, text, startMs: clip.startMs, sceneDurationMs: clip.durationMs, ...(source === 'storyboard-narration' ? { textSource: source } : {}) })
