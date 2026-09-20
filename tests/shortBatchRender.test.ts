@@ -10,7 +10,7 @@ import { WorkerClient } from '../src/core/workerClient'
 import { ShortBatchJobMonitor } from '../src/core/shortBatchJobMonitor'
 import { persistShortBatchReceipts } from '../src/core/shortBatchReceipts'
 import { forgetExportReceipt, projectExportHistory } from '../src/core/exportHistory'
-import { acceptShortBatchJob, archiveProjectShortBatch, createPersistedShortBatch, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, storeProjectShortBatch } from '../src/core/shortExportBatch'
+import { acceptShortBatchJob, archiveProjectShortBatch, createPersistedShortBatch, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, requestPersistedShortBatchCancellation, storeProjectShortBatch } from '../src/core/shortExportBatch'
 
 const exec = promisify(execFile)
 it('persists a real worker absolute-path result as a portable terminal Short receipt across reload and archive', async context => {
@@ -75,6 +75,35 @@ it('persists a real worker absolute-path result as a portable terminal Short rec
     withReceipts = parseProject(JSON.parse(JSON.stringify(forgetExportReceipt(withReceipts, job.id))))
     persistShortBatchReceipts(withReceipts, terminal.id, terminal.items, () => { throw new Error('A forgotten acknowledged receipt must not be reinserted') })
     expect(projectExportHistory(withReceipts)).toEqual([])
+    expect(await readFile(path.join(root, outputPath))).toEqual(bytes)
+
+    // Reload an older accepted state with durable cancellation after the worker won
+    // the race. Reconnection must ask that exact job, not submit a replacement or
+    // turn a real success into an invented cancelled result.
+    const staleAccepted = acceptShortBatchJob(batch.items[0], { id: job.id, state: 'running', progress: 0.1, createdAt: job.createdAt, updatedAt: job.updatedAt })
+    const cancelled = requestPersistedShortBatchCancellation({ ...batch, items: [staleAccepted] })
+    const cancelReload = parseProject(JSON.parse(JSON.stringify(storeProjectShortBatch(project, cancelled))))
+    const savedCancel = projectPersistedShortBatch(cancelReload)!
+    expect(savedCancel.cancelRequested).toBe(true)
+    expect(rebuildPersistedShortBatchPlans(cancelReload, savedCancel).size).toBe(0)
+    const cancelIds: string[] = []
+    let recovered = savedCancel.items[0]
+    const cancelMonitor = new ShortBatchJobMonitor(recovered, {
+      client: {
+        renderStatus: id => client.renderStatus(id),
+        cancelRender: id => { cancelIds.push(id); return client.cancelRender(id) },
+        exportAvailability: paths => client.exportAvailability(paths)
+      },
+      publish: value => { recovered = value },
+      error: detail => { throw new Error(detail) },
+      notice: () => { throw new Error('Known job must not require recovery') },
+      onCancelling: () => {}
+    })
+    await cancelMonitor.cancel()
+    cancelMonitor.detach()
+    expect(cancelIds).toEqual([job.id])
+    expect(recovered.state).toBe('succeeded')
+    expect(recovered.renderedPath).toBe(outputPath)
     expect(await readFile(path.join(root, outputPath))).toEqual(bytes)
   } finally {
     child.kill('SIGKILL')

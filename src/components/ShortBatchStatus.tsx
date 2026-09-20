@@ -17,7 +17,7 @@ export interface ShortBatchStatusProps {
   items: PersistedShortBatchItem[]; notice: ShortBatchNotice | null; resumeError: string
   retryableIds: Set<string>; retrySelectedIds: string[]; setRetrySelectedIds: Dispatch<SetStateAction<string[]>>
   retryDisabled: boolean; busy: boolean; retryReframingBlocked: boolean
-  canCancel: boolean; canDiscard: boolean; archiveOnDiscard: boolean; cancelling?: boolean
+  canCancel: boolean; canDiscard: boolean; archiveOnDiscard: boolean; cancelling?: boolean; cancelRequested?: boolean
   onRetry: () => void; onCancel: () => void; onDiscard: () => void
 }
 export function ShortBatchStatus(props: ShortBatchStatusProps) {
@@ -28,6 +28,7 @@ export function ShortBatchStatus(props: ShortBatchStatusProps) {
   return <div className="renderJob">
     <div className="renderJobHead"><strong>{t('shortBatch.heading')}</strong><span>{t('shortBatch.finished', { done: props.items.filter(item => shortBatchTerminalStates.has(item.state)).length, count: props.items.length })}</span></div>
     <p className="cardBody">{t('shortBatch.help')}</p>
+    {props.cancelRequested && <p className="note" role="status">{t('shortBatch.cancelSaved')}</p>}
     {props.notice && <div className="note" role="status">{t(`shortBatch.${props.notice.kind}`, props.notice.kind === 'restored' ? { date: new Date(props.notice.date).toLocaleString(language) } : props.notice.kind === 'retrySaved' ? { count: props.notice.count } : {})}</div>}
     {error}
     {props.items.map(item => <div className="renderJob" key={item.id}>
