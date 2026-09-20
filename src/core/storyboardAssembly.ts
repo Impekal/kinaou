@@ -1,5 +1,6 @@
 import type { KinaouProject, TimelineTrack } from './project'
 import { applyTimelineOperation } from './timeline'
+import type { SceneVisualReason } from './storyboardEditing'
 
 const visualTrackTypes = new Set<TimelineTrack['type']>(['video', 'broll', 'image', 'avatar', 'overlay'])
 
@@ -23,10 +24,9 @@ export interface AssemblyOptions {
 
 export const CROSSFADE_MS = 500
 
-export interface SkippedScene {
+export interface SkippedScene extends SceneVisualReason {
   sceneId: string
   title: string
-  reason: string
 }
 
 export interface AssemblyResult {
@@ -68,11 +68,11 @@ export function assembleTimelineFromStoryboard(project: KinaouProject, trackId: 
 
   for (const scene of project.storyboard) {
     if (!scene.assetId) {
-      skipped.push({ sceneId: scene.id, title: scene.title, reason: 'Scene has no visual yet' })
+      skipped.push({ sceneId: scene.id, title: scene.title, code: 'empty', reason: 'Scene has no visual yet' })
       continue
     }
     if (placedScenes.has(scene.id)) {
-      skipped.push({ sceneId: scene.id, title: scene.title, reason: `Its visual is already on "${track.name}"` })
+      skipped.push({ sceneId: scene.id, title: scene.title, code: 'already', values: { track: track.name }, reason: `Its visual is already on "${track.name}"` })
       continue
     }
     const legacyClipId = adoptable.get(scene.assetId)
@@ -80,24 +80,24 @@ export function assembleTimelineFromStoryboard(project: KinaouProject, trackId: 
       next = applyTimelineOperation(next, { type: 'set-clip-scene', trackId, clipId: legacyClipId, sceneId: scene.id })
       adoptable.delete(scene.assetId)
       placedScenes.add(scene.id)
-      skipped.push({ sceneId: scene.id, title: scene.title, reason: `Its visual is already on "${track.name}"` })
+      skipped.push({ sceneId: scene.id, title: scene.title, code: 'already', values: { track: track.name }, reason: `Its visual is already on "${track.name}"` })
       continue
     }
     const asset = project.assets.find((entry) => entry.id === scene.assetId)
     if (!asset) {
-      skipped.push({ sceneId: scene.id, title: scene.title, reason: 'The assigned visual is missing from this project' })
+      skipped.push({ sceneId: scene.id, title: scene.title, code: 'missing', reason: 'The assigned visual is missing from this project' })
       continue
     }
     if (asset.offline) {
-      skipped.push({ sceneId: scene.id, title: scene.title, reason: 'Its visual is offline — reconnect the media first' })
+      skipped.push({ sceneId: scene.id, title: scene.title, code: 'offline', reason: 'Its visual is offline — reconnect the media first' })
       continue
     }
     if (!asset.managed || !asset.uri.startsWith('KINAOU/Assets/')) {
-      skipped.push({ sceneId: scene.id, title: scene.title, reason: 'Only managed KINAOU media can be placed on the timeline' })
+      skipped.push({ sceneId: scene.id, title: scene.title, code: 'unmanaged', reason: 'Only managed KINAOU media can be placed on the timeline' })
       continue
     }
     if (asset.kind !== 'image' && asset.kind !== 'video') {
-      skipped.push({ sceneId: scene.id, title: scene.title, reason: `A ${asset.kind} asset cannot fill a visual scene` })
+      skipped.push({ sceneId: scene.id, title: scene.title, code: 'kind', reason: `A ${asset.kind} asset cannot fill a visual scene` })
       continue
     }
 
@@ -108,7 +108,7 @@ export function assembleTimelineFromStoryboard(project: KinaouProject, trackId: 
       ? scene.durationMs
       : Math.min(scene.durationMs, sourceDuration)
     if (durationMs <= 0) {
-      skipped.push({ sceneId: scene.id, title: scene.title, reason: 'No usable duration for this scene' })
+      skipped.push({ sceneId: scene.id, title: scene.title, code: 'duration', reason: 'No usable duration for this scene' })
       continue
     }
 
@@ -116,7 +116,9 @@ export function assembleTimelineFromStoryboard(project: KinaouProject, trackId: 
     // so the two are on screen together for the overlap — a real cross-dissolve
     // rather than a fade through the black canvas.
     const follows = placed.length > 0 || hadClips
-    const crossfadeMs = options.crossfade && follows ? Math.min(CROSSFADE_MS, durationMs) : 0
+    const overlap = options.crossfade && follows ? Math.min(CROSSFADE_MS, durationMs, cursorMs) : 0
+    // The project format requires at least 100ms for a dissolve; shorter scenes cut.
+    const crossfadeMs = overlap >= 100 ? overlap : 0
     const startMs = Math.max(0, cursorMs - crossfadeMs)
     // Stills alternate direction so a long run does not feel mechanical.
     const motion: AssembledScene['motion'] = options.motion && asset.kind === 'image'

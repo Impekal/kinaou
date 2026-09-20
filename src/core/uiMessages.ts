@@ -6,6 +6,7 @@ import { uiCaptionMessages } from './uiCaptionMessages'
 import { uiScriptCaptionMessages } from './uiScriptCaptionMessages'
 import { uiTimelineMessages } from './uiTimelineMessages'
 import { uiPreviewMessages } from './uiPreviewMessages'
+import { uiStoryboardMessages } from './uiStoryboardMessages'
 
 // Ordered de/en/fr tuples make missing language entries a compile-time error.
 export const uiMessages = {
@@ -16,6 +17,7 @@ export const uiMessages = {
   ...uiScriptCaptionMessages,
   ...uiTimelineMessages,
   ...uiPreviewMessages,
+  ...uiStoryboardMessages,
   'nav.Projects': ['Projekte', 'Projects', 'Projets'],
   'nav.Create': ['Erstellen', 'Create', 'Créer'],
   'nav.Director': ['Regie', 'Director', 'Réalisation'],

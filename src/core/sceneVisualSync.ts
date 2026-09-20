@@ -1,5 +1,6 @@
 import type { KinaouAsset, KinaouProject, TimelineClip, TimelineTrack } from './project'
 import { applyTimelineOperation } from './timeline'
+import type { SceneVisualReason } from './storyboardEditing'
 
 /** A scene whose clip on the timeline still shows the visual it was given before. */
 export interface OutdatedSceneVisual {
@@ -17,10 +18,9 @@ export interface OutdatedSceneVisual {
   trimmedToSource: boolean
 }
 
-export interface SkippedSceneVisual {
+export interface SkippedSceneVisual extends SceneVisualReason {
   sceneId: string
   title: string
-  reason: string
 }
 
 export interface SceneVisualSyncResult {
@@ -29,11 +29,11 @@ export interface SceneVisualSyncResult {
   skipped: SkippedSceneVisual[]
 }
 
-function usableVisual(asset: KinaouAsset | undefined): string | undefined {
-  if (!asset) return 'The assigned visual is missing from this project'
-  if (asset.offline) return 'Its visual is offline — reconnect the media first'
-  if (!asset.managed || !asset.uri.startsWith('KINAOU/Assets/')) return 'Only managed KINAOU media can be placed on the timeline'
-  if (asset.kind !== 'image' && asset.kind !== 'video') return `A ${asset.kind} asset cannot fill a visual scene`
+function usableVisual(asset: KinaouAsset | undefined): SceneVisualReason | undefined {
+  if (!asset) return { code: 'missing', reason: 'The assigned visual is missing from this project' }
+  if (asset.offline) return { code: 'offline', reason: 'Its visual is offline — reconnect the media first' }
+  if (!asset.managed || !asset.uri.startsWith('KINAOU/Assets/')) return { code: 'unmanaged', reason: 'Only managed KINAOU media can be placed on the timeline' }
+  if (asset.kind !== 'image' && asset.kind !== 'video') return { code: 'kind', reason: `A ${asset.kind} asset cannot fill a visual scene` }
   return undefined
 }
 
@@ -69,19 +69,19 @@ export function planSceneVisualSync(project: KinaouProject, trackId: string): { 
     const clip = track.clips.find((entry) => entry.sceneId === scene.id)
     if (!clip) continue
     if (!scene.assetId) {
-      skipped.push({ sceneId: scene.id, title: scene.title, reason: 'The scene was cleared — remove its clip yourself if you no longer want it' })
+      skipped.push({ sceneId: scene.id, title: scene.title, code: 'cleared', reason: 'The scene was cleared — remove its clip yourself if you no longer want it' })
       continue
     }
     if (clip.assetId === scene.assetId) continue
     const asset = project.assets.find((entry) => entry.id === scene.assetId)
     const reason = usableVisual(asset)
     if (reason || !asset) {
-      skipped.push({ sceneId: scene.id, title: scene.title, reason: reason ?? 'The assigned visual is missing from this project' })
+      skipped.push({ sceneId: scene.id, title: scene.title, ...(reason ?? { code: 'missing', reason: 'The assigned visual is missing from this project' }) })
       continue
     }
     const durationMs = fittedDuration(asset, clip)
     if (durationMs <= 0) {
-      skipped.push({ sceneId: scene.id, title: scene.title, reason: 'No usable duration for this scene' })
+      skipped.push({ sceneId: scene.id, title: scene.title, code: 'duration', reason: 'No usable duration for this scene' })
       continue
     }
     outdated.push({
@@ -100,9 +100,9 @@ export function planSceneVisualSync(project: KinaouProject, trackId: string): { 
 }
 
 /**
- * Swaps each outdated clip's media in place. The scene keeps where it sits and how long
- * it runs, so narration, captions and cross-dissolves around it stay valid; only what is
- * on screen changes. Settings the new media cannot carry are dropped rather than left to
+ * Swaps each outdated clip's media in place. It keeps its start but may shorten to fit
+ * the replacement's footage; surrounding narration/captions are not moved automatically.
+ * Settings the new media cannot carry are dropped rather than left to
  * fail at render time: motion belongs to stills, retiming does not.
  */
 export function syncSceneVisuals(project: KinaouProject, trackId: string): SceneVisualSyncResult {

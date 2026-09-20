@@ -87,7 +87,7 @@ describe('planning the scene visual sync', () => {
       assets: base.assets.map((asset) => asset.id === 'replacement' ? { ...asset, offline: true } : asset)
     }
     expect(planSceneVisualSync(offline, 'video-1').skipped).toEqual([
-      { sceneId: 's1', title: 'Opening', reason: 'Its visual is offline — reconnect the media first' }
+      { sceneId: 's1', title: 'Opening', code: 'offline', reason: 'Its visual is offline — reconnect the media first' }
     ])
 
     const cleared: KinaouProject = { ...base, storyboard: base.storyboard.map((scene) => scene.id === 's1' ? { id: scene.id, title: scene.title, description: scene.description, durationMs: scene.durationMs } : scene) }
