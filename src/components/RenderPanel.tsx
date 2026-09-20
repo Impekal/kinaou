@@ -7,7 +7,7 @@ import { createRangeRenderPlan, validateRenderRange } from '../core/renderRange'
 import { defaultAudioDucking, validateAudioDucking } from '../core/audioDucking'
 import { defaultLoudnessNormalization } from '../core/audioLoudness'
 import { planShortExportBatch, planShortExportRanges, projectShortExportMaximum, setProjectShortExportMaximum, shortExportMaximumError, shortExportVariant } from '../core/shortExportRanges'
-import { acceptShortBatchJob, archiveProjectShortBatch, cancelPendingShortBatchItems, clearProjectShortBatch, createPersistedShortBatch, failMissingShortBatchJob, nextShortBatchItem, planSelectiveShortBatchRetry, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, requeueMissingShortBatchJob, retryableShortBatchItems, reviewArchivedShortBatchSelection, shortBatchBusy, shortBatchTerminalStates, storeProjectShortBatch, type PersistedShortBatch, type PersistedShortBatchItem } from '../core/shortExportBatch'
+import { acceptShortBatchJob, archiveProjectShortBatch, cancelPendingShortBatchItems, clearProjectShortBatch, createPersistedShortBatch, failMissingShortBatchJob, nextShortBatchItem, planSelectiveShortBatchRetry, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, requeueMissingShortBatchJob, retryableShortBatchItems, reviewArchivedShortBatchSelection, shortBatchBusy, storeProjectShortBatch, type PersistedShortBatch, type PersistedShortBatchItem } from '../core/shortExportBatch'
 import { forgetProjectShortExportRecipe, projectShortExportRecipes, reviewShortExportRecipe, saveProjectShortExportRecipe, shortExportRecipeLimit } from '../core/shortExportRecipes'
 import { recordSuccessfulExport } from '../core/exportHistory'
 import { courseLessonChoices, planCourseLessonExport } from '../core/course'
@@ -20,6 +20,8 @@ import { FormatFramingPanel } from './FormatFramingPanel'
 import { ExportHistoryPanel } from './ExportHistoryPanel'
 import { ShortPreviewPanel } from './ShortPreviewPanel'
 import { ShortBatchArchivePanel } from './ShortBatchArchivePanel'
+import { ShortBatchStatus } from './ShortBatchStatus'
+import { commitShortBatchChange, type ShortBatchNotice } from '../core/shortBatchCommit'
 
 interface RenderPanelProps {
   project: KinaouProject
@@ -89,7 +91,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const batchSubmitting = useRef(false)
   const batchCancelRequested = useRef(false)
   const [batchResumeError, setBatchResumeError] = useState('')
-  const [batchPersistenceMessage, setBatchPersistenceMessage] = useState('')
+  const [batchPersistenceMessage, setBatchPersistenceMessage] = useState<ShortBatchNotice | null>(null)
   const [retrySelectedIds, setRetrySelectedIds] = useState<string[]>([])
   const batchArchive = projectShortBatchArchive(project)
   const [archivedBatchSelectionReview, setArchivedBatchSelectionReview] = useState<ArchivedBatchSelectionReview | null>(null)
@@ -130,7 +132,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     if (!stored) {
       persistedBatch.current = null
       setBatchItems([])
-      setBatchPersistenceMessage('')
+      setBatchPersistenceMessage(null)
       if (Object.prototype.hasOwnProperty.call(project.metadata, 'shortExportBatch')) setBatchResumeError('The saved Short batch is malformed and was ignored. Discard it before preparing a new batch.')
       return
     }
@@ -141,7 +143,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     setDuckingAttackMs(String(stored.audioDucking.attackMs))
     setDuckingReleaseMs(String(stored.audioDucking.releaseMs))
     setNormalizeLoudness(stored.loudnessNormalization.enabled)
-    setBatchPersistenceMessage(`Restored the Short batch saved ${new Date(stored.updatedAt).toLocaleString()}. Finished outputs stay finished; only unfinished work can continue.`)
+    setBatchPersistenceMessage({ kind: 'restored', date: stored.updatedAt })
     try {
       batchPlans.current = rebuildPersistedShortBatchPlans(project, stored)
     } catch (resumeError) {
@@ -156,9 +158,9 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     if (stored?.id === current.id && JSON.stringify(stored.items) === JSON.stringify(batchItems)) return
     try {
       const updated = replacePersistedShortBatchItems(current, batchItems)
-      persistedBatch.current = updated
       const nextProject = storeProjectShortBatch(project, updated)
       if (nextProject !== project) onProjectChange(nextProject)
+      persistedBatch.current = updated
     } catch (persistenceError) {
       setBatchResumeError(persistenceError instanceof Error ? persistenceError.message : 'Could not save the Short batch with this project.')
     }
@@ -210,10 +212,10 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
             const [output] = await client.exportAvailability([activeBatchItem.outputPath])
             if (output.available) {
               setBatchItems((items) => failMissingShortBatchJob(items, activeBatchItem.id, 'The worker lost this job but an output file already exists. KINAOU did not overwrite or trust it; prepare a new batch if this variant must be rendered again.'))
-              setBatchPersistenceMessage('An interrupted output already existed and was left untouched. The remaining queued outputs can continue.')
+              setBatchPersistenceMessage({ kind: 'existingKept' })
             } else {
               setBatchItems((items) => requeueMissingShortBatchJob(items, activeBatchItem.id))
-              setBatchPersistenceMessage('The worker no longer had the interrupted job and no output file existed. Its unfinished output was safely returned to the queue.')
+              setBatchPersistenceMessage({ kind: 'requeued' })
             }
           } catch (availabilityError) {
             setError(availabilityError instanceof Error ? availabilityError.message : 'Could not safely check the interrupted Short output.')
@@ -384,15 +386,16 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       const durable = createPersistedShortBatch(planned.map((item) => ({ ...item, state: 'queued', progress: 0 })), plans, now)
       const archivedProject = previousBatch && batchItems.length ? archiveProjectShortBatch(project, { ...previousBatch, items: batchItems }, now) : project
       const nextProject = storeProjectShortBatch(archivedProject, durable, now)
-      batchPlans.current = plans
-      batchCancelRequested.current = false
-      persistedBatch.current = durable
-      setBatchItems(durable.items)
-      setRetrySelectedIds([])
-      setArchivedBatchSelectionReview(null)
-      setBatchResumeError('')
-      setBatchPersistenceMessage('This reviewed batch is saved with the project. Reloading keeps completed results and continues only unfinished outputs.')
-      onProjectChange(nextProject)
+      commitShortBatchChange(nextProject, onProjectChange, () => {
+        batchPlans.current = plans
+        batchCancelRequested.current = false
+        persistedBatch.current = durable
+        setBatchItems(durable.items)
+        setRetrySelectedIds([])
+        setArchivedBatchSelectionReview(null)
+        setBatchResumeError('')
+        setBatchPersistenceMessage({ kind: 'saved' })
+      })
     } catch (batchError) {
       setError(batchError instanceof Error ? batchError.message : 'Could not prepare Short exports')
     }
@@ -407,14 +410,15 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         audioDucking: duckingSettings,
         loudnessNormalization: { ...defaultLoudnessNormalization, enabled: normalizeLoudness }
       }, new Date())
-      batchPlans.current = result.plans
-      batchCancelRequested.current = false
-      persistedBatch.current = result.batch
-      setBatchItems(result.batch.items)
-      setRetrySelectedIds([])
-      setBatchResumeError('')
-      setBatchPersistenceMessage(`${result.plans.size} selected Short ${result.plans.size === 1 ? 'variant has' : 'variants have'} a fresh retry output. Earlier attempts and completed files stay untouched.`)
-      onProjectChange(storeProjectShortBatch(project, result.batch))
+      commitShortBatchChange(storeProjectShortBatch(project, result.batch), onProjectChange, () => {
+        batchPlans.current = result.plans
+        batchCancelRequested.current = false
+        persistedBatch.current = result.batch
+        setBatchItems(result.batch.items)
+        setRetrySelectedIds([])
+        setBatchResumeError('')
+        setBatchPersistenceMessage({ kind: 'retrySaved', count: result.plans.size })
+      })
     } catch (batchError) {
       setError(batchError instanceof Error ? batchError.message : 'Could not retry the selected Short variants')
     }
@@ -436,17 +440,21 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
 
   function discardShortBatch() {
     if (activeBatchItem) return
-    const current = persistedBatch.current
-    const now = new Date()
-    const archivedProject = current && batchItems.length && !shortBatchBusy(batchItems) ? archiveProjectShortBatch(project, { ...current, items: batchItems }, now) : project
-    batchPlans.current = new Map()
-    persistedBatch.current = null
-    batchCancelRequested.current = false
-    setBatchItems([])
-    setRetrySelectedIds([])
-    setBatchResumeError('')
-    setBatchPersistenceMessage('')
-    onProjectChange(clearProjectShortBatch(archivedProject, now))
+    setError('')
+    try {
+      const current = persistedBatch.current
+      const now = new Date()
+      const archivedProject = current && batchItems.length && !shortBatchBusy(batchItems) ? archiveProjectShortBatch(project, { ...current, items: batchItems }, now) : project
+      commitShortBatchChange(clearProjectShortBatch(archivedProject, now), onProjectChange, () => {
+        batchPlans.current = new Map()
+        persistedBatch.current = null
+        batchCancelRequested.current = false
+        setBatchItems([])
+        setRetrySelectedIds([])
+        setBatchResumeError('')
+        setBatchPersistenceMessage(null)
+      })
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save the Short batch change') }
   }
 
   return (
@@ -561,32 +569,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
 
       {single && <SingleExportStatus feedback={single} onRetry={() => { void singleSession.current?.run() }} onCancel={() => { void singleSession.current?.cancel() }} onDetach={detachSingle} />}
 
-      {batchItems.length > 0 && <div className="renderJob">
-        <div className="renderJobHead"><strong>SHORT EXPORT BATCH · SAVED WITH PROJECT</strong><span>{batchItems.filter((item) => shortBatchTerminalStates.has(item.state)).length}/{batchItems.length} finished</span></div>
-        <p className="cardBody">Exports run one at a time so local FFmpeg work stays bounded. Reloading keeps terminal receipts and resumes only unfinished entries whose exact timeline and render configuration still match. Once every attempt is terminal, starting another batch or clearing this one first archives a compact project-local summary.</p>
-        {batchPersistenceMessage && <div className="note">{batchPersistenceMessage}</div>}
-        {batchResumeError && <div className="errorBox">{batchResumeError}</div>}
-        {batchItems.map((item) => <div className="renderJob" key={item.id}>
-          <div className="renderJobHead"><strong>{item.title}</strong><span>{formatProfiles[item.format].label} · attempt {item.attempt ?? 1} · {item.state.toUpperCase()} · {Math.round(item.progress * 100)}%</span></div>
-          <div className="progressTrack" aria-label={`${item.title} render progress ${Math.round(item.progress * 100)}%`}><div className="progressFill" style={{ width: `${Math.round(item.progress * 100)}%` }} /></div>
-          <div className="renderMeta">
-            <code>{item.renderedPath ?? item.outputPath}</code>
-            {item.sizeBytes !== undefined && <span>{(item.sizeBytes / 1024 / 1024).toFixed(1)} MB</span>}
-            {retryableBatchIds.has(item.id) && <label className="checkRow"><input type="checkbox" checked={retrySelectedIds.includes(item.id)} onChange={(event) => setRetrySelectedIds((ids) => event.target.checked ? [...ids, item.id] : ids.filter((id) => id !== item.id))} />Retry this variant</label>}
-          </div>
-          {item.error && <div className="errorBox">{item.error}</div>}
-        </div>)}
-        {retryableBatchItems.length > 0 && <>
-          <p className="cardBody">Retry only the failed or cancelled variants you choose. KINAOU revalidates the current scene ranges and export settings, then creates new output names; successful files and earlier attempts are never overwritten.</p>
-          <div className="renderActions">
-            <button disabled={busy} onClick={() => setRetrySelectedIds(retrySelectedIds.length === retryableBatchItems.length ? [] : retryableBatchItems.map((item) => item.id))}>{retrySelectedIds.length === retryableBatchItems.length ? 'Clear retry selection' : 'Select all retryable'}</button>
-            <button className="primary" disabled={!retrySelectedIds.length || !readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting || retryReframingBlocked || Boolean(batchResumeError)} onClick={startSelectedShortBatchRetries}>Retry selected variants ({retrySelectedIds.length})</button>
-          </div>
-          {retryReframingBlocked && <div className="warning">Restart the local worker before retrying the selected off-centre crop variants.</div>}
-        </>}
-        <div className="renderActions">{batchBusy && !batchResumeError && <button className="dangerButton" onClick={cancelShortBatch}>Cancel batch</button>}{!activeBatchItem && (!batchBusy || Boolean(batchResumeError)) && <button className="secondaryButton" onClick={discardShortBatch}>{!batchBusy && persistedBatch.current ? 'Archive and clear current batch' : 'Discard saved batch'}</button>}</div>
-      </div>}
-      {!batchItems.length && batchResumeError && <div className="renderJob"><div className="errorBox">{batchResumeError}</div><div className="renderActions"><button className="secondaryButton" onClick={discardShortBatch}>Discard malformed saved batch</button></div></div>}
+      <ShortBatchStatus items={batchItems} notice={batchPersistenceMessage} resumeError={batchResumeError} retryableIds={retryableBatchIds} retrySelectedIds={retrySelectedIds} setRetrySelectedIds={setRetrySelectedIds} busy={busy} retryDisabled={!retrySelectedIds.length || !readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting || retryReframingBlocked || Boolean(batchResumeError)} retryReframingBlocked={retryReframingBlocked} canCancel={batchBusy && !batchResumeError} canDiscard={!activeBatchItem && (!batchBusy || Boolean(batchResumeError))} archiveOnDiscard={!batchBusy && Boolean(persistedBatch.current)} onRetry={startSelectedShortBatchRetries} onCancel={() => { void cancelShortBatch() }} onDiscard={discardShortBatch} />
 
       <ShortBatchArchivePanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={workerConnected} busy={busy} onProjectChange={onProjectChange} onReview={reviewArchivedBatchSelection} />
 
