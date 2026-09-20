@@ -22,6 +22,16 @@ brew install ffmpeg
 ffmpeg -version && ffprobe -version
 ```
 
+Also check the build's filters before testing burned-in captions:
+
+```bash
+ffmpeg -hide_banner -filters
+```
+
+The list must contain `subtitles` (libass support). A successful version check or the worker's general `ffmpeg` capability does not guarantee this filter. On 2026-09-20, the local Homebrew 9.0.1 binary at `/opt/homebrew/opt/ffmpeg/bin/ffmpeg` lacked it; `ffmpeg@9` resolved to the same binary. The full local native run therefore passed 81 tests but failed the caption subtest and its parent. The independent Linux CI with its supported FFmpeg build passed all 83 native tests.
+
+Before local caption acceptance, explicitly install/select a libass-enabled FFmpeg build and start the worker with that binary on its PATH; then rerun the caption smoke test. Do not silently replace the existing global binary or claim local captions passed. No installation was performed during that audit. This hardware/runtime action does not block independent repository work or require the SSD.
+
 Plug in the external SSD and create the dedicated KINAOU directory (KINAOU never touches anything else on the SSD):
 
 ```bash
