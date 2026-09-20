@@ -10,9 +10,12 @@ import { defaultLoudnessNormalization } from '../core/audioLoudness'
 import { planShortExportBatch, planShortExportRanges, projectShortExportMaximum, setProjectShortExportMaximum, shortExportMaximumError, shortExportVariant, shortPreviewOutputPath } from '../core/shortExportRanges'
 import { archiveProjectShortBatch, cancelPendingShortBatchItems, clearProjectShortBatch, createPersistedShortBatch, failMissingShortBatchJob, forgetProjectShortBatchArchiveEntry, nextShortBatchItem, planSelectiveShortBatchRetry, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, requeueMissingShortBatchJob, retryableShortBatchItems, reviewArchivedShortBatchSelection, shortBatchArchiveLimit, shortBatchBusy, shortBatchTerminalStates, storeProjectShortBatch, type PersistedShortBatch, type PersistedShortBatchItem } from '../core/shortExportBatch'
 import { forgetProjectShortExportRecipe, projectShortExportRecipes, reviewShortExportRecipe, saveProjectShortExportRecipe, shortExportRecipeLimit } from '../core/shortExportRecipes'
-import { forgetExportReceipt, projectExportHistory, recordSuccessfulExport, type SuccessfulExportReceiptInput } from '../core/exportHistory'
+import { forgetExportReceipt, projectExportHistory, recordSuccessfulExport } from '../core/exportHistory'
 import { courseLessonChoices, planCourseLessonExport } from '../core/course'
 import { CourseLessonSelector } from './CourseLessonSelector'
+import { SingleExportSession, type ExportFeedback } from '../core/singleExportSession'
+import { useUiLanguage } from './UiLanguageProvider'
+import { SingleExportStatus } from './SingleExportStatus'
 
 interface RenderPanelProps {
   project: KinaouProject
@@ -25,7 +28,6 @@ interface RenderPanelProps {
 
 const terminalStates = new Set(['succeeded', 'failed', 'cancelled'])
 const targetFormats = Object.keys(formatProfiles) as TargetFormat[]
-type SubmittedExportReceipt = Omit<SuccessfulExportReceiptInput, 'completedAt' | 'sizeBytes'>
 interface ExportFileCheck { byPath: Record<string, boolean>; available: number; missing: number; checkedAt: string }
 interface ArchivedBatchFileCheck extends ExportFileCheck { batchId: string }
 interface ArchivedBatchSelectionReview { batchId: string; unavailable: Array<{ candidateId: string; title: string }> }
@@ -35,11 +37,20 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const readiness = useMemo(() => renderReadiness(project), [project])
   const format = projectTargetFormat(project)
   const profile = formatProfiles[format]
-  const [job, setJob] = useState<RenderJobRecord | null>(null)
-  const [outputPath, setOutputPath] = useState('')
+  const { language, t } = useUiLanguage()
+  const [single, setSingle] = useState<ExportFeedback | null>(null)
+  const singleSession = useRef<SingleExportSession | null>(null)
+  const latest = useRef({ project, onProjectChange, workerUrl, workerToken, workerConnected })
+  latest.current = { project, onProjectChange, workerUrl, workerToken, workerConnected }
+  const job = single?.job ?? null
+  const submitting = single?.phase === 'starting'
+  useEffect(() => {
+    singleSession.current?.detach()
+    singleSession.current = null
+    setSingle(null)
+    return () => { singleSession.current?.detach() }
+  }, [project.id, workerUrl, workerToken, workerConnected])
   const [error, setError] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [submittedExport, setSubmittedExport] = useState<SubmittedExportReceipt | null>(null)
   const recordedExportJobs = useRef(new Set<string>())
   const exportHistory = projectExportHistory(project)
   const exportPathSignature = exportHistory.map((receipt) => receipt.outputRelativePath).join('\u0000')
@@ -106,7 +117,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const shortPreviewConfiguration = selectedShort ? `${shortPreviewFormat}:${shortPreviewReframing.fit}:${shortPreviewReframing.focusX}:${shortPreviewReframing.focusY}:${selectedShort.id}:${selectedShort.inMs}:${selectedShort.outMs}:${duckingEnabled}:${duckingReductionDb}:${duckingAttackMs}:${duckingReleaseMs}:${normalizeLoudness}` : ''
   const shortPreviewCurrent = Boolean(shortPreviewSourceConfiguration && shortPreviewSourceConfiguration === shortPreviewConfiguration)
   const shortPreviewBusy = shortPreviewSubmitting || Boolean(shortPreviewJob && !terminalStates.has(shortPreviewJob.state))
-  const singleBusy = Boolean(job && !terminalStates.has(job.state))
+  const singleBusy = Boolean(single && !['succeeded', 'failed', 'cancelled', 'detached'].includes(single.phase))
   const batchBusy = shortBatchBusy(batchItems)
   const busy = singleBusy || batchBusy || shortPreviewBusy
   const workerSupportsFormatReframing = workerCapabilities.includes('format-reframing')
@@ -257,30 +268,6 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     }
   }, [shortPreviewJob?.id, shortPreviewPath, workerToken, workerUrl])
 
-  useEffect(() => {
-    if (!job || terminalStates.has(job.state) || !workerToken.trim()) return
-    let disposed = false
-    let timer: ReturnType<typeof setInterval> | undefined
-    const client = new WorkerClient({ baseUrl: workerUrl, token: workerToken })
-
-    const poll = async () => {
-      try {
-        const next = await client.renderStatus(job.id)
-        if (disposed) return
-        setJob(next)
-        if (terminalStates.has(next.state) && timer) clearInterval(timer)
-      } catch (pollError) {
-        if (!disposed) setError(pollError instanceof Error ? pollError.message : 'Render status failed')
-      }
-    }
-
-    void poll()
-    timer = setInterval(() => void poll(), 1000)
-    return () => {
-      disposed = true
-      if (timer) clearInterval(timer)
-    }
-  }, [job?.id, workerToken, workerUrl])
 
   useEffect(() => {
     if (!activeBatchItem?.jobId || !workerConnected || !workerToken.trim()) return
@@ -358,21 +345,6 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     }).finally(() => { batchSubmitting.current = false })
   }, [activeBatchItem, batchItems, batchResumeError, workerConnected, workerToken, workerUrl])
 
-  useEffect(() => {
-    if (job?.state !== 'succeeded' || !submittedExport || submittedExport.jobId !== job.id || recordedExportJobs.current.has(job.id)) return
-    try {
-      const next = recordSuccessfulExport(project, {
-        ...submittedExport,
-        durationMs: job.durationMs ?? submittedExport.durationMs,
-        ...(job.sizeBytes !== undefined ? { sizeBytes: job.sizeBytes } : {}),
-        completedAt: job.updatedAt
-      })
-      recordedExportJobs.current.add(job.id)
-      if (next !== project) onProjectChange(next)
-    } catch (historyError) {
-      setError(historyError instanceof Error ? historyError.message : 'Could not record successful export')
-    }
-  }, [job?.durationMs, job?.id, job?.sizeBytes, job?.state, job?.updatedAt, onProjectChange, project, submittedExport])
 
   useEffect(() => {
     if (!successfulBatchSignature) return
@@ -510,46 +482,40 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     }
   }
 
-  async function startRender() {
-    if (!readiness.ready || !rangeCheck.valid || !duckingCheck.valid || !workerConnected || !workerToken.trim() || submitting || singleReframingBlocked) return
-    setSubmitting(true)
+  function startRender() {
+    if (!readiness.ready || !rangeCheck.valid || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || singleSession.current?.busy || singleReframingBlocked) return
     setError('')
-    setSubmittedExport(null)
     try {
       const wholeTimeline = range.inMs === 0 && range.outMs === timelineDurationMs
-      const path = renderOutputPath(project, new Date(), selectedLesson ? `${format}-lesson-${selectedLesson.id}-${crypto.randomUUID()}` : wholeTimeline ? format : selectedShort ? `${format}-${shortExportVariant(selectedShort)}` : `${format}-range-${range.inMs}-${range.outMs}`)
+      const path = renderOutputPath(project, new Date(), `${format}-${crypto.randomUUID()}`)
       const fullPlan = createRenderPlan(project, projectFormatPreset(project, format, 'export'), path, { audioDucking: duckingSettings, loudnessNormalization: { ...defaultLoudnessNormalization, enabled: normalizeLoudness } })
       const lessonExport = selectedLesson ? planCourseLessonExport(project, selectedLesson.id, fullPlan, path) : null
       const plan = lessonExport?.plan ?? (wholeTimeline ? fullPlan : createRangeRenderPlan(fullPlan, range, path))
-      const next = await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).startRender(plan)
-      setOutputPath(path)
-      setSubmittedExport({
-        jobId: next.id,
+      singleSession.current?.detach()
+      const session = new SingleExportSession(plan, {
         label: lessonExport?.label ?? (wholeTimeline ? 'Whole timeline' : selectedShort ? selectedShort.titles.join(' + ') : `Custom range ${(range.inMs / 1000).toFixed(3)}–${(range.outMs / 1000).toFixed(3)} s`),
         ...(lessonExport ? { courseLesson: lessonExport.context } : {}),
-        outputRelativePath: path,
-        format,
-        range: { ...range },
-        sceneIds: wholeTimeline ? [] : selectedShort?.sceneIds ?? [],
-        durationMs: plan.durationMs
+        outputRelativePath: path, format, range: { ...range },
+        sceneIds: wholeTimeline ? [] : selectedShort?.sceneIds ?? [], durationMs: plan.durationMs
+      }, {
+        client: new WorkerClient({ baseUrl: workerUrl, token: workerToken }),
+        current: () => latest.current.project.id === project.id && latest.current.workerUrl === workerUrl && latest.current.workerToken === workerToken && latest.current.workerConnected,
+        record: (receipt) => {
+          const current = latest.current
+          const saved = recordSuccessfulExport(current.project, receipt)
+          if (saved !== current.project) { current.onProjectChange(saved); latest.current.project = saved }
+        },
+        publish: setSingle
       })
-      setJob(next)
-    } catch (renderError) {
-      setError(renderError instanceof Error ? renderError.message : 'Could not start render')
-    } finally {
-      setSubmitting(false)
-    }
+      singleSession.current = session
+      void session.run()
+    } catch (cause) { setError(String(cause)) }
   }
 
-  async function cancelRender() {
-    if (!job || terminalStates.has(job.state)) return
-    setError('')
-    try {
-      const next = await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).cancelRender(job.id)
-      setJob(next)
-    } catch (cancelError) {
-      setError(cancelError instanceof Error ? cancelError.message : 'Could not cancel render')
-    }
+  function detachSingle() {
+    singleSession.current?.detach()
+    singleSession.current = null
+    setSingle((previous) => previous ? { ...previous, phase: 'detached', detail: undefined } : null)
   }
 
   function startShortBatch() {
@@ -631,29 +597,28 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     onProjectChange(clearProjectShortBatch(archivedProject, now))
   }
 
-  const percent = Math.round((job?.progress ?? 0) * 100)
   const shortPreviewPercent = Math.round((shortPreviewJob?.progress ?? 0) * 100)
 
   return (
     <section className="card renderPanel">
       <div className="sectionLead">
         <div>
-          <div className="eyebrow">REAL LOCAL RENDER</div>
-          <h3>Render timeline</h3>
-          <p>{profile.export.name} is rendered by the authenticated local worker into <code>KINAOU/Renders</code>. The project format drives single renders and composed preview; reviewed Shorts can be adapted to several formats in one sequential batch below.</p>
+          <div className="eyebrow">{t('export.eyebrow')}</div>
+          <h3>{t('export.heading')}</h3>
+          <p>{t('export.help')}</p><p>{t('export.scope')}</p>
         </div>
-        <span className={workerConnected ? 'status online' : 'status'}>{workerConnected ? 'WORKER READY' : 'WORKER OFFLINE'}</span>
+        <span className={workerConnected ? 'status online' : 'status'}>{t(workerConnected ? 'export.ready' : 'export.offline')}</span>
       </div>
 
-      <div className="formatChooser" role="group" aria-label="Output format">
+      <div className="formatChooser" role="group" aria-label={t('export.format')}>
         {targetFormats.map((id) => (
           <button key={id} className={id === format ? 'formatOption active' : 'formatOption'} disabled={busy} onClick={() => onProjectChange(setProjectTargetFormat(project, id))}>
-            <strong>{formatProfiles[id].label}</strong>
+            <strong>{t(`export.${id}`)}</strong>
             <small>{formatProfiles[id].aspect} · {formatProfiles[id].export.width}×{formatProfiles[id].export.height}</small>
           </button>
         ))}
       </div>
-      <p className="cardBody">{profile.note}</p>
+      <p className="cardBody">{profile.aspect} · {profile.export.width}×{profile.export.height}</p>
 
       <div className="renderJob">
         <div className="renderJobHead"><strong>Framing by output format</strong><span>SAVED WITH PROJECT</span></div>
@@ -664,7 +629,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
             const defaults = defaultFormatReframing(id)
             const isDefault = reframing.fit === defaults.fit && reframing.focusX === defaults.focusX && reframing.focusY === defaults.focusY
             return <div className="reframingOption" key={id}>
-              <div className="renderJobHead"><strong>{formatProfiles[id].label}</strong><span>{formatProfiles[id].aspect}</span></div>
+              <div className="renderJobHead"><strong>{t(`export.${id}`)}</strong><span>{formatProfiles[id].aspect}</span></div>
               <label>Frame treatment<select value={reframing.fit} disabled={busy} onChange={(event) => onProjectChange(setProjectFormatReframing(project, id, { ...reframing, fit: event.target.value as 'contain' | 'cover' }))}><option value="cover">Fill frame and crop</option><option value="contain">Show whole image</option></select></label>
               <label>Horizontal focus · {Math.round(reframing.focusX * 100)}%<input type="range" min="0" max="100" step="1" value={reframing.focusX * 100} disabled={busy || reframing.fit !== 'cover'} onChange={(event) => onProjectChange(setProjectFormatReframing(project, id, { ...reframing, focusX: Number(event.target.value) / 100 }))} /></label>
               <small>Left 0 · centre 50 · right 100</small>
@@ -680,14 +645,14 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       <CourseLessonSelector lessons={lessonChoices} selectedId={selectedLesson?.id ?? ''} disabled={busy || submitting} onSelect={(id) => { const lesson = lessonChoices.find((entry) => entry.id === id); setSelectedLessonId(id); setSelectedShortId(''); if (lesson?.check.valid) { setInSeconds(String(lesson.range.inMs / 1000)); setOutSeconds(String(lesson.range.outMs / 1000)) } }} />
       {courseError && <div className="warning">Course lesson selection unavailable: {courseError}</div>}
       <div className="fieldGrid">
-        <label>In (seconds)<input type="number" min="0" step="0.001" value={inSeconds} disabled={busy} onChange={(event) => { setInSeconds(event.target.value); setSelectedShortId(''); setSelectedLessonId('') }} /></label>
-        <label>Out (seconds)<input type="number" min="0" step="0.001" value={outSeconds} disabled={busy} onChange={(event) => { setOutSeconds(event.target.value); setSelectedShortId(''); setSelectedLessonId('') }} /></label>
+        <label>{t('export.in')}<input type="number" min="0" step="0.001" value={inSeconds} disabled={busy} onChange={(event) => { setInSeconds(event.target.value); setSelectedShortId(''); setSelectedLessonId('') }} /></label>
+        <label>{t('export.out')}<input type="number" min="0" step="0.001" value={outSeconds} disabled={busy} onChange={(event) => { setOutSeconds(event.target.value); setSelectedShortId(''); setSelectedLessonId('') }} /></label>
       </div>
       <div className="renderActions">
-        <button disabled={busy || (!selectedLesson && range.inMs === 0 && range.outMs === timelineDurationMs)} onClick={() => { setInSeconds('0'); setOutSeconds(String(timelineDurationMs / 1000)); setSelectedShortId(''); setSelectedLessonId('') }}>Whole timeline</button>
-        {rangeCheck.valid && <span className="cardBody">Export range: {(range.inMs / 1000).toFixed(3)}–{(range.outMs / 1000).toFixed(3)} s ({((range.outMs - range.inMs) / 1000).toFixed(3)} s)</span>}
+        <button disabled={busy || (!selectedLesson && range.inMs === 0 && range.outMs === timelineDurationMs)} onClick={() => { setInSeconds('0'); setOutSeconds(String(timelineDurationMs / 1000)); setSelectedShortId(''); setSelectedLessonId('') }}>{t('export.whole')}</button>
+        {rangeCheck.valid && <span className="cardBody">{t('export.range', { start: (range.inMs / 1000).toLocaleString(language), end: (range.outMs / 1000).toLocaleString(language), duration: ((range.outMs - range.inMs) / 1000).toLocaleString(language) })}</span>}
       </div>
-      {!rangeCheck.valid && <div className="warning">{rangeCheck.reason}</div>}
+      {!rangeCheck.valid && <div className="warning">{t('export.invalidRange')}<details><summary>{t('common.details')}</summary>{rangeCheck.reason}</details></div>}
 
       {project.storyboard.length > 0 && <div className="renderJob">
         <div className="renderJobHead"><strong>Scene short ranges</strong><span>up to {shortMaximumMs / 1000} s</span></div>
@@ -710,7 +675,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
             else selected.add(id)
             return targetFormats.filter((candidate) => selected.has(candidate))
           })}>
-            <strong>{formatProfiles[id].label}</strong>
+            <strong>{t(`export.${id}`)}</strong>
             <small>{formatProfiles[id].aspect} · {formatProfiles[id].export.width}×{formatProfiles[id].export.height}</small>
           </button>)}
         </div>
@@ -738,16 +703,16 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         </div>
       </div>}
 
-      <label className="checkRow"><input type="checkbox" checked={duckingEnabled} disabled={busy} onChange={(event) => setDuckingEnabled(event.target.checked)} />Lower music while voice or dialogue is playing</label>
+      <label className="checkRow"><input type="checkbox" checked={duckingEnabled} disabled={busy} onChange={(event) => setDuckingEnabled(event.target.checked)} />{t('export.duck')}</label>
       {duckingEnabled && <div className="fieldGrid">
-        <label>Reduction (dB)<input type="number" min="0" max="40" step="1" value={duckingReductionDb} disabled={busy} onChange={(event) => setDuckingReductionDb(event.target.value)} /></label>
-        <label>Attack (ms)<input type="number" min="0" max="5000" step="10" value={duckingAttackMs} disabled={busy} onChange={(event) => setDuckingAttackMs(event.target.value)} /></label>
-        <label>Release (ms)<input type="number" min="0" max="5000" step="10" value={duckingReleaseMs} disabled={busy} onChange={(event) => setDuckingReleaseMs(event.target.value)} /></label>
+        <label>{t('export.reduction')}<input type="number" min="0" max="40" step="1" value={duckingReductionDb} disabled={busy} onChange={(event) => setDuckingReductionDb(event.target.value)} /></label>
+        <label>{t('export.attack')}<input type="number" min="0" max="5000" step="10" value={duckingAttackMs} disabled={busy} onChange={(event) => setDuckingAttackMs(event.target.value)} /></label>
+        <label>{t('export.release')}<input type="number" min="0" max="5000" step="10" value={duckingReleaseMs} disabled={busy} onChange={(event) => setDuckingReleaseMs(event.target.value)} /></label>
       </div>}
-      {!duckingCheck.valid && <div className="warning">{duckingCheck.reason}</div>}
+      {!duckingCheck.valid && <div className="warning">{t('export.invalidAudio')}<details><summary>{t('common.details')}</summary>{duckingCheck.reason}</details></div>}
 
-      <label className="checkRow"><input type="checkbox" checked={normalizeLoudness} disabled={busy} onChange={(event) => setNormalizeLoudness(event.target.checked)} />Normalize export loudness to −14 LUFS</label>
-      <p className="cardBody">Optional master processing · true peak ≤ −1.5 dBTP · loudness range 11 LU. Off by default because it changes the sound.</p>
+      <label className="checkRow"><input type="checkbox" checked={normalizeLoudness} disabled={busy} onChange={(event) => setNormalizeLoudness(event.target.checked)} />{t('export.normalize')}</label>
+      <p className="cardBody">{t('export.normalizeHelp')}</p>
 
       {selectedShort && <div className="renderJob">
         <div className="renderJobHead"><strong>Selected Short preview</strong><span>{formatProfiles[shortPreviewFormat].label} · {(selectedShort.durationMs / 1000).toFixed(1)} s</span></div>
@@ -755,7 +720,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         <p className="cardBody">Choose the adaptation you want to review. This changes only the Short preview and leaves the project's main format unchanged.</p>
         <div className="formatChooser" role="group" aria-label="Short preview format">
           {targetFormats.map((id) => <button key={id} className={id === shortPreviewFormat ? 'formatOption active' : 'formatOption'} aria-pressed={id === shortPreviewFormat} disabled={busy} onClick={() => setShortPreviewFormat(id)}>
-            <strong>{formatProfiles[id].label}</strong>
+            <strong>{t(`export.${id}`)}</strong>
             <small>{formatProfiles[id].aspect} · {formatProfiles[id].preview.width}×{formatProfiles[id].preview.height}</small>
           </button>)}
         </div>
@@ -772,22 +737,11 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         </>}
       </div>}
 
-      {!readiness.ready && <div className="warning">{readiness.reason}</div>}
-      {!workerConnected && readiness.ready && <div className="warning">Connect the local worker in Settings before rendering.</div>}
-      {error && <div className="errorBox">{error}</div>}
+      {!readiness.ready && <div className="warning">{readiness.code ? t(`preview.reason.${readiness.code}`, { track: readiness.track ?? '', speed: readiness.speed ?? 1 }) : readiness.reason}</div>}
+      {!workerConnected && readiness.ready && <div className="warning">{t('preview.connect')}</div>}
+      {error && <div className="errorBox" role="alert">{t('export.failed')}<details><summary>{t('common.details')}</summary>{error}</details></div>}
 
-      {job && (
-        <div className="renderJob">
-          <div className="renderJobHead"><strong>{job.state.toUpperCase()}</strong><span>{percent}%</span></div>
-          <div className="progressTrack" aria-label={`Render progress ${percent}%`}><div className="progressFill" style={{ width: `${percent}%` }} /></div>
-          <div className="renderMeta">
-            <code>{job.outputPath ?? outputPath}</code>
-            {job.sizeBytes !== undefined && <span>{(job.sizeBytes / 1024 / 1024).toFixed(1)} MB</span>}
-            {job.durationMs !== undefined && <span>{(job.durationMs / 1000).toFixed(1)} s</span>}
-          </div>
-          {job.error && <div className="errorBox">{job.error}</div>}
-        </div>
-      )}
+      {single && <SingleExportStatus feedback={single} onRetry={() => { void singleSession.current?.run() }} onCancel={() => { void singleSession.current?.cancel() }} onDetach={detachSingle} />}
 
       {batchItems.length > 0 && <div className="renderJob">
         <div className="renderJobHead"><strong>SHORT EXPORT BATCH · SAVED WITH PROJECT</strong><span>{batchItems.filter((item) => shortBatchTerminalStates.has(item.state)).length}/{batchItems.length} finished</span></div>
@@ -873,9 +827,8 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
 
       <div className="renderActions">
         <button className="primary" disabled={!readiness.ready || !rangeCheck.valid || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting || singleReframingBlocked} onClick={startRender}>
-          {submitting ? 'Submitting…' : batchBusy ? 'Short batch in progress' : job && terminalStates.has(job.state) ? 'Render again' : 'Start render'}
+          {t(submitting ? 'export.submitting' : batchBusy ? 'export.batchBusy' : job && terminalStates.has(job.state) ? 'export.again' : 'export.start')}
         </button>
-        {singleBusy && <button className="dangerButton" onClick={cancelRender}>Cancel render</button>}
       </div>
     </section>
   )
