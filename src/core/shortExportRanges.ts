@@ -11,7 +11,7 @@ export interface ShortExportCandidate {
   durationMs: number
 }
 
-export interface SkippedShortScene { sceneId: string; title: string; reason: string }
+export interface SkippedShortScene { sceneId: string; title: string; reason: string; code: 'unanchored' | 'overLimit'; limitMs?: number }
 export interface ShortExportPlan { candidates: ShortExportCandidate[]; skipped: SkippedShortScene[] }
 export interface ShortExportBatchItem {
   id: string
@@ -88,13 +88,13 @@ export function planShortExportRanges(project: KinaouProject, maxDurationMs = de
   const ranges = project.storyboard.flatMap((scene) => {
     const matches = clips.filter((clip) => clip.sceneId === scene.id)
     if (!matches.length) {
-      skipped.push({ sceneId: scene.id, title: scene.title, reason: 'Scene is not anchored to an active visual timeline clip.' })
+      skipped.push({ sceneId: scene.id, title: scene.title, code: 'unanchored', reason: 'Scene is not anchored to an active visual timeline clip.' })
       return []
     }
     const inMs = Math.min(...matches.map((clip) => clip.startMs))
     const outMs = Math.max(...matches.map((clip) => clip.startMs + clip.durationMs))
     if (outMs - inMs > maxDurationMs) {
-      skipped.push({ sceneId: scene.id, title: scene.title, reason: `Scene is longer than the ${(maxDurationMs / 1000).toFixed(0)} s candidate limit.` })
+      skipped.push({ sceneId: scene.id, title: scene.title, code: 'overLimit', limitMs: maxDurationMs, reason: `Scene is longer than the ${maxDurationMs / 1000} s candidate limit.` })
       return []
     }
     return [{ sceneId: scene.id, title: scene.title, inMs, outMs }]

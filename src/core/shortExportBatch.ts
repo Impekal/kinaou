@@ -3,7 +3,7 @@ import { validateAudioDucking, type AudioDuckingSettings } from './audioDucking'
 import { validateLoudnessNormalization, type LoudnessNormalizationSettings } from './audioLoudness'
 import { managedRenderPathSchema } from './exportHistory'
 import { createRenderPlan, formatProfiles, projectFormatPreset, type RenderPlan, type TargetFormat } from './render'
-import type { RenderJobState } from './renderJobs'
+import type { RenderJobRecord, RenderJobState } from './renderJobs'
 import { createRangeRenderPlan } from './renderRange'
 import { shortExportVariant, type ShortExportBatchItem, type ShortExportCandidate } from './shortExportRanges'
 import { touchProject, type KinaouProject } from './project'
@@ -144,6 +144,25 @@ export const persistedShortBatchArchiveSchema = z.array(persistedShortBatchArchi
 })
 
 export type PersistedShortBatchItem = z.infer<typeof persistedShortBatchItemSchema>
+
+/** Keep worker filesystem paths out of portable project receipts. */
+export function acceptShortBatchJob(item: PersistedShortBatchItem, job: RenderJobRecord): PersistedShortBatchItem {
+  if (item.jobId && item.jobId !== job.id) throw new Error('Short export status belongs to another job')
+  if (job.outputPath && job.outputPath !== item.outputPath) {
+    const parts = job.outputPath.split('/')
+    if (!job.outputPath.startsWith('/') || parts.slice(1).some(part => !part || part === '.' || part === '..') || !job.outputPath.endsWith('/' + item.outputPath)) {
+      throw new Error('Short export output does not match the submitted path')
+    }
+  }
+  if (job.state === 'succeeded' && !job.outputPath) throw new Error('Successful Short export has no output path')
+  return persistedShortBatchItemSchema.parse({
+    ...item, jobId: job.id, state: job.state, progress: job.progress,
+    createdAt: job.createdAt, updatedAt: job.updatedAt,
+    ...(job.outputPath ? { renderedPath: item.outputPath } : {}),
+    ...(job.sizeBytes !== undefined ? { sizeBytes: job.sizeBytes } : {}),
+    ...(job.error ? { error: job.error } : {})
+  })
+}
 export type PersistedShortBatch = z.infer<typeof persistedShortBatchSchema>
 export type PersistedShortBatchArchiveEntry = z.infer<typeof persistedShortBatchArchiveEntrySchema>
 export interface SelectiveShortBatchRetryResult { batch: PersistedShortBatch; plans: Map<string, RenderPlan> }
