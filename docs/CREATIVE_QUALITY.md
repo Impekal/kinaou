@@ -36,8 +36,6 @@ Course workflow target: audience/prerequisites → learning outcomes → modules
 - Initial content languages: German, English and French. Translation needs a fresh terminology/pronunciation review, not just a changed language tag.
 - No automatic publishing, account creation or instructor impersonation. Course packaging is local; publication is separately authorized.
 
-## Manual editing usability
-
 ## Application languages and main-video/Short planning
 
 User clarification 2026-09-20: **the application interface itself** must be usable in German, English and French, independently of course/video content language. Translate navigation, controls, validation, progress, help and empty states; preserve project text, identifiers and source metadata. A language selector or content-language field alone does not meet this acceptance criterion. Current UI is still predominantly English.
