@@ -91,7 +91,7 @@ Needs any installed Chrome, Chromium or Firefox (or point `KINAOU_CHROMIUM`/`KIN
 
 ## Stage 6 — The full loop
 
-Project "How to use X" → Director plan → Media plan (either mode) → storyboard fulfillment check → **Studio → Assemble the fulfilled scenes** → **Narrate the scenes** (needs Piper) → **Write captions from the script** → pick the output format → **Start render** → **Publish → Create local publish package**. That is the complete Discover → Direct → Generate → Edit → Adapt → Export → local handoff path on real hardware, without placing a single asset by hand or uploading anything.
+Project "How to use X" → Director **Language & Audience** profile → Director plan → Media plan (either mode) → storyboard fulfillment check → **Studio → Assemble the fulfilled scenes** → **Narrate the scenes** (needs Piper) → **Write captions from the script** → pick the output format → **Start render** → **Publish → Create local publish package**. That is the complete Discover → Direct → Generate → Edit → Adapt → Export → local handoff path on real hardware, without placing a single asset by hand or uploading anything. Set the output language to German, English or French and confirm the generated Director plan uses that language throughout; market, audience, objective and tone must survive a reload. The local model must not present invented live trend/search-volume claims as facts.
 
 What to check along the way:
 
