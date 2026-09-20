@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KinaouProject } from '../core/project'
-import { createRenderPlan, defaultFormatReframing, formatProfiles, formatReframingRequiresWorker, projectFormatPreset, projectFormatReframing, projectTargetFormat, setProjectFormatReframing, setProjectTargetFormat, type RenderPlan, type TargetFormat } from '../core/render'
+import { createRenderPlan, formatProfiles, formatReframingRequiresWorker, projectFormatPreset, projectFormatReframing, projectTargetFormat, setProjectTargetFormat, type RenderPlan, type TargetFormat } from '../core/render'
 import type { RenderJobRecord } from '../core/renderJobs'
 import { renderOutputPath, renderReadiness } from '../core/renderUi'
 import { WorkerClient } from '../core/workerClient'
@@ -10,12 +10,14 @@ import { defaultLoudnessNormalization } from '../core/audioLoudness'
 import { planShortExportBatch, planShortExportRanges, projectShortExportMaximum, setProjectShortExportMaximum, shortExportMaximumError, shortExportVariant, shortPreviewOutputPath } from '../core/shortExportRanges'
 import { archiveProjectShortBatch, cancelPendingShortBatchItems, clearProjectShortBatch, createPersistedShortBatch, failMissingShortBatchJob, forgetProjectShortBatchArchiveEntry, nextShortBatchItem, planSelectiveShortBatchRetry, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, requeueMissingShortBatchJob, retryableShortBatchItems, reviewArchivedShortBatchSelection, shortBatchArchiveLimit, shortBatchBusy, shortBatchTerminalStates, storeProjectShortBatch, type PersistedShortBatch, type PersistedShortBatchItem } from '../core/shortExportBatch'
 import { forgetProjectShortExportRecipe, projectShortExportRecipes, reviewShortExportRecipe, saveProjectShortExportRecipe, shortExportRecipeLimit } from '../core/shortExportRecipes'
-import { forgetExportReceipt, projectExportHistory, recordSuccessfulExport } from '../core/exportHistory'
+import { recordSuccessfulExport } from '../core/exportHistory'
 import { courseLessonChoices, planCourseLessonExport } from '../core/course'
 import { CourseLessonSelector } from './CourseLessonSelector'
 import { SingleExportSession, type ExportFeedback } from '../core/singleExportSession'
 import { useUiLanguage } from './UiLanguageProvider'
 import { SingleExportStatus } from './SingleExportStatus'
+import { FormatFramingPanel } from './FormatFramingPanel'
+import { ExportHistoryPanel } from './ExportHistoryPanel'
 
 interface RenderPanelProps {
   project: KinaouProject
@@ -52,11 +54,6 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   }, [project.id, workerUrl, workerToken, workerConnected])
   const [error, setError] = useState('')
   const recordedExportJobs = useRef(new Set<string>())
-  const exportHistory = projectExportHistory(project)
-  const exportPathSignature = exportHistory.map((receipt) => receipt.outputRelativePath).join('\u0000')
-  const [exportFileCheck, setExportFileCheck] = useState<ExportFileCheck | null>(null)
-  const [checkingExportFiles, setCheckingExportFiles] = useState(false)
-  const [exportAvailabilityError, setExportAvailabilityError] = useState('')
   const timelineDurationMs = useMemo(() => project.tracks.flatMap((track) => track.muted ? [] : track.clips).reduce((end, clip) => Math.max(end, clip.startMs + clip.durationMs), 0), [project])
   const [inSeconds, setInSeconds] = useState('0')
   const [outSeconds, setOutSeconds] = useState(() => String(timelineDurationMs / 1000))
@@ -211,10 +208,6 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     setShortMaximumSeconds(String(shortMaximumMs / 1000))
   }, [shortMaximumMs])
 
-  useEffect(() => {
-    setExportFileCheck(null)
-    setExportAvailabilityError('')
-  }, [exportPathSignature])
 
   useEffect(() => {
     archivedBatchAvailabilityRequest.current += 1
@@ -370,23 +363,6 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       setError(historyError instanceof Error ? historyError.message : 'Could not record successful Short export')
     }
   }, [batchItems, onProjectChange, project, successfulBatchSignature])
-
-  async function checkExportFiles() {
-    if (!workerConnected || !workerToken.trim() || checkingExportFiles || !exportHistory.length) return
-    setCheckingExportFiles(true)
-    setExportAvailabilityError('')
-    try {
-      const results = await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).exportAvailability(exportHistory.map((receipt) => receipt.outputRelativePath))
-      const byPath = Object.fromEntries(results.map((result) => [result.path, result.available]))
-      const available = results.filter((result) => result.available).length
-      setExportFileCheck({ byPath, available, missing: results.length - available, checkedAt: new Date().toISOString() })
-    } catch (availabilityError) {
-      setExportFileCheck(null)
-      setExportAvailabilityError(availabilityError instanceof Error ? availabilityError.message : 'Could not check export files')
-    } finally {
-      setCheckingExportFiles(false)
-    }
-  }
 
   async function checkArchivedBatchFiles(batchId: string) {
     if (!workerConnected || !workerToken.trim() || checkingArchivedBatchId) return
@@ -620,27 +596,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       </div>
       <p className="cardBody">{profile.aspect} · {profile.export.width}×{profile.export.height}</p>
 
-      <div className="renderJob">
-        <div className="renderJobHead"><strong>Framing by output format</strong><span>SAVED WITH PROJECT</span></div>
-        <p className="cardBody">Keep an independent crop position for every adaptation. The same setting is used by timeline preview, Short preview, full export and Short batches.</p>
-        <div className="reframingGrid">
-          {targetFormats.map((id) => {
-            const reframing = projectFormatReframing(project, id)
-            const defaults = defaultFormatReframing(id)
-            const isDefault = reframing.fit === defaults.fit && reframing.focusX === defaults.focusX && reframing.focusY === defaults.focusY
-            return <div className="reframingOption" key={id}>
-              <div className="renderJobHead"><strong>{t(`export.${id}`)}</strong><span>{formatProfiles[id].aspect}</span></div>
-              <label>Frame treatment<select value={reframing.fit} disabled={busy} onChange={(event) => onProjectChange(setProjectFormatReframing(project, id, { ...reframing, fit: event.target.value as 'contain' | 'cover' }))}><option value="cover">Fill frame and crop</option><option value="contain">Show whole image</option></select></label>
-              <label>Horizontal focus · {Math.round(reframing.focusX * 100)}%<input type="range" min="0" max="100" step="1" value={reframing.focusX * 100} disabled={busy || reframing.fit !== 'cover'} onChange={(event) => onProjectChange(setProjectFormatReframing(project, id, { ...reframing, focusX: Number(event.target.value) / 100 }))} /></label>
-              <small>Left 0 · centre 50 · right 100</small>
-              <label>Vertical focus · {Math.round(reframing.focusY * 100)}%<input type="range" min="0" max="100" step="1" value={reframing.focusY * 100} disabled={busy || reframing.fit !== 'cover'} onChange={(event) => onProjectChange(setProjectFormatReframing(project, id, { ...reframing, focusY: Number(event.target.value) / 100 }))} /></label>
-              <small>Top 0 · centre 50 · bottom 100</small>
-              <button disabled={busy || isDefault} onClick={() => onProjectChange(setProjectFormatReframing(project, id, defaults))}>Reset {formatProfiles[id].label}</button>
-            </div>
-          })}
-        </div>
-        {workerConnected && anyReframingBlocked && <div className="warning">Restart the local worker before rendering an off-centre crop. Centred and whole-image framing remain compatible with the connected worker.</div>}
-      </div>
+      <FormatFramingPanel project={project} busy={busy} workerBlocked={workerConnected && anyReframingBlocked} onProjectChange={onProjectChange} />
 
       <CourseLessonSelector lessons={lessonChoices} selectedId={selectedLesson?.id ?? ''} disabled={busy || submitting} onSelect={(id) => { const lesson = lessonChoices.find((entry) => entry.id === id); setSelectedLessonId(id); setSelectedShortId(''); if (lesson?.check.valid) { setInSeconds(String(lesson.range.inMs / 1000)); setOutSeconds(String(lesson.range.outMs / 1000)) } }} />
       {courseError && <div className="warning">Course lesson selection unavailable: {courseError}</div>}
@@ -801,29 +757,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         })}
       </div>}
 
-      <div className="renderJob">
-        <div className="renderJobHead"><strong>Successful exports</strong><span>{exportHistory.length}/50 recorded</span></div>
-        <p className="cardBody">This project keeps a bounded receipt for each successful worker render. Forgetting a receipt only removes this list entry — the MP4 in <code>KINAOU/Renders</code> is never deleted.</p>
-        {!exportHistory.length && <p className="cardBody">No successful export recorded yet.</p>}
-        {exportHistory.length > 0 && <div className="renderActions">
-          <button className="secondaryButton" disabled={!workerConnected || !workerToken.trim() || checkingExportFiles} onClick={checkExportFiles}>{checkingExportFiles ? 'Checking export files…' : 'Check export files'}</button>
-          {exportFileCheck && <span className="cardBody">{exportFileCheck.available} available · {exportFileCheck.missing} missing · checked {new Date(exportFileCheck.checkedAt).toLocaleString()}</span>}
-        </div>}
-        {exportAvailabilityError && <div className="errorBox">{exportAvailabilityError}</div>}
-        {exportHistory.map((receipt) => {
-          const fileAvailable = exportFileCheck?.byPath[receipt.outputRelativePath]
-          return <div className="renderJob" key={receipt.jobId}>
-            <div className="renderJobHead"><strong>{receipt.label}</strong><span>{formatProfiles[receipt.format].label} · {(receipt.durationMs / 1000).toFixed(1)} s · {new Date(receipt.completedAt).toLocaleString()}</span>{fileAvailable !== undefined && <span className={fileAvailable ? 'status online' : 'status missing'}>{fileAvailable ? 'FILE AVAILABLE' : 'FILE MISSING'}</span>}</div>
-            {receipt.courseLesson && <small>Course: {receipt.courseLesson.courseTitle} / {receipt.courseLesson.moduleTitle} / {receipt.courseLesson.lessonTitle} · outline revision {receipt.courseLesson.outlineRevision} · {receipt.courseLesson.language}</small>}
-            <div className="renderMeta">
-              <code>{receipt.outputRelativePath}</code>
-              {receipt.sizeBytes !== undefined && <span>{(receipt.sizeBytes / 1024 / 1024).toFixed(1)} MB</span>}
-              <span>{(receipt.range.inMs / 1000).toFixed(3)}–{(receipt.range.outMs / 1000).toFixed(3)} s{receipt.sceneIds.length ? ` · ${receipt.sceneIds.length} scene${receipt.sceneIds.length === 1 ? '' : 's'}` : ''}</span>
-              <button disabled={busy || checkingExportFiles} onClick={() => { try { onProjectChange(forgetExportReceipt(project, receipt.jobId)) } catch (historyError) { setError(historyError instanceof Error ? historyError.message : 'Could not forget export receipt') } }}>Forget receipt (keep MP4)</button>
-            </div>
-          </div>
-        })}
-      </div>
+      <ExportHistoryPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={workerConnected} busy={busy} onProjectChange={onProjectChange} />
 
       <div className="renderActions">
         <button className="primary" disabled={!readiness.ready || !rangeCheck.valid || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting || singleReframingBlocked} onClick={startRender}>
