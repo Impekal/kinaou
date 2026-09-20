@@ -1,0 +1,9 @@
+export const uiShortPreviewMessages = {
+  'shortPreview.heading': ['Ausgewählte Kurzvideo-Vorschau', 'Selected Short preview', 'Aperçu du Short sélectionné'],
+  'shortPreview.help': ['Berechnet genau den gewählten Szenenbereich mit Ebenen, Untertiteln, Bildausschnitt, Tempo und den Toneinstellungen oben. Die Vorschau bleibt im Cache. Das Vorschauformat ändert weder das Hauptformat noch die Stapelauswahl. Vor der Ausgabe ansehen; dies ist keine Echtzeitvorschau.', 'Renders the exact selected scene range with layers, captions, framing, speed and the audio settings above. The preview stays in cache. Its format changes neither the main format nor batch selection. Review before export; this is not real-time preview.', 'Calcule la plage sélectionnée avec calques, sous-titres, cadrage, vitesse et réglages audio ci-dessus. L’aperçu reste en cache. Son format ne change ni le format principal ni la sélection du lot. Vérifiez avant l’export ; ce n’est pas un aperçu en temps réel.'],
+  'shortPreview.format': ['Format der Kurzvideo-Vorschau', 'Short preview format', 'Format de l’aperçu du Short'],
+  'shortPreview.cancel': ['Vorschauauftrag abbrechen', 'Cancel preview job', 'Annuler la tâche d’aperçu'],
+  'shortPreview.cancelling': ['Abbruch wird angefragt …', 'Requesting cancellation…', 'Demande d’annulation…'],
+  'shortPreview.cancelFailed': ['Abbruch nicht bestätigt. Der Auftrag kann weiterlaufen. Prüfe denselben Auftrag erneut oder wiederhole den Abbruch.', 'Cancellation not confirmed. The job may keep running. Recheck the same job or retry cancellation.', 'Annulation non confirmée. La tâche peut continuer. Revérifiez la même tâche ou réessayez l’annulation.'],
+  'shortPreview.new': ['Bewusst neue Vorschau starten (separate Datei)', 'Deliberately start new preview (separate file)', 'Lancer un nouvel aperçu (fichier distinct)']
+} satisfies Record<string, readonly [string, string, string]>
