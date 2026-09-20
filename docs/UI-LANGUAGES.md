@@ -11,7 +11,9 @@ PR #187 adds a real, partial application-language layer in German, English and F
 - A failed preference write keeps the selected language for the session and displays a translated warning. This preference handling does not bypass the existing app-level recovery path for unavailable project storage.
 - Course success/error summaries follow the current language. Original technical error details remain available under a translated disclosure heading.
 
-Translated now: navigation, common project-required states, shell labels, project creation, library summary/date labels, reserved-feature explanation and the complete course-authoring form. Project backup controls, Settings, specialist production/editing/export panels and global/worker technical errors are not yet localized. An explicit notice states this in all three languages. Render directions in course help lead into a currently English specialist panel.
+Translated now: navigation, common project-required states, shell labels, project creation, library summary/date labels, reserved-feature explanation, the course-authoring form and Settings (#189). Project backup controls, specialist production/editing/export panels and global/worker technical details are not yet localized. An explicit notice states this in all three languages. Render directions in course help lead into a currently English specialist panel.
+
+Settings preserves parent-owned drafts/credentials, disables credential edits while testing a connection, translates connection failures and storage-save results, and keeps raw capability IDs/paths intact. It explicitly distinguishes the saved browser profile from the worker's actual startup root: saving a path does not mount an SSD, create/move files or reconfigure the worker. A failed save keeps the old saved profile and current inputs. The token remains in memory only.
 
 ## Extension rules
 
@@ -25,4 +27,6 @@ The feature gate passed 301 application tests, 82 native worker tests, TypeScrip
 
 An isolated browser at `127.0.0.1:5180` verified project draft retention DE → FR; course title/module/lesson retention FR → EN → DE/FR; separate French course language; translated invalid-title feedback; save/discard; and saved language/course persistence after reload. No regular user-origin projects, worker processes, SSD files or models were changed. The test server/tab were closed afterwards.
 
-Next coverage: Settings/worker connection and storage → Studio/manual editing and history → render/Short/course exports → Director and local generation → assets/capture/publishing. Add interaction coverage for each migrated panel, especially pending jobs, errors and drafts.
+Settings gate (#189): 311 application tests + 82 native tests + build/syntax passed. Ten additional regressions cover each language, exact drafts/paths/capabilities, disabled pending credentials, escaped errors and blocked storage writes. The isolated localhost:5181 browser test verified DE→FR→EN draft retention, invalid-URL rejection, translated error/success messages, saved profile persistence and cleared token on reload. No live user worker or SSD was used.
+
+Next coverage: Studio/manual editing and history → render/Short/course exports → Director and local generation → assets/capture/publishing. Add interaction coverage for each migrated panel, especially pending jobs, errors and drafts. Completion numbering: COMPLETION_CHECKLIST.md.

@@ -55,6 +55,8 @@ User clarification 2026-09-20: support cartoons, engaging short children's conte
 
 ## Manual editing usability (current state)
 
+Additional format requirement (2026-09-20): football and other sports, including analysis, tactics explanations, instructional content, current topics and Shorts. Keep match results, dates, statistics and claimed trends attributable to checked sources. Use original/authorized footage and preserve provenance; an illustration or generated recreation must not be presented as an authentic match recording. These are acceptance targets, not shipped live sports-data or highlight-acquisition features. The no-recurring-provider-cost constraint still applies.
+
 The user asked about conventional software such as MAGIX. KINAOU already applies real multi-track move/trim, gain, fades, dissolve, transform and speed operations, but these are still largely button-driven; its composed preview is rendered before playback. Do not equate a working compositor with a finished interactive editor. The usability roadmap includes direct clip dragging, trim handles, playhead splitting, precise timing/snapping, clear selection/undo behavior and a responsive preview. Keyframes and richer effect workflows remain later work, not implemented features or a promise to copy another product's entire catalogue.
 
 ### Udemy boundary (official sources checked 2026-09-20)
