@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KinaouProject } from '../core/project'
-import { createRenderPlan, formatProfiles, formatReframingRequiresWorker, projectFormatPreset, projectFormatReframing, projectTargetFormat, setProjectTargetFormat, type RenderPlan, type TargetFormat } from '../core/render'
-import type { RenderJobRecord } from '../core/renderJobs'
+import { createRenderPlan, formatProfiles, formatReframingRequiresWorker, projectFormatPreset, projectTargetFormat, setProjectTargetFormat, type RenderPlan, type TargetFormat } from '../core/render'
 import { renderOutputPath, renderReadiness } from '../core/renderUi'
 import { WorkerClient } from '../core/workerClient'
 import { createRangeRenderPlan, validateRenderRange } from '../core/renderRange'
 import { defaultAudioDucking, validateAudioDucking } from '../core/audioDucking'
 import { defaultLoudnessNormalization } from '../core/audioLoudness'
-import { planShortExportBatch, planShortExportRanges, projectShortExportMaximum, setProjectShortExportMaximum, shortExportMaximumError, shortExportVariant, shortPreviewOutputPath } from '../core/shortExportRanges'
+import { planShortExportBatch, planShortExportRanges, projectShortExportMaximum, setProjectShortExportMaximum, shortExportMaximumError, shortExportVariant } from '../core/shortExportRanges'
 import { acceptShortBatchJob, archiveProjectShortBatch, cancelPendingShortBatchItems, clearProjectShortBatch, createPersistedShortBatch, failMissingShortBatchJob, forgetProjectShortBatchArchiveEntry, nextShortBatchItem, planSelectiveShortBatchRetry, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, requeueMissingShortBatchJob, retryableShortBatchItems, reviewArchivedShortBatchSelection, shortBatchArchiveLimit, shortBatchBusy, shortBatchTerminalStates, storeProjectShortBatch, type PersistedShortBatch, type PersistedShortBatchItem } from '../core/shortExportBatch'
 import { forgetProjectShortExportRecipe, projectShortExportRecipes, reviewShortExportRecipe, saveProjectShortExportRecipe, shortExportRecipeLimit } from '../core/shortExportRecipes'
 import { recordSuccessfulExport } from '../core/exportHistory'
@@ -19,6 +18,7 @@ import { useUiLanguage } from './UiLanguageProvider'
 import { SingleExportStatus } from './SingleExportStatus'
 import { FormatFramingPanel } from './FormatFramingPanel'
 import { ExportHistoryPanel } from './ExportHistoryPanel'
+import { ShortPreviewPanel } from './ShortPreviewPanel'
 
 interface RenderPanelProps {
   project: KinaouProject
@@ -101,26 +101,13 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const [archivedBatchSelectionReview, setArchivedBatchSelectionReview] = useState<ArchivedBatchSelectionReview | null>(null)
   const projectBatchId = projectPersistedShortBatch(project)?.id ?? (Object.prototype.hasOwnProperty.call(project.metadata, 'shortExportBatch') ? 'invalid' : '')
   const selectedShort = shortExports.candidates.find((candidate) => candidate.id === selectedShortId && candidate.inMs === range.inMs && candidate.outMs === range.outMs)
-  const shortPreviewVideoRef = useRef<HTMLVideoElement>(null)
-  const [shortPreviewJob, setShortPreviewJob] = useState<RenderJobRecord | null>(null)
-  const [shortPreviewPath, setShortPreviewPath] = useState('')
-  const [shortPreviewUrl, setShortPreviewUrl] = useState('')
-  const [shortPreviewError, setShortPreviewError] = useState('')
-  const [shortPreviewCurrentTime, setShortPreviewCurrentTime] = useState(0)
-  const [shortPreviewDurationMs, setShortPreviewDurationMs] = useState(0)
   const [shortPreviewFormat, setShortPreviewFormat] = useState<TargetFormat>(format)
-  const [shortPreviewSubmitting, setShortPreviewSubmitting] = useState(false)
-  const [shortPreviewSourceConfiguration, setShortPreviewSourceConfiguration] = useState('')
-  const shortPreviewReframing = projectFormatReframing(project, shortPreviewFormat)
-  const shortPreviewConfiguration = selectedShort ? `${shortPreviewFormat}:${shortPreviewReframing.fit}:${shortPreviewReframing.focusX}:${shortPreviewReframing.focusY}:${selectedShort.id}:${selectedShort.inMs}:${selectedShort.outMs}:${duckingEnabled}:${duckingReductionDb}:${duckingAttackMs}:${duckingReleaseMs}:${normalizeLoudness}` : ''
-  const shortPreviewCurrent = Boolean(shortPreviewSourceConfiguration && shortPreviewSourceConfiguration === shortPreviewConfiguration)
-  const shortPreviewBusy = shortPreviewSubmitting || Boolean(shortPreviewJob && !terminalStates.has(shortPreviewJob.state))
+  const [shortPreviewBusy, setShortPreviewBusy] = useState(false)
   const singleBusy = Boolean(single && !['succeeded', 'failed', 'cancelled', 'detached'].includes(single.phase))
   const batchBusy = shortBatchBusy(batchItems)
   const busy = singleBusy || batchBusy || shortPreviewBusy
   const workerSupportsFormatReframing = workerCapabilities.includes('format-reframing')
   const singleReframingBlocked = formatReframingRequiresWorker(project, format) && !workerSupportsFormatReframing
-  const shortPreviewReframingBlocked = formatReframingRequiresWorker(project, shortPreviewFormat) && !workerSupportsFormatReframing
   const batchReframingBlocked = batchFormats.some((id) => formatReframingRequiresWorker(project, id)) && !workerSupportsFormatReframing
   const anyReframingBlocked = targetFormats.some((id) => formatReframingRequiresWorker(project, id)) && !workerSupportsFormatReframing
   const retryableBatchItems = useMemo(() => {
@@ -215,52 +202,6 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     setCheckingArchivedBatchId('')
     setArchivedBatchAvailabilityError('')
   }, [batchArchivePathSignature])
-
-  useEffect(() => {
-    if (shortPreviewBusy || !shortPreviewSourceConfiguration || shortPreviewCurrent) return
-    setShortPreviewJob(null)
-    setShortPreviewPath('')
-    setShortPreviewUrl('')
-    setShortPreviewError('')
-    setShortPreviewCurrentTime(0)
-    setShortPreviewDurationMs(0)
-    setShortPreviewSourceConfiguration('')
-  }, [shortPreviewBusy, shortPreviewCurrent, shortPreviewSourceConfiguration])
-
-  useEffect(() => () => { if (shortPreviewUrl) URL.revokeObjectURL(shortPreviewUrl) }, [shortPreviewUrl])
-
-  useEffect(() => {
-    if (!shortPreviewJob || terminalStates.has(shortPreviewJob.state) || !shortPreviewPath || !workerToken.trim()) return
-    let disposed = false
-    let loading = false
-    let timer: ReturnType<typeof setInterval> | undefined
-    const client = new WorkerClient({ baseUrl: workerUrl, token: workerToken })
-    const poll = async () => {
-      if (loading) return
-      loading = true
-      try {
-        const next = await client.renderStatus(shortPreviewJob.id)
-        if (disposed) return
-        setShortPreviewJob(next)
-        if (next.state === 'succeeded') {
-          if (timer) clearInterval(timer)
-          const blob = await client.loadTimelinePreview(shortPreviewPath)
-          if (!disposed) setShortPreviewUrl(URL.createObjectURL(blob))
-        } else if (terminalStates.has(next.state) && timer) clearInterval(timer)
-      } catch (previewError) {
-        if (!disposed) setShortPreviewError(previewError instanceof Error ? previewError.message : 'Short preview failed')
-      } finally {
-        loading = false
-      }
-    }
-    void poll()
-    timer = setInterval(() => void poll(), 750)
-    return () => {
-      disposed = true
-      if (timer) clearInterval(timer)
-    }
-  }, [shortPreviewJob?.id, shortPreviewPath, workerToken, workerUrl])
-
 
   useEffect(() => {
     if (!activeBatchItem?.jobId || !workerConnected || !workerToken.trim()) return
@@ -427,38 +368,6 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     setError('')
   }
 
-  async function startShortPreview() {
-    if (!selectedShort || !readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || shortPreviewReframingBlocked) return
-    setShortPreviewSubmitting(true)
-    setShortPreviewError('')
-    try {
-      const path = shortPreviewOutputPath(project, selectedShort, shortPreviewFormat)
-      const fullPlan = createRenderPlan(project, projectFormatPreset(project, shortPreviewFormat, 'preview'), path, { audioDucking: duckingSettings, loudnessNormalization: { ...defaultLoudnessNormalization, enabled: normalizeLoudness } })
-      const plan = createRangeRenderPlan(fullPlan, { inMs: selectedShort.inMs, outMs: selectedShort.outMs }, path)
-      setShortPreviewJob(null)
-      setShortPreviewPath(path)
-      setShortPreviewUrl('')
-      setShortPreviewCurrentTime(0)
-      setShortPreviewDurationMs(plan.durationMs)
-      setShortPreviewSourceConfiguration(shortPreviewConfiguration)
-      setShortPreviewJob(await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).startRender(plan))
-    } catch (previewError) {
-      setShortPreviewError(previewError instanceof Error ? previewError.message : 'Could not start Short preview')
-    } finally {
-      setShortPreviewSubmitting(false)
-    }
-  }
-
-  async function cancelShortPreview() {
-    if (!shortPreviewJob || terminalStates.has(shortPreviewJob.state)) return
-    setShortPreviewError('')
-    try {
-      setShortPreviewJob(await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).cancelRender(shortPreviewJob.id))
-    } catch (previewError) {
-      setShortPreviewError(previewError instanceof Error ? previewError.message : 'Could not cancel Short preview')
-    }
-  }
-
   function startRender() {
     if (!readiness.ready || !rangeCheck.valid || lessonReviewStale || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || singleSession.current?.busy || singleReframingBlocked) return
     setError('')
@@ -575,8 +484,6 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     onProjectChange(clearProjectShortBatch(archivedProject, now))
   }
 
-  const shortPreviewPercent = Math.round((shortPreviewJob?.progress ?? 0) * 100)
-
   return (
     <section className="card renderPanel">
       <div className="sectionLead">
@@ -681,28 +588,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       <label className="checkRow"><input type="checkbox" checked={normalizeLoudness} disabled={busy} onChange={(event) => setNormalizeLoudness(event.target.checked)} />{t('export.normalize')}</label>
       <p className="cardBody">{t('export.normalizeHelp')}</p>
 
-      {selectedShort && <div className="renderJob">
-        <div className="renderJobHead"><strong>Selected Short preview</strong><span>{formatProfiles[shortPreviewFormat].label} · {(selectedShort.durationMs / 1000).toFixed(1)} s</span></div>
-        <p className="cardBody">Renders this exact scene range through the real composed-preview path, including layers, captions, transforms, retiming and the audio settings above. The temporary MP4 stays in <code>KINAOU/Cache/Previews</code>.</p>
-        <p className="cardBody">Choose the adaptation you want to review. This changes only the Short preview and leaves the project's main format unchanged.</p>
-        <div className="formatChooser" role="group" aria-label="Short preview format">
-          {targetFormats.map((id) => <button key={id} className={id === shortPreviewFormat ? 'formatOption active' : 'formatOption'} aria-pressed={id === shortPreviewFormat} disabled={busy} onClick={() => setShortPreviewFormat(id)}>
-            <strong>{t(`export.${id}`)}</strong>
-            <small>{formatProfiles[id].aspect} · {formatProfiles[id].preview.width}×{formatProfiles[id].preview.height}</small>
-          </button>)}
-        </div>
-        <div className="renderActions">
-          <button className="secondaryButton" disabled={!readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || shortPreviewReframingBlocked} onClick={startShortPreview}>{shortPreviewBusy ? `Rendering ${shortPreviewPercent}%` : shortPreviewUrl && shortPreviewCurrent ? 'Refresh Short preview' : 'Render Short preview'}</button>
-          {shortPreviewJob && !terminalStates.has(shortPreviewJob.state) && <button className="dangerButton" onClick={cancelShortPreview}>Cancel preview</button>}
-        </div>
-        {shortPreviewJob && <div className="progressTrack" aria-label={`Short preview progress ${shortPreviewPercent}%`}><div className="progressFill" style={{ width: `${shortPreviewPercent}%` }} /></div>}
-        {shortPreviewJob?.error && <div className="errorBox">{shortPreviewJob.error}</div>}
-        {shortPreviewError && <div className="errorBox">{shortPreviewError}</div>}
-        {shortPreviewUrl && shortPreviewCurrent && <>
-          <video ref={shortPreviewVideoRef} className="proxyVideo" src={shortPreviewUrl} controls preload="metadata" onTimeUpdate={(event) => setShortPreviewCurrentTime(event.currentTarget.currentTime)} />
-          <label>Playhead {shortPreviewCurrentTime.toFixed(2)}s<input type="range" min="0" max={shortPreviewDurationMs / 1000} step="0.01" value={shortPreviewCurrentTime} onChange={(event) => { const value = Number(event.target.value); setShortPreviewCurrentTime(value); if (shortPreviewVideoRef.current) shortPreviewVideoRef.current.currentTime = value }} /></label>
-        </>}
-      </div>}
+      {selectedShort && <ShortPreviewPanel project={project} candidate={selectedShort} format={shortPreviewFormat} onFormatChange={setShortPreviewFormat} onBusyChange={setShortPreviewBusy} audioDucking={duckingSettings} normalizeLoudness={normalizeLoudness} workerUrl={workerUrl} workerToken={workerToken} workerConnected={workerConnected} workerCapabilities={workerCapabilities} disabled={!readiness.ready || !duckingCheck.valid || singleBusy || batchBusy} />}
 
       {!readiness.ready && <div className="warning">{readiness.code ? t(`preview.reason.${readiness.code}`, { track: readiness.track ?? '', speed: readiness.speed ?? 1 }) : readiness.reason}</div>}
       {!workerConnected && readiness.ready && <div className="warning">{t('preview.connect')}</div>}
