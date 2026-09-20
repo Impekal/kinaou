@@ -1,64 +1,48 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { createTimelinePreviewPlan, formatReframingRequiresWorker, projectTargetFormat } from '../core/render'
-import type { RenderJobRecord } from '../core/renderJobs'
+import { useMemo, useRef } from 'react'
+import { createTimelinePreviewPlan, formatReframingRequiresWorker, projectTargetFormat, type RenderPlan } from '../core/render'
 import { renderReadiness } from '../core/renderUi'
 import type { KinaouProject } from '../core/project'
 import { WorkerClient } from '../core/workerClient'
+import { freshPreviewPlan, runTimelinePreview } from '../core/previewSession'
+import { useUiLanguage } from './UiLanguageProvider'
+import { PreviewPlayback, PreviewStatus, usePreviewSession } from './PreviewFeedback'
 
-const terminal = new Set(['succeeded', 'failed', 'cancelled'])
+interface Props { project: KinaouProject; workerUrl: string; workerToken: string; workerConnected: boolean; workerCapabilities: string[] }
 
-export function TimelinePreview({ project, workerUrl, workerToken, workerConnected, workerCapabilities }: { project: KinaouProject; workerUrl: string; workerToken: string; workerConnected: boolean; workerCapabilities: string[] }) {
+export function TimelinePreview({ project, ...connection }: Props) {
+  const { t } = useUiLanguage()
   const readiness = useMemo(() => renderReadiness(project), [project])
-  const reframingBlocked = formatReframingRequiresWorker(project, projectTargetFormat(project)) && !workerCapabilities.includes('format-reframing')
-  const plan = useMemo(() => {
-    if (!readiness.ready) return null
-    try {
-      return createTimelinePreviewPlan(project)
-    } catch {
-      return null
-    }
+  const prepared = useMemo(() => {
+    if (!readiness.ready) return { plan: null }
+    try { return { plan: createTimelinePreviewPlan(project) } }
+    catch (cause) { return { plan: null, error: cause instanceof Error ? cause.message : String(cause) } }
   }, [project, readiness.ready])
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const [job, setJob] = useState<RenderJobRecord | null>(null)
-  const [url, setUrl] = useState('')
-  const [error, setError] = useState('')
-  const [currentTime, setCurrentTime] = useState(0)
-
-  useEffect(() => {
-    if (!job || terminal.has(job.state) || !workerToken.trim()) return
-    let disposed = false
-    const client = new WorkerClient({ baseUrl: workerUrl, token: workerToken })
-    const timer = setInterval(async () => {
-      try {
-        const next = await client.renderStatus(job.id)
-        if (disposed) return
-        setJob(next)
-        if (next.state === 'succeeded' && plan) {
-          clearInterval(timer)
-          const blob = await client.loadTimelinePreview(plan.outputRelativePath)
-          if (!disposed) setUrl((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(blob) })
-        } else if (terminal.has(next.state)) clearInterval(timer)
-      } catch (reason) { if (!disposed) setError(reason instanceof Error ? reason.message : 'Preview failed') }
-    }, 750)
-    return () => { disposed = true; clearInterval(timer) }
-  }, [job?.id, plan, workerToken, workerUrl])
-  useEffect(() => () => { if (url) URL.revokeObjectURL(url) }, [url])
-
-  async function renderPreview() {
-    if (!plan || reframingBlocked) return
-    setError(''); setUrl(''); setCurrentTime(0)
-    try { setJob(await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).startRender(plan)) }
-    catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not start preview') }
-  }
-
-  const busy = job && !terminal.has(job.state)
-  const durationSeconds = (plan?.durationMs ?? 0) / 1000
+  const reframingBlocked = formatReframingRequiresWorker(project, projectTargetFormat(project)) && !connection.workerCapabilities.includes('format-reframing')
   return <section className="card timelinePreview">
-    <div className="sectionLead"><div><div className="eyebrow">COMPOSED PREVIEW</div><h3>Timeline preview</h3><p>Renders the actual timeline in the project's output shape and framing into managed cache. Export still uses original media and the full preset.</p></div><button className="secondaryButton" disabled={!readiness.ready || !plan || !workerConnected || Boolean(busy) || reframingBlocked} onClick={renderPreview}>{busy ? `Rendering ${Math.round((job?.progress ?? 0) * 100)}%` : url ? 'Refresh preview' : 'Render preview'}</button></div>
-    {!readiness.ready && <div className="warning">{readiness.reason}</div>}
-    {readiness.ready && !plan && <div className="warning">The current timeline cannot be turned into a render plan. Undo the last timeline change or adjust the affected clip.</div>}
-    {workerConnected && reframingBlocked && <div className="warning">Restart the local worker to preview the selected off-centre crop.</div>}
-    {job?.error && <div className="errorBox">{job.error}</div>}{error && <div className="errorBox">{error}</div>}
-    {url && <><video ref={videoRef} className="proxyVideo" src={url} controls preload="metadata" onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)} /><label>Playhead {currentTime.toFixed(2)}s<input type="range" min="0" max={durationSeconds} step="0.01" value={currentTime} onChange={(event) => { const value = Number(event.target.value); setCurrentTime(value); if (videoRef.current) videoRef.current.currentTime = value }} /></label></>}
+    <div><div className="eyebrow">{t('preview.composed')}</div><h3>{t('preview.heading')}</h3><p>{t('preview.help')}</p><p>{t('preview.scopeHelp')}</p></div>
+    {!readiness.ready && readiness.code && <div className="warning">{t(`preview.reason.${readiness.code}`, { track: readiness.track ?? '', speed: readiness.speed ?? 1 })}</div>}
+    {readiness.ready && !prepared.plan && <div className="errorBox" role="alert">{t('preview.planFailed')}<details><summary>{t('common.details')}</summary>{prepared.error}</details></div>}
+    {connection.workerConnected && reframingBlocked && <div className="warning">{t('preview.restart')}</div>}
+    <TimelinePlayback key={JSON.stringify([project.id, prepared.plan, connection.workerUrl, connection.workerToken, connection.workerConnected, reframingBlocked])} plan={prepared.plan} blocked={reframingBlocked} {...connection} />
   </section>
+}
+
+function TimelinePlayback({ plan, blocked, workerUrl, workerToken, workerConnected }: Omit<Props, 'project'> & { plan: RenderPlan | null; blocked: boolean }) {
+  const { t } = useUiLanguage()
+  const { url, feedback, perform, busy } = usePreviewSession()
+  const submitted = useRef<RenderPlan | null>(null)
+  const retry = Boolean(feedback.job && (feedback.phase === 'pollFailed' || feedback.phase === 'loadFailed'))
+  function render() {
+    if (!plan || blocked || !workerConnected || busy) return
+    void perform((current, publish, accept) => {
+      if (!retry) submitted.current = freshPreviewPlan(plan)
+      return runTimelinePreview(submitted.current!, new WorkerClient({ baseUrl: workerUrl, token: workerToken }), current, publish, accept, retry ? feedback.job : undefined)
+    })
+  }
+  return <div aria-busy={busy}>
+    <button className="secondaryButton" disabled={!plan || blocked || !workerConnected || busy} onClick={render}>{t(retry ? 'preview.retry' : url ? 'preview.refresh' : 'preview.render')}</button>
+    {!workerConnected && <p>{t('preview.connect')}</p>}
+    <PreviewStatus feedback={feedback} />
+    {url && <PreviewPlayback key={url} url={url} durationSeconds={(submitted.current?.durationMs ?? 0) / 1000} />}
+  </div>
 }
