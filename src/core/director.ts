@@ -6,7 +6,7 @@ export const directorSceneSchema = z.object({
   title: z.string().trim().min(1).max(160),
   description: z.string().trim().min(1).max(4000),
   durationMs: z.number().int().min(500).max(3_600_000),
-  narration: z.string().trim().max(8000).default(''),
+  narration: z.string().trim().max(8000).optional(),
   visualBrief: z.string().trim().max(4000).default(''),
   requiredMedia: z.array(z.enum(['video', 'image', 'voice', 'music', 'sfx'])).max(20).default([])
 })
@@ -50,6 +50,7 @@ export function applyDirectorPlan(project: KinaouProject, input: unknown, now = 
       id: scene.id,
       title: scene.title,
       description: scene.description,
+      ...(scene.narration !== undefined ? { narration: scene.narration } : {}),
       durationMs: scene.durationMs
     })),
     metadata: {

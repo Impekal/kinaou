@@ -59,6 +59,8 @@ export const projectSchema = z.object({
     id: z.string().min(1),
     title: z.string().min(1),
     description: z.string().default(''),
+    // Missing means a legacy description-based script; empty means intentionally silent.
+    narration: z.string().trim().max(8000).optional(),
     durationMs: z.number().int().positive(),
     assetId: z.string().min(1).optional()
   })).default([]),

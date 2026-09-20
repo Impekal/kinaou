@@ -19,7 +19,7 @@ export async function generateDirectorPlan(baseUrl, model, brief, fetchImpl = fe
   if (typeof brief !== 'string' || !brief.trim() || brief.length > MAX_BRIEF_LENGTH) throw new Error('Brief must contain 1–50000 characters')
   const response = await fetchImpl(`${normalizeOllamaUrl(baseUrl)}/api/generate`, {
     method: 'POST', headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(10 * 60_000),
-    body: JSON.stringify({ model: model.trim(), stream: false, options: { temperature: 0 }, format: directorJsonSchema(), prompt: `Create a production-ready video DirectorPlan from this brief. Return only the requested schema.\n\n${brief.trim()}` })
+    body: JSON.stringify({ model: model.trim(), stream: false, options: { temperature: 0 }, format: directorJsonSchema(), prompt: `Create a production-ready video DirectorPlan from this brief. Return only the requested schema. Put the exact words to be spoken in each scene's narration; keep visual directions in description and visualBrief, never in narration. An empty narration explicitly means a silent scene.\n\n${brief.trim()}` })
   })
   const payload = await response.json().catch(() => ({}))
   if (!response.ok) throw new Error(typeof payload.error === 'string' ? payload.error : `Ollama generation failed with HTTP ${response.status}`)

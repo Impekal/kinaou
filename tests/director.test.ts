@@ -16,7 +16,7 @@ describe('DirectorPlan', () => {
     const project = createProject('Documentary', new Date('2026-01-01T00:00:00.000Z'))
     const next = applyDirectorPlan(project, plan, new Date('2026-01-02T00:00:00.000Z'))
     expect(next.script).toBe('A complete narration.')
-    expect(next.storyboard).toEqual([{ id: 'scene-1', title: 'Arrival', description: 'Open on the harbour.', durationMs: 5000 }])
+    expect(next.storyboard).toEqual([{ id: 'scene-1', title: 'Arrival', description: 'Open on the harbour.', narration: 'Welcome.', durationMs: 5000 }])
     expect(next.metadata.directorPlan).toEqual(plan)
     expect(next.metadata.directorPlanAppliedAt).toBe('2026-01-02T00:00:00.000Z')
   })

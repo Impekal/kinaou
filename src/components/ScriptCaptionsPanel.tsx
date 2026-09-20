@@ -74,7 +74,7 @@ export function ScriptCaptionsPanel({ project, history, onProjectChange }: Props
       <div>
         <div className="eyebrow">SCRIPT → CAPTIONS</div>
         <h3>Caption what each scene says</h3>
-        <p>Turns every scene description into readable, timed captions on the caption track — split at sentence boundaries and aligned to where that scene's visual actually sits on the timeline, not to planned durations. No AI runtime needed: this is your own script text. Scenes that already have captions are skipped, every caption stays editable in the Caption Studio, and restoring the automatic version undoes the batch. Change a scene's length afterwards and this panel offers to move its captions back over it.</p>
+        <p>Uses the same spoken text as scene narration, not visual directions. An explicit empty narration keeps a scene silent; older scenes without that field use their description. Captions are split at sentence boundaries and distributed across the scene's actual timeline clip — estimated script timing, not word-aligned transcription. Existing captions are skipped and remain editable. The automatic version undoes the batch; if a scene's length changes, you can realign its captions below.</p>
       </div>
       <div className="directorActions">
         <label>Read scene timings from<select aria-label="Track to read scene timings from" value={effectiveTarget} onChange={(event) => { setTargetId(event.target.value); setResult(null) }}>{tracks.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}</select></label>
