@@ -26,6 +26,7 @@ import { StoryboardAssemblyPanel } from './components/StoryboardAssemblyPanel'
 import { AiEditorPanel } from './components/AiEditorPanel'
 import { PublishPanel } from './components/PublishPanel'
 import { CoursePanel } from './components/CoursePanel'
+import { UiLanguageSelector, useUiLanguage } from './components/UiLanguageProvider'
 import { createProjectFromInput, type CreationInputKind } from './core/create'
 import { importProbedMedia, type ImportableMediaKind } from './core/mediaImport'
 import { ProjectRepository, StorageSettingsRepository } from './core/persistence'
@@ -35,16 +36,18 @@ import { WorkerClient } from './core/workerClient'
 import type { MediaProbeResult, WorkerHandshake } from './core/workerProtocol'
 import { PersistentVersionHistory } from './core/versioning'
 
-const nav = ['Projects', 'Create', 'Director', 'Studio', 'Course', 'Assets', 'Avatar', 'Audio', 'Images', 'Video', 'Capture', 'Publish', 'Analytics', 'Settings']
+const nav = ['Projects', 'Create', 'Director', 'Studio', 'Course', 'Assets', 'Avatar', 'Audio', 'Images', 'Video', 'Capture', 'Publish', 'Analytics', 'Settings'] as const
+const creationKinds = ['idea', 'document', 'url', 'image', 'audio', 'video'] as const
 const storageAreas = ['models', 'projects', 'assets', 'cache', 'temp', 'renders', 'archive'] as const
 
 export function App() {
+  const { t, language } = useUiLanguage()
   const projectRepo = useMemo(() => new ProjectRepository(window.localStorage), [])
   const storageRepo = useMemo(() => new StorageSettingsRepository(window.localStorage), [])
   const versionHistory = useMemo(() => new PersistentVersionHistory(window.localStorage), [])
   const [projects, setProjects] = useState<KinaouProject[]>(() => projectRepo.list())
   const [project, setProject] = useState<KinaouProject | null>(() => projectRepo.list()[0] ?? null)
-  const [section, setSection] = useState(projects.length ? 'Projects' : 'Create')
+  const [section, setSection] = useState<typeof nav[number]>(projects.length ? 'Projects' : 'Create')
   const [newTitle, setNewTitle] = useState('')
   const [inputKind, setInputKind] = useState<CreationInputKind>('idea')
   const [inputContent, setInputContent] = useState('')
@@ -84,6 +87,12 @@ export function App() {
   function openProject(next: KinaouProject) {
     setProject(next)
     setSection('Studio')
+  }
+
+  function sourceKindLabel(item: KinaouProject) {
+    const value = (item.metadata.sourceInput as { kind?: unknown } | undefined)?.kind
+    const kind = creationKinds.find((candidate) => candidate === value)
+    return kind ? t(`kind.${kind}`) : t('projects.library')
   }
 
   function saveStorageProfile() {
@@ -148,45 +157,47 @@ export function App() {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">KINAOU</div>
-        <div className="tagline">AI does the work. You stay in control.</div>
-        <nav>{nav.map((item) => <button key={item} className={item === section ? 'navItem active' : 'navItem'} onClick={() => setSection(item)}>{item}</button>)}</nav>
+        <div className="tagline">{t('shell.tagline')}</div>
+        <UiLanguageSelector />
+        <nav>{nav.map((item) => <button key={item} className={item === section ? 'navItem active' : 'navItem'} onClick={() => setSection(item)}>{t(`nav.${item}`)}</button>)}</nav>
         <div className="buildInfo" title="Code state this page is actually running. After a git pull, restart the dev server and hard-reload until this matches the repository.">build {typeof __KINAOU_COMMIT__ === 'undefined' ? 'unknown' : __KINAOU_COMMIT__}{typeof __KINAOU_STARTED__ === 'undefined' ? '' : ` · served since ${new Date(__KINAOU_STARTED__).toLocaleTimeString()}`}</div>
       </aside>
 
       <main className="main">
         <header className="topbar">
-          <div><div className="eyebrow">{section}</div><h1>{project?.title ?? 'KINAOU Studio'}</h1></div>
-          <span className="status">LOCAL-FIRST · STUDIO CORE</span>
+          <div><div className="eyebrow">{t(`nav.${section}`)}</div><h1>{project?.title ?? 'KINAOU Studio'}</h1></div>
+          <span className="status">{t('shell.status')}</span>
         </header>
+        <p className="note">{t('ui.partial')}</p>
 
         {section === 'Projects' && <section className="stack">
-          <div className="sectionLead"><div><div className="eyebrow">PROJECT LIBRARY</div><h2>Your work survives reloads</h2></div><button className="primary" onClick={() => setSection('Create')}>New project</button></div>
-          {projects.length === 0 ? <div className="card emptyState">No saved projects yet.</div> : <div className="projectGrid">{projects.map((item) => <button className="projectCard card" key={item.id} onClick={() => openProject(item)}><div className="eyebrow">{String((item.metadata.sourceInput as { kind?: string } | undefined)?.kind ?? 'project')}</div><h3>{item.title}</h3><p>{item.tracks.length} tracks · {item.assets.length} assets</p><small>Updated {new Date(item.updatedAt).toLocaleString()}</small></button>)}</div>}
+          <div className="sectionLead"><div><div className="eyebrow">{t('projects.library')}</div><h2>{t('projects.heading')}</h2></div><button className="primary" onClick={() => setSection('Create')}>{t('projects.new')}</button></div>
+          {projects.length === 0 ? <div className="card emptyState">{t('projects.empty')}</div> : <div className="projectGrid">{projects.map((item) => <button className="projectCard card" key={item.id} onClick={() => openProject(item)}><div className="eyebrow">{sourceKindLabel(item)}</div><h3>{item.title}</h3><p>{t('projects.summary', { tracks: item.tracks.length, assets: item.assets.length })}</p><small>{t('projects.updated', { date: new Date(item.updatedAt).toLocaleString(language) })}</small></button>)}</div>}
           <ProjectBackupPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} onRestore={restoreBackupProject} />
         </section>}
 
         {section === 'Create' && <section className="hero card createPanel">
-          <div><div className="eyebrow">CREATE</div><h2>What do you want to make?</h2><p>Create a persistent KINAOU project with a non-destructive timeline foundation.</p></div>
+          <div><div className="eyebrow">{t('nav.Create')}</div><h2>{t('create.heading')}</h2><p>{t('create.help')}</p></div>
           <div className="formStack">
-            <label>Project title<input value={newTitle} onChange={(event) => setNewTitle(event.target.value)} placeholder="e.g. Zanzibar documentary" /></label>
-            <label>Starting point<select value={inputKind} onChange={(event) => setInputKind(event.target.value as CreationInputKind)}><option value="idea">Idea</option><option value="document">Document</option><option value="url">URL</option><option value="image">Image</option><option value="audio">Audio</option><option value="video">Video</option></select></label>
-            <label>Source / brief<textarea value={inputContent} onChange={(event) => setInputContent(event.target.value)} placeholder="Describe the work, paste a URL, or note the source you want to use." /></label>
-            <button className="primary" onClick={createNewProject}>Create persistent project</button>
+            <label>{t('create.title')}<input value={newTitle} onChange={(event) => setNewTitle(event.target.value)} placeholder={t('create.titleHint')} /></label>
+            <label>{t('create.kind')}<select value={inputKind} onChange={(event) => setInputKind(event.target.value as CreationInputKind)}>{creationKinds.map((kind) => <option key={kind} value={kind}>{t(`kind.${kind}`)}</option>)}</select></label>
+            <label>{t('create.brief')}<textarea value={inputContent} onChange={(event) => setInputContent(event.target.value)} placeholder={t('create.briefHint')} /></label>
+            <button className="primary" onClick={createNewProject}>{t('create.submit')}</button>
           </div>
         </section>}
 
-        {section === 'Director' && (project ? <section className="stack"><DirectorPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /><MediaPlanPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /></section> : <section className="card emptyState">Create or open a project first.</section>)}
-        {section === 'Audio' && (project ? <AudioStudioPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">Create or open a project first.</section>)}
-        {section === 'Avatar' && (project ? <PortraitPresenterPanel key={project.id} project={project} history={versionHistory} onProjectChange={persistProject} onOpenStudio={() => setSection('Studio')} /> : <section className="card emptyState">Create or open a project first.</section>)}
-        {section === 'Images' && (project ? <ImageStudioPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">Create or open a project first.</section>)}
-        {section === 'Video' && (project ? <VideoStudioPanel key={`${project.id}:${workerUrl}:${workerToken}`} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">Create or open a project first.</section>)}
-        {section === 'Capture' && (project ? <CapturePanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">Create or open a project first.</section>)}
-        {section === 'Publish' && (project ? <PublishPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">Create or open a project first.</section>)}
+        {section === 'Director' && (project ? <section className="stack"><DirectorPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /><MediaPlanPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /></section> : <section className="card emptyState">{t('shell.openProject')}</section>)}
+        {section === 'Audio' && (project ? <AudioStudioPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
+        {section === 'Avatar' && (project ? <PortraitPresenterPanel key={project.id} project={project} history={versionHistory} onProjectChange={persistProject} onOpenStudio={() => setSection('Studio')} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
+        {section === 'Images' && (project ? <ImageStudioPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
+        {section === 'Video' && (project ? <VideoStudioPanel key={`${project.id}:${workerUrl}:${workerToken}`} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
+        {section === 'Capture' && (project ? <CapturePanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
+        {section === 'Publish' && (project ? <PublishPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
 
-        {section === 'Course' && (project ? <CoursePanel key={project.id} project={project} history={versionHistory} onProjectChange={persistProject} onOpenStudio={() => setSection('Studio')} /> : <section className="card emptyState">Create or open a project first.</section>)}
+        {section === 'Course' && (project ? <CoursePanel key={project.id} project={project} history={versionHistory} onProjectChange={persistProject} onOpenStudio={() => setSection('Studio')} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
 
         {section === 'Studio' && <section className="stack">
-          {!project ? <div className="card emptyState">Create or open a project first.</div> : <>
+          {!project ? <div className="card emptyState">{t('shell.openProject')}</div> : <>
             <div className="sectionLead"><div><div className="eyebrow">NON-DESTRUCTIVE TIMELINE</div><h2>Studio</h2></div><span className="status">AUTO-SAVED</span></div>
             <StudioProxyPreview project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} />
             <TimelinePreview project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} />
@@ -204,7 +215,7 @@ export function App() {
 
         {section === 'Assets' && <section className="stack">
           <div className="sectionLead"><div><div className="eyebrow">MANAGED MEDIA</div><h2>Assets</h2></div><span className={workerHandshake ? 'status online' : 'status'}>{workerHandshake ? 'WORKER ONLINE' : 'WORKER NOT CONNECTED'}</span></div>
-          {!project ? <div className="card emptyState">Create or open a project before importing media.</div> : <>
+          {!project ? <div className="card emptyState">{t('shell.openProject')}</div> : <>
             <SttPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
             <AssetUploadPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
             <AssetAvailabilityControl project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} onProjectChange={persistProject} />
@@ -231,7 +242,7 @@ export function App() {
           <div className="card"><div className="eyebrow">MANAGED TARGETS</div><ul className="paths">{storageAreas.map((area) => <li key={area}><span>{area}</span><code>{storageTarget(storage, area)}</code></li>)}</ul><div className="note">{storage.backend === 'desktop-worker' ? 'External filesystem profile configured. Real media access is available when the local worker is running and authenticated.' : 'Browser mode stores project metadata locally. Heavy media should use the desktop worker / external SSD adapter.'}</div></div>
         </section>}
 
-        {!['Projects', 'Create', 'Director', 'Studio', 'Course', 'Assets', 'Avatar', 'Audio', 'Images', 'Video', 'Capture', 'Publish', 'Settings'].includes(section) && <section className="card emptyState"><div className="eyebrow">{section.toUpperCase()}</div><h2>Engine slot reserved</h2><p>This area is intentionally not presented as functional until its underlying engine exists.</p></section>}
+        {!['Projects', 'Create', 'Director', 'Studio', 'Course', 'Assets', 'Avatar', 'Audio', 'Images', 'Video', 'Capture', 'Publish', 'Settings'].includes(section) && <section className="card emptyState"><div className="eyebrow">{t(`nav.${section}`)}</div><h2>{t('shell.reserved')}</h2><p>{t('shell.reservedHelp')}</p></section>}
       </main>
     </div>
   )
