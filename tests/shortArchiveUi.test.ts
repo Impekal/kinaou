@@ -5,7 +5,7 @@ import { ShortBatchArchivePanel } from '../src/components/ShortBatchArchivePanel
 import { UiLanguageProvider } from '../src/components/UiLanguageProvider'
 import { createProject, parseProject } from '../src/core/project'
 import { forgetProjectShortBatchArchiveEntry, projectShortBatchArchive } from '../src/core/shortExportBatch'
-import { ExportFileCheckSession, type ExportCheckFeedback } from '../src/core/exportFileCheck'
+import { ExportCheckScope, ExportFileCheckSession, type ExportCheckFeedback } from '../src/core/exportFileCheck'
 import { WorkerClient } from '../src/core/workerClient'
 import { uiLanguages } from '../src/core/uiLanguage'
 import { translateUi } from '../src/core/uiMessages'
@@ -55,14 +55,21 @@ it('does not publish partial counts if a later archive chunk fails', async () =>
   await new ExportFileCheckSession(paths, { client: { exportAvailability: paths => client.exportAvailabilityBatched(paths) }, current: () => true, publish: state => states.push(state) }).run()
   expect(states.map(state => state.phase)).toEqual(['checking', 'failed'])
 })
-it.each(['project', 'connection', 'paths', 'unmount'] as const)('suppresses archive results after %s scope invalidation, including returning to the old values', async () => {
+it.each(['project', 'connection', 'paths', 'unmount'] as const)('suppresses archive results after %s scope invalidation, including returning to the old values', async kind => {
   let resolve!: (value: Array<{ path: string; available: boolean }>) => void
   const pending = new Promise<Array<{ path: string; available: boolean }>>(yes => { resolve = yes })
-  const originalIdentity = {}, states: ExportCheckFeedback[] = []
-  let identity = originalIdentity
-  const session = new ExportFileCheckSession(['KINAOU/Renders/1.mp4'], { client: { exportAvailability: () => pending }, current: () => identity === originalIdentity, publish: state => states.push(state) })
+  const scope = new ExportCheckScope(), states: ExportCheckFeedback[] = []
+  const keys = { project: 'project-1', connection: 'localhost:43117:token', paths: 'KINAOU/Renders/1.mp4' }
+  const originalKey = JSON.stringify(keys), originalIdentity = scope.update(originalKey)
+  expect(scope.update(originalKey)).toBe(originalIdentity)
+  const session = new ExportFileCheckSession(['KINAOU/Renders/1.mp4'], { client: { exportAvailability: () => pending }, current: () => scope.isCurrent(originalIdentity), publish: state => states.push(state) })
   const task = session.run()
-  identity = {}; session.detach(); identity = originalIdentity
+  if (kind === 'unmount') session.detach()
+  else {
+    scope.update(JSON.stringify({ ...keys, [kind]: keys[kind] + '-changed' }))
+    expect(scope.isCurrent(originalIdentity)).toBe(false)
+    expect(scope.update(originalKey)).not.toBe(originalIdentity)
+  }
   resolve([{ path: 'KINAOU/Renders/1.mp4', available: true }]); await task
   expect(states).toEqual([{ phase: 'checking' }])
 })

@@ -3,6 +3,17 @@ import type { WorkerClient } from './workerClient'
 export interface ExportFileCheck { byPath: Record<string, boolean>; available: number; missing: number; checkedAt: string }
 export type ExportCheckFeedback = { phase: 'checking' } | { phase: 'checked'; result: ExportFileCheck } | { phase: 'failed'; detail: string }
 
+/** Returning to an earlier key creates a new lifetime, never reviving old requests. */
+export class ExportCheckScope {
+  private key: string | null = null
+  private identity = {}
+  update(key: string) {
+    if (this.key !== key) { this.key = key; this.identity = {} }
+    return this.identity
+  }
+  isCurrent(identity: object) { return this.identity === identity }
+}
+
 /** Read-only presence check. Its caller owns the project/connection lifetime. */
 export class ExportFileCheckSession {
   private active = true

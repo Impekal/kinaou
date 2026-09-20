@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { KinaouProject } from '../core/project'
 import { forgetProjectShortBatchArchiveEntry, projectShortBatchArchive, shortBatchArchiveLimit } from '../core/shortExportBatch'
-import { ExportFileCheckSession, type ExportCheckFeedback } from '../core/exportFileCheck'
+import { ExportCheckScope, ExportFileCheckSession, type ExportCheckFeedback } from '../core/exportFileCheck'
 import { WorkerClient } from '../core/workerClient'
 import { useUiLanguage } from './UiLanguageProvider'
 
@@ -12,10 +12,9 @@ export function ShortBatchArchivePanel({ project, workerUrl, workerToken, worker
   const { language, t } = useUiLanguage()
   const archive = projectShortBatchArchive(project)
   const scope = JSON.stringify([project.id, workerUrl, workerToken, workerConnected, archive.map(entry => [entry.batchId, entry.items.map(item => item.outputPath)])])
-  const identity = useRef({ key: scope })
+  const lifetime = useRef(new ExportCheckScope())
   const session = useRef<ExportFileCheckSession | null>(null)
-  if (identity.current.key !== scope) { session.current?.detach(); identity.current = { key: scope } }
-  const currentIdentity = identity.current
+  const currentIdentity = lifetime.current.update(scope)
   const [feedback, setFeedback] = useState<{ identity: typeof currentIdentity; batchId: string; value: ExportCheckFeedback } | null>(null)
   const [error, setError] = useState<{ project: KinaouProject; detail: string } | null>(null)
   useEffect(() => () => session.current?.detach(), [])
@@ -28,7 +27,7 @@ export function ShortBatchArchivePanel({ project, workerUrl, workerToken, worker
     const client = new WorkerClient({ baseUrl: workerUrl, token: workerToken })
     const next = new ExportFileCheckSession(entry.items.map(item => item.outputPath), {
       client: { exportAvailability: paths => client.exportAvailabilityBatched(paths) },
-      current: () => identity.current === currentIdentity && session.current === next,
+      current: () => lifetime.current.isCurrent(currentIdentity) && session.current === next,
       publish: result => setFeedback({ identity: currentIdentity, batchId, value: result })
     })
     session.current = next
