@@ -2,9 +2,11 @@
 
 User clarification: 2026-09-20. These are acceptance targets, not a claim that the corresponding engines already exist.
 
-## Photo-driven avatars
+## Photo-driven, video-driven and fully generated avatars
 
-- An uploaded authorized reference photo should drive an identity-consistent, believable speaking presenter with expressions, motion and audio-driven lip sync.
+- Three explicit source modes are required: an authorized reference photo, an authorized reference video, or a fully generated fictional identity with no real-person reference. All three target identity-consistent, believable performance, expressions, motion and audio-driven lip sync.
+- For video references, declare whether the runtime actually uses appearance, movement or performance conditioning; do not equate extracting one frame with genuine video-driven animation. Keep original video/audio and generated output attribution separate.
+- For fully generated identities, preserve the approved identity reference and generation settings across scenes so the person does not change between lessons. No reference upload should be required when the installed runtime supports generation without one.
 - Support fictional/generated identities and real people whose likeness the user has permission to use. Preserve reference, runtime, model and generation provenance. Do not erase synthetic provenance or misrepresent generated footage as a real recording.
 - Higgsfield is a visual quality benchmark only; do not connect to its service, spend credits or assume its proprietary models can be reused.
 - Current implementation: a still image paired with existing narration, editable and renderable. It is explicitly NOT animation, voice cloning or lip sync.
