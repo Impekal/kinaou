@@ -4,6 +4,15 @@ import { shortBatchTerminalStates } from '../core/shortExportBatch'
 import type { ShortBatchNotice } from '../core/shortBatchCommit'
 import { useUiLanguage } from './UiLanguageProvider'
 
+export function ShortBatchReceiptRecovery({ detail, onRetry }: { detail: string; onRetry: () => void }) {
+  const { t } = useUiLanguage()
+  return <div className="errorBox" role="alert">
+    <p>{t('shortBatch.receiptFailed')}</p>
+    <details><summary>{t('common.details')}</summary>{detail}</details>
+    <button onClick={onRetry}>{t('shortBatch.retryReceipt')}</button>
+  </div>
+}
+
 export interface ShortBatchStatusProps {
   items: PersistedShortBatchItem[]; notice: ShortBatchNotice | null; resumeError: string
   retryableIds: Set<string>; retrySelectedIds: string[]; setRetrySelectedIds: Dispatch<SetStateAction<string[]>>

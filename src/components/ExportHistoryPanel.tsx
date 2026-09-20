@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { KinaouProject } from '../core/project'
-import { forgetExportReceipt, projectExportHistory } from '../core/exportHistory'
+import { projectExportHistory } from '../core/exportHistory'
+import { forgetExportReceiptWithShortAcknowledgement } from '../core/shortBatchReceipts'
 import { ExportFileCheckSession, type ExportCheckFeedback } from '../core/exportFileCheck'
 import { WorkerClient } from '../core/workerClient'
 import { useUiLanguage } from './UiLanguageProvider'
@@ -38,7 +39,7 @@ export function ExportHistoryPanel({ project, workerUrl, workerToken, workerConn
   }
   function forget(id: string) {
     setError(null)
-    try { onProjectChange(forgetExportReceipt(project, id)) }
+    try { onProjectChange(forgetExportReceiptWithShortAcknowledgement(project, id)) }
     catch (cause) { setError({ project, detail: String(cause) }) }
   }
   return <section className="renderJob" aria-label={t('exports.heading')}>
