@@ -2,6 +2,7 @@ import type { KinaouProject, TimelineClip, TimelineTrack } from './project'
 import { applyTimelineOperation } from './timeline'
 import { registerGeneratedVoice } from './generatedVoice'
 import type { TtsJobRecord } from './ttsJobs'
+import { sceneSpeech, type SceneSpeechSource } from './sceneSpeech'
 
 const VOICE_TRACK_TYPES = new Set<TimelineTrack['type']>(['voice', 'dialog'])
 
@@ -11,6 +12,7 @@ export interface VoiceoverScene {
   text: string
   startMs: number
   sceneDurationMs: number
+  textSource?: SceneSpeechSource
 }
 
 export interface NarratedScene extends VoiceoverScene {
@@ -65,9 +67,9 @@ export function planSceneVoiceovers(project: KinaouProject, visualTrackId: strin
       skipped.push({ sceneId: scene.id, title: scene.title, reason: 'This scene already has narration' })
       continue
     }
-    const text = scene.description.replace(/\s+/g, ' ').trim()
+    const { text, source } = sceneSpeech(scene)
     if (!text) {
-      skipped.push({ sceneId: scene.id, title: scene.title, reason: 'Scene has no description to read out' })
+      skipped.push({ sceneId: scene.id, title: scene.title, reason: source === 'storyboard-narration' ? 'Scene is intentionally silent (empty narration)' : 'Scene has no description to read out' })
       continue
     }
     if (!scene.assetId) {
@@ -79,7 +81,7 @@ export function planSceneVoiceovers(project: KinaouProject, visualTrackId: strin
       skipped.push({ sceneId: scene.id, title: scene.title, reason: `Its visual is not on "${visualTrack.name}" — assemble the timeline first` })
       continue
     }
-    pending.push({ sceneId: scene.id, title: scene.title, text, startMs: clip.startMs, sceneDurationMs: clip.durationMs })
+    pending.push({ sceneId: scene.id, title: scene.title, text, startMs: clip.startMs, sceneDurationMs: clip.durationMs, ...(source === 'storyboard-narration' ? { textSource: source } : {}) })
   }
 
   return { pending, skipped }
@@ -105,7 +107,7 @@ export function placeSceneNarration(project: KinaouProject, scene: VoiceoverScen
   const tagged = {
     ...withAsset,
     assets: withAsset.assets.map((entry) => entry.id === asset.id
-      ? { ...entry, metadata: { ...entry.metadata, sceneId: scene.sceneId, source: 'storyboard-description' } }
+      ? { ...entry, metadata: { ...entry.metadata, sceneId: scene.sceneId, source: scene.textSource ?? 'storyboard-description' } }
       : entry)
   }
 

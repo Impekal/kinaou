@@ -156,7 +156,7 @@ export function SceneVoiceoverPanel({ project, history, workerUrl, workerToken, 
       <div>
         <div className="eyebrow">SCRIPT → NARRATION</div>
         <h3>Speak each scene with a local voice</h3>
-        <p>Reads every scene description aloud through your installed Piper voice and places the result under that scene on the voice track. Narration keeps its natural length — cutting a sentence to fit a picture would swallow words — so anything that runs past its scene is reported instead of trimmed. Scenes that already have narration are skipped, and restoring the automatic version removes the whole batch.</p>
+        <p>Reads each scene's spoken text through your installed Piper voice and places the result under that scene. An explicit empty narration keeps a scene silent; older scenes without a narration field still use their description. Narration keeps its natural length, and anything that runs past its scene is reported instead of trimmed. Existing narration is skipped, and restoring the automatic version removes the batch.</p>
       </div>
       <div className="directorActions">
         <button className="secondaryButton" disabled={!available || Boolean(busy)} onClick={detect}>Detect voices</button>

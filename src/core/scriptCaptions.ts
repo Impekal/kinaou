@@ -1,5 +1,6 @@
 import { addCaption } from './captions'
 import type { KinaouProject, TimelineClip, TimelineTrack } from './project'
+import { sceneSpeech } from './sceneSpeech'
 
 const MAX_CAPTION_CHARS = 90
 const MIN_CAPTION_MS = 700
@@ -99,7 +100,7 @@ function clipForScene(track: TimelineTrack, sceneId: string, assetId: string): T
 }
 
 /**
- * Turns each storyboard scene's own description into timed captions, aligned to
+ * Turns each storyboard scene's spoken text into timed captions, aligned to
  * where that scene's visual actually sits on the given track — so captions follow
  * the assembled timeline rather than the storyboard's planned durations.
  */
@@ -130,9 +131,10 @@ export function captionsFromStoryboard(project: KinaouProject, trackId: string):
       skipped.push({ sceneId: scene.id, title: scene.title, reason: `Its visual is not on "${track.name}" — assemble the timeline first` })
       continue
     }
-    const chunks = splitCaptionText(scene.description)
+    const { text, source } = sceneSpeech(scene)
+    const chunks = splitCaptionText(text)
     if (!chunks.length) {
-      skipped.push({ sceneId: scene.id, title: scene.title, reason: 'Scene has no description to read out' })
+      skipped.push({ sceneId: scene.id, title: scene.title, reason: source === 'storyboard-narration' ? 'Scene is intentionally silent (empty narration)' : 'Scene has no description to read out' })
       continue
     }
 
@@ -140,7 +142,7 @@ export function captionsFromStoryboard(project: KinaouProject, trackId: string):
     for (const timing of timings) {
       next = addCaption(next, timing)
       const created = next.assets[next.assets.length - 1]
-      next = { ...next, assets: next.assets.map((asset) => asset.id === created.id ? { ...asset, metadata: { ...asset.metadata, sceneId: scene.id, source: 'storyboard-description' } } : asset) }
+      next = { ...next, assets: next.assets.map((asset) => asset.id === created.id ? { ...asset, metadata: { ...asset.metadata, sceneId: scene.id, source } } : asset) }
     }
     captioned.push({ sceneId: scene.id, title: scene.title, captions: timings.length, startMs: clip.startMs, durationMs: clip.durationMs })
   }

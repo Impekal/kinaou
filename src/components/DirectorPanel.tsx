@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ContentProfilePanel } from './ContentProfilePanel'
+import { SceneSpeechReview } from './SceneSpeechReview'
 import { localizedDirectorBrief, projectContentProfile } from '../core/contentProfile'
 import { applyDirectorPlan, parseDirectorPlan, type DirectorPlan } from '../core/director'
 import type { KinaouProject } from '../core/project'
@@ -69,7 +70,7 @@ export function DirectorPanel({ project, history, workerUrl, workerToken, worker
       <label>DirectorPlan JSON<textarea value={source} onChange={(event) => { setSource(event.target.value); setReviewed(null); setMessage('') }} placeholder='{"schemaVersion":1,"title":"…","objective":"…","script":"…","scenes":[…],"provenance":{"kind":"manual"}}' /></label>
       <div className="directorActions"><button className="secondaryButton" disabled={!source.trim()} onClick={review}>Validate and review</button>{reviewed && <button className="primary" onClick={apply}>Apply reviewed plan</button>}</div>
       {message && <div className={reviewed ? 'note' : 'warning'}>{message}</div>}
-      {reviewed && <div className="directorReview"><div><strong>{reviewed.title}</strong><small>{reviewed.scenes.length} scenes · {(reviewed.scenes.reduce((total, scene) => total + scene.durationMs, 0) / 1000).toFixed(1)} seconds · {reviewed.provenance.kind}</small></div><p>{reviewed.objective}</p><ol>{reviewed.scenes.map((scene) => <li key={scene.id}><strong>{scene.title}</strong><span>{scene.description}</span><small>{(scene.durationMs / 1000).toFixed(1)}s · {scene.requiredMedia.join(', ') || 'no requested media'}</small></li>)}</ol></div>}
+      {reviewed && <div className="directorReview"><div><strong>{reviewed.title}</strong><small>{reviewed.scenes.length} scenes · {(reviewed.scenes.reduce((total, scene) => total + scene.durationMs, 0) / 1000).toFixed(1)} seconds · {reviewed.provenance.kind}</small></div><p>{reviewed.objective}</p><ol>{reviewed.scenes.map((scene) => <li key={scene.id}><strong>{scene.title}</strong><span>Visual / action: {scene.description}</span><SceneSpeechReview scene={scene} /><small>{(scene.durationMs / 1000).toFixed(1)}s · {scene.requiredMedia.join(', ') || 'no requested media'}</small></li>)}</ol></div>}
     </div>
     {Boolean(current) && <div className="card directorCurrent"><div className="eyebrow">ACCEPTED PLAN</div><strong>{String((current as { title?: unknown }).title ?? 'Director plan')}</strong><p>This project contains an accepted DirectorPlan. Applying another valid plan creates a safety version first.</p></div>}
     <div className="card note"><strong>Model boundary:</strong> this slice validates and applies real structured output. It does not claim that a local model is installed or generate placeholder AI results.</div>

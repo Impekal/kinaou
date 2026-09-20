@@ -32,5 +32,7 @@ test('generates non-streaming structured output and stamps trusted provenance', 
   })
   assert.equal(body.stream, false)
   assert.equal(body.format.type, 'object')
+  assert.match(body.prompt, /exact words to be spoken/)
+  assert.match(body.prompt, /empty narration explicitly means a silent scene/)
   assert.deepEqual(plan.provenance, { kind: 'local-model', adapterId: 'ollama', modelId: 'qwen:7b' })
 })
