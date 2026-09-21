@@ -1,78 +1,103 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ContentProfilePanel } from './ContentProfilePanel'
 import { SceneSpeechReview } from './SceneSpeechReview'
 import { localizedDirectorBrief, projectContentProfile } from '../core/contentProfile'
-import { applyDirectorPlan, parseDirectorPlan, type DirectorPlan } from '../core/director'
+import type { DirectorPlan } from '../core/director'
+import { commitDirectorReview, reviewDirectorPlan, type DirectorReview } from '../core/directorReview'
+import { AiEditorRequestScope as RequestScope } from '../core/aiEditorReview'
 import type { KinaouProject } from '../core/project'
 import type { PersistentVersionHistory } from '../core/versioning'
 import { WorkerClient } from '../core/workerClient'
+import { useUiLanguage } from './UiLanguageProvider'
 
-interface Props {
-  project: KinaouProject
-  history: PersistentVersionHistory
-  workerUrl: string
-  workerToken: string
-  workerConnected: boolean
-  workerCapabilities: string[]
-  onProjectChange: (project: KinaouProject) => void
+interface Props { project: KinaouProject; history: PersistentVersionHistory; workerUrl: string; workerToken: string; workerConnected: boolean; workerCapabilities: string[]; onProjectChange: (project: KinaouProject) => void }
+
+export function DirectorPlanReview({ plan }: { plan: DirectorPlan }) {
+  const { language, t } = useUiLanguage()
+  const seconds = (ms: number) => (ms / 1000).toLocaleString(language, { maximumFractionDigits: 3 })
+  return <div className="directorReview">
+    <strong>{plan.title}</strong><small>{t('director.summary', { count: plan.scenes.length, seconds: seconds(plan.scenes.reduce((total, scene) => total + scene.durationMs, 0)) })} · {t(`director.${plan.provenance.kind}`)}</small>
+    {plan.provenance.modelId && <small>{plan.provenance.adapterId} · {plan.provenance.modelId}</small>}
+    <p>{plan.objective}</p><details><summary>{t('director.script')}</summary><p style={{ whiteSpace: 'pre-wrap' }}>{plan.script}</p></details>
+    <ol>{plan.scenes.map(scene => <li key={scene.id}><strong>{scene.title}</strong><span>{t('director.visual')}: {scene.description}</span>{scene.visualBrief && <span>{t('director.visualBrief')}: {scene.visualBrief}</span>}<SceneSpeechReview scene={scene} /><small>{seconds(scene.durationMs)} s · {scene.requiredMedia.map(kind => t(`director.${kind}`)).join(', ') || t('director.noMedia')}</small></li>)}</ol>
+  </div>
 }
 
 export function DirectorPanel({ project, history, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange }: Props) {
+  const { t } = useUiLanguage()
   const [source, setSource] = useState('')
-  const [reviewed, setReviewed] = useState<DirectorPlan | null>(null)
-  const [message, setMessage] = useState('')
-  const [models, setModels] = useState<Array<{ id: string; sizeBytes: number }>>([])
+  const [reviewed, setReviewed] = useState<DirectorReview | null>(null)
+  const [message, setMessage] = useState<'valid' | 'saved' | 'models' | 'noModels' | null>(null)
+  const [error, setError] = useState('')
+  const [models, setModels] = useState<{ connection: string; items: Array<{ id: string; sizeBytes: number }> } | null>(null)
   const [model, setModel] = useState('')
   const [brief, setBrief] = useState(String((project.metadata.sourceInput as { content?: unknown } | undefined)?.content ?? ''))
-  const [busy, setBusy] = useState(false)
-
-  async function loadModels() {
-    setBusy(true); setMessage('')
-    try { const next = await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).listLocalModels(); setModels(next); setModel(next[0]?.id ?? ''); setMessage(next.length ? 'Installed local models loaded.' : 'Ollama is reachable, but no local models are installed.') }
-    catch (error) { setMessage(error instanceof Error ? error.message : 'Could not load local models.') }
-    finally { setBusy(false) }
+  const scope = useRef(new RequestScope())
+  const inFlight = useRef<(() => boolean) | null>(null)
+  const [pending, setPending] = useState<{ current: () => boolean } | null>(null)
+  const projectKey = JSON.stringify(project)
+  const connection = JSON.stringify([workerUrl, workerToken, workerConnected, workerCapabilities.includes('local-llm')])
+  scope.current.update(JSON.stringify([projectKey, connection]))
+  useEffect(() => { scope.current.attach(); return () => scope.current.detach() }, [])
+  useEffect(() => {
+    setSource(''); setReviewed(null); setMessage(null); setError('')
+    setBrief(String((project.metadata.sourceInput as { content?: unknown } | undefined)?.content ?? ''))
+  }, [project.id])
+  const busy = Boolean(pending?.current())
+  const installed = models?.connection === connection ? models.items : []
+  const canGenerate = workerConnected && Boolean(workerToken.trim()) && workerCapabilities.includes('local-llm')
+  const stale = Boolean(reviewed && reviewed.projectKey !== projectKey)
+  function accept(input: unknown) {
+    const next = reviewDirectorPlan(project, input)
+    setReviewed(next); setSource(JSON.stringify(next.plan, null, 2)); setMessage('valid'); setError('')
   }
-
-  async function generate() {
-    setBusy(true); setMessage(''); setReviewed(null)
-    try { const plan = parseDirectorPlan(await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).generateDirectorPlan(model, localizedDirectorBrief(projectContentProfile(project), brief))); setReviewed(plan); setSource(JSON.stringify(plan, null, 2)); setMessage('Local model output passed KINAOU validation. Review it before applying.') }
-    catch (error) { setMessage(error instanceof Error ? error.message : 'Local generation failed.') }
-    finally { setBusy(false) }
-  }
-
-  function review() {
+  async function request(kind: 'models' | 'plan') {
+    if (busy || inFlight.current?.() || !canGenerate) return
+    if (kind === 'plan' && (!installed.some(item => item.id === model) || !brief.trim())) return
+    const current = scope.current.begin()
+    inFlight.current = current; setPending({ current }); setMessage(null); setError('')
+    if (kind === 'plan') setReviewed(null)
     try {
-      const parsed = parseDirectorPlan(JSON.parse(source))
-      setReviewed(parsed)
-      setMessage('Plan is valid and ready for review. Nothing has been changed yet.')
-    } catch (error) {
-      setReviewed(null)
-      setMessage(error instanceof Error ? error.message : 'Director plan is invalid.')
-    }
+      const client = new WorkerClient({ baseUrl: workerUrl, token: workerToken })
+      if (kind === 'models') {
+        const items = await client.listLocalModels()
+        if (current()) { setModels({ connection, items }); setModel(items[0]?.id ?? ''); setMessage(items.length ? 'models' : 'noModels') }
+      } else {
+        const plan = await client.generateDirectorPlan(model, localizedDirectorBrief(projectContentProfile(project), brief))
+        if (current()) accept(plan)
+      }
+    } catch (cause) { if (current()) setError(cause instanceof Error ? cause.message : String(cause)) }
+    finally { if (current()) { inFlight.current = null; setPending(null) } }
   }
-
+  function review() {
+    if (busy) return
+    setError(''); setMessage(null)
+    try { accept(JSON.parse(source)) }
+    catch (cause) { setReviewed(null); setError(cause instanceof Error ? cause.message : String(cause)) }
+  }
   function apply() {
-    if (!reviewed) return
-    history.snapshot(project, `Before Director plan: ${reviewed.title}`, 'system')
-    onProjectChange(applyDirectorPlan(project, reviewed))
-    setMessage('Director plan applied. The previous project state is available in Version History.')
-    setReviewed(null)
-    setSource('')
+    if (!reviewed || stale || busy) return
+    setError(''); setMessage(null)
+    try {
+      commitDirectorReview(project, reviewed, history, onProjectChange)
+      setMessage('saved'); setReviewed(null); setSource('')
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) }
   }
-
   const current = project.metadata.directorPlan
-
   return <section className="stack">
-    <div className="sectionLead"><div><div className="eyebrow">STRUCTURED DIRECTION</div><h2>Director</h2><p>Review a versioned plan from a human or local model before it changes the project.</p></div><span className="status">NO CLOUD REQUIRED</span></div>
+    <div className="sectionLead"><div><h2>{t('director.heading')}</h2><p>{t('director.help')}</p></div></div>
     <ContentProfilePanel project={project} onProjectChange={onProjectChange} />
     <div className="card directorPanel">
-      <div className="localDirector"><label>Creative brief<textarea value={brief} onChange={(event) => setBrief(event.target.value)} /></label><label>Installed Ollama model<select value={model} onChange={(event) => setModel(event.target.value)}><option value="">Select a detected model</option>{models.map((item) => <option key={item.id} value={item.id}>{item.id} · {(item.sizeBytes / 1024 / 1024 / 1024).toFixed(1)} GB</option>)}</select></label><div className="directorActions"><button className="secondaryButton" disabled={busy || !workerConnected || !workerCapabilities.includes('local-llm')} onClick={loadModels}>Detect local models</button><button className="primary" disabled={busy || !model || !brief.trim()} onClick={generate}>{busy ? 'Working locally…' : 'Generate plan locally'}</button></div></div>
-      <label>DirectorPlan JSON<textarea value={source} onChange={(event) => { setSource(event.target.value); setReviewed(null); setMessage('') }} placeholder='{"schemaVersion":1,"title":"…","objective":"…","script":"…","scenes":[…],"provenance":{"kind":"manual"}}' /></label>
-      <div className="directorActions"><button className="secondaryButton" disabled={!source.trim()} onClick={review}>Validate and review</button>{reviewed && <button className="primary" onClick={apply}>Apply reviewed plan</button>}</div>
-      {message && <div className={reviewed ? 'note' : 'warning'}>{message}</div>}
-      {reviewed && <div className="directorReview"><div><strong>{reviewed.title}</strong><small>{reviewed.scenes.length} scenes · {(reviewed.scenes.reduce((total, scene) => total + scene.durationMs, 0) / 1000).toFixed(1)} seconds · {reviewed.provenance.kind}</small></div><p>{reviewed.objective}</p><ol>{reviewed.scenes.map((scene) => <li key={scene.id}><strong>{scene.title}</strong><span>Visual / action: {scene.description}</span><SceneSpeechReview scene={scene} /><small>{(scene.durationMs / 1000).toFixed(1)}s · {scene.requiredMedia.join(', ') || 'no requested media'}</small></li>)}</ol></div>}
+      <p>{t('editor.scopeHelp')}</p>
+      <div className="localDirector"><label>{t('director.brief')}<textarea disabled={busy} value={brief} onChange={event => setBrief(event.target.value)} /></label><label>{t('editor.model')}<select disabled={busy} value={installed.some(item => item.id === model) ? model : ''} onChange={event => setModel(event.target.value)}><option value="">{t('editor.chooseModel')}</option>{installed.map(item => <option key={item.id} value={item.id}>{item.id}</option>)}</select></label><div className="directorActions"><button className="secondaryButton" disabled={busy || !canGenerate} onClick={() => void request('models')}>{t('editor.detect')}</button><button className="primary" disabled={busy || !canGenerate || !installed.some(item => item.id === model) || !brief.trim()} onClick={() => void request('plan')}>{t(busy ? 'editor.busy' : 'editor.generate')}</button></div></div>
+      <label>{t('director.source')}<textarea value={source} onChange={event => { scope.current.invalidate(); setPending(null); setSource(event.target.value); setReviewed(null); setMessage(null); setError('') }} placeholder='{"schemaVersion":1,"title":"…","objective":"…","script":"…","scenes":[…],"provenance":{"kind":"manual"}}' /></label>
+      <div className="directorActions"><button className="secondaryButton" disabled={busy || !source.trim()} onClick={review}>{t('editor.review')}</button>{reviewed && <button className="primary" disabled={busy || stale} onClick={apply}>{t('director.apply')}</button>}</div>
+      {stale && <div className="warning" role="status">{t('editor.stale')}</div>}
+      {message && !stale && <div className="note" role="status">{t(message === 'models' || message === 'noModels' ? `editor.${message}` : `director.${message}`)}</div>}
+      {error && <div className="errorBox" role="alert">{t('editor.failed')}<details><summary>{t('common.details')}</summary>{error}</details></div>}
+      {reviewed && !stale && <DirectorPlanReview plan={reviewed.plan} />}
     </div>
-    {Boolean(current) && <div className="card directorCurrent"><div className="eyebrow">ACCEPTED PLAN</div><strong>{String((current as { title?: unknown }).title ?? 'Director plan')}</strong><p>This project contains an accepted DirectorPlan. Applying another valid plan creates a safety version first.</p></div>}
-    <div className="card note"><strong>Model boundary:</strong> this slice validates and applies real structured output. It does not claim that a local model is installed or generate placeholder AI results.</div>
+    {Boolean(current) && <div className="card directorCurrent"><div className="eyebrow">{t('director.accepted')}</div><strong>{String((current as { title?: unknown }).title ?? '')}</strong><p>{t('director.acceptedHelp')}</p></div>}
+    <div className="card note">{t('director.boundary')}</div>
   </section>
 }
