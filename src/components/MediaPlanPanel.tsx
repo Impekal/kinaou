@@ -15,14 +15,14 @@ interface DraftItem { kind: 'web-capture' | 'app-capture' | 'generate-image'; sc
 
 function randomSeed(): number { return Math.floor(Math.random() * 2 ** 31) }
 
-function planErrorMessage(cause: unknown): string {
+function planErrorMessage(cause: unknown, fallback: string): string {
   const issues = (cause as { issues?: Array<{ path: Array<string | number>; message: string }> })?.issues
   if (Array.isArray(issues) && issues.length) {
     const issue = issues[0]
     const itemIndex = typeof issue.path[1] === 'number' ? ` (item ${issue.path[1] + 1})` : ''
     return `${issue.message}${itemIndex}`
   }
-  return cause instanceof Error ? cause.message : 'Invalid media plan'
+  return cause instanceof Error ? cause.message : fallback
 }
 
 export function MediaPlanPanel({ project, history, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange }: Props) {
@@ -59,7 +59,7 @@ export function MediaPlanPanel({ project, history, workerUrl, workerToken, worke
   function fail(task: MediaPlanSession, cause: unknown) {
     if (!mounted.current || taskRef.current !== task) return
     if (cause instanceof MediaPlanDetachedError || task.wasDetached) setDetached(true)
-    else setError(planErrorMessage(cause))
+    else setError(planErrorMessage(cause, t('recovery.mediaPlanInvalid')))
   }
   function finish(task: MediaPlanSession) {
     task.finish()

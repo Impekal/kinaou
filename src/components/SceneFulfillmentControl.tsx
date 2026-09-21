@@ -18,7 +18,7 @@ export function SceneFulfillmentControl({ project, history, asset, onProjectChan
     if (!scene) return
     try {
       commitSceneAssignment(project, scene.id, asset.id, history, onProjectChange)
-    } catch (cause) { onError(cause instanceof Error ? cause.message : 'Scene fulfillment failed') }
+    } catch (cause) { onError(cause instanceof Error ? cause.message : t('recovery.fulfillment')) }
   }
 
   return <div className="assetPlacement">

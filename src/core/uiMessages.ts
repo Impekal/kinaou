@@ -30,6 +30,7 @@ import { uiMediaCacheMessages } from './uiMediaCacheMessages'
 import { uiAssetListMessages } from './uiAssetListMessages'
 import { uiCaptureMessages } from './uiCaptureMessages'
 import { uiPublishMessages } from './uiPublishMessages'
+import { uiRecoveryMessages } from './uiRecoveryMessages'
 
 // Ordered de/en/fr tuples make missing language entries a compile-time error.
 export const uiMessages = {
@@ -64,6 +65,7 @@ export const uiMessages = {
   ...uiAssetListMessages,
   ...uiCaptureMessages,
   ...uiPublishMessages,
+  ...uiRecoveryMessages,
   'nav.Projects': ['Projekte', 'Projects', 'Projets'],
   'nav.Create': ['Erstellen', 'Create', 'Créer'],
   'nav.Director': ['Regie', 'Director', 'Réalisation'],
@@ -80,7 +82,7 @@ export const uiMessages = {
   'nav.Settings': ['Einstellungen', 'Settings', 'Paramètres'],
   'ui.language': ['App-Sprache', 'App language', 'Langue de l’application'],
   'ui.independent': ['Die App-Sprache ändert keine Skripte, Stimmen oder Kurse.', 'App language does not change scripts, voices or courses.', 'La langue de l’application ne modifie ni les scripts, ni les voix, ni les cours.'],
-  'ui.partial': ['Übersetzung im Ausbau: Navigation, Projektstart, Kursformular, Einstellungen, Versionshistorie, Projektsicherung und Fehlerhilfe sind übersetzt. Weitere Fachbereiche und technische Fehlermeldungen erscheinen noch auf Englisch.', 'Translation in progress: navigation, project creation, the course form, Settings, Version History, project backups and error recovery are translated. Other specialist panels and technical error details remain in English.', 'Traduction en cours : la navigation, la création de projets, le formulaire de cours, les paramètres, l’historique des versions, les sauvegardes de projets et la récupération après erreur sont traduits. Les autres modules et détails d’erreurs techniques restent en anglais.'],
+  'ui.partial': ['DE/EN/FR-Oberfläche im Abschlusscheck: Bedienelemente, Hilfen und KINAOU-eigene Rückmeldungen sind übersetzt. Technische Diagnosedetails und einige dauerhaft gespeicherte Systembezeichnungen bleiben absichtlich im Original.', 'DE/EN/FR interface in final coverage review: controls, help and KINAOU-owned feedback are translated. Technical diagnostic details and some persistently stored system labels intentionally remain in their original form.', 'Interface DE/EN/FR en vérification finale : les commandes, aides et retours propres à KINAOU sont traduits. Les détails de diagnostic technique et certains libellés système enregistrés durablement restent volontairement dans leur forme d’origine.'],
   'ui.unsaved': ['Die Sprachwahl gilt für diese Sitzung, konnte aber nicht gespeichert werden.', 'Language changed for this session, but the preference could not be saved.', 'La langue a changé pour cette session, mais ce choix n’a pas pu être enregistré.'],
   'shell.tagline': ['Die KI arbeitet. Du behältst die Kontrolle.', 'AI does the work. You stay in control.', 'L’IA travaille. Vous gardez le contrôle.'],
   'shell.status': ['LOKAL · STUDIO-KERN', 'LOCAL-FIRST · STUDIO CORE', 'LOCAL · CŒUR DU STUDIO'],

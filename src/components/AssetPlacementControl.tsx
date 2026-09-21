@@ -34,7 +34,7 @@ export function AssetPlacementControl({ project, asset, onProjectChange }: Asset
     try {
       onProjectChange(placeAssetOnTrack(project, asset.id, effectiveTarget))
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Timeline placement failed')
+      setError(cause instanceof Error ? cause.message : t('recovery.placement'))
     }
   }
 

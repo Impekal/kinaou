@@ -68,13 +68,13 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const [duckingReleaseMs, setDuckingReleaseMs] = useState(String(defaultAudioDucking.releaseMs))
   const [normalizeLoudness, setNormalizeLoudness] = useState(defaultLoudnessNormalization.enabled)
   const duckingSettings = { enabled: duckingEnabled, reductionDb: Number(duckingReductionDb), attackMs: Number(duckingAttackMs), releaseMs: Number(duckingReleaseMs) }
-  const duckingCheck = (() => { try { validateAudioDucking(duckingSettings); return { valid: true, reason: '' } } catch (value) { return { valid: false, reason: value instanceof Error ? value.message : 'Invalid music ducking settings.' } } })()
+  const duckingCheck = (() => { try { validateAudioDucking(duckingSettings); return { valid: true, reason: '' } } catch (value) { return { valid: false, reason: value instanceof Error ? value.message : t('recovery.duckingSettings') } } })()
   const range = { inMs: Math.round(Number(inSeconds) * 1000), outMs: Math.round(Number(outSeconds) * 1000) }
-  const rangeCheck = Number.isFinite(range.inMs) && Number.isFinite(range.outMs) ? validateRenderRange(range, timelineDurationMs) : { valid: false, reason: 'In and Out must be numbers.' }
+  const rangeCheck = Number.isFinite(range.inMs) && Number.isFinite(range.outMs) ? validateRenderRange(range, timelineDurationMs) : { valid: false, reason: t('recovery.rangeNumbers') }
   const shortMaximumMs = projectShortExportMaximum(project)
   const [shortMaximumSeconds, setShortMaximumSeconds] = useState(() => String(shortMaximumMs / 1000))
   const customShortMaximumMs = Math.round(Number(shortMaximumSeconds) * 1000)
-  const customShortMaximumError = Number.isFinite(customShortMaximumMs) ? shortExportMaximumError(customShortMaximumMs) : 'Short export maximum must be a number.'
+  const customShortMaximumError = Number.isFinite(customShortMaximumMs) ? shortExportMaximumError(customShortMaximumMs) : t('recovery.shortMaximumNumber')
   const shortExports = useMemo(() => planShortExportRanges(project, shortMaximumMs), [project, shortMaximumMs])
   const shortCandidateSignature = shortExports.candidates.map((candidate) => `${candidate.id}:${candidate.inMs}:${candidate.outMs}:${candidate.titles.join('\u0000')}`).join('|')
   const [selectedShortId, setSelectedShortId] = useState('')
@@ -138,7 +138,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     batchSubmitting.current = false
     batchSubmittingId.current = undefined
     if (projectPersistedShortBatch(latest.current.project)?.items.some(item => item.submissionStartedAt)) {
-      setBatchResumeError('A Short submission has no saved worker acknowledgement. Inspect the original worker and output before deliberately discarding this batch. No export will be submitted automatically.')
+      setBatchResumeError(t('recovery.shortUnconfirmed'))
     }
     return () => { batchSubmission.current?.detach() }
   }, [submissionScope])
@@ -157,7 +157,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       setBatchItemsBatchId('')
       setBatchItems([])
       setBatchPersistenceMessage(null)
-      if (Object.prototype.hasOwnProperty.call(project.metadata, 'shortExportBatch')) setBatchResumeError('The saved Short batch is malformed and was ignored. Discard it before preparing a new batch.')
+      if (Object.prototype.hasOwnProperty.call(project.metadata, 'shortExportBatch')) setBatchResumeError(t('recovery.shortMalformed'))
       return
     }
     persistedBatch.current = stored
@@ -173,7 +173,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     try {
       batchPlans.current = rebuildPersistedShortBatchPlans(project, stored)
     } catch (resumeError) {
-      setBatchResumeError(resumeError instanceof Error ? resumeError.message : 'Could not safely resume the saved Short batch.')
+      setBatchResumeError(resumeError instanceof Error ? resumeError.message : t('recovery.shortResume'))
     }
   }, [project.id, projectBatchId])
 
@@ -188,7 +188,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       if (nextProject !== project) onProjectChange(nextProject)
       persistedBatch.current = updated
     } catch (persistenceError) {
-      setBatchResumeError(persistenceError instanceof Error ? persistenceError.message : 'Could not save the Short batch with this project.')
+      setBatchResumeError(persistenceError instanceof Error ? persistenceError.message : t('recovery.shortPersist'))
     }
   }, [batchItems, batchItemsBatchId, projectBatchId, onProjectChange, project])
 
@@ -289,7 +289,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       const target = latest.current
       persistShortBatchReceipts(target.project, current.id, batchItems, target.onProjectChange)
       setBatchReceiptError('')
-    } catch (cause) { setBatchReceiptError(cause instanceof Error ? cause.message : 'Could not save Short export receipts') }
+    } catch (cause) { setBatchReceiptError(cause instanceof Error ? cause.message : t('recovery.shortReceipt')) }
   }
   useEffect(() => {
     saveBatchReceipts()
@@ -308,7 +308,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       setShortRecipeReview(null)
     } catch (reviewError) {
       setArchivedBatchSelectionReview(null)
-      setError(reviewError instanceof Error ? reviewError.message : 'Could not restore the archived Short selection for review')
+      setError(reviewError instanceof Error ? reviewError.message : t('recovery.shortArchiveReview'))
     }
   }
 
@@ -316,7 +316,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     if (busy) return
     setError('')
     try { onProjectChange(setProjectShortExportMaximum(project, value)) }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save the Short maximum') }
+    catch (cause) { setError(cause instanceof Error ? cause.message : t('recovery.shortMaximumSave')) }
   }
 
   function saveShortRecipe() {
@@ -326,7 +326,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       onProjectChange(saveProjectShortExportRecipe(project, { name: shortRecipeName, candidateIds: batchSelectedIds, formats: batchFormats }, shortExports.candidates))
       setShortRecipeName('')
     } catch (recipeError) {
-      setError(recipeError instanceof Error ? recipeError.message : 'Could not save the Short recipe')
+      setError(recipeError instanceof Error ? recipeError.message : t('recovery.shortRecipeSave'))
     }
   }
 
@@ -405,7 +405,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         setBatchPersistenceMessage({ kind: 'saved' })
       })
     } catch (batchError) {
-      setError(batchError instanceof Error ? batchError.message : 'Could not prepare Short exports')
+      setError(batchError instanceof Error ? batchError.message : t('recovery.shortPrepare'))
     }
   }
 
@@ -428,7 +428,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         setBatchPersistenceMessage({ kind: 'retrySaved', count: result.plans.size })
       })
     } catch (batchError) {
-      setError(batchError instanceof Error ? batchError.message : 'Could not retry the selected Short variants')
+      setError(batchError instanceof Error ? batchError.message : t('recovery.shortRetry'))
     }
   }
 
@@ -447,12 +447,12 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         setBatchItems(cancelled.items)
       })
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not save the cancellation request')
+      setError(cause instanceof Error ? cause.message : t('recovery.shortCancelSave'))
       return
     }
     if (!activeBatchItem?.jobId) return
     if (!batchMonitor.current) {
-      setError('Connect the original local worker before cancelling the accepted Short job.')
+      setError(t('recovery.shortCancelOriginalWorker'))
       return
     }
     await batchMonitor.current.cancel()
@@ -474,7 +474,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         setBatchResumeError('')
         setBatchPersistenceMessage(null)
       })
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save the Short batch change') }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : t('recovery.shortBatchChange')) }
   }
 
   return (
@@ -566,7 +566,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
           <div className="renderJobHead"><strong>{t('shortRecipe.heading')}</strong><span>{t('shortRecipe.count', { count: shortRecipes.length, limit: shortExportRecipeLimit })}</span></div>
           <p className="cardBody">{t('shortRecipe.help')}</p>
           <div className="renderActions"><input aria-label={t('shortRecipe.name')} value={shortRecipeName} maxLength={80} disabled={busy} placeholder={t('shortRecipe.name')} onChange={(event) => setShortRecipeName(event.target.value)} /><button disabled={busy || !shortRecipeName.trim() || !batchSelectedIds.length || !batchFormats.length} onClick={saveShortRecipe}>{t('shortRecipe.save')}</button></div>
-          {shortRecipes.map((recipe) => <div className="renderMeta" key={recipe.id}><span><strong>{recipe.name}</strong> · {t('shortRecipe.candidates', { count: recipe.candidateIds.length })} · {recipe.formats.map((id) => t(`export.${id}`)).join(', ')}</span><div className="renderActions"><button className="secondaryButton" disabled={busy} onClick={() => reviewRecipe(recipe.id)}>{t('shortRecipe.review')}</button><button disabled={busy} onClick={() => { try { onProjectChange(forgetProjectShortExportRecipe(project, recipe.id)); if (shortRecipeReview?.recipeId === recipe.id) setShortRecipeReview(null) } catch (recipeError) { setError(recipeError instanceof Error ? recipeError.message : 'Could not forget the Short recipe') } }}>{t('shortRecipe.forget')}</button></div></div>)}
+          {shortRecipes.map((recipe) => <div className="renderMeta" key={recipe.id}><span><strong>{recipe.name}</strong> · {t('shortRecipe.candidates', { count: recipe.candidateIds.length })} · {recipe.formats.map((id) => t(`export.${id}`)).join(', ')}</span><div className="renderActions"><button className="secondaryButton" disabled={busy} onClick={() => reviewRecipe(recipe.id)}>{t('shortRecipe.review')}</button><button disabled={busy} onClick={() => { try { onProjectChange(forgetProjectShortExportRecipe(project, recipe.id)); if (shortRecipeReview?.recipeId === recipe.id) setShortRecipeReview(null) } catch (recipeError) { setError(recipeError instanceof Error ? recipeError.message : t('recovery.shortRecipeForget')) } }}>{t('shortRecipe.forget')}</button></div></div>)}
         </div>
       </div>}
 
