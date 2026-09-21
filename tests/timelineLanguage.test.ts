@@ -30,7 +30,10 @@ it.each(uiLanguages)('renders all manual timeline control families in %s without
   const html = renderToStaticMarkup(createElement(UiLanguageProvider, { initialLanguage: language, children: createElement(TimelineEditor, {
     project, history: history(), onProjectChange: persist, workerUrl: 'http://localhost:43117', workerToken: '', workerConnected: false
   }) }))
-  for (const key of ['timeline.mute', 'timeline.lock', 'timeline.planning', 'timeline.shorten', 'timeline.scaleUp', 'timeline.cropX', 'timeline.resetFrame', 'timeline.remove', 'timeline.speedReset'] as const) expect(html).toContain(translateUi(language, key))
+  for (const key of ['timeline.mute', 'timeline.lock', 'timeline.planning', 'timeline.split', 'timeline.shorten', 'timeline.scaleUp', 'timeline.cropX', 'timeline.resetFrame', 'timeline.remove', 'timeline.speedReset'] as const) expect(html).toContain(translateUi(language, key))
+  expect(html).toContain(translateUi(language, 'timeline.playheadPosition', {
+    time: (0).toLocaleString(language, { minimumFractionDigits: 3, maximumFractionDigits: 3 })
+  }))
   expect(html).toContain('Original track &lt;script&gt;')
   expect(html).toContain('Untranslated media')
   expect(html).toContain('aria-label="' + translateUi(language, 'timeline.left') + '"')

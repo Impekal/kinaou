@@ -7,6 +7,7 @@ import {
   timelineMsToPx,
   timelinePxToMs,
   snapClipStart,
+  snapTimelinePoint,
   trimClipEdge,
   TIMELINE_MIN_CLIP_MS
 } from '../src/core/timelineInteraction'
@@ -85,6 +86,12 @@ describe('direct timeline interaction geometry', () => {
 
   it('supports explicit free positioning when snapping is disabled', () => {
     expect(snapClipStart([video, voice], video.id, moving, 3911, false)).toBe(3911)
+  })
+
+  it('snaps a playhead point to clip boundaries and otherwise to the regular grid', () => {
+    expect(snapTimelinePoint([video, voice], '', '', 3920)).toBe(4000)
+    expect(snapTimelinePoint([video, voice], '', '', 1236)).toBe(1200)
+    expect(snapTimelinePoint([video, voice], '', '', 1236, false)).toBe(1236)
   })
 })
 

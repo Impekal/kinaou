@@ -1,6 +1,8 @@
 import type { KinaouAsset, KinaouProject, TimelineClip, TimelineTrack } from './project'
 import { touchProject } from './project'
 
+export const MIN_TIMELINE_SPLIT_MS = 250
+
 export function clipSpeedFitsSource(asset: KinaouAsset | undefined, clip: TimelineClip, speed: number): boolean {
   if (!asset || asset.kind === 'image' || asset.kind === 'caption') return true
   const assetDuration = typeof asset.metadata.durationMs === 'number' ? asset.metadata.durationMs : undefined
@@ -16,6 +18,7 @@ export type TimelineOperation =
   | { type: 'add-clip'; trackId: string; clip: TimelineClip }
   | { type: 'remove-clip'; trackId: string; clipId: string }
   | { type: 'move-clip'; trackId: string; clipId: string; startMs: number }
+  | { type: 'split-clip'; trackId: string; clipId: string; splitMs: number; rightClipId: string }
   | { type: 'trim-clip'; trackId: string; clipId: string; startMs: number; durationMs: number; sourceOffsetMs: number }
   | { type: 'set-clip-gain'; trackId: string; clipId: string; gain: number }
   | { type: 'set-clip-transform'; trackId: string; clipId: string; transform: NonNullable<TimelineClip['transform']> }
@@ -91,6 +94,73 @@ export function applyTimelineOperation(project: KinaouProject, operation: Timeli
     case 'move-clip':
       if (operation.startMs < 0) throw new Error('Clip start must be non-negative')
       return updateUnlockedTrack(project, operation.trackId, (track) => updateExistingClip(track, operation.clipId, (clip) => ({ ...clip, startMs: operation.startMs })))
+    case 'split-clip':
+      if (!Number.isInteger(operation.splitMs) || operation.splitMs < 0) throw new Error('Clip split must use a non-negative integer time')
+      if (!operation.rightClipId.trim()) throw new Error('Split clip id is required')
+      return updateUnlockedTrack(project, operation.trackId, (track) => {
+        if (track.clips.some((clip) => clip.id === operation.rightClipId)) throw new Error('Clip id already exists')
+
+        let found = false
+        const clips = track.clips.flatMap((clip) => {
+          if (clip.id !== operation.clipId) return [clip]
+          found = true
+
+          const leftDurationMs = operation.splitMs - clip.startMs
+          const rightDurationMs = clip.durationMs - leftDurationMs
+
+          if (leftDurationMs < MIN_TIMELINE_SPLIT_MS || rightDurationMs < MIN_TIMELINE_SPLIT_MS) {
+            throw new Error(`Split must leave at least ${MIN_TIMELINE_SPLIT_MS}ms on each side`)
+          }
+
+          const asset = project.assets.find((item) => item.id === clip.assetId)
+          const timedSource = Boolean(asset && asset.kind !== 'image' && asset.kind !== 'caption')
+          const rightSourceOffsetMs = timedSource
+            ? Math.round(clip.sourceOffsetMs + leftDurationMs * clip.speed)
+            : clip.sourceOffsetMs
+
+          const left = {
+            ...clip,
+            durationMs: leftDurationMs,
+            ...(clip.fades ? {
+              fades: {
+                inMs: Math.min(clip.fades.inMs, leftDurationMs),
+                outMs: 0
+              }
+            } : {}),
+            ...(clip.transitionIn ? {
+              transitionIn: {
+                ...clip.transitionIn,
+                durationMs: Math.min(clip.transitionIn.durationMs, leftDurationMs)
+              }
+            } : {})
+          }
+
+          const rightWithTransition = {
+            ...clip,
+            id: operation.rightClipId,
+            startMs: operation.splitMs,
+            durationMs: rightDurationMs,
+            sourceOffsetMs: rightSourceOffsetMs,
+            ...(clip.fades ? {
+              fades: {
+                inMs: 0,
+                outMs: Math.min(clip.fades.outMs, rightDurationMs)
+              }
+            } : {})
+          }
+
+          const { transitionIn: _removedTransition, ...right } = rightWithTransition
+
+          if (!clipSpeedFitsSource(asset, left, left.speed) || !clipSpeedFitsSource(asset, right, right.speed)) {
+            throw new Error('Split exceeds available source media')
+          }
+
+          return [left, right]
+        })
+
+        if (!found) throw new Error(`Timeline clip not found: ${operation.clipId}`)
+        return { ...track, clips }
+      })
     case 'trim-clip':
       if (operation.startMs < 0 || operation.durationMs <= 0 || operation.sourceOffsetMs < 0) throw new Error('Invalid trim range')
       return updateUnlockedTrack(project, operation.trackId, (track) => updateExistingClip(track, operation.clipId, (clip) => ({

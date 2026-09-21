@@ -1,10 +1,10 @@
 import type { KinaouAsset, TimelineClip, TimelineTrack } from './project'
-import { clipSpeedFitsSource } from './timeline'
+import { clipSpeedFitsSource, MIN_TIMELINE_SPLIT_MS } from './timeline'
 
 export const TIMELINE_MS_PER_PIXEL = 25
 export const TIMELINE_GRID_MS = 100
 export const TIMELINE_EDGE_SNAP_TOLERANCE_MS = 150
-export const TIMELINE_MIN_CLIP_MS = 250
+export const TIMELINE_MIN_CLIP_MS = MIN_TIMELINE_SPLIT_MS
 
 export function timelineMsToPx(milliseconds: number): number {
   if (!Number.isFinite(milliseconds) || milliseconds < 0) throw new Error('Timeline time must be a non-negative finite number')
