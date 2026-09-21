@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { AssetPlacementControl } from './components/AssetPlacementControl'
 import { AssetAvailabilityControl } from './components/AssetAvailabilityControl'
+import { ManagedMediaPanel } from './components/ManagedMediaPanel'
 import { AssetUploadPanel } from './components/AssetUploadPanel'
 import { CaptionEditor } from './components/CaptionEditor'
 import { RenderPanel } from './components/RenderPanel'
@@ -29,12 +30,11 @@ import { CoursePanel } from './components/CoursePanel'
 import { SettingsPanel } from './components/SettingsPanel'
 import { UiLanguageSelector, useUiLanguage } from './components/UiLanguageProvider'
 import { createProjectFromInput, type CreationInputKind } from './core/create'
-import { importProbedMedia, type ImportableMediaKind } from './core/mediaImport'
 import { ProjectRepository, StorageSettingsRepository } from './core/persistence'
 import { parseProject, type KinaouProject } from './core/project'
 import { configureWorkspaceRoot, type StorageBackend, type StorageSettings } from './core/storage'
 import { WorkerClient } from './core/workerClient'
-import type { MediaProbeResult, WorkerHandshake } from './core/workerProtocol'
+import type { WorkerHandshake } from './core/workerProtocol'
 import { PersistentVersionHistory } from './core/versioning'
 
 const nav = ['Projects', 'Create', 'Director', 'Studio', 'Course', 'Assets', 'Avatar', 'Audio', 'Images', 'Video', 'Capture', 'Publish', 'Analytics', 'Settings'] as const
@@ -59,10 +59,6 @@ export function App() {
   const [workerHandshake, setWorkerHandshake] = useState<WorkerHandshake | null>(null)
   const [workerBusy, setWorkerBusy] = useState(false)
   const [workerError, setWorkerError] = useState('')
-  const [assetPath, setAssetPath] = useState('KINAOU/Assets/')
-  const [assetName, setAssetName] = useState('')
-  const [assetKind, setAssetKind] = useState<ImportableMediaKind>('video')
-  const [assetProbe, setAssetProbe] = useState<MediaProbeResult | null>(null)
 
   function refreshProjects(selected?: KinaouProject) {
     const next = projectRepo.list()
@@ -118,39 +114,11 @@ export function App() {
     }
   }
 
-  async function probeManagedAsset() {
-    setWorkerBusy(true)
-    setWorkerError('')
-    setAssetProbe(null)
-    try {
-      const client = workerClient()
-      if (!workerHandshake) setWorkerHandshake(await client.health())
-      setAssetProbe(await client.probe(assetPath.trim()))
-    } catch (error) {
-      setWorkerError(error instanceof Error ? error.message : 'Media probe failed')
-    } finally {
-      setWorkerBusy(false)
-    }
-  }
-
   function restoreBackupProject(payload: unknown) {
     const parsed = parseProject(payload)
     const existing = projectRepo.load(parsed.id)
     if (existing) versionHistory.snapshot(existing, 'Before drive restore', 'system')
     persistProject(parsed)
-  }
-
-  function addProbedAssetToProject() {
-    if (!project || !assetProbe) return
-    const next = importProbedMedia(project, {
-      kind: assetKind,
-      managedPath: assetPath,
-      name: assetName || assetPath.split('/').pop() || 'Imported media',
-      probe: assetProbe
-    })
-    persistProject(next)
-    setAssetProbe(null)
-    setAssetName('')
   }
 
   return (
@@ -219,17 +187,7 @@ export function App() {
             <SttPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
             <AssetUploadPanel key={project.id} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
             <AssetAvailabilityControl key={`availability:${project.id}`} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} onProjectChange={persistProject} />
-            <div className="card settingsPanel">
-              <div><div className="eyebrow">PROBE EXISTING MANAGED MEDIA</div><h3>Inspect a file already inside KINAOU/Assets</h3><p>The worker resolves only managed paths under the configured KINAOU root.</p></div>
-              <div className="formStack">
-                <label>Managed path<input value={assetPath} onChange={(event) => { setAssetPath(event.target.value); setAssetProbe(null) }} placeholder="KINAOU/Assets/clip.mp4" /></label>
-                <label>Kind<select value={assetKind} onChange={(event) => setAssetKind(event.target.value as ImportableMediaKind)}><option value="video">Video</option><option value="audio">Audio</option><option value="image">Image</option></select></label>
-                <label>Name<input value={assetName} onChange={(event) => setAssetName(event.target.value)} placeholder="Optional display name" /></label>
-                <button className="primary" disabled={workerBusy || !workerToken.trim()} onClick={probeManagedAsset}>{workerBusy ? 'Checking…' : 'Probe media'}</button>
-              </div>
-            </div>
-            {workerError && <div className="card errorBox">{workerError}</div>}
-            {assetProbe && <div className="card probeCard"><div><div className="eyebrow">PROBE RESULT</div><h3>{assetName || assetPath.split('/').pop()}</h3></div><div className="probeGrid"><span>Duration<strong>{assetProbe.durationMs !== undefined ? `${(assetProbe.durationMs / 1000).toFixed(2)} s` : '—'}</strong></span><span>Size<strong>{assetProbe.sizeBytes !== undefined ? `${(assetProbe.sizeBytes / 1024 / 1024).toFixed(1)} MB` : '—'}</strong></span><span>Video<strong>{assetProbe.width !== undefined && assetProbe.height !== undefined ? `${assetProbe.width}×${assetProbe.height}` : '—'}</strong></span><span>Audio<strong>{assetProbe.sampleRate !== undefined ? `${assetProbe.sampleRate} Hz` : '—'}</strong></span></div><button className="primary" onClick={addProbedAssetToProject}>Add managed asset to project</button></div>}
+            <ManagedMediaPanel key={`managed:${project.id}`} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} onProjectChange={persistProject} />
             <div className="card"><div className="eyebrow">PROJECT ASSETS</div>{project.assets.length === 0 ? <p className="cardBody">No assets yet.</p> : <div className="assetList">{project.assets.map((asset) => <div className="assetRow assetRowWithPlacement" key={asset.id}><div><strong>{String(asset.metadata.name ?? asset.metadata.label ?? asset.id)}</strong><small>{asset.kind} · {asset.managed ? 'managed' : 'external/planning'}</small><VideoThumbnailControl project={project} asset={asset} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /><WaveformControl project={project} asset={asset} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /></div><code>{asset.uri}</code><span className={asset.offline ? 'badge offline' : 'badge'}>{asset.offline ? 'OFFLINE' : 'AVAILABLE'}</span><div><AssetPlacementControl project={project} asset={asset} onProjectChange={persistProject} /><VideoProxyControl project={project} asset={asset} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /></div></div>)}</div>}</div>
           </>}
         </section>}

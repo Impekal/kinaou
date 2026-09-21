@@ -6,6 +6,7 @@ import path from 'node:path'
 import { AssetImportSession, type AssetImportFeedback } from '../src/core/assetImportSession'
 import { AssetAvailabilitySession, type AvailabilityFeedback } from '../src/core/assetAvailabilitySession'
 import { WorkerClient } from '../src/core/workerClient'
+import { ManagedMediaSession, type ManagedMediaFeedback } from '../src/core/managedMediaSession'
 import { createProject } from '../src/core/project'
 import { ProjectRepository } from '../src/core/persistence'
 import { PersistentVersionHistory } from '../src/core/versioning'
@@ -46,6 +47,14 @@ it('imports a real explicit WAV through the authenticated worker and retries onl
     await check(); expect(checks.at(-1)?.summary?.wentOffline).toBe(1); expect(repository.load(project.id)?.assets[0].offline).toBe(true)
     await rename(copy + '.temporarily-away', copy)
     await check(); expect(checks.at(-1)?.summary?.cameOnline).toBe(1); expect(repository.load(project.id)?.assets[0].offline).toBe(false)
+    expect(history.restoreReversibly(project, history.list(project.id)[0].id).project.assets).toHaveLength(0)
+    // Register the already imported copy in a separate project, without any second upload.
+    project = repository.save(createProject('Existing file review'))
+    const registration: ManagedMediaFeedback[] = []
+    const existing = new ManagedMediaSession(project, 'test', { path: states.at(-1)!.path!, kind: 'audio', name: 'Existing original' }, { client, environment: () => ({ project, connection: 'test' }), snapshot: value => { history.snapshot(value, 'Before registration', 'system') }, persist: value => { project = repository.save(value) }, publish: value => registration.push(value) })
+    await existing.inspect(); expect(registration.at(-1)?.phase, JSON.stringify(registration)).toBe('review'); expect(project.assets).toHaveLength(0)
+    existing.save(); expect(registration.at(-1)?.phase).toBe('succeeded'); expect(repository.load(project.id)?.assets[0].uri).toBe(states.at(-1)?.path)
+    expect(uploads).toBe(1); expect(probes).toBe(2)
     expect(history.restoreReversibly(project, history.list(project.id)[0].id).project.assets).toHaveLength(0)
     expect(await readFile(source)).toEqual(bytes); expect(await readFile(copy)).toEqual(bytes)
   } finally {
