@@ -9,6 +9,7 @@ import { applyTimelineOperation, clipSpeedFitsSource, MIN_TIMELINE_SPLIT_MS } fr
 import { snapClipGroupDelta, snapTimelinePoint, timelineExtentMs, timelineMsToPx, timelinePxToMs, trimClipEdge, type TimelineMoveMember, type TimelineTrimEdge } from '../core/timelineInteraction'
 import { TimelineUndoSession } from '../core/timelineUndo'
 import { WaveformImage } from './WaveformImage'
+import { LiveTimelinePreview } from './LiveTimelinePreview'
 
 interface TimelineEditorProps {
   project: KinaouProject
@@ -90,6 +91,32 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
   )
   const selectedClip = selectedTrack?.clips.find((clip) => `${selectedTrack.id}:${clip.id}` === singleSelectedKey)
   const selectedVisualClip = Boolean(selectedTrack && selectedClip && visualTrackTypes.has(selectedTrack.type))
+  let interactionProject = project
+
+  try {
+    if (drag && drag.previewDeltaMs !== 0) {
+      interactionProject = applyTimelineOperation(project, {
+        type: 'move-clips',
+        moves: drag.members.map((member) => ({
+          trackId: member.trackId,
+          clipId: member.clipId,
+          startMs: member.startMs + drag.previewDeltaMs
+        }))
+      })
+    } else if (trim) {
+      interactionProject = applyTimelineOperation(project, {
+        type: 'trim-clip',
+        trackId: trim.trackId,
+        clipId: trim.clipId,
+        startMs: trim.previewStartMs,
+        durationMs: trim.previewDurationMs,
+        sourceOffsetMs: trim.previewSourceOffsetMs
+      })
+    }
+  } catch {
+    interactionProject = project
+  }
+
   const canSplitSelected = Boolean(
     selectedTrack
     && selectedClip
@@ -569,6 +596,13 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
         </div>
       </div>
       <small className="timelineUndoHelp">{t('timeline.undoHelp')}</small>
+      <LiveTimelinePreview
+        project={interactionProject}
+        playheadMs={effectivePlayheadMs}
+        workerUrl={workerUrl}
+        workerToken={workerToken}
+        workerConnected={workerConnected}
+      />
       <section className="timelineEffectInspector" aria-label={t('timeline.effects')}>
         <strong>{t('timeline.effects')}</strong>
         {!selectedTrack || !selectedClip || !selectedVisualClip ? (
