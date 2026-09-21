@@ -1,18 +1,106 @@
-import { useState } from 'react'
-import { applyAiEditorProposal, buildAiEditorContext, describeAiEdit, parseAiEditorProposal, type AiEditorProposal } from '../core/aiEditor'
+import { useEffect, useRef, useState } from 'react'
+import { buildAiEditorContext, describeAiEdit, type AiEditorProposal } from '../core/aiEditor'
+import { AiEditorRequestScope, aiEditorProjectKey, commitAiEditorReview, reviewAiEditorProposal, type AiEditorReview } from '../core/aiEditorReview'
 import type { KinaouProject } from '../core/project'
 import type { PersistentVersionHistory } from '../core/versioning'
 import { WorkerClient } from '../core/workerClient'
+import { useUiLanguage } from './UiLanguageProvider'
 
 interface Props { project: KinaouProject; history: PersistentVersionHistory; workerUrl: string; workerToken: string; workerConnected: boolean; workerCapabilities: string[]; onProjectChange: (project: KinaouProject) => void }
 
+export function AiEditorDiff({ project, operation }: { project: KinaouProject; operation: AiEditorProposal['operations'][number] }) {
+  const { language, t } = useUiLanguage()
+  const original = describeAiEdit(project, operation)
+  const clip = project.tracks.find(track => track.id === operation.edit.trackId)!.clips.find(clip => clip.id === operation.edit.clipId)!
+  const n = (value: number) => value.toLocaleString(language)
+  const edit = operation.edit
+  let before = original.before, after = original.after
+  if (edit.type === 'move-clip') { before = t('editor.start', { value: n(clip.startMs) }); after = t('editor.start', { value: n(edit.startMs) }) }
+  if (edit.type === 'trim-clip') { before = t('editor.trim', { start: n(clip.startMs), duration: n(clip.durationMs), offset: n(clip.sourceOffsetMs) }); after = t('editor.trim', { start: n(edit.startMs), duration: n(edit.durationMs), offset: n(edit.sourceOffsetMs) }) }
+  if (edit.type === 'set-clip-gain') { before = t('editor.gain', { value: n(clip.gain) }); after = t('editor.gain', { value: n(edit.gain) }) }
+  if (edit.type === 'set-clip-speed') { before = t('editor.speed', { value: n(clip.speed) }); after = t('editor.speed', { value: n(edit.speed) }) }
+  if (edit.type === 'set-clip-fades') { before = t('editor.fades', { in: n(clip.fades?.inMs ?? 0), out: n(clip.fades?.outMs ?? 0) }); after = t('editor.fades', { in: n(edit.inMs), out: n(edit.outMs) }) }
+  return <span><strong>{operation.reason}</strong><small>{t('editor.before')}: {before}</small><small>{t('editor.after')}: {after}</small></span>
+}
+
 export function AiEditorPanel({ project, history, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange }: Props) {
-  const [source, setSource] = useState(''); const [proposal, setProposal] = useState<AiEditorProposal | null>(null); const [selected, setSelected] = useState<string[]>([]); const [message, setMessage] = useState('')
-  const [models, setModels] = useState<Array<{ id: string; sizeBytes: number }>>([]); const [model, setModel] = useState(''); const [instruction, setInstruction] = useState(''); const [busy, setBusy] = useState(false)
-  function accept(next: AiEditorProposal, success: string) { next.operations.forEach((operation) => describeAiEdit(project, operation)); setProposal(next); setSelected([]); setSource(JSON.stringify(next, null, 2)); setMessage(success) }
-  function review() { try { accept(parseAiEditorProposal(JSON.parse(source)), 'Proposal is valid. Select operations to apply.') } catch (error) { setProposal(null); setSelected([]); setMessage(error instanceof Error ? error.message : 'Invalid proposal') } }
-  async function detectModels() { setBusy(true); try { const next = await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).listLocalModels(); setModels(next); setModel(next[0]?.id ?? ''); setMessage(next.length ? 'Local models loaded.' : 'No local Ollama model is installed.') } catch (error) { setMessage(error instanceof Error ? error.message : 'Model discovery failed') } finally { setBusy(false) } }
-  async function generate() { setBusy(true); setProposal(null); setSelected([]); try { accept(parseAiEditorProposal(await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).generateAiEditorProposal(model, instruction, buildAiEditorContext(project))), 'Local proposal passed schema and target validation. Select operations to apply.') } catch (error) { setMessage(error instanceof Error ? error.message : 'Local proposal generation failed') } finally { setBusy(false) } }
-  function apply() { if (!proposal || !selected.length) return; history.snapshot(project, `Before AI Editor: ${proposal.title}`, 'system'); onProjectChange(applyAiEditorProposal(project, proposal, selected)); setMessage(`${selected.length} operation(s) applied. The previous state is in Version History.`); setProposal(null); setSelected([]); setSource('') }
-  return <div className="card aiEditorPanel"><div><div className="eyebrow">AI EDITOR</div><h3>Review structured timeline changes</h3><p>Nothing changes until individual operations are selected and applied.</p></div><div className="localAiEditor"><label>Edit instruction<input value={instruction} onChange={(event) => setInstruction(event.target.value)} placeholder="Tighten pacing and soften the voice track" /></label><label>Local Ollama model<select value={model} onChange={(event) => setModel(event.target.value)}><option value="">Detect a model first</option>{models.map((item) => <option key={item.id} value={item.id}>{item.id}</option>)}</select></label><div className="directorActions"><button className="secondaryButton" disabled={busy || !workerConnected || !workerCapabilities.includes('local-llm')} onClick={detectModels}>Detect models</button><button className="primary" disabled={busy || !model || !instruction.trim()} onClick={generate}>{busy ? 'Working locally…' : 'Generate proposal locally'}</button></div></div><label>Editor proposal JSON<textarea value={source} onChange={(event) => { setSource(event.target.value); setProposal(null); setSelected([]); setMessage('') }} placeholder='{"schemaVersion":1,"title":"…","objective":"…","operations":[…],"provenance":{"kind":"manual"}}' /></label><div className="directorActions"><button className="secondaryButton" disabled={!source.trim()} onClick={review}>Validate and preview diff</button>{proposal && <button className="primary" disabled={!selected.length} onClick={apply}>Apply {selected.length} selected</button>}</div>{message && <div className={proposal ? 'note' : 'warning'}>{message}</div>}{proposal && <div className="aiDiffs">{proposal.operations.map((operation) => { const diff = describeAiEdit(project, operation); return <label key={operation.id}><input type="checkbox" checked={selected.includes(operation.id)} onChange={(event) => setSelected((current) => event.target.checked ? [...current, operation.id] : current.filter((id) => id !== operation.id))} /><span><strong>{operation.reason}</strong><small>Before: {diff.before}</small><small>After: {diff.after}</small></span></label> })}</div>}</div>
+  const { t } = useUiLanguage()
+  const [source, setSource] = useState('')
+  const [reviewed, setReviewed] = useState<AiEditorReview | null>(null)
+  const [selected, setSelected] = useState<string[]>([])
+  const [message, setMessage] = useState<'valid' | 'models' | 'noModels' | 'applied' | null>(null)
+  const [appliedCount, setAppliedCount] = useState(0)
+  const [error, setError] = useState('')
+  const [models, setModels] = useState<{ connection: string; items: Array<{ id: string; sizeBytes: number }> } | null>(null)
+  const [model, setModel] = useState('')
+  const [instruction, setInstruction] = useState('')
+  const [pending, setPending] = useState<{ current: () => boolean } | null>(null)
+  const scope = useRef(new AiEditorRequestScope())
+  const inFlight = useRef<(() => boolean) | null>(null)
+  const projectKey = aiEditorProjectKey(project)
+  const connection = JSON.stringify([workerUrl, workerToken, workerConnected, workerCapabilities.includes('local-llm')])
+  scope.current.update(JSON.stringify([projectKey, connection]))
+  useEffect(() => { scope.current.attach(); return () => scope.current.detach() }, [])
+  useEffect(() => { setSource(''); setReviewed(null); setSelected([]); setMessage(null); setError(''); setInstruction('') }, [project.id])
+  const busy = Boolean(pending?.current())
+  const installed = models?.connection === connection ? models.items : []
+  const canGenerate = workerConnected && Boolean(workerToken.trim()) && workerCapabilities.includes('local-llm')
+  const stale = Boolean(reviewed && reviewed.projectKey !== projectKey)
+  const proposal = reviewed?.proposal
+
+  function accept(input: unknown) {
+    const next = reviewAiEditorProposal(project, input)
+    setReviewed(next); setSelected([]); setSource(JSON.stringify(next.proposal, null, 2)); setMessage('valid'); setError('')
+  }
+  function review() {
+    if (busy) return
+    setError(''); setMessage(null)
+    try { accept(JSON.parse(source)) }
+    catch (cause) { setReviewed(null); setSelected([]); setError(cause instanceof Error ? cause.message : String(cause)) }
+  }
+  async function detectModels() {
+    if (busy || inFlight.current?.() || !canGenerate) return
+    const current = scope.current.begin()
+    inFlight.current = current
+    setPending({ current }); setError(''); setMessage(null)
+    try {
+      const items = await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).listLocalModels()
+      if (!current()) return
+      setModels({ connection, items }); setModel(items[0]?.id ?? ''); setMessage(items.length ? 'models' : 'noModels')
+    } catch (cause) { if (current()) setError(cause instanceof Error ? cause.message : String(cause)) }
+    finally { if (current()) { inFlight.current = null; setPending(null) } }
+  }
+  async function generate() {
+    if (busy || inFlight.current?.() || !canGenerate || !installed.some(item => item.id === model) || !instruction.trim()) return
+    const current = scope.current.begin()
+    inFlight.current = current
+    setPending({ current }); setReviewed(null); setSelected([]); setError(''); setMessage(null)
+    try {
+      const input = await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).generateAiEditorProposal(model, instruction, buildAiEditorContext(project))
+      if (current()) accept(input)
+    } catch (cause) { if (current()) setError(cause instanceof Error ? cause.message : String(cause)) }
+    finally { if (current()) { inFlight.current = null; setPending(null) } }
+  }
+  function apply() {
+    if (!reviewed || !selected.length || stale || busy) return
+    setError(''); setMessage(null)
+    try {
+      const count = commitAiEditorReview(project, reviewed, selected, history, onProjectChange)
+      setAppliedCount(count); setMessage('applied'); setReviewed(null); setSelected([]); setSource('')
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) }
+  }
+  return <div className="card aiEditorPanel">
+    <div><div className="eyebrow">{t('editor.eyebrow')}</div><h3>{t('editor.heading')}</h3><p>{t('editor.help')}</p><p>{t('editor.scopeHelp')}</p></div>
+    <div className="localAiEditor">
+      <label>{t('editor.instruction')}<input disabled={busy} value={instruction} onChange={event => setInstruction(event.target.value)} placeholder={t('editor.instructionHint')} /></label>
+      <label>{t('editor.model')}<select disabled={busy} value={installed.some(item => item.id === model) ? model : ''} onChange={event => setModel(event.target.value)}><option value="">{t('editor.chooseModel')}</option>{installed.map(item => <option key={item.id} value={item.id}>{item.id}</option>)}</select></label>
+      <div className="directorActions"><button className="secondaryButton" disabled={busy || !canGenerate} onClick={detectModels}>{t('editor.detect')}</button><button className="primary" disabled={busy || !canGenerate || !installed.some(item => item.id === model) || !instruction.trim()} onClick={generate}>{t(busy ? 'editor.busy' : 'editor.generate')}</button></div>
+    </div>
+    <label>{t('editor.source')}<textarea value={source} onChange={event => { scope.current.invalidate(); setPending(null); setSource(event.target.value); setReviewed(null); setSelected([]); setMessage(null); setError('') }} placeholder='{"schemaVersion":1,"title":"…","objective":"…","operations":[…],"provenance":{"kind":"manual"}}' /></label>
+    <div className="directorActions"><button className="secondaryButton" disabled={busy || !source.trim()} onClick={review}>{t('editor.review')}</button>{proposal && <button className="primary" disabled={busy || stale || !selected.length} onClick={apply}>{t('editor.apply', { count: selected.length })}</button>}</div>
+    {stale && <div className="warning" role="status">{t('editor.stale')}</div>}
+    {message && !stale && <div className="note" role="status">{t(`editor.${message}`, { count: appliedCount })}</div>}
+    {error && <div className="errorBox" role="alert">{t('editor.failed')}<details><summary>{t('common.details')}</summary>{error}</details></div>}
+    {proposal && !stale && <div className="aiDiffs"><p>{t('editor.individual')}</p>{proposal.operations.map(operation => <label key={operation.id}><input type="checkbox" disabled={busy} checked={selected.includes(operation.id)} onChange={event => setSelected(current => event.target.checked ? [...current, operation.id] : current.filter(id => id !== operation.id))} /><AiEditorDiff project={project} operation={operation} /></label>)}</div>}
+  </div>
 }
