@@ -22,5 +22,9 @@ export function assignAssetToScene(project: KinaouProject, sceneId: string, asse
 export function clearSceneAssignment(project: KinaouProject, sceneId: string): KinaouProject {
   const scene = requireScene(project, sceneId)
   if (!scene.assetId) return project
-  return parseProject(touchProject({ ...project, storyboard: project.storyboard.map((entry) => entry.id === sceneId ? { id: entry.id, title: entry.title, description: entry.description, durationMs: entry.durationMs } : entry) }))
+  return parseProject(touchProject({ ...project, storyboard: project.storyboard.map((entry) => {
+    if (entry.id !== sceneId) return entry
+    const { assetId: _removed, ...retained } = entry
+    return retained
+  }) }))
 }

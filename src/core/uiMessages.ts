@@ -20,6 +20,7 @@ import { uiAiEditorMessages } from './uiAiEditorMessages'
 import { uiDirectorMessages } from './uiDirectorMessages'
 import { uiMediaPlanMessages } from './uiMediaPlanMessages'
 import { uiAudioMessages } from './uiAudioMessages'
+import { uiImageMessages } from './uiImageMessages'
 
 // Ordered de/en/fr tuples make missing language entries a compile-time error.
 export const uiMessages = {
@@ -44,6 +45,7 @@ export const uiMessages = {
   ...uiDirectorMessages,
   ...uiMediaPlanMessages,
   ...uiAudioMessages,
+  ...uiImageMessages,
   'nav.Projects': ['Projekte', 'Projects', 'Projets'],
   'nav.Create': ['Erstellen', 'Create', 'Créer'],
   'nav.Director': ['Regie', 'Director', 'Réalisation'],
