@@ -1,71 +1,91 @@
 import { useEffect, useRef, useState } from 'react'
 import { AssetPlacementControl } from './AssetPlacementControl'
-import { registerGeneratedVoice } from '../core/generatedVoice'
 import type { KinaouProject } from '../core/project'
-import type { TtsJobRecord } from '../core/ttsJobs'
+import type { PersistentVersionHistory } from '../core/versioning'
 import { WorkerClient } from '../core/workerClient'
 import { projectContentProfile } from '../core/contentProfile'
 import type { VoiceDetails } from '../core/voiceLanguage'
 import { PiperVoiceSelect } from './PiperVoiceSelect'
+import { useUiLanguage } from './UiLanguageProvider'
+import { AudioStudioSession, type AudioFeedback } from '../core/audioStudioSession'
+import { AiEditorRequestScope } from '../core/aiEditorReview'
+import { AudioJobStatus } from './AudioJobStatus'
 
-interface Props { project: KinaouProject; workerUrl: string; workerToken: string; workerConnected: boolean; workerCapabilities: string[]; onProjectChange: (project: KinaouProject) => void }
-const terminal = new Set(['succeeded', 'failed', 'cancelled'])
+interface Props { project: KinaouProject; history: PersistentVersionHistory; workerUrl: string; workerToken: string; workerConnected: boolean; workerCapabilities: string[]; onProjectChange: (project: KinaouProject) => void }
 
-export function AudioStudioPanel({ project, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange }: Props) {
+export function AudioStudioPanel({ project, history, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange }: Props) {
+  const { language, t } = useUiLanguage()
   const [text, setText] = useState(project.script)
   const [voices, setVoices] = useState<VoiceDetails[]>([])
   const [voice, setVoice] = useState('')
-  const [job, setJob] = useState<TtsJobRecord | null>(null)
+  const [feedback, setFeedback] = useState<AudioFeedback | null>(null)
   const [submittedText, setSubmittedText] = useState('')
   const [error, setError] = useState('')
-  const registered = useRef(new Set<string>())
-  const voiceDiscovery = useRef(0)
+  const [empty, setEmpty] = useState(false)
+  const [discovering, setDiscovering] = useState(false)
+  const session = useRef<AudioStudioSession | null>(null)
+  const mounted = useRef(true)
+  const environment = useRef({ project, connection: '' })
+  const connection = JSON.stringify([workerUrl, workerToken, workerConnected, [...workerCapabilities].sort()])
+  environment.current = { project, connection }
+  session.current?.observe(project, connection)
+  const scope = useRef(new AiEditorRequestScope())
+  scope.current.update(JSON.stringify([project.id, connection]))
+  const voicesScope = useRef('')
+  const discoveryKey = JSON.stringify([project.id, connection])
+  const [discoveryScope, setDiscoveryScope] = useState('')
+  useEffect(() => { setVoices([]); setVoice(''); setDiscovering(false); setEmpty(false); setError('') }, [discoveryKey])
+  useEffect(() => {
+    mounted.current = true; scope.current.attach()
+    return () => { mounted.current = false; scope.current.detach(); session.current?.detach() }
+  }, [])
+  useEffect(() => { setText(project.script); setFeedback(null); setSubmittedText(''); setError(''); setEmpty(false) }, [project.id])
+  const available = workerConnected && Boolean(workerToken.trim()) && workerCapabilities.includes('text-to-speech')
+  const installed = voicesScope.current === discoveryKey ? voices : []
+  const selectedVoice = installed.some(entry => entry.path === voice) ? voice : ''
+  const locked = Boolean(session.current?.unresolved)
+  const detecting = discovering && discoveryScope === discoveryKey
+  const currentFeedback: AudioFeedback | null = session.current?.wasDetached ? { phase: 'detached' } : feedback
   const client = () => new WorkerClient({ baseUrl: workerUrl, token: workerToken })
 
-  useEffect(() => {
-    voiceDiscovery.current++
-    setVoices([])
-    setVoice('')
-    return () => { voiceDiscovery.current++ }
-  }, [workerUrl, workerToken, workerConnected])
-
-  useEffect(() => {
-    if (!job || terminal.has(job.state)) return
-    const timer = window.setTimeout(async () => { try { setJob(await client().ttsStatus(job.id)) } catch (cause) { setError(cause instanceof Error ? cause.message : 'TTS status failed'); setJob((previous) => previous ? { ...previous } : previous) } }, 750)
-    return () => window.clearTimeout(timer)
-  }, [job, workerUrl, workerToken])
-
-  useEffect(() => {
-    if (job?.state !== 'succeeded' || registered.current.has(job.id)) return
-    registered.current.add(job.id)
-    try { onProjectChange(registerGeneratedVoice(project, job, submittedText)) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Voice registration failed') }
-  }, [job, project, submittedText, onProjectChange])
-
   async function detect() {
-    const request = ++voiceDiscovery.current
-    setError(''); setVoices([]); setVoice('')
+    if (!available || locked || detecting) return
+    const current = scope.current.begin()
+    setDiscovering(true); setDiscoveryScope(discoveryKey); setError(''); setEmpty(false); setVoices([]); setVoice('')
     try {
       const next = await client().listTtsVoiceDetails()
-      if (request !== voiceDiscovery.current) return
-      setVoices(next)
-      if (!next.length) setError('No configured Piper ONNX voice was found.')
-    } catch (cause) {
-      if (request === voiceDiscovery.current) setError(cause instanceof Error ? cause.message : 'Voice discovery failed')
-    }
+      if (!current()) return
+      setVoices(next); voicesScope.current = discoveryKey; setEmpty(!next.length)
+    } catch (cause) { if (current()) setError(cause instanceof Error ? cause.message : String(cause)) }
+    finally { if (current()) setDiscovering(false) }
   }
-  async function generate() { setError(''); setSubmittedText(text.trim()); try { setJob(await client().startTts(text, voice)) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Voice generation failed to start') } }
-  async function cancel() { if (job) setJob(await client().cancelTts(job.id)) }
-
-  const available = workerConnected && workerCapabilities.includes('text-to-speech')
-  const generated = project.assets.filter((asset) => asset.kind === 'audio' && asset.metadata.adapterId === 'piper')
-  return <section className="stack"><div className="sectionLead"><div><div className="eyebrow">LOCAL VOICE STUDIO</div><h2>Audio</h2><p>Generate attributable voice locally with Piper, then place it explicitly on the timeline.</p></div><span className={available ? 'status online' : 'status'}>{available ? 'PIPER AVAILABLE' : 'NOT CONFIGURED'}</span></div>
+  async function generate() {
+    if (!available || !selectedVoice || !text.trim() || session.current?.unresolved || detecting) return
+    setError(''); setSubmittedText(text.trim())
+    const task = new AudioStudioSession(project, connection, text, selectedVoice, {
+      client: client(), environment: () => environment.current,
+      snapshot: value => { history.snapshot(value, 'Before saving generated voice', 'system') },
+      persist: value => { onProjectChange(value); environment.current = { project: value, connection } },
+      publish: value => { if (mounted.current && session.current === task) setFeedback(value) }
+    })
+    session.current = task
+    await task.run()
+  }
+  const generated = project.assets.filter(asset => asset.kind === 'audio' && asset.metadata.adapterId === 'piper')
+  const seconds = (ms: number) => new Intl.NumberFormat(language, { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(ms / 1000)
+  return <section className="stack"><div className="sectionLead"><div><div className="eyebrow">{t('audio.eyebrow')}</div><h2>{t('audio.heading')}</h2><p>{t('audio.help')}</p></div><span className={available ? 'status online' : 'status'}>{t(available ? 'audio.available' : 'audio.unavailable')}</span></div>
     <div className="card audioStudio">
-      <label>Voice text<textarea value={text} onChange={(event) => setText(event.target.value)} placeholder="Enter narration…" /></label>
-      <PiperVoiceSelect voices={voices} value={voice} language={projectContentProfile(project).outputLanguage} disabled={!available || Boolean(job && !terminal.has(job.state))} onChange={setVoice} />
-      <div className="directorActions"><button className="secondaryButton" disabled={!available || Boolean(job && !terminal.has(job.state))} onClick={detect}>Detect voices</button><button className="primary" disabled={!available || !voice || !text.trim() || Boolean(job && !terminal.has(job.state))} onClick={generate}>Generate locally</button>{job && !terminal.has(job.state) && <button className="dangerButton" onClick={cancel}>Cancel</button>}</div>
-      {job && <div className="sttJob"><div><strong>{job.state}</strong><span>{Math.round(job.progress * 100)}%</span></div><div className="progressTrack"><div className="progressFill" style={{ width: `${job.progress * 100}%` }} /></div>{job.audioPath && <small>{(job.durationMs! / 1000).toFixed(2)}s · {job.audioPath}</small>}</div>}
-      {error && <div className="errorBox">{error}</div>}
+      <p>{t('audio.scope')}</p>
+      <label>{t('audio.text')}<textarea value={text} onChange={event => setText(event.target.value)} placeholder={t('audio.placeholder')} /></label>
+      <PiperVoiceSelect voices={installed} value={selectedVoice} language={projectContentProfile(project).outputLanguage} uiLanguage={language} disabled={!available || locked || detecting} onChange={setVoice} />
+      <div className="directorActions">
+        <button className="secondaryButton" disabled={!available || locked || detecting} onClick={detect}>{t(detecting ? 'audio.detecting' : 'audio.detect')}</button>
+        <button className="primary" disabled={!available || !selectedVoice || !text.trim() || locked || detecting} onClick={generate}>{t('audio.generate')}</button>
+      </div>
+      {currentFeedback && <AudioJobStatus feedback={currentFeedback} submittedText={submittedText} onRetry={() => void session.current?.run()} onCancel={() => void session.current?.cancel()} onDetach={() => { session.current?.detach(); setFeedback({ phase: 'detached' }) }} />}
+      {empty && <div className="note" role="status">{t('audio.empty')}</div>}
+      {error && <div className="errorBox" role="alert">{t('audio.error')}<details><summary>{t('common.details')}</summary>{error}</details></div>}
     </div>
-    {generated.length > 0 && <div className="card generatedVoices"><div className="eyebrow">GENERATED VOICE ASSETS</div>{generated.map((asset) => <div key={asset.id}><span><strong>{String(asset.metadata.name)}</strong><small>{(Number(asset.metadata.durationMs) / 1000).toFixed(2)}s · {String(asset.metadata.voicePath).split('/').pop()}</small></span><AssetPlacementControl project={project} asset={asset} onProjectChange={onProjectChange} /></div>)}</div>}
+    {generated.length > 0 && <div className="card generatedVoices"><div className="eyebrow">{t('audio.assets')}</div>{generated.map(asset => <div key={asset.id}><span><strong>{String(asset.metadata.name)}</strong><small>{seconds(Number(asset.metadata.durationMs))}s · {String(asset.metadata.voicePath).split('/').pop()}</small></span><AssetPlacementControl project={project} asset={asset} onProjectChange={onProjectChange} /></div>)}</div>}
   </section>
 }
