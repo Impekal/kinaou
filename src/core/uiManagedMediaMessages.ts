@@ -1,0 +1,18 @@
+export const uiManagedMediaMessages = {
+  'managed.heading': ['Vorhandene Mediendatei prüfen', 'Inspect an existing media file', 'Inspecter un fichier média existant'],
+  'managed.help': ['Prüft eine Datei in KINAOU/Assets, ohne sie zu kopieren oder zu verändern. Erst nach deiner Prüfung wird der Verweis im Projekt gespeichert.', 'Inspects a file in KINAOU/Assets without copying or modifying it. The reference is saved in the project only after your review.', 'Inspecte un fichier dans KINAOU/Assets sans le copier ni le modifier. La référence est enregistrée dans le projet après votre vérification.'],
+  'managed.boundary': ['Formular-, Projekt- oder Verbindungsänderungen verwerfen die Prüfung. Entwürfe und Prüfergebnisse werden beim Verlassen nicht behalten. Die Messwerte gelten zum Prüfzeitpunkt, nicht als Qualitäts- oder Unverändertheitsnachweis. Bereits registrierte Dateien werden nicht doppelt hinzugefügt.', 'Form, project or connection changes discard the review. Drafts and inspection results do not survive leaving. Measurements apply at inspection time, not as proof of quality or integrity. Already registered files are not added twice.', 'Les changements de formulaire, de projet ou de connexion invalident la vérification. Brouillons et résultats ne sont pas conservés à la fermeture. Les mesures valent lors du contrôle et ne prouvent ni qualité ni intégrité. Les fichiers déjà enregistrés ne sont pas ajoutés deux fois.'],
+  'managed.path': ['Verwalteter Dateipfad', 'Managed file path', 'Chemin du fichier géré'],
+  'managed.kind': ['Medienart', 'Media kind', 'Type de média'],
+  'managed.name': ['Anzeigename (optional)', 'Display name (optional)', 'Nom affiché (facultatif)'],
+  'managed.inspect': ['Datei prüfen', 'Inspect file', 'Inspecter le fichier'],
+  'managed.save': ['Geprüfte Datei im Projekt registrieren', 'Register reviewed file in project', 'Enregistrer le fichier vérifié dans le projet'],
+  'managed.checking': ['Datei wird geprüft …', 'Inspecting file…', 'Inspection du fichier…'],
+  'managed.review': ['Prüfergebnis – noch nicht gespeichert', 'Inspection result — not saved yet', 'Résultat de l’inspection — pas encore enregistré'],
+  'managed.saving': ['Projektverweis wird gespeichert …', 'Saving project reference…', 'Enregistrement de la référence…'],
+  'managed.succeeded': ['Datei im Projekt registriert. Originaldatei unverändert.', 'File registered in project. Original file unchanged.', 'Fichier enregistré dans le projet. Fichier original inchangé.'],
+  'managed.failed': ['Prüfung fehlgeschlagen. Nichts hinzugefügt; Angaben prüfen und erneut versuchen.', 'Inspection failed. Nothing added; review the details and try again.', 'Échec de l’inspection. Rien ajouté ; vérifiez les informations et réessayez.'],
+  'managed.saveFailed': ['Speichern fehlgeschlagen. Erneut speichern nutzt dasselbe Prüfergebnis und kopiert keine Datei. Eine Sicherheitsversion kann bereits existieren.', 'Save failed. Saving again uses the same inspection and copies no file. A safety version may already exist.', 'Échec de l’enregistrement. Réessayer utilise la même inspection sans copier de fichier. Une version de sécurité peut déjà exister.'],
+  'managed.detached': ['Prüfergebnis verworfen. Bitte erneut prüfen.', 'Inspection discarded. Please inspect again.', 'Résultat invalidé. Veuillez relancer l’inspection.'],
+  'managed.measurements': ['Dauer: {duration} · Größe: {size} · Bild: {dimensions} · Audio: {audio}', 'Duration: {duration} · Size: {size} · Picture: {dimensions} · Audio: {audio}', 'Durée : {duration} · Taille : {size} · Image : {dimensions} · Audio : {audio}'],
+} satisfies Record<string, readonly [string, string, string]>
