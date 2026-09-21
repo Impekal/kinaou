@@ -7,6 +7,7 @@ import {
   timelineMsToPx,
   timelinePxToMs,
   snapClipStart,
+  snapClipGroupDelta,
   snapTimelinePoint,
   trimClipEdge,
   TIMELINE_MIN_CLIP_MS
@@ -186,5 +187,58 @@ describe('direct trim geometry', () => {
       durationMs: 2500,
       sourceOffsetMs: 1000
     })
+  })
+})
+
+
+describe('multi-clip movement snapping', () => {
+  const members = [
+    { trackId: 'video', clipId: 'moving', startMs: 1000, durationMs: 1000 },
+    { trackId: 'voice', clipId: 'voice-clip', startMs: 8000, durationMs: 1000 }
+  ]
+
+  it('preserves relative spacing while snapping the anchor to an unselected edge', () => {
+    const delta = snapClipGroupDelta(
+      [video, voice],
+      members,
+      'video',
+      'moving',
+      2910,
+      true
+    )
+
+    expect(delta).toBe(3000)
+    expect(members.map((member) => member.startMs + delta)).toEqual([4000, 11000])
+  })
+
+  it('does not snap the group anchor against another selected clip', () => {
+    expect(snapClipGroupDelta(
+      [video, voice],
+      members,
+      'video',
+      'moving',
+      6910,
+      true
+    )).toBe(6900)
+  })
+
+  it('clamps the whole group at zero and supports free movement', () => {
+    expect(snapClipGroupDelta(
+      [video, voice],
+      members,
+      'video',
+      'moving',
+      -5000,
+      false
+    )).toBe(-1000)
+
+    expect(snapClipGroupDelta(
+      [video, voice],
+      members,
+      'video',
+      'moving',
+      123,
+      false
+    )).toBe(123)
   })
 })

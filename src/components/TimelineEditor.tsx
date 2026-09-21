@@ -6,7 +6,7 @@ import type { PersistentVersionHistory } from '../core/versioning'
 import type { KinaouAsset, KinaouProject, TimelineClip, TimelineTrack } from '../core/project'
 import { touchProject } from '../core/project'
 import { applyTimelineOperation, clipSpeedFitsSource, MIN_TIMELINE_SPLIT_MS } from '../core/timeline'
-import { snapClipStart, snapTimelinePoint, timelineExtentMs, timelineMsToPx, timelinePxToMs, trimClipEdge, type TimelineTrimEdge } from '../core/timelineInteraction'
+import { snapClipGroupDelta, snapTimelinePoint, timelineExtentMs, timelineMsToPx, timelinePxToMs, trimClipEdge, type TimelineMoveMember, type TimelineTrimEdge } from '../core/timelineInteraction'
 import { WaveformImage } from './WaveformImage'
 
 interface TimelineEditorProps {
@@ -22,12 +22,12 @@ const audioTrackTypes = new Set(['voice', 'dialog', 'music', 'sfx'])
 const visualTrackTypes = new Set(['video', 'broll', 'image', 'avatar', 'overlay'])
 
 interface ClipDragState {
-  trackId: string
-  clipId: string
+  anchorTrackId: string
+  anchorClipId: string
   pointerId: number
   originClientX: number
-  originStartMs: number
-  previewStartMs: number
+  members: TimelineMoveMember[]
+  previewDeltaMs: number
 }
 
 interface ClipTrimState {
@@ -45,19 +45,19 @@ interface ClipTrimState {
 export function TimelineEditor({ project, history, onProjectChange, workerUrl, workerToken, workerConnected }: TimelineEditorProps) {
   const { language, t } = useUiLanguage()
   const [feedback, setFeedback] = useState<{ saved?: KinaouProject; error?: string } | null>(null)
-  const [selectedClipKey, setSelectedClipKey] = useState('')
+  const [selectedClipKeys, setSelectedClipKeys] = useState<Set<string>>(() => new Set())
   const [drag, setDrag] = useState<ClipDragState | null>(null)
   const [trim, setTrim] = useState<ClipTrimState | null>(null)
   const [playheadMs, setPlayheadMs] = useState(0)
   const number = (value: number, digits = 1) => value.toLocaleString(language, { minimumFractionDigits: digits, maximumFractionDigits: digits })
 
-  const draggedClip = drag
-    ? project.tracks.find((track) => track.id === drag.trackId)?.clips.find((clip) => clip.id === drag.clipId)
-    : undefined
+  const draggedExtentMs = drag
+    ? Math.max(...drag.members.map((member) => member.startMs + drag.previewDeltaMs + member.durationMs))
+    : 0
 
   const interactionExtentMs = Math.max(
     timelineExtentMs(project.tracks),
-    draggedClip ? drag!.previewStartMs + draggedClip.durationMs : 0,
+    draggedExtentMs,
     trim ? trim.previewStartMs + trim.previewDurationMs : 0
   )
 
@@ -66,10 +66,11 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
   const effectivePlayheadMs = Math.min(playheadMs, canvasEndMs)
   const canvasWidthPx = Math.max(720, timelineMsToPx(canvasEndMs))
 
+  const singleSelectedKey = selectedClipKeys.size === 1 ? [...selectedClipKeys][0] : ''
   const selectedTrack = project.tracks.find((track) =>
-    track.clips.some((clip) => `${track.id}:${clip.id}` === selectedClipKey)
+    track.clips.some((clip) => `${track.id}:${clip.id}` === singleSelectedKey)
   )
-  const selectedClip = selectedTrack?.clips.find((clip) => `${selectedTrack.id}:${clip.id}` === selectedClipKey)
+  const selectedClip = selectedTrack?.clips.find((clip) => `${selectedTrack.id}:${clip.id}` === singleSelectedKey)
   const canSplitSelected = Boolean(
     selectedTrack
     && selectedClip
@@ -86,35 +87,110 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
     change(() => applyTimelineOperation(project, operation))
   }
 
+  function moveMembers(keys: Set<string>): TimelineMoveMember[] {
+    return project.tracks.flatMap((entry) =>
+      entry.clips
+        .filter((item) => keys.has(`${entry.id}:${item.id}`))
+        .map((item) => ({
+          trackId: entry.id,
+          clipId: item.id,
+          startMs: item.startMs,
+          durationMs: item.durationMs
+        }))
+    )
+  }
+
+  function toggleClipSelection(key: string) {
+    setSelectedClipKeys((current) => {
+      const next = new Set(current)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
   function beginClipDrag(event: ReactPointerEvent<HTMLButtonElement>, track: TimelineTrack, clip: TimelineClip) {
     if (track.locked || event.button !== 0) return
+
     event.preventDefault()
-    event.currentTarget.setPointerCapture(event.pointerId)
-    setSelectedClipKey(`${track.id}:${clip.id}`)
+    event.stopPropagation()
+
+    const key = `${track.id}:${clip.id}`
+
+    if (event.metaKey || event.ctrlKey) {
+      toggleClipSelection(key)
+      setDrag(null)
+      return
+    }
+
+    const nextSelection = selectedClipKeys.has(key) ? new Set(selectedClipKeys) : new Set([key])
+    const members = moveMembers(nextSelection)
+
+    if (!members.length) return
+
+    setSelectedClipKeys(nextSelection)
     setTrim(null)
+    event.currentTarget.setPointerCapture(event.pointerId)
+
     setDrag({
-      trackId: track.id,
-      clipId: clip.id,
+      anchorTrackId: track.id,
+      anchorClipId: clip.id,
       pointerId: event.pointerId,
       originClientX: event.clientX,
-      originStartMs: clip.startMs,
-      previewStartMs: clip.startMs
+      members,
+      previewDeltaMs: 0
     })
   }
 
   function moveClipDrag(event: ReactPointerEvent<HTMLButtonElement>, track: TimelineTrack, clip: TimelineClip) {
-    if (!drag || drag.pointerId !== event.pointerId || drag.trackId !== track.id || drag.clipId !== clip.id) return
-    const rawStartMs = drag.originStartMs + timelinePxToMs(event.clientX - drag.originClientX)
-    const previewStartMs = snapClipStart(project.tracks, track.id, clip, rawStartMs, !event.altKey)
-    if (previewStartMs !== drag.previewStartMs) setDrag({ ...drag, previewStartMs })
+    if (
+      !drag
+      || drag.pointerId !== event.pointerId
+      || drag.anchorTrackId !== track.id
+      || drag.anchorClipId !== clip.id
+    ) return
+
+    const rawDeltaMs = timelinePxToMs(event.clientX - drag.originClientX)
+
+    const previewDeltaMs = snapClipGroupDelta(
+      project.tracks,
+      drag.members,
+      drag.anchorTrackId,
+      drag.anchorClipId,
+      rawDeltaMs,
+      !event.altKey
+    )
+
+    if (previewDeltaMs !== drag.previewDeltaMs) {
+      setDrag({ ...drag, previewDeltaMs })
+    }
   }
 
   function finishClipDrag(event: ReactPointerEvent<HTMLButtonElement>, track: TimelineTrack, clip: TimelineClip) {
-    if (!drag || drag.pointerId !== event.pointerId || drag.trackId !== track.id || drag.clipId !== clip.id) return
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
-    const startMs = drag.previewStartMs
+    if (
+      !drag
+      || drag.pointerId !== event.pointerId
+      || drag.anchorTrackId !== track.id
+      || drag.anchorClipId !== clip.id
+    ) return
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+
+    const completed = drag
     setDrag(null)
-    if (startMs !== clip.startMs) apply({ type: 'move-clip', trackId: track.id, clipId: clip.id, startMs })
+
+    if (completed.previewDeltaMs === 0) return
+
+    apply({
+      type: 'move-clips',
+      moves: completed.members.map((member) => ({
+        trackId: member.trackId,
+        clipId: member.clipId,
+        startMs: member.startMs + completed.previewDeltaMs
+      }))
+    })
   }
 
   function cancelClipDrag(event: ReactPointerEvent<HTMLButtonElement>) {
@@ -124,12 +200,32 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
 
   function nudgeClip(event: ReactKeyboardEvent<HTMLButtonElement>, track: TimelineTrack, clip: TimelineClip) {
     if (track.locked || !['ArrowLeft', 'ArrowRight'].includes(event.key)) return
+
     event.preventDefault()
+
+    const key = `${track.id}:${clip.id}`
+    const selection = selectedClipKeys.has(key) ? new Set(selectedClipKeys) : new Set([key])
+    const members = moveMembers(selection)
+
+    if (!members.length) return
+
     const step = event.shiftKey ? 1000 : 100
-    const delta = event.key === 'ArrowLeft' ? -step : step
-    const startMs = Math.max(0, clip.startMs + delta)
-    setSelectedClipKey(`${track.id}:${clip.id}`)
-    if (startMs !== clip.startMs) apply({ type: 'move-clip', trackId: track.id, clipId: clip.id, startMs })
+    const requestedDelta = event.key === 'ArrowLeft' ? -step : step
+    const minimumDelta = -Math.min(...members.map((member) => member.startMs))
+    const delta = Math.max(minimumDelta, requestedDelta)
+
+    setSelectedClipKeys(selection)
+
+    if (delta === 0) return
+
+    apply({
+      type: 'move-clips',
+      moves: members.map((member) => ({
+        trackId: member.trackId,
+        clipId: member.clipId,
+        startMs: member.startMs + delta
+      }))
+    })
   }
 
   function beginClipTrim(event: ReactPointerEvent<HTMLButtonElement>, track: TimelineTrack, clip: TimelineClip, edge: TimelineTrimEdge) {
@@ -137,7 +233,7 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
     event.preventDefault()
     event.stopPropagation()
     event.currentTarget.setPointerCapture(event.pointerId)
-    setSelectedClipKey(`${track.id}:${clip.id}`)
+    setSelectedClipKeys(new Set([`${track.id}:${clip.id}`]))
     setDrag(null)
     setTrim({
       trackId: track.id,
@@ -214,7 +310,7 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
     const edgeMs = edge === 'start' ? clip.startMs : clip.startMs + clip.durationMs
     const next = trimClipEdge(project.tracks, track.id, clip, asset, edge, edgeMs + delta, false)
 
-    setSelectedClipKey(`${track.id}:${clip.id}`)
+    setSelectedClipKeys(new Set([`${track.id}:${clip.id}`]))
 
     if (
       next.startMs !== clip.startMs
@@ -254,7 +350,7 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
       rightClipId
     })
 
-    setSelectedClipKey(`${selectedTrack.id}:${rightClipId}`)
+    setSelectedClipKeys(new Set([`${selectedTrack.id}:${rightClipId}`]))
   }
 
   function addPlanningBlock(track: TimelineTrack) {
@@ -321,6 +417,10 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
           />
         </label>
         <button className="secondaryButton" disabled={!canSplitSelected} onClick={splitSelectedClip}>{t('timeline.split')}</button>
+        <div className="timelineSelectionStatus" role="status">
+          {t('timeline.selectionCount', { count: selectedClipKeys.size })}
+          <button disabled={selectedClipKeys.size === 0} onClick={() => setSelectedClipKeys(new Set())}>{t('timeline.clearSelection')}</button>
+        </div>
       </div>
       {feedback?.saved === project && <div className="successBox" role="status">{t('timeline.saved')}</div>}
       {feedback?.error !== undefined && <div className="errorBox" role="alert">{t('timeline.failed')}<details><summary>{t('common.details')}</summary>{feedback.error}</details></div>}
@@ -347,10 +447,15 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
                 ? t('timeline.planningName')
                 : String(asset?.metadata.name ?? asset?.metadata.label ?? t('timeline.clip'))
               const clipKey = `${track.id}:${clip.id}`
-              const selected = selectedClipKey === clipKey
-              const dragging = drag?.trackId === track.id && drag.clipId === clip.id
+              const selected = selectedClipKeys.has(clipKey)
+              const dragMember = drag?.members.find((member) => member.trackId === track.id && member.clipId === clip.id)
+              const dragging = Boolean(dragMember)
               const trimming = trim?.trackId === track.id && trim.clipId === clip.id
-              const visibleStartMs = trimming ? trim.previewStartMs : dragging ? drag.previewStartMs : clip.startMs
+              const visibleStartMs = trimming
+                ? trim.previewStartMs
+                : dragMember
+                  ? dragMember.startMs + drag!.previewDeltaMs
+                  : clip.startMs
               const visibleDurationMs = trimming ? trim.previewDurationMs : clip.durationMs
               const className = ['clip', track.locked ? 'lockedClip' : '', selected ? 'selectedClip' : '', dragging ? 'draggingClip' : '', trimming ? 'trimmingClip' : ''].filter(Boolean).join(' ')
               return (
@@ -359,7 +464,6 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
                   key={clip.id}
                   aria-selected={selected}
                   style={{ left: `${timelineMsToPx(visibleStartMs)}px`, width: `${timelineMsToPx(visibleDurationMs)}px` }}
-                  onClick={() => setSelectedClipKey(clipKey)}
                 >
                   <button
                     type="button"
@@ -372,6 +476,7 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
                     onPointerUp={(event) => finishClipDrag(event, track, clip)}
                     onPointerCancel={cancelClipDrag}
                     onKeyDown={(event) => nudgeClip(event, track, clip)}
+                    onClick={(event) => event.stopPropagation()}
                   >
                     <strong>{clipName}</strong>
                     <small>{t('timeline.timing', { start: number(visibleStartMs / 1000, 3), duration: number(visibleDurationMs / 1000, 3) })}{audioTrackTypes.has(track.type) && <> · {t('timeline.gain', { value: number(clip.gain) })}</>}</small>

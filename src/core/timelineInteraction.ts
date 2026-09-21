@@ -106,6 +106,70 @@ export function snapClipStart(
   return Math.max(0, Math.round(unclamped / TIMELINE_GRID_MS) * TIMELINE_GRID_MS)
 }
 
+export interface TimelineMoveMember {
+  trackId: string
+  clipId: string
+  startMs: number
+  durationMs: number
+}
+
+export function snapClipGroupDelta(
+  tracks: Pick<TimelineTrack, 'id' | 'clips'>[],
+  members: TimelineMoveMember[],
+  anchorTrackId: string,
+  anchorClipId: string,
+  rawDeltaMs: number,
+  snapping = true
+): number {
+  if (!members.length) throw new Error('At least one selected clip is required')
+  if (!Number.isFinite(rawDeltaMs)) throw new Error('Timeline movement must be finite')
+
+  const anchor = members.find((member) => member.trackId === anchorTrackId && member.clipId === anchorClipId)
+  if (!anchor) throw new Error('Group anchor is not selected')
+
+  const minimumDeltaMs = -Math.min(...members.map((member) => member.startMs))
+  const unclampedDeltaMs = Math.max(minimumDeltaMs, Math.round(rawDeltaMs))
+
+  if (!snapping) return unclampedDeltaMs
+
+  const excluded = new Set(members.map((member) => `${member.trackId}:${member.clipId}`))
+  const targets = new Set<number>([0])
+
+  for (const track of tracks) {
+    for (const clip of track.clips) {
+      if (excluded.has(`${track.id}:${clip.id}`)) continue
+      targets.add(clip.startMs)
+      targets.add(clip.startMs + clip.durationMs)
+    }
+  }
+
+  const rawAnchorStartMs = anchor.startMs + unclampedDeltaMs
+  let nearestDeltaMs: number | null = null
+  let nearestDistanceMs = Number.POSITIVE_INFINITY
+
+  for (const target of targets) {
+    for (const movingEdgeOffset of [0, anchor.durationMs]) {
+      const candidateAnchorStartMs = target - movingEdgeOffset
+      const candidateDeltaMs = candidateAnchorStartMs - anchor.startMs
+
+      if (candidateDeltaMs < minimumDeltaMs) continue
+
+      const distanceMs = Math.abs(candidateAnchorStartMs - rawAnchorStartMs)
+      if (distanceMs < nearestDistanceMs) {
+        nearestDistanceMs = distanceMs
+        nearestDeltaMs = candidateDeltaMs
+      }
+    }
+  }
+
+  if (nearestDeltaMs !== null && nearestDistanceMs <= TIMELINE_EDGE_SNAP_TOLERANCE_MS) {
+    return nearestDeltaMs
+  }
+
+  const gridAnchorStartMs = Math.round(rawAnchorStartMs / TIMELINE_GRID_MS) * TIMELINE_GRID_MS
+  return Math.max(minimumDeltaMs, gridAnchorStartMs - anchor.startMs)
+}
+
 export type TimelineTrimEdge = 'start' | 'end'
 
 export interface TimelineTrimGeometry {
