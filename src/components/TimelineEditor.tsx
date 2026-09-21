@@ -5,8 +5,8 @@ import { commitTimelineChange, timelineTrimFits } from '../core/timelineEditing'
 import type { PersistentVersionHistory } from '../core/versioning'
 import type { KinaouAsset, KinaouProject, TimelineClip, TimelineTrack } from '../core/project'
 import { touchProject } from '../core/project'
-import { applyTimelineOperation, clipSpeedFitsSource } from '../core/timeline'
-import { snapClipStart, timelineExtentMs, timelineMsToPx, timelinePxToMs, trimClipEdge, type TimelineTrimEdge } from '../core/timelineInteraction'
+import { applyTimelineOperation, clipSpeedFitsSource, MIN_TIMELINE_SPLIT_MS } from '../core/timeline'
+import { snapClipStart, snapTimelinePoint, timelineExtentMs, timelineMsToPx, timelinePxToMs, trimClipEdge, type TimelineTrimEdge } from '../core/timelineInteraction'
 import { WaveformImage } from './WaveformImage'
 
 interface TimelineEditorProps {
@@ -48,6 +48,7 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
   const [selectedClipKey, setSelectedClipKey] = useState('')
   const [drag, setDrag] = useState<ClipDragState | null>(null)
   const [trim, setTrim] = useState<ClipTrimState | null>(null)
+  const [playheadMs, setPlayheadMs] = useState(0)
   const number = (value: number, digits = 1) => value.toLocaleString(language, { minimumFractionDigits: digits, maximumFractionDigits: digits })
 
   const draggedClip = drag
@@ -61,7 +62,21 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
   )
 
   const extentMs = Math.max(10000, interactionExtentMs)
-  const canvasWidthPx = Math.max(720, timelineMsToPx(extentMs + 1000))
+  const canvasEndMs = extentMs + 1000
+  const effectivePlayheadMs = Math.min(playheadMs, canvasEndMs)
+  const canvasWidthPx = Math.max(720, timelineMsToPx(canvasEndMs))
+
+  const selectedTrack = project.tracks.find((track) =>
+    track.clips.some((clip) => `${track.id}:${clip.id}` === selectedClipKey)
+  )
+  const selectedClip = selectedTrack?.clips.find((clip) => `${selectedTrack.id}:${clip.id}` === selectedClipKey)
+  const canSplitSelected = Boolean(
+    selectedTrack
+    && selectedClip
+    && !selectedTrack.locked
+    && effectivePlayheadMs >= selectedClip.startMs + MIN_TIMELINE_SPLIT_MS
+    && effectivePlayheadMs <= selectedClip.startMs + selectedClip.durationMs - MIN_TIMELINE_SPLIT_MS
+  )
   function change(makeNext: () => KinaouProject) {
     setFeedback(null)
     try { setFeedback({ saved: commitTimelineChange(project, makeNext, history, onProjectChange) }) }
@@ -217,6 +232,31 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
     }
   }
 
+  function placePlayhead(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.target !== event.currentTarget) return
+
+    const bounds = event.currentTarget.getBoundingClientRect()
+    const rawMs = timelinePxToMs(event.clientX - bounds.left)
+    const next = Math.min(canvasEndMs, snapTimelinePoint(project.tracks, '', '', rawMs, !event.altKey))
+    setPlayheadMs(next)
+  }
+
+  function splitSelectedClip() {
+    if (!selectedTrack || !selectedClip || !canSplitSelected) return
+
+    const rightClipId = crypto.randomUUID()
+
+    apply({
+      type: 'split-clip',
+      trackId: selectedTrack.id,
+      clipId: selectedClip.id,
+      splitMs: effectivePlayheadMs,
+      rightClipId
+    })
+
+    setSelectedClipKey(`${selectedTrack.id}:${rightClipId}`)
+  }
+
   function addPlanningBlock(track: TimelineTrack) {
     if (track.locked) return
     const assetId = crypto.randomUUID()
@@ -268,6 +308,20 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
     <div className="timeline card">
       <p>{t('timeline.help')}</p>
       <small>{t('timeline.planningHelp')}</small>
+      <div className="timelineTransport">
+        <label>
+          {t('timeline.playheadPosition', { time: number(effectivePlayheadMs / 1000, 3) })}
+          <input
+            type="range"
+            min="0"
+            max={canvasEndMs}
+            step="100"
+            value={effectivePlayheadMs}
+            onChange={(event) => setPlayheadMs(Number(event.target.value))}
+          />
+        </label>
+        <button className="secondaryButton" disabled={!canSplitSelected} onClick={splitSelectedClip}>{t('timeline.split')}</button>
+      </div>
       {feedback?.saved === project && <div className="successBox" role="status">{t('timeline.saved')}</div>}
       {feedback?.error !== undefined && <div className="errorBox" role="alert">{t('timeline.failed')}<details><summary>{t('common.details')}</summary>{feedback.error}</details></div>}
       {project.tracks.map((track, trackIndex) => (
@@ -285,7 +339,8 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
             <button disabled={track.locked} onClick={() => addPlanningBlock(track)}>{t('timeline.planning')}</button>
           </div>
           <div className="trackLane">
-            <div className="trackCanvas" style={{ width: `${canvasWidthPx}px` }}>
+            <div className="trackCanvas" style={{ width: `${canvasWidthPx}px` }} onPointerDown={placePlayhead}>
+            <div className="timelinePlayheadLine" aria-hidden="true" style={{ left: `${timelineMsToPx(effectivePlayheadMs)}px` }} />
             {track.clips.length === 0 ? <span className="laneHint">{t('timeline.empty')}</span> : track.clips.map((clip) => {
               const asset = project.assets.find((item) => item.id === clip.assetId)
               const clipName = asset?.uri.startsWith('kinaou://planning/') && asset.metadata.label === 'Planning block'

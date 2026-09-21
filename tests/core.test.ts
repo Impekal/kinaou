@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createProject, trackSchema, clipSchema } from '../src/core/project'
+import { createProject, trackSchema, clipSchema, assetSchema } from '../src/core/project'
 import { assertSafeManagedPath, isSafeManagedPath } from '../src/core/storage'
 import { applyTimelineOperation } from '../src/core/timeline'
 import { VersionHistory } from '../src/core/versioning'
@@ -131,5 +131,129 @@ describe('job and model abstractions', () => {
     })
     expect(registry.list('speech-to-text')).toHaveLength(1)
     expect(registry.list('video-generation')).toHaveLength(0)
+  })
+})
+
+
+describe('timeline split operation', () => {
+  it('splits timed media atomically with exact source continuity and no source mutation', () => {
+    const asset = assetSchema.parse({
+      id: 'source',
+      kind: 'video',
+      uri: 'KINAOU/Assets/source.mp4',
+      managed: true,
+      metadata: { durationMs: 10000 }
+    })
+
+    const clip = clipSchema.parse({
+      id: 'clip',
+      assetId: asset.id,
+      startMs: 1000,
+      durationMs: 4000,
+      sourceOffsetMs: 1000,
+      gain: 0.8,
+      speed: 1.5,
+      transform: { x: 10, y: -5, scale: 1.2, cropLeft: 1, cropTop: 2, cropRight: 3, cropBottom: 4 },
+      fades: { inMs: 300, outMs: 400 },
+      transitionIn: { type: 'dissolve', durationMs: 500 },
+      sceneId: 'scene'
+    })
+
+    const track = trackSchema.parse({
+      id: 'video',
+      type: 'video',
+      name: 'Video',
+      clips: [clip]
+    })
+
+    const project = { ...createProject('Split'), assets: [asset], tracks: [track] }
+    const before = JSON.stringify(project)
+
+    const split = applyTimelineOperation(project, {
+      type: 'split-clip',
+      trackId: track.id,
+      clipId: clip.id,
+      splitMs: 2500,
+      rightClipId: 'clip-right'
+    })
+
+    expect(split.tracks[0].clips).toHaveLength(2)
+
+    expect(split.tracks[0].clips[0]).toMatchObject({
+      id: 'clip',
+      startMs: 1000,
+      durationMs: 1500,
+      sourceOffsetMs: 1000,
+      gain: 0.8,
+      speed: 1.5,
+      fades: { inMs: 300, outMs: 0 },
+      transitionIn: { type: 'dissolve', durationMs: 500 },
+      sceneId: 'scene'
+    })
+
+    expect(split.tracks[0].clips[1]).toMatchObject({
+      id: 'clip-right',
+      startMs: 2500,
+      durationMs: 2500,
+      sourceOffsetMs: 3250,
+      gain: 0.8,
+      speed: 1.5,
+      fades: { inMs: 0, outMs: 400 },
+      sceneId: 'scene'
+    })
+
+    expect(split.tracks[0].clips[1].transitionIn).toBeUndefined()
+    expect(split.tracks[0].clips[1].transform).toEqual(clip.transform)
+    expect(JSON.stringify(project)).toBe(before)
+  })
+
+  it('rejects unsafe split positions, duplicate ids and locked tracks', () => {
+    const clip = clipSchema.parse({ id: 'clip', assetId: 'asset', startMs: 1000, durationMs: 2000 })
+    const track = trackSchema.parse({ id: 'video', type: 'video', name: 'Video', clips: [clip] })
+    const project = { ...createProject('Split guards'), tracks: [track] }
+
+    expect(() => applyTimelineOperation(project, {
+      type: 'split-clip', trackId: track.id, clipId: clip.id, splitMs: 1100, rightClipId: 'right'
+    })).toThrow(/at least 250ms/)
+
+    expect(() => applyTimelineOperation(project, {
+      type: 'split-clip', trackId: track.id, clipId: clip.id, splitMs: 2000, rightClipId: clip.id
+    })).toThrow(/already exists/)
+
+    const locked = { ...project, tracks: [{ ...track, locked: true }] }
+
+    expect(() => applyTimelineOperation(locked, {
+      type: 'split-clip', trackId: track.id, clipId: clip.id, splitMs: 2000, rightClipId: 'right'
+    })).toThrow(/locked/)
+  })
+
+  it('keeps non-timed source offsets unchanged when a still is split', () => {
+    const asset = assetSchema.parse({
+      id: 'still',
+      kind: 'image',
+      uri: 'KINAOU/Assets/still.png',
+      managed: true
+    })
+
+    const clip = clipSchema.parse({
+      id: 'clip',
+      assetId: asset.id,
+      startMs: 0,
+      durationMs: 4000,
+      sourceOffsetMs: 700
+    })
+
+    const track = trackSchema.parse({ id: 'video', type: 'video', name: 'Video', clips: [clip] })
+    const project = { ...createProject('Still split'), assets: [asset], tracks: [track] }
+
+    const split = applyTimelineOperation(project, {
+      type: 'split-clip',
+      trackId: track.id,
+      clipId: clip.id,
+      splitMs: 2000,
+      rightClipId: 'right'
+    })
+
+    expect(split.tracks[0].clips.map((item) => item.sourceOffsetMs)).toEqual([700, 700])
   })
 })

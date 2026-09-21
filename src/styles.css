@@ -56,6 +56,10 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .trackControls + button { margin-top: 4px; }
 .trackLane { min-width: 0; padding: 0; overflow-x: auto; background-image: linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px); background-size: 40px 100%; }
 .trackCanvas { position: relative; min-width: 100%; min-height: 132px; }
+.timelineTransport { display: grid; grid-template-columns: minmax(260px, 1fr) auto; gap: 14px; align-items: end; }
+.timelineTransport label { display: grid; gap: 6px; }
+.timelineTransport input[type="range"] { width: 100%; }
+.timelinePlayheadLine { position: absolute; top: 0; bottom: 0; width: 2px; background: rgba(255,220,110,.9); box-shadow: 0 0 0 1px rgba(0,0,0,.35); pointer-events: none; z-index: 1; }
 .laneHint { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #565f71; font-size: 12px; }
 .clip { position: absolute; top: 14px; min-width: 10px; min-height: 96px; padding: 10px; box-sizing: border-box; border: 1px solid #6959d9; border-radius: 10px; background: linear-gradient(135deg, rgba(83,67,181,.45), rgba(43,39,75,.8)); display: grid; gap: 5px; overflow: visible; transition: box-shadow .12s ease, opacity .12s ease; }
 .clip.lockedClip { border-color: #4a5060; filter: saturate(.55); }
@@ -227,7 +231,7 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
   nav { display: flex; overflow-x: auto; }
   .navItem { white-space: nowrap; }
   .main { padding: 20px; }
-  .hero, .settingsPanel, .captionCreate, .previewControls, .versionCreate, .sttControls, .reframingGrid { grid-template-columns: 1fr; }
+  .hero, .settingsPanel, .captionCreate, .previewControls, .versionCreate, .sttControls, .reframingGrid, .timelineTransport { grid-template-columns: 1fr; }
   .versionRow { align-items: flex-start; flex-direction: column; }
   .publishPackageRow { align-items: flex-start; flex-direction: column; }
   .publishPackageActions { justify-content: flex-start; }
