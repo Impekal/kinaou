@@ -35,6 +35,10 @@ export interface RenderClipStep {
   gain: number
   speed: number
   transform: { x: number; y: number; scale: number; cropLeft: number; cropTop: number; cropRight: number; cropBottom: number }
+  transformKeyframes?: {
+    start: { x: number; y: number; scale: number }
+    end: { x: number; y: number; scale: number }
+  }
   transitionIn?: { type: 'dissolve'; durationMs: number }
   fades: { inMs: number; outMs: number }
   motion?: 'zoom-in' | 'zoom-out'
@@ -224,6 +228,12 @@ export function createRenderPlan(project: KinaouProject, preset: RenderPreset, o
         gain: clip.gain,
         speed: clip.speed,
         transform: { x: 0, y: 0, scale: 1, cropLeft: 0, cropTop: 0, cropRight: 0, cropBottom: 0, ...clip.transform },
+        ...(clip.transformKeyframes ? {
+          transformKeyframes: {
+            start: { ...clip.transformKeyframes.start },
+            end: { ...clip.transformKeyframes.end }
+          }
+        } : {}),
         ...(clip.transitionIn ? { transitionIn: clip.transitionIn } : {}),
         ...(clip.motion ? { motion: clip.motion } : {}),
         fades: { inMs: 0, outMs: 0, ...clip.fades }

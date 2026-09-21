@@ -760,6 +760,14 @@ function validateRenderPlan(plan) {
     const transform = clip.transform
     if (!transform || ![transform.x, transform.y, transform.scale, transform.cropLeft, transform.cropTop, transform.cropRight, transform.cropBottom].every(Number.isFinite)) throw new Error('Invalid clip transform')
     if (transform.scale < 0.1 || transform.scale > 4 || ![transform.cropLeft, transform.cropTop, transform.cropRight, transform.cropBottom].every((value) => Number.isInteger(value) && value >= 0)) throw new Error('Invalid clip transform range')
+    if (clip.transformKeyframes !== undefined) {
+      const keyframes = clip.transformKeyframes
+      if (!keyframes || !keyframes.start || !keyframes.end) throw new Error('Invalid transform keyframes')
+      for (const point of [keyframes.start, keyframes.end]) {
+        if (![point.x, point.y, point.scale].every(Number.isFinite)) throw new Error('Invalid transform keyframe values')
+        if (point.scale < 0.1 || point.scale > 4) throw new Error('Invalid transform keyframe scale')
+      }
+    }
     if (clip.transitionIn && (clip.transitionIn.type !== 'dissolve' || !Number.isInteger(clip.transitionIn.durationMs) || clip.transitionIn.durationMs < 100 || clip.transitionIn.durationMs > Math.min(5000, clip.durationMs))) throw new Error('Invalid dissolve transition')
     if (!clip.fades || ![clip.fades.inMs, clip.fades.outMs].every((value) => Number.isInteger(value) && value >= 0 && value <= 5000) || clip.fades.inMs + clip.fades.outMs > clip.durationMs) throw new Error('Invalid clip fades')
     if (clip.asset?.kind === 'caption') {
@@ -957,11 +965,19 @@ function buildCompositeArgs(plan, mediaClips, inputPaths, outputPath, subtitlePa
     const start = seconds(clip.startMs)
     const end = seconds(clip.startMs + clip.durationMs)
     const transform = clip.transform
+    const animation = transformAnimation(clip)
     const visualFadeIn = clip.transitionIn?.durationMs ?? clip.fades.inMs
     const fadeFilters = visualFadeIn || clip.fades.outMs ? [',format=rgba', ...(visualFadeIn ? [`,fade=t=in:st=0:d=${seconds(visualFadeIn)}:alpha=1`] : []), ...(clip.fades.outMs ? [`,fade=t=out:st=${seconds(clip.durationMs - clip.fades.outMs)}:d=${seconds(clip.fades.outMs)}:alpha=1`] : [])].join('') : ''
     const timing = clip.asset.kind === 'image' || clip.speed === 1 ? 'PTS-STARTPTS' : `(PTS-STARTPTS)/${clip.speed}`
-    parts.push(`[${index}:v]${framePrefix(clip)},crop=iw-${transform.cropLeft}-${transform.cropRight}:ih-${transform.cropTop}-${transform.cropBottom}:${transform.cropLeft}:${transform.cropTop},scale=iw*${transform.scale}:ih*${transform.scale}${fadeFilters},setpts=${timing}+${start}/TB[${prepared}]`)
-    parts.push(`[${currentVideo}][${prepared}]overlay=(W-w)/2${signedOffset(transform.x)}:(H-h)/2${signedOffset(transform.y)}:enable='between(t,${start},${end})'[${output}]`)
+    const scaleFilter = animation
+      ? `scale=w='iw*${animation.scale}':h='ih*${animation.scale}':eval=frame`
+      : `scale=iw*${transform.scale}:ih*${transform.scale}`
+    parts.push(`[${index}:v]${framePrefix(clip)},crop=iw-${transform.cropLeft}-${transform.cropRight}:ih-${transform.cropTop}-${transform.cropBottom}:${transform.cropLeft}:${transform.cropTop},${scaleFilter}${fadeFilters},setpts=${timing}+${start}/TB[${prepared}]`)
+    if (animation) {
+      parts.push(`[${currentVideo}][${prepared}]overlay=x='(W-w)/2+${animation.x}':y='(H-h)/2+${animation.y}':enable='between(t,${start},${end})'[${output}]`)
+    } else {
+      parts.push(`[${currentVideo}][${prepared}]overlay=(W-w)/2${signedOffset(transform.x)}:(H-h)/2${signedOffset(transform.y)}:enable='between(t,${start},${end})'[${output}]`)
+    }
     currentVideo = output
   })
 
@@ -1590,6 +1606,26 @@ function parseRate(rate) {
   const [n, d = '1'] = String(rate).split('/')
   const value = Number(n) / Number(d)
   return Number.isFinite(value) ? value : undefined
+}
+
+function linearExpression(start, end, progress) {
+  return `(${start}+(${end}-${start})*${progress})`
+}
+
+function transformAnimation(clip) {
+  if (!clip.transformKeyframes) return null
+
+  const sourceDurationSeconds = seconds(clip.durationMs * (clip.asset.kind === 'image' ? 1 : clip.speed))
+  const timelineDurationSeconds = seconds(clip.durationMs)
+  const timelineStartSeconds = seconds(clip.startMs)
+  const sourceProgress = `min(1,max(0,t/${sourceDurationSeconds}))`
+  const timelineProgress = `min(1,max(0,(t-${timelineStartSeconds})/${timelineDurationSeconds}))`
+
+  return {
+    scale: linearExpression(clip.transformKeyframes.start.scale, clip.transformKeyframes.end.scale, sourceProgress),
+    x: linearExpression(clip.transformKeyframes.start.x, clip.transformKeyframes.end.x, timelineProgress),
+    y: linearExpression(clip.transformKeyframes.start.y, clip.transformKeyframes.end.y, timelineProgress)
+  }
 }
 
 function seconds(ms) {

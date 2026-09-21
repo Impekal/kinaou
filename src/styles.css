@@ -60,6 +60,11 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .timelineTransport label { display: grid; gap: 6px; }
 .timelineUndoActions { display: flex; gap: 8px; }
 .timelineUndoHelp { color: #7d8699; }
+.timelineEffectInspector { margin: 12px 0; padding: 14px; border: 1px solid #303646; border-radius: 12px; background: #11141c; display: grid; gap: 10px; }
+.timelineEffectInspector > small { color: #8d96aa; }
+.timelineKeyframeRow { display: grid; grid-template-columns: 130px minmax(170px, 1fr) auto; gap: 10px; align-items: center; padding: 10px 0; border-top: 1px solid #292e3a; }
+.timelineKeyframeActions { display: flex; gap: 5px; flex-wrap: wrap; }
+.timelineKeyframeActions button { border: 1px solid #303646; background: #191e29; color: #d8deeb; border-radius: 7px; padding: 6px 8px; }
 .timelineSelectionStatus { display: flex; align-items: center; gap: 8px; color: #aeb6c7; font-size: 12px; }
 .timelineSelectionStatus button { border: 1px solid #454d62; border-radius: 8px; padding: 7px 9px; background: #181d28; color: #d8deeb; }
 .timelineTransport input[type="range"] { width: 100%; }
@@ -235,7 +240,7 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
   nav { display: flex; overflow-x: auto; }
   .navItem { white-space: nowrap; }
   .main { padding: 20px; }
-  .hero, .settingsPanel, .captionCreate, .previewControls, .versionCreate, .sttControls, .reframingGrid, .timelineTransport { grid-template-columns: 1fr; }
+  .hero, .settingsPanel, .captionCreate, .previewControls, .versionCreate, .sttControls, .reframingGrid, .timelineTransport, .timelineKeyframeRow { grid-template-columns: 1fr; }
   .versionRow { align-items: flex-start; flex-direction: column; }
   .publishPackageRow { align-items: flex-start; flex-direction: column; }
   .publishPackageActions { justify-content: flex-start; }

@@ -30,7 +30,8 @@ it.each(uiLanguages)('renders all manual timeline control families in %s without
   const html = renderToStaticMarkup(createElement(UiLanguageProvider, { initialLanguage: language, children: createElement(TimelineEditor, {
     project, history: history(), onProjectChange: persist, workerUrl: 'http://localhost:43117', workerToken: '', workerConnected: false
   }) }))
-  for (const key of ['timeline.mute', 'timeline.lock', 'timeline.planning', 'timeline.split', 'timeline.undo', 'timeline.redo', 'timeline.undoHelp', 'timeline.clearSelection', 'timeline.shorten', 'timeline.scaleUp', 'timeline.cropX', 'timeline.resetFrame', 'timeline.remove', 'timeline.speedReset'] as const) expect(html).toContain(translateUi(language, key))
+  for (const key of ['timeline.mute', 'timeline.lock', 'timeline.planning', 'timeline.split', 'timeline.undo', 'timeline.redo', 'timeline.undoHelp', 'timeline.effectsSelectOne', 'timeline.clearSelection', 'timeline.shorten', 'timeline.scaleUp', 'timeline.cropX', 'timeline.resetFrame', 'timeline.remove', 'timeline.speedReset'] as const) expect(html).toContain(translateUi(language, key))
+  expect(html).toContain(translateUi(language, 'timeline.effects').replaceAll('&', '&amp;'))
   expect(html).toContain(translateUi(language, 'timeline.selectionCount', { count: 0 }))
   expect(html).toContain(`disabled="">${translateUi(language, 'timeline.undo')}`)
   expect(html).toContain(`disabled="">${translateUi(language, 'timeline.redo')}`)

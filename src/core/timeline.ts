@@ -23,6 +23,7 @@ export type TimelineOperation =
   | { type: 'trim-clip'; trackId: string; clipId: string; startMs: number; durationMs: number; sourceOffsetMs: number }
   | { type: 'set-clip-gain'; trackId: string; clipId: string; gain: number }
   | { type: 'set-clip-transform'; trackId: string; clipId: string; transform: NonNullable<TimelineClip['transform']> }
+  | { type: 'set-clip-transform-keyframes'; trackId: string; clipId: string; keyframes?: NonNullable<TimelineClip['transformKeyframes']> }
   | { type: 'set-clip-transition'; trackId: string; clipId: string; transitionIn?: NonNullable<TimelineClip['transitionIn']> }
   | { type: 'set-clip-fades'; trackId: string; clipId: string; fades: NonNullable<TimelineClip['fades']> }
   | { type: 'set-clip-speed'; trackId: string; clipId: string; speed: number }
@@ -57,6 +58,18 @@ function updateExistingClip(track: TimelineTrack, clipId: string, update: (clip:
   })
   if (!found) throw new Error(`Timeline clip not found: ${clipId}`)
   return { ...track, clips }
+}
+
+export function interpolateTransformKeyframes(
+  keyframes: NonNullable<TimelineClip['transformKeyframes']>,
+  progress: number
+): NonNullable<TimelineClip['transformKeyframes']>['start'] {
+  const value = Math.max(0, Math.min(1, progress))
+  return {
+    x: keyframes.start.x + (keyframes.end.x - keyframes.start.x) * value,
+    y: keyframes.start.y + (keyframes.end.y - keyframes.start.y) * value,
+    scale: keyframes.start.scale + (keyframes.end.scale - keyframes.start.scale) * value
+  }
 }
 
 export function applyTimelineOperation(project: KinaouProject, operation: TimelineOperation): KinaouProject {
@@ -149,10 +162,19 @@ export function applyTimelineOperation(project: KinaouProject, operation: Timeli
           const rightSourceOffsetMs = timedSource
             ? Math.round(clip.sourceOffsetMs + leftDurationMs * clip.speed)
             : clip.sourceOffsetMs
+          const splitKeyframe = clip.transformKeyframes
+            ? interpolateTransformKeyframes(clip.transformKeyframes, leftDurationMs / clip.durationMs)
+            : undefined
 
           const left = {
             ...clip,
             durationMs: leftDurationMs,
+            ...(clip.transformKeyframes && splitKeyframe ? {
+              transformKeyframes: {
+                start: { ...clip.transformKeyframes.start },
+                end: splitKeyframe
+              }
+            } : {}),
             ...(clip.fades ? {
               fades: {
                 inMs: Math.min(clip.fades.inMs, leftDurationMs),
@@ -173,6 +195,12 @@ export function applyTimelineOperation(project: KinaouProject, operation: Timeli
             startMs: operation.splitMs,
             durationMs: rightDurationMs,
             sourceOffsetMs: rightSourceOffsetMs,
+            ...(clip.transformKeyframes && splitKeyframe ? {
+              transformKeyframes: {
+                start: splitKeyframe,
+                end: { ...clip.transformKeyframes.end }
+              }
+            } : {}),
             ...(clip.fades ? {
               fades: {
                 inMs: 0,
@@ -211,6 +239,26 @@ export function applyTimelineOperation(project: KinaouProject, operation: Timeli
       if (![parsed.cropLeft, parsed.cropTop, parsed.cropRight, parsed.cropBottom].every((value) => Number.isInteger(value) && value >= 0)) throw new Error('Clip crop must use non-negative integer pixels')
       return updateUnlockedTrack(project, operation.trackId, (track) => updateExistingClip(track, operation.clipId, (clip) => ({ ...clip, transform: { ...parsed } })))
     }
+    case 'set-clip-transform-keyframes':
+      return updateUnlockedTrack(project, operation.trackId, (track) => updateExistingClip(track, operation.clipId, (clip) => {
+        if (!operation.keyframes) {
+          const { transformKeyframes: _removed, ...rest } = clip
+          return rest
+        }
+
+        for (const point of [operation.keyframes.start, operation.keyframes.end]) {
+          if (![point.x, point.y, point.scale].every(Number.isFinite)) throw new Error('Transform keyframe values must be finite')
+          if (point.scale < 0.1 || point.scale > 4) throw new Error('Transform keyframe scale must be between 0.1 and 4')
+        }
+
+        return {
+          ...clip,
+          transformKeyframes: {
+            start: { ...operation.keyframes.start },
+            end: { ...operation.keyframes.end }
+          }
+        }
+      }))
     case 'set-clip-transition':
       return updateUnlockedTrack(project, operation.trackId, (track) => updateExistingClip(track, operation.clipId, (clip) => {
         if (!operation.transitionIn) {
