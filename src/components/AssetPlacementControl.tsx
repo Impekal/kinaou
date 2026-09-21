@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { KinaouAsset, KinaouProject } from '../core/project'
 import { compatibleTracks, placeAssetOnTrack } from '../core/timelinePlacement'
 import { useUiLanguage } from './UiLanguageProvider'
+import { resolveUiMessage, uiMessageReference } from '../core/uiMessages'
 
 interface AssetPlacementControlProps {
   project: KinaouProject
@@ -10,7 +11,7 @@ interface AssetPlacementControlProps {
 }
 
 export function AssetPlacementControl({ project, asset, onProjectChange }: AssetPlacementControlProps) {
-  const { t } = useUiLanguage()
+  const { t, language } = useUiLanguage()
   const tracks = useMemo(() => compatibleTracks(project, asset), [project, asset])
   const [targetId, setTargetId] = useState(() => tracks[0]?.id ?? '')
   const [error, setError] = useState('')
@@ -34,7 +35,7 @@ export function AssetPlacementControl({ project, asset, onProjectChange }: Asset
     try {
       onProjectChange(placeAssetOnTrack(project, asset.id, effectiveTarget))
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Timeline placement failed')
+      setError(cause instanceof Error ? cause.message : uiMessageReference('recovery.placement'))
     }
   }
 
@@ -45,7 +46,7 @@ export function AssetPlacementControl({ project, asset, onProjectChange }: Asset
       </select>
       <button className="secondaryButton" disabled={Boolean(disabledReason)} onClick={place}>{t('placement.add')}</button>
       {disabledReason && <small className="assetPlacementHint assetPlacementError">{disabledReason}</small>}
-      {!disabledReason && error && <small className="inlineError assetPlacementError" role="alert">{t('placement.failed')}<details><summary>{t('common.details')}</summary>{error}</details></small>}
+      {!disabledReason && error && <small className="inlineError assetPlacementError" role="alert">{t('placement.failed')}<details><summary>{t('common.details')}</summary>{resolveUiMessage(language, error)}</details></small>}
     </div>
   )
 }

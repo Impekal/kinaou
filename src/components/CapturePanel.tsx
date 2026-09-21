@@ -9,6 +9,7 @@ import { registerWebCapture } from '../core/webCaptures'
 import type { WebCaptureBrowser, WebCaptureJobRecord } from '../core/webCaptureJobs'
 import { WorkerClient } from '../core/workerClient'
 import { useUiLanguage } from './UiLanguageProvider'
+import { resolveUiMessage } from '../core/uiMessages'
 
 interface Props { project: KinaouProject; history: PersistentVersionHistory; workerUrl: string; workerToken: string; workerConnected: boolean; workerCapabilities: string[]; onProjectChange: (project: KinaouProject) => void }
 const terminal = new Set(['succeeded', 'failed', 'cancelled'])
@@ -24,7 +25,7 @@ export const captureStateKeys = {
 interface WebCardProps { project: KinaouProject; workerConnected: boolean; workerCapabilities: string[]; client: () => WorkerClient; onProjectChange: (project: KinaouProject) => void }
 
 function WebCaptureCard({ project, workerConnected, workerCapabilities, client, onProjectChange }: WebCardProps) {
-  const { t } = useUiLanguage()
+  const { t, language } = useUiLanguage()
   const [browsers, setBrowsers] = useState<WebCaptureBrowser[]>([])
   const [browserId, setBrowserId] = useState('')
   const [url, setUrl] = useState('')
@@ -90,12 +91,12 @@ function WebCaptureCard({ project, workerConnected, workerCapabilities, client, 
     </div>
     <div className="directorActions"><button className="primary" disabled={!canStart} onClick={start}>{t('capture.web.start')}</button>{running && <button className="dangerButton" onClick={cancel}>{t('capture.web.cancel')}</button>}</div>
     {job && <div className="sttJob"><div><strong>{t(captureStateKeys[job.state])}</strong><span>{Math.round(job.progress * 100)}%</span></div><div className="progressTrack"><div className="progressFill" style={{ width: `${job.progress * 100}%` }} /></div>{job.imagePath && <small>{job.imagePath} · {job.provenance.url}</small>}{job.state === 'failed' && job.error && <small>{job.error}</small>}</div>}
-    {error && <div className="errorBox">{error}</div>}
+    {error && <div className="errorBox">{resolveUiMessage(language, error)}</div>}
   </div>
 }
 
 export function CapturePanel({ project, history, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange }: Props) {
-  const { t } = useUiLanguage()
+  const { t, language } = useUiLanguage()
   const [kind, setKind] = useState<'screenshot' | 'recording'>('screenshot')
   const [selection, setSelection] = useState<'display' | 'interactive' | 'app'>('display')
   const [appName, setAppName] = useState('')
@@ -182,7 +183,7 @@ export function CapturePanel({ project, history, workerUrl, workerToken, workerC
         {running && <button className="dangerButton" onClick={cancel}>{t('capture.discard')}</button>}
       </div>
       {job && <div className="sttJob"><div><strong>{t(captureStateKeys[job.state])}</strong><span>{Math.round(job.progress * 100)}%</span></div><div className="progressTrack"><div className="progressFill" style={{ width: `${job.progress * 100}%` }} /></div>{job.capturePath && <small>{job.capturePath}{job.durationMs ? ` · ${t('capture.library.duration', { seconds: (job.durationMs / 1000).toFixed(2) })}` : ''}</small>}{job.state === 'failed' && job.error && <small>{job.error}</small>}</div>}
-      {error && <div className="errorBox">{error}</div>}
+      {error && <div className="errorBox">{resolveUiMessage(language, error)}</div>}
     </div>
     <WebCaptureCard project={project} workerConnected={workerConnected} workerCapabilities={workerCapabilities} client={client} onProjectChange={onProjectChange} />
     {captured.length > 0 && <div className="card generatedImages"><div className="eyebrow">{t('capture.library.eyebrow')}</div><p className="cardBody">{t('capture.library.help')}</p>{captured.map((asset) => <div key={asset.id}><span><strong>{String(asset.metadata.name)}</strong><small>{t('capture.library.real')} · {asset.metadata.captureMethod === 'headless-browser' ? t('capture.library.web', { url: String(asset.metadata.url) }) : asset.metadata.appName ? t('capture.library.app', { name: String(asset.metadata.appName) }) : t('capture.library.display', { id: String(asset.metadata.displayId) })}{asset.metadata.durationMs ? ` · ${t('capture.library.duration', { seconds: (Number(asset.metadata.durationMs) / 1000).toFixed(2) })}` : ''}</small></span><div className="stackControls"><SceneFulfillmentControl project={project} history={history} asset={asset} onProjectChange={onProjectChange} onError={setError} /><AssetPlacementControl project={project} asset={asset} onProjectChange={onProjectChange} /></div></div>)}</div>}

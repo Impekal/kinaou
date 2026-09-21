@@ -26,6 +26,7 @@ import { PublishPanel } from './components/PublishPanel'
 import { CoursePanel } from './components/CoursePanel'
 import { SettingsPanel } from './components/SettingsPanel'
 import { UiLanguageSelector, useUiLanguage } from './components/UiLanguageProvider'
+import { resolveUiMessage, uiMessageReference } from './core/uiMessages'
 import { createProjectFromInput, type CreationInputKind } from './core/create'
 import { ProjectRepository, StorageSettingsRepository } from './core/persistence'
 import { parseProject, type KinaouProject } from './core/project'
@@ -105,7 +106,7 @@ export function App() {
     try {
       setWorkerHandshake(await workerClient().health())
     } catch (error) {
-      setWorkerError(error instanceof Error ? error.message : 'Worker connection failed')
+      setWorkerError(error instanceof Error ? error.message : uiMessageReference('recovery.workerConnection'))
     } finally {
       setWorkerBusy(false)
     }
@@ -125,7 +126,7 @@ export function App() {
         <div className="tagline">{t('shell.tagline')}</div>
         <UiLanguageSelector />
         <nav>{nav.map((item) => <button key={item} className={item === section ? 'navItem active' : 'navItem'} onClick={() => setSection(item)}>{t(`nav.${item}`)}</button>)}</nav>
-        <div className="buildInfo" title="Code state this page is actually running. After a git pull, restart the dev server and hard-reload until this matches the repository.">build {typeof __KINAOU_COMMIT__ === 'undefined' ? 'unknown' : __KINAOU_COMMIT__}{typeof __KINAOU_STARTED__ === 'undefined' ? '' : ` · served since ${new Date(__KINAOU_STARTED__).toLocaleTimeString()}`}</div>
+        <div className="buildInfo" title={t('shell.buildInfoTitle')}>{t('shell.build', { commit: typeof __KINAOU_COMMIT__ === 'undefined' ? t('shell.unknown') : __KINAOU_COMMIT__ })}{typeof __KINAOU_STARTED__ === 'undefined' ? '' : ` · ${t('shell.servedSince', { time: new Date(__KINAOU_STARTED__).toLocaleTimeString(language) })}`}</div>
       </aside>
 
       <main className="main">
@@ -190,7 +191,7 @@ export function App() {
         </section>}
 
         {section === 'Settings' && <SettingsPanel
-          workerUrl={workerUrl} workerToken={workerToken} workerBusy={workerBusy} workerError={workerError} workerHandshake={workerHandshake}
+          workerUrl={workerUrl} workerToken={workerToken} workerBusy={workerBusy} workerError={resolveUiMessage(language, workerError)} workerHandshake={workerHandshake}
           onWorkerUrlChange={(value) => { setWorkerUrl(value); setWorkerHandshake(null); setWorkerError('') }}
           onWorkerTokenChange={(value) => { setWorkerToken(value); setWorkerHandshake(null); setWorkerError('') }}
           onTestConnection={testWorkerConnection} storage={storage} workspaceRoot={workspaceRoot} storageBackend={storageBackend}

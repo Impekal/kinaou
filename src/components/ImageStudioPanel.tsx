@@ -11,6 +11,7 @@ import { commitSceneAssignment } from '../core/sceneAssignmentCommit'
 import type { PersistentVersionHistory } from '../core/versioning'
 import { WorkerClient } from '../core/workerClient'
 import { useUiLanguage } from './UiLanguageProvider'
+import { resolveUiMessage } from '../core/uiMessages'
 
 interface Props { project: KinaouProject; history: PersistentVersionHistory; workerUrl: string; workerToken: string; workerConnected: boolean; workerCapabilities: string[]; onProjectChange: (project: KinaouProject) => void }
 function randomSeed(): string { return String(Math.floor(Math.random() * 2 ** 31)) }
@@ -92,7 +93,7 @@ export function ImageStudioPanel({ project, history, workerUrl, workerToken, wor
       {review.issue && <p>{t(`image.${review.issue}`)}</p>}
       <button className="primary" disabled={!connected || !currentAvailability?.comfyui.available || !review.parameters || locked || detecting} onClick={generate}>{t('image.generate')}</button>
       {currentFeedback && <ImageJobStatus feedback={currentFeedback} submitted={submitted} onRetry={() => void session.current?.run()} onCancel={() => void session.current?.cancel()} onDetach={() => { session.current?.detach(); setFeedback({ phase: 'detached' }) }} />}
-      {error && <div className="errorBox" role="alert">{t('image.error')}<details><summary>{t('common.details')}</summary>{error}</details></div>}
+      {error && <div className="errorBox" role="alert">{t('image.error')}<details><summary>{t('common.details')}</summary>{resolveUiMessage(language, error)}</details></div>}
     </div>
     {generated.length > 0 && <div className="card generatedImages"><div className="eyebrow">{t('image.assets')}</div><p className="cardBody">{t('image.assignmentHelp')}</p>{generated.map(asset => <div key={asset.id}><span><strong>{String(asset.metadata.name)}</strong><small>{t('image.generated')} · {t('image.seedLabel')} {String(asset.metadata.seed)} · {String(asset.metadata.templateId)}</small></span><div className="stackControls"><SceneFulfillmentControl project={project} history={history} asset={asset} onProjectChange={onProjectChange} onError={setError} /><AssetPlacementControl project={project} asset={asset} onProjectChange={onProjectChange} /></div></div>)}</div>}
     {project.storyboard.length > 0 && <div className="card storyboardFulfillment"><div className="eyebrow">{t('image.storyboard')}</div>{project.storyboard.map(scene => {

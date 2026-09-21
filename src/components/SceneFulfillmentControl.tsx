@@ -3,6 +3,7 @@ import type { KinaouAsset, KinaouProject } from '../core/project'
 import { commitSceneAssignment } from '../core/sceneAssignmentCommit'
 import type { PersistentVersionHistory } from '../core/versioning'
 import { useUiLanguage } from './UiLanguageProvider'
+import { uiMessageReference } from '../core/uiMessages'
 
 interface Props { project: KinaouProject; history: PersistentVersionHistory; asset: KinaouAsset; onProjectChange: (project: KinaouProject) => void; onError: (message: string) => void }
 
@@ -18,7 +19,7 @@ export function SceneFulfillmentControl({ project, history, asset, onProjectChan
     if (!scene) return
     try {
       commitSceneAssignment(project, scene.id, asset.id, history, onProjectChange)
-    } catch (cause) { onError(cause instanceof Error ? cause.message : 'Scene fulfillment failed') }
+    } catch (cause) { onError(cause instanceof Error ? cause.message : uiMessageReference('recovery.fulfillment')) }
   }
 
   return <div className="assetPlacement">
