@@ -17,6 +17,8 @@ interface TimelineEditorProps {
   workerUrl: string
   workerToken: string
   workerConnected: boolean
+  playheadMs?: number
+  onPlayheadChange?: (value: number) => void
 }
 
 const audioTrackTypes = new Set(['voice', 'dialog', 'music', 'sfx'])
@@ -43,13 +45,13 @@ interface ClipTrimState {
   previewSourceOffsetMs: number
 }
 
-export function TimelineEditor({ project, history, onProjectChange, workerUrl, workerToken, workerConnected }: TimelineEditorProps) {
+export function TimelineEditor({ project, history, onProjectChange, workerUrl, workerToken, workerConnected, playheadMs: controlledPlayheadMs, onPlayheadChange }: TimelineEditorProps) {
   const { language, t } = useUiLanguage()
   const [feedback, setFeedback] = useState<{ saved?: KinaouProject; error?: string; action?: 'edit' | 'undo' | 'redo' } | null>(null)
   const [selectedClipKeys, setSelectedClipKeys] = useState<Set<string>>(() => new Set())
   const [drag, setDrag] = useState<ClipDragState | null>(null)
   const [trim, setTrim] = useState<ClipTrimState | null>(null)
-  const [playheadMs, setPlayheadMs] = useState(0)
+  const [localPlayheadMs, setLocalPlayheadMs] = useState(0)
   const undoSessionRef = useRef<TimelineUndoSession | null>(null)
 
   if (!undoSessionRef.current) undoSessionRef.current = new TimelineUndoSession(project)
@@ -58,6 +60,14 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
   undoSession.observe(project)
 
   const number = (value: number, digits = 1) => value.toLocaleString(language, { minimumFractionDigits: digits, maximumFractionDigits: digits })
+
+  const playheadMs = controlledPlayheadMs ?? localPlayheadMs
+
+  function changePlayhead(value: number) {
+    const normalized = Math.max(0, Math.round(value))
+    if (onPlayheadChange) onPlayheadChange(normalized)
+    else setLocalPlayheadMs(normalized)
+  }
 
   const draggedExtentMs = drag
     ? Math.max(...drag.members.map((member) => member.startMs + drag.previewDeltaMs + member.durationMs))
@@ -410,7 +420,7 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
     const bounds = event.currentTarget.getBoundingClientRect()
     const rawMs = timelinePxToMs(event.clientX - bounds.left)
     const next = Math.min(canvasEndMs, snapTimelinePoint(project.tracks, '', '', rawMs, !event.altKey))
-    setPlayheadMs(next)
+    changePlayhead(next)
   }
 
   function splitSelectedClip() {
@@ -489,7 +499,7 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
             max={canvasEndMs}
             step="100"
             value={effectivePlayheadMs}
-            onChange={(event) => setPlayheadMs(Number(event.target.value))}
+            onChange={(event) => changePlayhead(Number(event.target.value))}
           />
         </label>
         <button className="secondaryButton" disabled={!canSplitSelected} onClick={splitSelectedClip}>{t('timeline.split')}</button>
