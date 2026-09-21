@@ -258,3 +258,14 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .optionToggle { grid-template-columns: auto 1fr; align-items: start; gap: 4px 9px; font-weight: 700; color: #cbd1dc; }
 .optionToggle input { width: auto; grid-row: 1; }
 .optionToggle small { grid-column: 2; font-weight: 400; color: #7d8699; }
+
+.liveTimelinePreview { margin: 12px 0; padding: 16px; border: 1px solid #303646; border-radius: 14px; background: #0d1017; display: grid; gap: 12px; }
+.liveTimelineHeader { display: flex; justify-content: space-between; gap: 14px; align-items: center; }
+.liveTimelineHeader h3 { margin: 2px 0 0; }
+.liveTimelinePreview > p { margin: 0; color: #8d96aa; font-size: 12px; line-height: 1.5; }
+.liveTimelineStage { position: relative; width: min(100%, 960px); aspect-ratio: 16 / 9; justify-self: center; overflow: hidden; background: #000; border: 1px solid #292f3d; border-radius: 12px; }
+.liveTimelineLayer { position: absolute; width: 100%; height: 100%; transform-origin: center; pointer-events: none; }
+.liveTimelineMedia { width: 100%; height: 100%; object-fit: contain; display: block; }
+.liveTimelinePlaceholder, .liveTimelineEmpty { position: absolute; inset: 0; display: grid; place-items: center; align-content: center; gap: 6px; text-align: center; padding: 24px; color: #7d8699; font-size: 12px; background: rgba(8,10,15,.7); }
+.liveTimelinePlaceholder small { max-width: 70ch; overflow-wrap: anywhere; color: #d18b95; }
+.liveTimelineNotice { color: #8d96aa; }
