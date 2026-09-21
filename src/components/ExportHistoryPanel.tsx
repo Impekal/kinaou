@@ -5,6 +5,7 @@ import { forgetExportReceiptWithShortAcknowledgement } from '../core/shortBatchR
 import { ExportFileCheckSession, type ExportCheckFeedback } from '../core/exportFileCheck'
 import { WorkerClient } from '../core/workerClient'
 import { useUiLanguage } from './UiLanguageProvider'
+import { displayExportReceiptLabel } from '../core/uiSystemLabels'
 
 export function ExportHistoryPanel({ project, workerUrl, workerToken, workerConnected, busy, onProjectChange }: {
   project: KinaouProject; workerUrl: string; workerToken: string; workerConnected: boolean; busy: boolean; onProjectChange: (project: KinaouProject) => void
@@ -55,7 +56,7 @@ export function ExportHistoryPanel({ project, workerUrl, workerToken, workerConn
     {receipts.map(receipt => {
       const available = check?.byPath[receipt.outputRelativePath]
       return <div className="renderJob" key={receipt.jobId}>
-        <div className="renderJobHead"><strong>{receipt.label}</strong><span>{t(`export.${receipt.format}`)} · {(receipt.durationMs / 1000).toLocaleString(language)} s · {new Date(receipt.completedAt).toLocaleString(language)}</span><span className={available === undefined ? 'status' : available ? 'status online' : 'status missing'}>{t(available === undefined ? 'exports.unchecked' : available ? 'exports.present' : 'exports.missing')}</span></div>
+        <div className="renderJobHead"><strong>{displayExportReceiptLabel(receipt, t)}</strong><span>{t(`export.${receipt.format}`)} · {(receipt.durationMs / 1000).toLocaleString(language)} s · {new Date(receipt.completedAt).toLocaleString(language)}</span><span className={available === undefined ? 'status' : available ? 'status online' : 'status missing'}>{t(available === undefined ? 'exports.unchecked' : available ? 'exports.present' : 'exports.missing')}</span></div>
         {receipt.courseLesson && <small>{t('exports.course', { course: receipt.courseLesson.courseTitle, module: receipt.courseLesson.moduleTitle, lesson: receipt.courseLesson.lessonTitle, revision: receipt.courseLesson.outlineRevision, language: receipt.courseLesson.language })}</small>}
         <div className="renderMeta">
           <code>{receipt.outputRelativePath}</code>

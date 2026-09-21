@@ -42,5 +42,7 @@ export const uiExportMessages = {
   'export.release': ['Rückkehrzeit (ms)', 'Release (ms)', 'Relâchement (ms)'],
   'export.invalidAudio': ['Ungültige Einstellungen für Musikabsenkung.', 'Invalid music ducking settings.', 'Réglages de réduction musicale invalides.'],
   'export.normalize': ['Exportlautheit auf −14 LUFS normalisieren', 'Normalize export loudness to −14 LUFS', 'Normaliser le volume à −14 LUFS'],
-  'export.normalizeHelp': ['Optional: True Peak ≤ −1,5 dBTP, Lautheitsbereich 11 LU. Standardmäßig aus; verändert den Klang.', 'Optional: true peak ≤ −1.5 dBTP, loudness range 11 LU. Off by default; changes the sound.', 'Option : crête vraie ≤ −1,5 dBTP, plage dynamique 11 LU. Désactivée par défaut ; modifie le son.']
+  'export.normalizeHelp': ['Optional: True Peak ≤ −1,5 dBTP, Lautheitsbereich 11 LU. Standardmäßig aus; verändert den Klang.', 'Optional: true peak ≤ −1.5 dBTP, loudness range 11 LU. Off by default; changes the sound.', 'Option : crête vraie ≤ −1,5 dBTP, plage dynamique 11 LU. Désactivée par défaut ; modifie le son.'],
+  'export.receiptWhole': ['Gesamte Timeline', 'Whole timeline', 'Timeline entière'],
+  'export.receiptRange': ['Eigener Bereich {start}–{end} s', 'Custom range {start}–{end} s', 'Plage personnalisée {start}–{end} s'],
 } satisfies Record<string, readonly [string, string, string]>

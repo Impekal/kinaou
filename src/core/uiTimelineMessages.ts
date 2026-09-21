@@ -62,5 +62,9 @@ export const uiTimelineMessages = {
   "track.music": ["Musik","Music","Musique"],
   "track.sfx": ["Toneffekte","Sound effects","Effets sonores"],
   "track.caption": ["Untertitel","Captions","Sous-titres"],
-  "track.overlay": ["Einblendung","Overlay","Superposition"]
+  "track.overlay": ["Einblendung","Overlay","Superposition"],
+  'track.default.video': ['Hauptvideo', 'Main Video', 'Vidéo principale'],
+  'track.default.voice': ['Stimme', 'Voice', 'Voix'],
+  'track.default.music': ['Musik', 'Music', 'Musique'],
+  'track.default.caption': ['Untertitel', 'Captions', 'Sous-titres'],
 } satisfies Record<string, readonly [string, string, string]>

@@ -5,6 +5,7 @@ import { planSceneVisualSync, syncSceneVisuals, type SceneVisualSyncResult } fro
 import type { PersistentVersionHistory } from '../core/versioning'
 import { commitStoryboardChange, type SceneVisualReason } from '../core/storyboardEditing'
 import { useUiLanguage } from './UiLanguageProvider'
+import { displayTrackName } from '../core/uiSystemLabels'
 
 interface Props { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void }
 
@@ -36,7 +37,7 @@ export function StoryboardAssemblyPanel({ project, history, onProjectChange }: P
   }, [project, effectiveTarget])
   const blockedReason = !project.storyboard.length ? t('assembly.noScenes')
     : !tracks.length ? t('assembly.noTrack')
-      : selectedTrack?.locked ? t('assembly.locked', { track: selectedTrack.name })
+      : selectedTrack?.locked ? t('assembly.locked', { track: displayTrackName(selectedTrack, t) })
         : !fulfilled ? t('assembly.noAssigned') : ''
   const visibleResult = result?.project === project ? result : null
   const visibleSynced = synced?.project === project ? synced : null
@@ -65,7 +66,7 @@ export function StoryboardAssemblyPanel({ project, history, onProjectChange }: P
       <label className="optionToggle"><input type="checkbox" checked={crossfade} onChange={(event) => { setCrossfade(event.target.checked); clearFeedback() }} />{t('assembly.crossfade')}<small>{t('assembly.crossfadeHelp', { duration: seconds(CROSSFADE_MS) })}</small></label>
     </div>
     <div className="directorActions">
-      <label>{t('assembly.target')}<select value={effectiveTarget} onChange={(event) => { setTargetId(event.target.value); clearFeedback() }}>{tracks.map((track) => <option key={track.id} value={track.id}>{track.locked ? t('assembly.lockedLabel', { track: track.name }) : track.name}</option>)}</select></label>
+      <label>{t('assembly.target')}<select value={effectiveTarget} onChange={(event) => { setTargetId(event.target.value); clearFeedback() }}>{tracks.map((track) => <option key={track.id} value={track.id}>{track.locked ? t('assembly.lockedLabel', { track: displayTrackName(track, t) }) : displayTrackName(track, t)}</option>)}</select></label>
       <button className="primary" disabled={Boolean(blockedReason)} onClick={assemble}>{t('assembly.assemble')}</button>
       <small>{t('assembly.count', { total: project.storyboard.length, assigned: fulfilled })}</small>
     </div>

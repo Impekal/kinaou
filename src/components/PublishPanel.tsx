@@ -5,6 +5,7 @@ import type { KinaouProject } from '../core/project'
 import type { TargetFormat } from '../core/render'
 import { WorkerClient } from '../core/workerClient'
 import { useUiLanguage } from './UiLanguageProvider'
+import { displayExportReceiptLabel } from '../core/uiSystemLabels'
 
 interface PublishPanelProps {
   project: KinaouProject
@@ -218,12 +219,12 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
         <div>
           <h3>{t('publish.card.heading')}</h3>
           <p>{t('publish.card.help')}</p>
-          {selected && <div className="note"><strong>{selected.label}</strong><br />{formatLabel(selected.format)} · {(selected.durationMs / 1000).toFixed(1)} s<br /><code>{selected.outputRelativePath}</code></div>}
+          {selected && <div className="note"><strong>{displayExportReceiptLabel(selected, t)}</strong><br />{formatLabel(selected.format)} · {(selected.durationMs / 1000).toFixed(1)} s<br /><code>{selected.outputRelativePath}</code></div>}
         </div>
         <div className="formStack">
           <label>{t('publish.export')}<select value={selected?.jobId ?? ''} disabled={!receipts.length || operationBusy} onChange={(event) => { setSelectedJobId(event.target.value); setResult(null); setPreflight(null) }}>
             {!receipts.length && <option value="">{t('publish.export.empty')}</option>}
-            {receipts.map((receipt) => <option key={receipt.jobId} value={receipt.jobId}>{receipt.label} · {formatLabel(receipt.format)} · {date(receipt.completedAt)}</option>)}
+            {receipts.map((receipt) => <option key={receipt.jobId} value={receipt.jobId}>{displayExportReceiptLabel(receipt, t)} · {formatLabel(receipt.format)} · {date(receipt.completedAt)}</option>)}
           </select></label>
           <label>{t('publish.destination')}<select value={platform} disabled={operationBusy} onChange={(event) => { setPlatform(event.target.value as PublishTarget); setResult(null) }}>
             {(Object.keys(publishTargetKeys) as PublishTarget[]).map((target) => <option key={target} value={target}>{platformLabel(target)}</option>)}
