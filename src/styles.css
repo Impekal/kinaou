@@ -60,12 +60,17 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .clip { position: absolute; top: 14px; min-width: 10px; min-height: 96px; padding: 10px; box-sizing: border-box; border: 1px solid #6959d9; border-radius: 10px; background: linear-gradient(135deg, rgba(83,67,181,.45), rgba(43,39,75,.8)); display: grid; gap: 5px; overflow: visible; transition: box-shadow .12s ease, opacity .12s ease; }
 .clip.lockedClip { border-color: #4a5060; filter: saturate(.55); }
 .clip.selectedClip { box-shadow: 0 0 0 2px rgba(157,98,255,.7); z-index: 2; }
-.clip.draggingClip { opacity: .88; z-index: 3; transition: none; }
+.clip.draggingClip, .clip.trimmingClip { opacity: .88; z-index: 3; transition: none; }
 .clip small { color: #b7b0e4; }
 .clipDragSurface { width: 100%; min-width: 0; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; display: grid; gap: 5px; cursor: grab; touch-action: none; }
 .clipDragSurface:active { cursor: grabbing; }
 .clipDragSurface:focus-visible { outline: 2px solid #9d62ff; outline-offset: 3px; }
 .clipDragSurface[aria-disabled="true"] { cursor: not-allowed; }
+.clipTrimHandle { position: absolute; top: 0; bottom: 0; width: 12px; padding: 0; border: 0; border-radius: 6px; background: rgba(205,196,255,.3); cursor: ew-resize; touch-action: none; z-index: 5; }
+.clipTrimHandle:hover, .clipTrimHandle:focus-visible { background: rgba(205,196,255,.72); outline: none; }
+.clipTrimHandle:disabled { cursor: not-allowed; opacity: .35; }
+.clipTrimStart { left: -6px; }
+.clipTrimEnd { right: -6px; }
 .clipActions { display: flex; gap: 5px; flex-wrap: wrap; }
 .clipActions button { border: 0; background: rgba(0,0,0,.28); color: #dedaf7; border-radius: 6px; padding: 5px 7px; font-size: 9px; }
 .note, .warning { padding: 15px 17px; border-radius: 12px; color: #aeb6c7; font-size: 12px; line-height: 1.55; }
