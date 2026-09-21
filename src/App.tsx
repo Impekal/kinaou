@@ -45,6 +45,7 @@ export function App() {
   const versionHistory = useMemo(() => new PersistentVersionHistory(window.localStorage), [])
   const [projects, setProjects] = useState<KinaouProject[]>(() => projectRepo.list())
   const [project, setProject] = useState<KinaouProject | null>(() => projectRepo.list()[0] ?? null)
+  const [studioPlayheads, setStudioPlayheads] = useState<Record<string, number>>({})
   const [section, setSection] = useState<typeof nav[number]>(projects.length ? 'Projects' : 'Create')
   const [newTitle, setNewTitle] = useState('')
   const [inputKind, setInputKind] = useState<CreationInputKind>('idea')
@@ -68,6 +69,20 @@ export function App() {
     projectRepo.save(next)
     setProject(next)
     refreshProjects(next)
+  }
+
+  const studioPlayheadMs = project ? studioPlayheads[project.id] ?? 0 : 0
+
+  function setStudioPlayheadMs(value: number) {
+    if (!project || !Number.isFinite(value)) return
+
+    const normalized = Math.max(0, Math.round(value))
+
+    setStudioPlayheads((current) =>
+      current[project.id] === normalized
+        ? current
+        : { ...current, [project.id]: normalized }
+    )
   }
 
   function createNewProject() {
@@ -164,13 +179,13 @@ export function App() {
           {!project ? <div className="card emptyState">{t('shell.openProject')}</div> : <>
             <div className="sectionLead"><div><div className="eyebrow">{t('timeline.heading')}</div><h2>Studio</h2></div><span className="status">{t('timeline.status')}</span></div>
             <StudioProxyPreview project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} />
-            <TimelinePreview project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} />
+            <TimelinePreview project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} playheadMs={studioPlayheadMs} onPlayheadChange={setStudioPlayheadMs} />
             <VersionHistoryPanel key={project.id} project={project} history={versionHistory} onProjectChange={persistProject} />
             <AiEditorPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
             <StoryboardAssemblyPanel key={`assembly-${project.id}`} project={project} history={versionHistory} onProjectChange={persistProject} />
             <ScriptCaptionsPanel key={`script-captions-${project.id}`} project={project} history={versionHistory} onProjectChange={persistProject} />
             <SceneVoiceoverPanel key={`narration-${project.id}`} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
-            <TimelineEditor key={`timeline-${project.id}`} project={project} history={versionHistory} onProjectChange={persistProject} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} />
+            <TimelineEditor key={`timeline-${project.id}`} project={project} history={versionHistory} onProjectChange={persistProject} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} playheadMs={studioPlayheadMs} onPlayheadChange={setStudioPlayheadMs} />
             <CaptionEditor key={`captions-${project.id}`} project={project} history={versionHistory} onProjectChange={persistProject} />
             <RenderPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
             <div className="card note">{t('timeline.boundary')}</div>

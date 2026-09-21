@@ -7,9 +7,17 @@ import { freshPreviewPlan, runTimelinePreview } from '../core/previewSession'
 import { useUiLanguage } from './UiLanguageProvider'
 import { PreviewPlayback, PreviewStatus, usePreviewSession } from './PreviewFeedback'
 
-interface Props { project: KinaouProject; workerUrl: string; workerToken: string; workerConnected: boolean; workerCapabilities: string[] }
+interface Props {
+  project: KinaouProject
+  workerUrl: string
+  workerToken: string
+  workerConnected: boolean
+  workerCapabilities: string[]
+  playheadMs?: number
+  onPlayheadChange?: (value: number) => void
+}
 
-export function TimelinePreview({ project, ...connection }: Props) {
+export function TimelinePreview({ project, playheadMs, onPlayheadChange, ...connection }: Props) {
   const { t } = useUiLanguage()
   const readiness = useMemo(() => renderReadiness(project), [project])
   const prepared = useMemo(() => {
@@ -23,11 +31,12 @@ export function TimelinePreview({ project, ...connection }: Props) {
     {!readiness.ready && readiness.code && <div className="warning">{t(`preview.reason.${readiness.code}`, { track: readiness.track ?? '', speed: readiness.speed ?? 1 })}</div>}
     {readiness.ready && !prepared.plan && <div className="errorBox" role="alert">{t('preview.planFailed')}<details><summary>{t('common.details')}</summary>{prepared.error}</details></div>}
     {connection.workerConnected && reframingBlocked && <div className="warning">{t('preview.restart')}</div>}
-    <TimelinePlayback key={JSON.stringify([project.id, prepared.plan, connection.workerUrl, connection.workerToken, connection.workerConnected, reframingBlocked])} plan={prepared.plan} blocked={reframingBlocked} {...connection} />
+    <p className="note">{t('preview.playheadLinked')}</p>
+    <TimelinePlayback key={JSON.stringify([project.id, prepared.plan, connection.workerUrl, connection.workerToken, connection.workerConnected, reframingBlocked])} plan={prepared.plan} blocked={reframingBlocked} playheadMs={playheadMs} onPlayheadChange={onPlayheadChange} {...connection} />
   </section>
 }
 
-function TimelinePlayback({ plan, blocked, workerUrl, workerToken, workerConnected }: Omit<Props, 'project'> & { plan: RenderPlan | null; blocked: boolean }) {
+function TimelinePlayback({ plan, blocked, workerUrl, workerToken, workerConnected, playheadMs, onPlayheadChange }: Omit<Props, 'project'> & { plan: RenderPlan | null; blocked: boolean }) {
   const { t } = useUiLanguage()
   const { url, feedback, perform, busy } = usePreviewSession()
   const submitted = useRef<RenderPlan | null>(null)
@@ -43,6 +52,12 @@ function TimelinePlayback({ plan, blocked, workerUrl, workerToken, workerConnect
     <button className="secondaryButton" disabled={!plan || blocked || !workerConnected || busy} onClick={render}>{t(retry ? 'preview.retry' : url ? 'preview.refresh' : 'preview.render')}</button>
     {!workerConnected && <p>{t('preview.connect')}</p>}
     <PreviewStatus feedback={feedback} />
-    {url && <PreviewPlayback key={url} url={url} durationSeconds={(submitted.current?.durationMs ?? 0) / 1000} />}
+    {url && <PreviewPlayback
+      key={url}
+      url={url}
+      durationSeconds={(submitted.current?.durationMs ?? 0) / 1000}
+      playheadSeconds={playheadMs === undefined ? undefined : playheadMs / 1000}
+      onPlayheadChange={onPlayheadChange ? (seconds) => onPlayheadChange(Math.round(seconds * 1000)) : undefined}
+    />}
   </div>
 }
