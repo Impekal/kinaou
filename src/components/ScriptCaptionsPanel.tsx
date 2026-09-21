@@ -6,6 +6,7 @@ import { commitCaptionChange } from '../core/captionEditing'
 import type { KinaouProject } from '../core/project'
 import type { PersistentVersionHistory } from '../core/versioning'
 import { useUiLanguage } from './UiLanguageProvider'
+import { displayTrackName } from '../core/uiSystemLabels'
 
 interface Props {
   project: KinaouProject
@@ -76,7 +77,7 @@ export function ScriptCaptionsPanel({ project, history, onProjectChange }: Props
       <p>{t('scriptCaption.help')}</p>
     </div>
     <div className="directorActions">
-      <label>{t('scriptCaption.track')}<select value={effectiveTarget} onChange={(event) => { setTargetId(event.target.value); clear() }}>{tracks.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}</select></label>
+      <label>{t('scriptCaption.track')}<select value={effectiveTarget} onChange={(event) => { setTargetId(event.target.value); clear() }}>{tracks.map((track) => <option key={track.id} value={track.id}>{displayTrackName(track, t)}</option>)}</select></label>
       <button className="primary" disabled={Boolean(blockedReason)} onClick={write}>{t('scriptCaption.write')}</button>
     </div>
     {blockedReason && <div className="warning">{t(blockedReason)}</div>}

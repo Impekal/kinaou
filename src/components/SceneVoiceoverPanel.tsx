@@ -11,6 +11,7 @@ import { WorkerClient } from '../core/workerClient'
 import { SceneNarrationSession, type NarrationFeedback } from '../core/sceneNarrationSession'
 import { commitStoryboardChange } from '../core/storyboardEditing'
 import { useUiLanguage } from './UiLanguageProvider'
+import { displayTrackName } from '../core/uiSystemLabels'
 
 interface Props {
   project: KinaouProject
@@ -72,7 +73,7 @@ export function SceneVoiceoverPanel({ project, history, workerUrl, workerToken, 
   const blockedReason = !project.storyboard.length ? t('assembly.noScenes')
     : !available ? t('narration.unavailable')
       : !voiceTracks.length ? t('narration.noTrack')
-        : selectedVoiceTrack?.locked ? t('assembly.locked', { track: selectedVoiceTrack.name })
+        : selectedVoiceTrack?.locked ? t('assembly.locked', { track: displayTrackName(selectedVoiceTrack, t) })
           : !effectiveVisual ? t('assembly.noTrack')
             : !voice || !voices.some((entry) => entry.path === voice) ? t('narration.chooseFirst') : ''
 
@@ -118,8 +119,8 @@ export function SceneVoiceoverPanel({ project, history, workerUrl, workerToken, 
     <div className="directorActions">
       <button className="secondaryButton" disabled={!available || locked} onClick={detect}>{t(detecting ? 'narration.detecting' : 'narration.detect')}</button>
       <PiperVoiceSelect voices={voices} value={voice} language={projectContentProfile(project).outputLanguage} uiLanguage={language} disabled={!available || locked} onChange={(value) => { setVoice(value); clearResults() }} />
-      <label>{t('narration.visual')}<select disabled={locked} value={effectiveVisual} onChange={(event) => { setVisualId(event.target.value); clearResults() }}>{visualTracks.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}</select></label>
-      <label>{t('narration.target')}<select disabled={locked} value={effectiveVoice} onChange={(event) => { setVoiceId(event.target.value); clearResults() }}>{voiceTracks.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}</select></label>
+      <label>{t('narration.visual')}<select disabled={locked} value={effectiveVisual} onChange={(event) => { setVisualId(event.target.value); clearResults() }}>{visualTracks.map((track) => <option key={track.id} value={track.id}>{displayTrackName(track, t)}</option>)}</select></label>
+      <label>{t('narration.target')}<select disabled={locked} value={effectiveVoice} onChange={(event) => { setVoiceId(event.target.value); clearResults() }}>{voiceTracks.map((track) => <option key={track.id} value={track.id}>{displayTrackName(track, t)}</option>)}</select></label>
       <button className="primary" disabled={Boolean(blockedReason) || locked} onClick={narrate}>{t('narration.start')}</button>
     </div>
     {blockedReason && <div className="warning">{blockedReason}</div>}

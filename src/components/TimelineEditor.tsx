@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useUiLanguage } from './UiLanguageProvider'
+import { displayTrackName } from '../core/uiSystemLabels'
 import { commitTimelineChange, timelineTrimFits } from '../core/timelineEditing'
 import type { PersistentVersionHistory } from '../core/versioning'
 import type { KinaouAsset, KinaouProject, TimelineClip, TimelineTrack } from '../core/project'
@@ -88,12 +89,12 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
       {project.tracks.map((track, trackIndex) => (
         <div className={track.muted ? 'trackRow mutedTrack' : 'trackRow'} key={track.id}>
           <div className="trackLabel">
-            <strong>{track.name}</strong><small>{t(`track.${track.type}`)}</small>
+            <strong>{displayTrackName(track, t)}</strong><small>{t(`track.${track.type}`)}</small>
             <div className="trackControls">
               <button onClick={() => apply({ type: 'set-track-state', trackId: track.id, muted: !track.muted })}>{t(track.muted ? 'timeline.unmute' : 'timeline.mute')}</button>
               <button onClick={() => apply({ type: 'set-track-state', trackId: track.id, locked: !track.locked })}>{t(track.locked ? 'timeline.unlock' : 'timeline.lock')}</button>
             </div>
-            <div className="trackControls" aria-label={t('timeline.order', { track: track.name })}>
+            <div className="trackControls" aria-label={t('timeline.order', { track: displayTrackName(track, t) })}>
               <button disabled={trackIndex === project.tracks.length - 1} onClick={() => apply({ type: 'reorder-track', trackId: track.id, toIndex: trackIndex + 1 })}>{t('timeline.up')}</button>
               <button disabled={trackIndex === 0} onClick={() => apply({ type: 'reorder-track', trackId: track.id, toIndex: trackIndex - 1 })}>{t('timeline.down')}</button>
             </div>

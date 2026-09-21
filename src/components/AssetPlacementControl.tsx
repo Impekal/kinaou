@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { KinaouAsset, KinaouProject } from '../core/project'
 import { compatibleTracks, placeAssetOnTrack } from '../core/timelinePlacement'
 import { useUiLanguage } from './UiLanguageProvider'
+import { displayTrackName } from '../core/uiSystemLabels'
 import { resolveUiMessage, uiMessageReference } from '../core/uiMessages'
 
 interface AssetPlacementControlProps {
@@ -27,7 +28,7 @@ export function AssetPlacementControl({ project, asset, onProjectChange }: Asset
       : !selectedTrack
         ? t('placement.choose')
         : selectedTrack.locked
-          ? t('placement.locked', { name: selectedTrack.name })
+          ? t('placement.locked', { name: displayTrackName(selectedTrack, t) })
           : ''
 
   function place() {
@@ -42,7 +43,7 @@ export function AssetPlacementControl({ project, asset, onProjectChange }: Asset
   return (
     <div className="assetPlacement">
       <select aria-label={t('placement.track', { name: String(asset.metadata.name ?? asset.id) })} value={effectiveTarget} onChange={(event) => { setTargetId(event.target.value); setError('') }}>
-        {tracks.map((track) => <option key={track.id} value={track.id}>{track.name}{track.locked ? ` · ${t('placement.lockedShort')}` : ''}</option>)}
+        {tracks.map((track) => <option key={track.id} value={track.id}>{displayTrackName(track, t)}{track.locked ? ` · ${t('placement.lockedShort')}` : ''}</option>)}
       </select>
       <button className="secondaryButton" disabled={Boolean(disabledReason)} onClick={place}>{t('placement.add')}</button>
       {disabledReason && <small className="assetPlacementHint assetPlacementError">{disabledReason}</small>}
