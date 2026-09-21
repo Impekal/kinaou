@@ -43,10 +43,11 @@ it('persists source asset, explicit authorization and actual content hash on gen
 it('shows only declared reference controls with honest privacy and capability boundaries', () => {
   const props = { project, roles: ['speech' as const], selected: {}, authorized: {}, disabled: false, onSelect: () => {}, onAuthorize: () => {} }
   const html = renderToStaticMarkup(createElement(VideoReferenceInputs, props))
-  expect(html).toContain('your own voice')
+  expect(html).toContain('own or authorized voice')
   expect(html).toContain('permission to use this voice')
-  expect(html).toContain('Copies stay there')
-  expect(html).toContain('do not certify animation or lip sync')
+  expect(html).toContain('Copies remain after completion or cancellation')
+  expect(html).toContain('Animation and lip sync must be implemented')
+  expect(html).toContain('not voice cloning')
   expect(html).not.toContain('Portrait image')
   expect(renderToStaticMarkup(createElement(VideoReferenceInputs, { ...props, roles: [] }))).toBe('')
 })
