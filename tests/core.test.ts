@@ -257,3 +257,74 @@ describe('timeline split operation', () => {
     expect(split.tracks[0].clips.map((item) => item.sourceOffsetMs)).toEqual([700, 700])
   })
 })
+
+
+describe('atomic multi-clip timeline movement', () => {
+  it('moves clips across tracks together without mutating the source project', () => {
+    const clipA = clipSchema.parse({ id: 'a', assetId: 'asset', startMs: 1000, durationMs: 1000 })
+    const clipB = clipSchema.parse({ id: 'b', assetId: 'asset', startMs: 3000, durationMs: 1000 })
+
+    const video = trackSchema.parse({ id: 'video', type: 'video', name: 'Video', clips: [clipA] })
+    const voice = trackSchema.parse({ id: 'voice', type: 'voice', name: 'Voice', clips: [clipB] })
+
+    const project = { ...createProject('Group move'), tracks: [video, voice] }
+    const before = JSON.stringify(project)
+
+    const moved = applyTimelineOperation(project, {
+      type: 'move-clips',
+      moves: [
+        { trackId: video.id, clipId: clipA.id, startMs: 1500 },
+        { trackId: voice.id, clipId: clipB.id, startMs: 3500 }
+      ]
+    })
+
+    expect(moved.tracks[0].clips[0].startMs).toBe(1500)
+    expect(moved.tracks[1].clips[0].startMs).toBe(3500)
+    expect(JSON.stringify(project)).toBe(before)
+  })
+
+  it('validates the whole group before changing anything', () => {
+    const clipA = clipSchema.parse({ id: 'a', assetId: 'asset', startMs: 1000, durationMs: 1000 })
+    const clipB = clipSchema.parse({ id: 'b', assetId: 'asset', startMs: 3000, durationMs: 1000 })
+
+    const video = trackSchema.parse({ id: 'video', type: 'video', name: 'Video', clips: [clipA] })
+    const locked = trackSchema.parse({ id: 'voice', type: 'voice', name: 'Voice', locked: true, clips: [clipB] })
+
+    const project = { ...createProject('Atomic guards'), tracks: [video, locked] }
+    const before = JSON.stringify(project)
+
+    expect(() => applyTimelineOperation(project, {
+      type: 'move-clips',
+      moves: [
+        { trackId: video.id, clipId: clipA.id, startMs: 1500 },
+        { trackId: locked.id, clipId: clipB.id, startMs: 3500 }
+      ]
+    })).toThrow(/locked/)
+
+    expect(JSON.stringify(project)).toBe(before)
+  })
+
+  it('rejects duplicate identities, missing clips and negative movement', () => {
+    const clip = clipSchema.parse({ id: 'a', assetId: 'asset', startMs: 1000, durationMs: 1000 })
+    const track = trackSchema.parse({ id: 'video', type: 'video', name: 'Video', clips: [clip] })
+    const project = { ...createProject('Group guards'), tracks: [track] }
+
+    expect(() => applyTimelineOperation(project, {
+      type: 'move-clips',
+      moves: [
+        { trackId: track.id, clipId: clip.id, startMs: 1200 },
+        { trackId: track.id, clipId: clip.id, startMs: 1300 }
+      ]
+    })).toThrow(/Duplicate/)
+
+    expect(() => applyTimelineOperation(project, {
+      type: 'move-clips',
+      moves: [{ trackId: track.id, clipId: 'missing', startMs: 1200 }]
+    })).toThrow(/not found/)
+
+    expect(() => applyTimelineOperation(project, {
+      type: 'move-clips',
+      moves: [{ trackId: track.id, clipId: clip.id, startMs: -1 }]
+    })).toThrow(/non-negative/)
+  })
+})

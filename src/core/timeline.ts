@@ -18,6 +18,7 @@ export type TimelineOperation =
   | { type: 'add-clip'; trackId: string; clip: TimelineClip }
   | { type: 'remove-clip'; trackId: string; clipId: string }
   | { type: 'move-clip'; trackId: string; clipId: string; startMs: number }
+  | { type: 'move-clips'; moves: Array<{ trackId: string; clipId: string; startMs: number }> }
   | { type: 'split-clip'; trackId: string; clipId: string; splitMs: number; rightClipId: string }
   | { type: 'trim-clip'; trackId: string; clipId: string; startMs: number; durationMs: number; sourceOffsetMs: number }
   | { type: 'set-clip-gain'; trackId: string; clipId: string; gain: number }
@@ -94,6 +95,37 @@ export function applyTimelineOperation(project: KinaouProject, operation: Timeli
     case 'move-clip':
       if (operation.startMs < 0) throw new Error('Clip start must be non-negative')
       return updateUnlockedTrack(project, operation.trackId, (track) => updateExistingClip(track, operation.clipId, (clip) => ({ ...clip, startMs: operation.startMs })))
+    case 'move-clips': {
+      if (!operation.moves.length) throw new Error('At least one clip move is required')
+
+      const seen = new Set<string>()
+
+      for (const move of operation.moves) {
+        if (!Number.isInteger(move.startMs) || move.startMs < 0) throw new Error('Clip start must use non-negative integer milliseconds')
+
+        const key = `${move.trackId}:${move.clipId}`
+        if (seen.has(key)) throw new Error('Duplicate clip move')
+        seen.add(key)
+
+        const track = project.tracks.find((entry) => entry.id === move.trackId)
+        if (!track) throw new Error(`Timeline track not found: ${move.trackId}`)
+        if (track.locked) throw new Error('Track is locked')
+        if (!track.clips.some((clip) => clip.id === move.clipId)) throw new Error(`Timeline clip not found: ${move.clipId}`)
+      }
+
+      const byKey = new Map(operation.moves.map((move) => [`${move.trackId}:${move.clipId}`, move.startMs]))
+
+      return touchProject({
+        ...project,
+        tracks: project.tracks.map((track) => ({
+          ...track,
+          clips: track.clips.map((clip) => {
+            const startMs = byKey.get(`${track.id}:${clip.id}`)
+            return startMs === undefined ? clip : { ...clip, startMs }
+          })
+        }))
+      })
+    }
     case 'split-clip':
       if (!Number.isInteger(operation.splitMs) || operation.splitMs < 0) throw new Error('Clip split must use a non-negative integer time')
       if (!operation.rightClipId.trim()) throw new Error('Split clip id is required')
