@@ -6,7 +6,9 @@ import {
   timelineExtentMs,
   timelineMsToPx,
   timelinePxToMs,
-  snapClipStart
+  snapClipStart,
+  trimClipEdge,
+  TIMELINE_MIN_CLIP_MS
 } from '../src/core/timelineInteraction'
 
 const moving = clipSchema.parse({
@@ -83,5 +85,99 @@ describe('direct timeline interaction geometry', () => {
 
   it('supports explicit free positioning when snapping is disabled', () => {
     expect(snapClipStart([video, voice], video.id, moving, 3911, false)).toBe(3911)
+  })
+})
+
+
+describe('direct trim geometry', () => {
+  const source = {
+    id: 'asset',
+    kind: 'video' as const,
+    uri: 'KINAOU/Assets/source.mp4',
+    managed: true,
+    offline: false,
+    metadata: { durationMs: 10000 }
+  }
+
+  const trimmed = clipSchema.parse({
+    id: 'trimmed',
+    assetId: source.id,
+    startMs: 1000,
+    durationMs: 2000,
+    sourceOffsetMs: 1000,
+    speed: 1
+  })
+
+  const trimTrack = trackSchema.parse({
+    id: 'trim-track',
+    type: 'video',
+    name: 'Trim',
+    clips: [
+      trimmed,
+      clipSchema.parse({
+        id: 'next',
+        assetId: source.id,
+        startMs: 5000,
+        durationMs: 1000
+      })
+    ]
+  })
+
+  it('moves the left edge while preserving the timeline end and source continuity', () => {
+    expect(trimClipEdge([trimTrack], trimTrack.id, trimmed, source, 'start', 1500, false)).toEqual({
+      startMs: 1500,
+      durationMs: 1500,
+      sourceOffsetMs: 1500
+    })
+
+    expect(trimClipEdge([trimTrack], trimTrack.id, trimmed, source, 'start', 500, false)).toEqual({
+      startMs: 500,
+      durationMs: 2500,
+      sourceOffsetMs: 500
+    })
+  })
+
+  it('never extends the left edge before available source media', () => {
+    expect(trimClipEdge([trimTrack], trimTrack.id, trimmed, source, 'start', -5000, false)).toEqual({
+      startMs: 0,
+      durationMs: 3000,
+      sourceOffsetMs: 0
+    })
+  })
+
+  it('bounds the right edge by the available source duration', () => {
+    expect(trimClipEdge([trimTrack], trimTrack.id, trimmed, source, 'end', 12000, false)).toEqual({
+      startMs: 1000,
+      durationMs: 9000,
+      sourceOffsetMs: 1000
+    })
+  })
+
+  it('honours the minimum, fades and transitions when shortening either edge', () => {
+    expect(TIMELINE_MIN_CLIP_MS).toBe(250)
+
+    const constrained = {
+      ...trimmed,
+      fades: { inMs: 400, outMs: 300 },
+      transitionIn: { type: 'dissolve' as const, durationMs: 500 }
+    }
+
+    expect(trimClipEdge([trimTrack], trimTrack.id, constrained, source, 'end', 1100, false).durationMs).toBe(700)
+    expect(trimClipEdge([trimTrack], trimTrack.id, constrained, source, 'start', 2900, false).durationMs).toBe(700)
+  })
+
+  it('snaps trim edges to other clip boundaries unless snapping is disabled', () => {
+    expect(trimClipEdge([trimTrack], trimTrack.id, trimmed, source, 'end', 4910, true).durationMs).toBe(4000)
+    expect(trimClipEdge([trimTrack], trimTrack.id, trimmed, source, 'end', 4911, false).durationMs).toBe(3911)
+  })
+
+  it('does not invent source offsets for still images', () => {
+    const image = { ...source, kind: 'image' as const, metadata: {} }
+
+    expect(trimClipEdge([trimTrack], trimTrack.id, trimmed, image, 'start', 500, false)).toEqual({
+      startMs: 500,
+      durationMs: 2500,
+      sourceOffsetMs: 1000
+    })
   })
 })

@@ -35,6 +35,8 @@ it.each(uiLanguages)('renders all manual timeline control families in %s without
   expect(html).toContain('Untranslated media')
   expect(html).toContain('aria-label="' + translateUi(language, 'timeline.left') + '"')
   expect(html).toContain('aria-label="' + translateUi(language, 'timeline.dragHandle', { name: 'Untranslated media' }) + '"')
+  expect(html).toContain('aria-label="' + translateUi(language, 'timeline.trimStartHandle', { name: 'Untranslated media' }) + '"')
+  expect(html).toContain('aria-label="' + translateUi(language, 'timeline.trimEndHandle', { name: 'Untranslated media' }) + '"')
   expect(html).toContain('left:40px')
   expect(html).toContain('width:400px')
   expect(JSON.stringify(project)).toBe(before)
