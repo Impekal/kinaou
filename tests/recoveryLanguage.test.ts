@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { translateUi } from '../src/core/uiMessages'
+import { resolveUiMessage, translateUi, uiMessageReference } from '../src/core/uiMessages'
 import { uiLanguages, type UiLanguage } from '../src/core/uiLanguage'
 
 const expected: Record<UiLanguage, {
@@ -74,6 +74,12 @@ describe('remaining UI recovery language', () => {
     ]) expect(source).not.toContain(literal)
   })
 
+  it.each(uiLanguages)('resolves stored KINAOU fallback references in the current language %s', (language) => {
+    const stored = uiMessageReference('recovery.shortUnconfirmed')
+    expect(resolveUiMessage(language, stored)).toBe(expected[language].unconfirmed)
+    expect(resolveUiMessage(language, '<original technical failure>')).toBe('<original technical failure>')
+  })
+
   it('keeps arbitrary technical Error.message details intact', () => {
     const placement = readFileSync('src/components/AssetPlacementControl.tsx', 'utf8')
     const render = readFileSync('src/components/RenderPanel.tsx', 'utf8')
@@ -83,6 +89,8 @@ describe('remaining UI recovery language', () => {
     expect(render).toContain('batchError instanceof Error ? batchError.message')
     expect(render).toContain('resumeError instanceof Error ? resumeError.message')
     expect(mediaPlan).toContain('cause instanceof Error ? cause.message : fallback')
+    expect(render).toContain("uiMessageReference('recovery.shortUnconfirmed')")
+    expect(render).toContain('resolveUiMessage(language, batchResumeError)')
   })
 
   it('does not localize persisted history or export labels in this slice', () => {

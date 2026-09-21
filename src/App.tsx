@@ -26,6 +26,7 @@ import { PublishPanel } from './components/PublishPanel'
 import { CoursePanel } from './components/CoursePanel'
 import { SettingsPanel } from './components/SettingsPanel'
 import { UiLanguageSelector, useUiLanguage } from './components/UiLanguageProvider'
+import { resolveUiMessage, uiMessageReference } from './core/uiMessages'
 import { createProjectFromInput, type CreationInputKind } from './core/create'
 import { ProjectRepository, StorageSettingsRepository } from './core/persistence'
 import { parseProject, type KinaouProject } from './core/project'
@@ -105,7 +106,7 @@ export function App() {
     try {
       setWorkerHandshake(await workerClient().health())
     } catch (error) {
-      setWorkerError(error instanceof Error ? error.message : t('recovery.workerConnection'))
+      setWorkerError(error instanceof Error ? error.message : uiMessageReference('recovery.workerConnection'))
     } finally {
       setWorkerBusy(false)
     }
@@ -190,7 +191,7 @@ export function App() {
         </section>}
 
         {section === 'Settings' && <SettingsPanel
-          workerUrl={workerUrl} workerToken={workerToken} workerBusy={workerBusy} workerError={workerError} workerHandshake={workerHandshake}
+          workerUrl={workerUrl} workerToken={workerToken} workerBusy={workerBusy} workerError={resolveUiMessage(language, workerError)} workerHandshake={workerHandshake}
           onWorkerUrlChange={(value) => { setWorkerUrl(value); setWorkerHandshake(null); setWorkerError('') }}
           onWorkerTokenChange={(value) => { setWorkerToken(value); setWorkerHandshake(null); setWorkerError('') }}
           onTestConnection={testWorkerConnection} storage={storage} workspaceRoot={workspaceRoot} storageBackend={storageBackend}

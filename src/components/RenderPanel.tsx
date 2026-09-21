@@ -15,6 +15,7 @@ import { CourseLessonSelector } from './CourseLessonSelector'
 import { reviewCourseExport, resolveCourseExportReview, type CourseExportReview } from '../core/courseExportReview'
 import { SingleExportSession, type ExportFeedback } from '../core/singleExportSession'
 import { useUiLanguage } from './UiLanguageProvider'
+import { resolveUiMessage, uiMessageReference } from '../core/uiMessages'
 import { SingleExportStatus } from './SingleExportStatus'
 import { FormatFramingPanel } from './FormatFramingPanel'
 import { ExportHistoryPanel } from './ExportHistoryPanel'
@@ -68,13 +69,13 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const [duckingReleaseMs, setDuckingReleaseMs] = useState(String(defaultAudioDucking.releaseMs))
   const [normalizeLoudness, setNormalizeLoudness] = useState(defaultLoudnessNormalization.enabled)
   const duckingSettings = { enabled: duckingEnabled, reductionDb: Number(duckingReductionDb), attackMs: Number(duckingAttackMs), releaseMs: Number(duckingReleaseMs) }
-  const duckingCheck = (() => { try { validateAudioDucking(duckingSettings); return { valid: true, reason: '' } } catch (value) { return { valid: false, reason: value instanceof Error ? value.message : t('recovery.duckingSettings') } } })()
+  const duckingCheck = (() => { try { validateAudioDucking(duckingSettings); return { valid: true, reason: '' } } catch (value) { return { valid: false, reason: value instanceof Error ? value.message : uiMessageReference('recovery.duckingSettings') } } })()
   const range = { inMs: Math.round(Number(inSeconds) * 1000), outMs: Math.round(Number(outSeconds) * 1000) }
-  const rangeCheck = Number.isFinite(range.inMs) && Number.isFinite(range.outMs) ? validateRenderRange(range, timelineDurationMs) : { valid: false, reason: t('recovery.rangeNumbers') }
+  const rangeCheck = Number.isFinite(range.inMs) && Number.isFinite(range.outMs) ? validateRenderRange(range, timelineDurationMs) : { valid: false, reason: uiMessageReference('recovery.rangeNumbers') }
   const shortMaximumMs = projectShortExportMaximum(project)
   const [shortMaximumSeconds, setShortMaximumSeconds] = useState(() => String(shortMaximumMs / 1000))
   const customShortMaximumMs = Math.round(Number(shortMaximumSeconds) * 1000)
-  const customShortMaximumError = Number.isFinite(customShortMaximumMs) ? shortExportMaximumError(customShortMaximumMs) : t('recovery.shortMaximumNumber')
+  const customShortMaximumError = Number.isFinite(customShortMaximumMs) ? shortExportMaximumError(customShortMaximumMs) : uiMessageReference('recovery.shortMaximumNumber')
   const shortExports = useMemo(() => planShortExportRanges(project, shortMaximumMs), [project, shortMaximumMs])
   const shortCandidateSignature = shortExports.candidates.map((candidate) => `${candidate.id}:${candidate.inMs}:${candidate.outMs}:${candidate.titles.join('\u0000')}`).join('|')
   const [selectedShortId, setSelectedShortId] = useState('')
@@ -138,7 +139,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     batchSubmitting.current = false
     batchSubmittingId.current = undefined
     if (projectPersistedShortBatch(latest.current.project)?.items.some(item => item.submissionStartedAt)) {
-      setBatchResumeError(t('recovery.shortUnconfirmed'))
+      setBatchResumeError(uiMessageReference('recovery.shortUnconfirmed'))
     }
     return () => { batchSubmission.current?.detach() }
   }, [submissionScope])
@@ -157,7 +158,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       setBatchItemsBatchId('')
       setBatchItems([])
       setBatchPersistenceMessage(null)
-      if (Object.prototype.hasOwnProperty.call(project.metadata, 'shortExportBatch')) setBatchResumeError(t('recovery.shortMalformed'))
+      if (Object.prototype.hasOwnProperty.call(project.metadata, 'shortExportBatch')) setBatchResumeError(uiMessageReference('recovery.shortMalformed'))
       return
     }
     persistedBatch.current = stored
@@ -173,7 +174,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     try {
       batchPlans.current = rebuildPersistedShortBatchPlans(project, stored)
     } catch (resumeError) {
-      setBatchResumeError(resumeError instanceof Error ? resumeError.message : t('recovery.shortResume'))
+      setBatchResumeError(resumeError instanceof Error ? resumeError.message : uiMessageReference('recovery.shortResume'))
     }
   }, [project.id, projectBatchId])
 
@@ -188,7 +189,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       if (nextProject !== project) onProjectChange(nextProject)
       persistedBatch.current = updated
     } catch (persistenceError) {
-      setBatchResumeError(persistenceError instanceof Error ? persistenceError.message : t('recovery.shortPersist'))
+      setBatchResumeError(persistenceError instanceof Error ? persistenceError.message : uiMessageReference('recovery.shortPersist'))
     }
   }, [batchItems, batchItemsBatchId, projectBatchId, onProjectChange, project])
 
@@ -289,7 +290,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       const target = latest.current
       persistShortBatchReceipts(target.project, current.id, batchItems, target.onProjectChange)
       setBatchReceiptError('')
-    } catch (cause) { setBatchReceiptError(cause instanceof Error ? cause.message : t('recovery.shortReceipt')) }
+    } catch (cause) { setBatchReceiptError(cause instanceof Error ? cause.message : uiMessageReference('recovery.shortReceipt')) }
   }
   useEffect(() => {
     saveBatchReceipts()
@@ -308,7 +309,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       setShortRecipeReview(null)
     } catch (reviewError) {
       setArchivedBatchSelectionReview(null)
-      setError(reviewError instanceof Error ? reviewError.message : t('recovery.shortArchiveReview'))
+      setError(reviewError instanceof Error ? reviewError.message : uiMessageReference('recovery.shortArchiveReview'))
     }
   }
 
@@ -316,7 +317,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     if (busy) return
     setError('')
     try { onProjectChange(setProjectShortExportMaximum(project, value)) }
-    catch (cause) { setError(cause instanceof Error ? cause.message : t('recovery.shortMaximumSave')) }
+    catch (cause) { setError(cause instanceof Error ? cause.message : uiMessageReference('recovery.shortMaximumSave')) }
   }
 
   function saveShortRecipe() {
@@ -326,7 +327,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       onProjectChange(saveProjectShortExportRecipe(project, { name: shortRecipeName, candidateIds: batchSelectedIds, formats: batchFormats }, shortExports.candidates))
       setShortRecipeName('')
     } catch (recipeError) {
-      setError(recipeError instanceof Error ? recipeError.message : t('recovery.shortRecipeSave'))
+      setError(recipeError instanceof Error ? recipeError.message : uiMessageReference('recovery.shortRecipeSave'))
     }
   }
 
@@ -405,7 +406,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         setBatchPersistenceMessage({ kind: 'saved' })
       })
     } catch (batchError) {
-      setError(batchError instanceof Error ? batchError.message : t('recovery.shortPrepare'))
+      setError(batchError instanceof Error ? batchError.message : uiMessageReference('recovery.shortPrepare'))
     }
   }
 
@@ -428,7 +429,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         setBatchPersistenceMessage({ kind: 'retrySaved', count: result.plans.size })
       })
     } catch (batchError) {
-      setError(batchError instanceof Error ? batchError.message : t('recovery.shortRetry'))
+      setError(batchError instanceof Error ? batchError.message : uiMessageReference('recovery.shortRetry'))
     }
   }
 
@@ -447,12 +448,12 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         setBatchItems(cancelled.items)
       })
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : t('recovery.shortCancelSave'))
+      setError(cause instanceof Error ? cause.message : uiMessageReference('recovery.shortCancelSave'))
       return
     }
     if (!activeBatchItem?.jobId) return
     if (!batchMonitor.current) {
-      setError(t('recovery.shortCancelOriginalWorker'))
+      setError(uiMessageReference('recovery.shortCancelOriginalWorker'))
       return
     }
     await batchMonitor.current.cancel()
@@ -474,8 +475,12 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         setBatchResumeError('')
         setBatchPersistenceMessage(null)
       })
-    } catch (cause) { setError(cause instanceof Error ? cause.message : t('recovery.shortBatchChange')) }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : uiMessageReference('recovery.shortBatchChange')) }
   }
+
+  const visibleError = resolveUiMessage(language, error)
+  const visibleBatchResumeError = resolveUiMessage(language, batchResumeError)
+  const visibleBatchReceiptError = resolveUiMessage(language, batchReceiptError)
 
   return (
     <section className="card renderPanel">
@@ -518,7 +523,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         <button disabled={busy || (!selectedLesson && range.inMs === 0 && range.outMs === timelineDurationMs)} onClick={() => { setInSeconds('0'); setOutSeconds(String(timelineDurationMs / 1000)); setSelectedShortId(''); setLessonReview(null) }}>{t('export.whole')}</button>
         {rangeCheck.valid && <span className="cardBody">{t('export.range', { start: (range.inMs / 1000).toLocaleString(language), end: (range.outMs / 1000).toLocaleString(language), duration: ((range.outMs - range.inMs) / 1000).toLocaleString(language) })}</span>}
       </div>
-      {!rangeCheck.valid && <div className="warning">{t('export.invalidRange')}<details><summary>{t('common.details')}</summary>{rangeCheck.reason}</details></div>}
+      {!rangeCheck.valid && <div className="warning">{t('export.invalidRange')}<details><summary>{t('common.details')}</summary>{resolveUiMessage(language, rangeCheck.reason ?? '')}</details></div>}
 
       {project.storyboard.length > 0 && <div className="renderJob">
         <div className="renderJobHead"><strong>{t('shortSelect.heading')}</strong><span>{t('shortSelect.limit', { seconds: (shortMaximumMs / 1000).toLocaleString(language) })}</span></div>
@@ -566,7 +571,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
           <div className="renderJobHead"><strong>{t('shortRecipe.heading')}</strong><span>{t('shortRecipe.count', { count: shortRecipes.length, limit: shortExportRecipeLimit })}</span></div>
           <p className="cardBody">{t('shortRecipe.help')}</p>
           <div className="renderActions"><input aria-label={t('shortRecipe.name')} value={shortRecipeName} maxLength={80} disabled={busy} placeholder={t('shortRecipe.name')} onChange={(event) => setShortRecipeName(event.target.value)} /><button disabled={busy || !shortRecipeName.trim() || !batchSelectedIds.length || !batchFormats.length} onClick={saveShortRecipe}>{t('shortRecipe.save')}</button></div>
-          {shortRecipes.map((recipe) => <div className="renderMeta" key={recipe.id}><span><strong>{recipe.name}</strong> · {t('shortRecipe.candidates', { count: recipe.candidateIds.length })} · {recipe.formats.map((id) => t(`export.${id}`)).join(', ')}</span><div className="renderActions"><button className="secondaryButton" disabled={busy} onClick={() => reviewRecipe(recipe.id)}>{t('shortRecipe.review')}</button><button disabled={busy} onClick={() => { try { onProjectChange(forgetProjectShortExportRecipe(project, recipe.id)); if (shortRecipeReview?.recipeId === recipe.id) setShortRecipeReview(null) } catch (recipeError) { setError(recipeError instanceof Error ? recipeError.message : t('recovery.shortRecipeForget')) } }}>{t('shortRecipe.forget')}</button></div></div>)}
+          {shortRecipes.map((recipe) => <div className="renderMeta" key={recipe.id}><span><strong>{recipe.name}</strong> · {t('shortRecipe.candidates', { count: recipe.candidateIds.length })} · {recipe.formats.map((id) => t(`export.${id}`)).join(', ')}</span><div className="renderActions"><button className="secondaryButton" disabled={busy} onClick={() => reviewRecipe(recipe.id)}>{t('shortRecipe.review')}</button><button disabled={busy} onClick={() => { try { onProjectChange(forgetProjectShortExportRecipe(project, recipe.id)); if (shortRecipeReview?.recipeId === recipe.id) setShortRecipeReview(null) } catch (recipeError) { setError(recipeError instanceof Error ? recipeError.message : uiMessageReference('recovery.shortRecipeForget')) } }}>{t('shortRecipe.forget')}</button></div></div>)}
         </div>
       </div>}
 
@@ -576,7 +581,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         <label>{t('export.attack')}<input type="number" min="0" max="5000" step="10" value={duckingAttackMs} disabled={busy} onChange={(event) => setDuckingAttackMs(event.target.value)} /></label>
         <label>{t('export.release')}<input type="number" min="0" max="5000" step="10" value={duckingReleaseMs} disabled={busy} onChange={(event) => setDuckingReleaseMs(event.target.value)} /></label>
       </div>}
-      {!duckingCheck.valid && <div className="warning">{t('export.invalidAudio')}<details><summary>{t('common.details')}</summary>{duckingCheck.reason}</details></div>}
+      {!duckingCheck.valid && <div className="warning">{t('export.invalidAudio')}<details><summary>{t('common.details')}</summary>{resolveUiMessage(language, duckingCheck.reason)}</details></div>}
 
       <label className="checkRow"><input type="checkbox" checked={normalizeLoudness} disabled={busy} onChange={(event) => setNormalizeLoudness(event.target.checked)} />{t('export.normalize')}</label>
       <p className="cardBody">{t('export.normalizeHelp')}</p>
@@ -585,13 +590,13 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
 
       {!readiness.ready && <div className="warning">{readiness.code ? t(`preview.reason.${readiness.code}`, { track: readiness.track ?? '', speed: readiness.speed ?? 1 }) : readiness.reason}</div>}
       {!workerConnected && readiness.ready && <div className="warning">{t('preview.connect')}</div>}
-      {error && <div className="errorBox" role="alert">{t('export.failed')}<details><summary>{t('common.details')}</summary>{error}</details></div>}
+      {error && <div className="errorBox" role="alert">{t('export.failed')}<details><summary>{t('common.details')}</summary>{visibleError}</details></div>}
 
       {single && <SingleExportStatus feedback={single} onRetry={() => { void singleSession.current?.run() }} onCancel={() => { void singleSession.current?.cancel() }} onDetach={detachSingle} />}
 
-      <ShortBatchStatus items={batchItems} notice={batchPersistenceMessage} resumeError={batchResumeError} retryableIds={retryableBatchIds} retrySelectedIds={retrySelectedIds} setRetrySelectedIds={setRetrySelectedIds} busy={busy} retryDisabled={!retrySelectedIds.length || !readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting || retryReframingBlocked || Boolean(batchResumeError)} retryReframingBlocked={retryReframingBlocked} cancelRequested={persistedBatch.current?.cancelRequested} cancelling={batchCancelling} canCancel={batchBusy && !batchResumeError} canDiscard={!batchReceiptError && !batchSubmitting.current && !activeBatchItem && (!batchBusy || Boolean(batchResumeError))} archiveOnDiscard={!batchBusy && Boolean(persistedBatch.current)} onRetry={startSelectedShortBatchRetries} onCancel={() => { void cancelShortBatch() }} onDiscard={discardShortBatch} />
+      <ShortBatchStatus items={batchItems} notice={batchPersistenceMessage} resumeError={visibleBatchResumeError} retryableIds={retryableBatchIds} retrySelectedIds={retrySelectedIds} setRetrySelectedIds={setRetrySelectedIds} busy={busy} retryDisabled={!retrySelectedIds.length || !readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting || retryReframingBlocked || Boolean(batchResumeError)} retryReframingBlocked={retryReframingBlocked} cancelRequested={persistedBatch.current?.cancelRequested} cancelling={batchCancelling} canCancel={batchBusy && !batchResumeError} canDiscard={!batchReceiptError && !batchSubmitting.current && !activeBatchItem && (!batchBusy || Boolean(batchResumeError))} archiveOnDiscard={!batchBusy && Boolean(persistedBatch.current)} onRetry={startSelectedShortBatchRetries} onCancel={() => { void cancelShortBatch() }} onDiscard={discardShortBatch} />
 
-      {batchReceiptError && <ShortBatchReceiptRecovery detail={batchReceiptError} onRetry={saveBatchReceipts} />}
+      {batchReceiptError && <ShortBatchReceiptRecovery detail={visibleBatchReceiptError} onRetry={saveBatchReceipts} />}
 
       <ShortBatchArchivePanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={workerConnected} busy={busy} onProjectChange={onProjectChange} onReview={reviewArchivedBatchSelection} />
 

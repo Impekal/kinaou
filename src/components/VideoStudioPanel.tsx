@@ -12,12 +12,13 @@ import { VideoReferenceInputs } from './VideoReferenceInputs'
 import type { PersistentVersionHistory } from '../core/versioning'
 import { WorkerClient } from '../core/workerClient'
 import { useUiLanguage } from './UiLanguageProvider'
+import { resolveUiMessage } from '../core/uiMessages'
 
 interface Props { project: KinaouProject; history: PersistentVersionHistory; workerUrl: string; workerToken: string; workerConnected: boolean; workerCapabilities: string[]; onProjectChange: (project: KinaouProject) => void }
 function randomSeed(): string { return String(Math.floor(Math.random() * 2 ** 31)) }
 
 export function VideoStudioPanel({ project, history, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange }: Props) {
-  const { t } = useUiLanguage()
+  const { t, language } = useUiLanguage()
   const [availability, setAvailability] = useState<ImageGenerationAvailability | null>(null)
   const [templatePath, setTemplatePath] = useState('')
   const [positivePrompt, setPositivePrompt] = useState('')
@@ -107,7 +108,7 @@ export function VideoStudioPanel({ project, history, workerUrl, workerToken, wor
       {review.issue && <p>{t(`video.${review.issue}`)}</p>}
       <button className="primary" disabled={!connected || !currentAvailability?.comfyui.available || !review.parameters || locked || detecting} onClick={generate}>{t('video.generate')}</button>
       {currentFeedback && <VideoJobStatus feedback={currentFeedback} submitted={submitted} onRetry={() => void session.current?.run()} onCancel={() => void session.current?.cancel()} onDetach={() => { session.current?.detach(); setFeedback({ phase: 'detached' }) }} />}
-      {error && <div className="errorBox" role="alert">{t('video.error')}<details><summary>{t('common.details')}</summary>{error}</details></div>}
+      {error && <div className="errorBox" role="alert">{t('video.error')}<details><summary>{t('common.details')}</summary>{resolveUiMessage(language, error)}</details></div>}
     </div>
     {generated.length > 0 && <div className="card generatedImages"><div className="eyebrow">{t('video.assets')}</div><p className="cardBody">{t('video.assetHelp')}</p>{generated.map(asset => <div key={asset.id}><span><strong>{String(asset.metadata.name)}</strong><small>{t('video.generated')} · {t('video.seedLabel')} {String(asset.metadata.seed)} · {String(asset.metadata.templateId)}</small><button className="secondaryButton" disabled={locked || detecting || !currentAvailability?.templates.some(entry => entry.path === asset.metadata.templatePath)} onClick={() => reuseSettings(asset.metadata)}>{t('video.reuse')}</button>{!currentAvailability?.templates.some(entry => entry.path === asset.metadata.templatePath) && <small>{t('video.reuseUnavailable')}</small>}</span><div className="stackControls"><SceneFulfillmentControl project={project} history={history} asset={asset} onProjectChange={onProjectChange} onError={setError} /><AssetPlacementControl project={project} asset={asset} onProjectChange={onProjectChange} /></div></div>)}</div>}
   </section>

@@ -152,3 +152,16 @@ export function translateUi(language: UiLanguage, key: UiMessageKey, values: Rec
   const index = { de: 0, en: 1, fr: 2 }[language]
   return uiMessages[key][index].replace(/\{(\w+)\}/g, (_, name: string) => String(values[name] ?? `{${name}}`))
 }
+
+const uiMessageReferencePrefix = '__kinaou_ui__:'
+
+export function uiMessageReference(key: UiMessageKey): string {
+  return `${uiMessageReferencePrefix}${key}`
+}
+
+export function resolveUiMessage(language: UiLanguage, value: string): string {
+  if (!value.startsWith(uiMessageReferencePrefix)) return value
+  const key = value.slice(uiMessageReferencePrefix.length)
+  if (!Object.prototype.hasOwnProperty.call(uiMessages, key)) return value
+  return translateUi(language, key as UiMessageKey)
+}
