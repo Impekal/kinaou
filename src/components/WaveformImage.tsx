@@ -1,9 +1,5 @@
-import { useEffect, useState } from 'react'
-import { WorkerClient } from '../core/workerClient'
+import { MediaPreviewImage } from './MediaPreviewImage'
 
-export function WaveformImage({ path, workerUrl, workerToken, workerConnected, alt }: { path: string; workerUrl: string; workerToken: string; workerConnected: boolean; alt: string }) {
-  const [url, setUrl] = useState('')
-  useEffect(() => { if (!path || !workerConnected) return; let cancelled = false; new WorkerClient({ baseUrl: workerUrl, token: workerToken }).loadWaveform(path).then((blob) => { if (!cancelled) setUrl(URL.createObjectURL(blob)) }).catch(() => {}); return () => { cancelled = true } }, [path, workerConnected, workerToken, workerUrl])
-  useEffect(() => () => { if (url) URL.revokeObjectURL(url) }, [url])
-  return url ? <img className="waveformImage" src={url} alt={alt} /> : null
+export function WaveformImage(props: { path: string; workerUrl: string; workerToken: string; workerConnected: boolean; alt: string; scope?: string }) {
+  return <MediaPreviewImage {...props} kind="waveform" />
 }
