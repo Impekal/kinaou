@@ -134,8 +134,6 @@ export function App() {
           <div><div className="eyebrow">{t(`nav.${section}`)}</div><h1>{project?.title ?? 'KINAOU Studio'}</h1></div>
           <span className="status">{t('shell.status')}</span>
         </header>
-        <p className="note">{t('ui.partial')}</p>
-
         {section === 'Projects' && <section className="stack">
           <div className="sectionLead"><div><div className="eyebrow">{t('projects.library')}</div><h2>{t('projects.heading')}</h2></div><button className="primary" onClick={() => setSection('Create')}>{t('projects.new')}</button></div>
           {projects.length === 0 ? <div className="card emptyState">{t('projects.empty')}</div> : <div className="projectGrid">{projects.map((item) => <button className="projectCard card" key={item.id} onClick={() => openProject(item)}><div className="eyebrow">{sourceKindLabel(item)}</div><h3>{item.title}</h3><p>{t('projects.summary', { tracks: item.tracks.length, assets: item.assets.length })}</p><small>{t('projects.updated', { date: new Date(item.updatedAt).toLocaleString(language) })}</small></button>)}</div>}
