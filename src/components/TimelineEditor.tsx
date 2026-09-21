@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { useUiLanguage } from './UiLanguageProvider'
 import { displayTrackName } from '../core/uiSystemLabels'
 import { commitTimelineChange, timelineTrimFits } from '../core/timelineEditing'
@@ -6,6 +6,7 @@ import type { PersistentVersionHistory } from '../core/versioning'
 import type { KinaouAsset, KinaouProject, TimelineClip, TimelineTrack } from '../core/project'
 import { touchProject } from '../core/project'
 import { applyTimelineOperation, clipSpeedFitsSource } from '../core/timeline'
+import { snapClipStart, timelineExtentMs, timelineMsToPx, timelinePxToMs } from '../core/timelineInteraction'
 import { WaveformImage } from './WaveformImage'
 
 interface TimelineEditorProps {
@@ -20,10 +21,23 @@ interface TimelineEditorProps {
 const audioTrackTypes = new Set(['voice', 'dialog', 'music', 'sfx'])
 const visualTrackTypes = new Set(['video', 'broll', 'image', 'avatar', 'overlay'])
 
+interface ClipDragState {
+  trackId: string
+  clipId: string
+  pointerId: number
+  originClientX: number
+  originStartMs: number
+  previewStartMs: number
+}
+
 export function TimelineEditor({ project, history, onProjectChange, workerUrl, workerToken, workerConnected }: TimelineEditorProps) {
   const { language, t } = useUiLanguage()
   const [feedback, setFeedback] = useState<{ saved?: KinaouProject; error?: string } | null>(null)
+  const [selectedClipKey, setSelectedClipKey] = useState('')
+  const [drag, setDrag] = useState<ClipDragState | null>(null)
   const number = (value: number, digits = 1) => value.toLocaleString(language, { minimumFractionDigits: digits, maximumFractionDigits: digits })
+  const extentMs = Math.max(10000, timelineExtentMs(project.tracks))
+  const canvasWidthPx = Math.max(720, timelineMsToPx(extentMs + 1000))
   function change(makeNext: () => KinaouProject) {
     setFeedback(null)
     try { setFeedback({ saved: commitTimelineChange(project, makeNext, history, onProjectChange) }) }
@@ -31,6 +45,51 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
   }
   function apply(operation: Parameters<typeof applyTimelineOperation>[1]) {
     change(() => applyTimelineOperation(project, operation))
+  }
+
+  function beginClipDrag(event: ReactPointerEvent<HTMLButtonElement>, track: TimelineTrack, clip: TimelineClip) {
+    if (track.locked || event.button !== 0) return
+    event.preventDefault()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    setSelectedClipKey(`${track.id}:${clip.id}`)
+    setDrag({
+      trackId: track.id,
+      clipId: clip.id,
+      pointerId: event.pointerId,
+      originClientX: event.clientX,
+      originStartMs: clip.startMs,
+      previewStartMs: clip.startMs
+    })
+  }
+
+  function moveClipDrag(event: ReactPointerEvent<HTMLButtonElement>, track: TimelineTrack, clip: TimelineClip) {
+    if (!drag || drag.pointerId !== event.pointerId || drag.trackId !== track.id || drag.clipId !== clip.id) return
+    const rawStartMs = drag.originStartMs + timelinePxToMs(event.clientX - drag.originClientX)
+    const previewStartMs = snapClipStart(project.tracks, track.id, clip, rawStartMs, !event.altKey)
+    if (previewStartMs !== drag.previewStartMs) setDrag({ ...drag, previewStartMs })
+  }
+
+  function finishClipDrag(event: ReactPointerEvent<HTMLButtonElement>, track: TimelineTrack, clip: TimelineClip) {
+    if (!drag || drag.pointerId !== event.pointerId || drag.trackId !== track.id || drag.clipId !== clip.id) return
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    const startMs = drag.previewStartMs
+    setDrag(null)
+    if (startMs !== clip.startMs) apply({ type: 'move-clip', trackId: track.id, clipId: clip.id, startMs })
+  }
+
+  function cancelClipDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    setDrag(null)
+  }
+
+  function nudgeClip(event: ReactKeyboardEvent<HTMLButtonElement>, track: TimelineTrack, clip: TimelineClip) {
+    if (track.locked || !['ArrowLeft', 'ArrowRight'].includes(event.key)) return
+    event.preventDefault()
+    const step = event.shiftKey ? 1000 : 100
+    const delta = event.key === 'ArrowLeft' ? -step : step
+    const startMs = Math.max(0, clip.startMs + delta)
+    setSelectedClipKey(`${track.id}:${clip.id}`)
+    if (startMs !== clip.startMs) apply({ type: 'move-clip', trackId: track.id, clipId: clip.id, startMs })
   }
 
   function addPlanningBlock(track: TimelineTrack) {
@@ -101,17 +160,45 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
             <button disabled={track.locked} onClick={() => addPlanningBlock(track)}>{t('timeline.planning')}</button>
           </div>
           <div className="trackLane">
+            <div className="trackCanvas" style={{ width: `${canvasWidthPx}px` }}>
             {track.clips.length === 0 ? <span className="laneHint">{t('timeline.empty')}</span> : track.clips.map((clip) => {
               const asset = project.assets.find((item) => item.id === clip.assetId)
+              const clipName = asset?.uri.startsWith('kinaou://planning/') && asset.metadata.label === 'Planning block'
+                ? t('timeline.planningName')
+                : String(asset?.metadata.name ?? asset?.metadata.label ?? t('timeline.clip'))
+              const clipKey = `${track.id}:${clip.id}`
+              const selected = selectedClipKey === clipKey
+              const dragging = drag?.trackId === track.id && drag.clipId === clip.id
+              const visibleStartMs = dragging ? drag.previewStartMs : clip.startMs
+              const className = ['clip', track.locked ? 'lockedClip' : '', selected ? 'selectedClip' : '', dragging ? 'draggingClip' : ''].filter(Boolean).join(' ')
               return (
-                <div className={track.locked ? 'clip lockedClip' : 'clip'} key={clip.id} style={{ marginLeft: `${Math.min(clip.startMs / 100, 140)}px`, width: `${Math.max(110, Math.min(clip.durationMs / 25, 240))}px` }}>
-                  <strong>{asset?.uri.startsWith('kinaou://planning/') && asset.metadata.label === 'Planning block' ? t('timeline.planningName') : String(asset?.metadata.name ?? asset?.metadata.label ?? t('timeline.clip'))}</strong>
-                  <small>{t('timeline.timing', { start: number(clip.startMs / 1000, 3), duration: number(clip.durationMs / 1000, 3) })}{audioTrackTypes.has(track.type) && <> · {t('timeline.gain', { value: number(clip.gain) })}</>}</small>
-                  {(asset?.kind === 'video' || asset?.kind === 'audio') && <small>{t('timeline.speed', { speed: number(clip.speed, 2), duration: number(clip.durationMs * clip.speed / 1000, 3) })}</small>}
-                  {visualTrackTypes.has(track.type) && <small>{t('timeline.transform', { scale: number(clip.transform?.scale ?? 1), x: number(clip.transform?.x ?? 0, 0), y: number(clip.transform?.y ?? 0, 0) })}</small>}
-                  {clip.motion && <small>{t(clip.motion === 'zoom-in' ? 'timeline.zoomIn' : 'timeline.zoomOut')}</small>}
-                  {clip.transitionIn && <small>{t('timeline.dissolveSummary', { duration: number(clip.transitionIn.durationMs / 1000, 3) })}</small>}
-                  {(clip.fades?.inMs || clip.fades?.outMs) && <small>{t('timeline.fadeSummary', { start: number((clip.fades?.inMs ?? 0) / 1000, 3), end: number((clip.fades?.outMs ?? 0) / 1000, 3) })}</small>}
+                <div
+                  className={className}
+                  key={clip.id}
+                  aria-selected={selected}
+                  style={{ left: `${timelineMsToPx(visibleStartMs)}px`, width: `${timelineMsToPx(clip.durationMs)}px` }}
+                  onClick={() => setSelectedClipKey(clipKey)}
+                >
+                  <button
+                    type="button"
+                    className="clipDragSurface"
+                    aria-label={t('timeline.dragHandle', { name: clipName })}
+                    aria-pressed={selected}
+                    aria-disabled={track.locked}
+                    onPointerDown={(event) => beginClipDrag(event, track, clip)}
+                    onPointerMove={(event) => moveClipDrag(event, track, clip)}
+                    onPointerUp={(event) => finishClipDrag(event, track, clip)}
+                    onPointerCancel={cancelClipDrag}
+                    onKeyDown={(event) => nudgeClip(event, track, clip)}
+                  >
+                    <strong>{clipName}</strong>
+                    <small>{t('timeline.timing', { start: number(visibleStartMs / 1000, 3), duration: number(clip.durationMs / 1000, 3) })}{audioTrackTypes.has(track.type) && <> · {t('timeline.gain', { value: number(clip.gain) })}</>}</small>
+                    {(asset?.kind === 'video' || asset?.kind === 'audio') && <small>{t('timeline.speed', { speed: number(clip.speed, 2), duration: number(clip.durationMs * clip.speed / 1000, 3) })}</small>}
+                    {visualTrackTypes.has(track.type) && <small>{t('timeline.transform', { scale: number(clip.transform?.scale ?? 1), x: number(clip.transform?.x ?? 0, 0), y: number(clip.transform?.y ?? 0, 0) })}</small>}
+                    {clip.motion && <small>{t(clip.motion === 'zoom-in' ? 'timeline.zoomIn' : 'timeline.zoomOut')}</small>}
+                    {clip.transitionIn && <small>{t('timeline.dissolveSummary', { duration: number(clip.transitionIn.durationMs / 1000, 3) })}</small>}
+                    {(clip.fades?.inMs || clip.fades?.outMs) && <small>{t('timeline.fadeSummary', { start: number((clip.fades?.inMs ?? 0) / 1000, 3), end: number((clip.fades?.outMs ?? 0) / 1000, 3) })}</small>}
+                  </button>
                   {audioTrackTypes.has(track.type) && typeof asset?.metadata.waveformPath === 'string' && <WaveformImage path={asset.metadata.waveformPath} workerUrl={workerUrl} workerToken={workerToken} workerConnected={workerConnected} alt={t('timeline.waveform', { name: String(asset.metadata.name ?? asset.id) })} />}
                   <div className="clipActions">
                     <button disabled={track.locked || clip.startMs === 0} onClick={() => apply({ type: 'move-clip', trackId: track.id, clipId: clip.id, startMs: Math.max(0, clip.startMs - 1000) })}>{t('timeline.moveLeft')}</button>
@@ -138,6 +225,7 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
                 </div>
               )
             })}
+            </div>
           </div>
         </div>
       ))}
