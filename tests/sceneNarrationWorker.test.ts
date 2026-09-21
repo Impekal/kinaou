@@ -6,6 +6,9 @@ import path from 'node:path'
 import { WorkerClient } from '../src/core/workerClient'
 import { createProject, parseProject } from '../src/core/project'
 import { SceneNarrationSession, type NarrationFeedback } from '../src/core/sceneNarrationSession'
+import { AudioStudioSession, type AudioFeedback } from '../src/core/audioStudioSession'
+import { PersistentVersionHistory } from '../src/core/versioning'
+import { ProjectRepository } from '../src/core/persistence'
 
 it('executes the narration session through the authenticated real worker using a clearly synthetic tone CLI fixture', async () => {
   // Contract/execution evidence only: this is not Piper inference or a speech-quality test.
@@ -56,6 +59,32 @@ execFileSync('ffmpeg',['-v','error','-f','lavfi','-i','sine=frequency=440:durati
     await new SceneNarrationSession(project, 'visual', 'voice', 'KINAOU/Models/fixture.onnx', { client, current: expected => expected === project, snapshot: () => { snapshots++ }, persist: next => { project = next }, publish: state => repeated.push(state) }).run()
     expect(repeated.at(-1)).toMatchObject({ phase: 'complete', done: [], skipped: [{ code: 'existing' }] })
     expect(snapshots).toBe(1); expect(await readFile(absolute)).toEqual(original)
+
+    // Exercise Audio Studio against the same real worker/CLI contract, including save-only recovery.
+    const data = new Map<string, string>()
+    const store = { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => { data.set(key, value) }, removeItem: (key: string) => { data.delete(key) } }
+    const repository = new ProjectRepository(store), history = new PersistentVersionHistory(store)
+    let standalone = repository.save(createProject('Audio Studio contract')), starts = 0, failSave = true
+    const audioStates: AudioFeedback[] = []
+    const audioSession = new AudioStudioSession(standalone, 'test', 'Original standalone narration.', 'KINAOU/Models/fixture.onnx', {
+      client: { startTts: async (text, voice) => { starts++; return client.startTts(text, voice) }, ttsStatus: id => client.ttsStatus(id), cancelTts: id => client.cancelTts(id) },
+      environment: () => ({ project: standalone, connection: 'test' }),
+      snapshot: value => { history.snapshot(value, 'Before saving voice', 'system') },
+      persist: value => { if (failSave) throw Error('Explicit test-only project write failure'); standalone = repository.save(value) },
+      publish: value => audioStates.push(value), wait: () => new Promise(resolve => setTimeout(resolve, 30))
+    })
+    await audioSession.run()
+    expect(audioStates.at(-1)?.phase).toBe('saveFailed')
+    expect(standalone.assets).toHaveLength(0)
+    const generatedPath = path.join(temporary, audioStates.at(-1)!.job!.audioPath!)
+    const generatedBytes = await readFile(generatedPath)
+    expect(await readFile(generatedPath + '.text', 'utf8')).toBe('Original standalone narration.')
+    failSave = false; await audioSession.run(); await audioSession.run()
+    expect(starts).toBe(1); expect(audioStates.at(-1)?.phase).toBe('succeeded')
+    expect(repository.load(standalone.id)?.assets[0].metadata).toMatchObject({ durationMs: 2000, sourceText: 'Original standalone narration.', adapterId: 'piper' })
+    expect(history.list(standalone.id)).toHaveLength(1)
+    expect(history.restoreReversibly(standalone, history.list(standalone.id)[0].id).project.assets).toHaveLength(0)
+    expect(await readFile(generatedPath)).toEqual(generatedBytes); expect(await readFile(absolute)).toEqual(original)
   } finally {
     worker.kill('SIGTERM')
     await new Promise<void>(resolve => { if (worker.exitCode !== null) resolve(); else worker.once('close', () => resolve()) })
