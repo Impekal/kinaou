@@ -59,7 +59,7 @@ Additional format requirement (2026-09-20): football and other sports, including
 
 ## Manual editing usability (current state)
 
-The user asked about conventional software such as MAGIX. KINAOU already applies real multi-track move/trim, gain, fades, dissolve, transform and speed operations, but these are still largely button-driven; its composed preview is rendered before playback. Do not equate a working compositor with a finished interactive editor. The usability roadmap includes direct clip dragging, trim handles, playhead splitting, precise timing/snapping, clear selection/undo behavior and a responsive preview. Keyframes and richer effect workflows remain later work, not implemented features or a promise to copy another product's entire catalogue.
+The user asked about conventional software such as MAGIX. KINAOU now provides direct clip dragging, trim handles, playhead splitting, precise snapping, multi-selection, session Undo/Redo, a shared Studio playhead, render-backed linear transform keyframes and a cache-backed immediate editing preview. The immediate preview is deliberately an editing surface rather than a replacement for the FFmpeg compositor: it reflects active visual clips, source time, geometry, supported transforms/keyframes, still-image motion and fade opacity from existing proxies/thumbnails, while the composed preview remains authoritative for captions, exact dissolves, audio and final image quality. Completion point 2 therefore means the agreed comfortable manual-editing workflow is implemented; it does not claim feature parity with MAGIX, Premiere, Resolve or another full NLE, nor does it promise their entire effect catalogues.
 
 ### Udemy boundary (official sources checked 2026-09-20)
 
