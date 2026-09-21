@@ -1,15 +1,12 @@
 import { useMemo, useState } from 'react'
-import { AssetPlacementControl } from './components/AssetPlacementControl'
 import { AssetAvailabilityControl } from './components/AssetAvailabilityControl'
 import { ManagedMediaPanel } from './components/ManagedMediaPanel'
 import { AssetUploadPanel } from './components/AssetUploadPanel'
+import { ProjectAssetList } from './components/ProjectAssetList'
 import { CaptionEditor } from './components/CaptionEditor'
 import { RenderPanel } from './components/RenderPanel'
 import { TimelineEditor } from './components/TimelineEditor'
-import { VideoProxyControl } from './components/VideoProxyControl'
 import { StudioProxyPreview } from './components/StudioProxyPreview'
-import { VideoThumbnailControl } from './components/VideoThumbnailControl'
-import { WaveformControl } from './components/WaveformControl'
 import { TimelinePreview } from './components/TimelinePreview'
 import { VersionHistoryPanel } from './components/VersionHistoryPanel'
 import { DirectorPanel } from './components/DirectorPanel'
@@ -182,13 +179,13 @@ export function App() {
         </section>}
 
         {section === 'Assets' && <section className="stack">
-          <div className="sectionLead"><div><div className="eyebrow">MANAGED MEDIA</div><h2>Assets</h2></div><span className={workerHandshake ? 'status online' : 'status'}>{workerHandshake ? 'WORKER ONLINE' : 'WORKER NOT CONNECTED'}</span></div>
+          <div className="sectionLead"><div><div className="eyebrow">{t('assetList.eyebrow')}</div><h2>{t('assetList.heading')}</h2></div><span className={workerHandshake ? 'status online' : 'status'}>{t(workerHandshake ? 'assetList.workerOnline' : 'assetList.workerOffline')}</span></div>
           {!project ? <div className="card emptyState">{t('shell.openProject')}</div> : <>
             <SttPanel key={`stt-${project.id}`} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
             <AssetUploadPanel key={project.id} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
             <AssetAvailabilityControl key={`availability:${project.id}`} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} onProjectChange={persistProject} />
             <ManagedMediaPanel key={`managed:${project.id}`} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} onProjectChange={persistProject} />
-            <div className="card"><div className="eyebrow">PROJECT ASSETS</div>{project.assets.length === 0 ? <p className="cardBody">No assets yet.</p> : <div className="assetList">{project.assets.map((asset) => <div className="assetRow assetRowWithPlacement" key={asset.id}><div><strong>{String(asset.metadata.name ?? asset.metadata.label ?? asset.id)}</strong><small>{asset.kind} · {asset.managed ? 'managed' : 'external/planning'}</small><VideoThumbnailControl project={project} history={versionHistory} asset={asset} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /><WaveformControl project={project} history={versionHistory} asset={asset} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /></div><code>{asset.uri}</code><span className={asset.offline ? 'badge offline' : 'badge'}>{asset.offline ? 'OFFLINE' : 'AVAILABLE'}</span><div><AssetPlacementControl project={project} asset={asset} onProjectChange={persistProject} /><VideoProxyControl project={project} history={versionHistory} asset={asset} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /></div></div>)}</div>}</div>
+            <ProjectAssetList project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
           </>}
         </section>}
 

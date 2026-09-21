@@ -1,0 +1,18 @@
+export const uiAssetListMessages = {
+  'assetList.eyebrow': ['VERWALTETE MEDIEN', 'MANAGED MEDIA', 'MÉDIAS GÉRÉS'],
+  'assetList.heading': ['Medien', 'Assets', 'Médias'],
+  'assetList.workerOnline': ['WORKER VERBUNDEN', 'WORKER ONLINE', 'WORKER CONNECTÉ'],
+  'assetList.workerOffline': ['WORKER NICHT VERBUNDEN', 'WORKER NOT CONNECTED', 'WORKER NON CONNECTÉ'],
+  'assetList.projectAssets': ['PROJEKTMEDIEN', 'PROJECT ASSETS', 'MÉDIAS DU PROJET'],
+  'assetList.empty': ['Noch keine Medien im Projekt.', 'No assets in this project yet.', 'Aucun média dans ce projet pour le moment.'],
+  'assetList.managed': ['verwaltet', 'managed', 'géré'],
+  'assetList.external': ['extern / Planung', 'external / planning', 'externe / planification'],
+  'assetList.available': ['VERFÜGBAR', 'AVAILABLE', 'DISPONIBLE'],
+  'assetList.offline': ['OFFLINE', 'OFFLINE', 'HORS LIGNE'],
+  'assetList.kind.video': ['Video', 'Video', 'Vidéo'],
+  'assetList.kind.image': ['Bild', 'Image', 'Image'],
+  'assetList.kind.audio': ['Audio', 'Audio', 'Audio'],
+  'assetList.kind.caption': ['Untertitel', 'Captions', 'Sous-titres'],
+  'assetList.kind.document': ['Dokument', 'Document', 'Document'],
+  'assetList.kind.other': ['Sonstiges', 'Other', 'Autre'],
+} satisfies Record<string, readonly [string, string, string]>
