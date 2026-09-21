@@ -9,6 +9,7 @@ import { commitPortraitPresenter } from '../src/core/portraitPresenter'
 import { PersistentVersionHistory } from '../src/core/versioning'
 import { createRenderPlan, preview1080pPreset } from '../src/core/render'
 import { WorkerClient } from '../src/core/workerClient'
+import { commitAiEditorReview, reviewAiEditorProposal } from '../src/core/aiEditorReview'
 
 const exec = promisify(execFile)
 it('saves and renders the full real recording with its still image, preserving source bytes and reversible history', async context => {
@@ -54,6 +55,27 @@ it('saves and renders the full real recording with its still image, preserving s
     const streams=probe.streams as Array<{codec_type:string;duration:string}>
     expect(streams.map(stream=>stream.codec_type).sort()).toEqual(['audio','video'])
     expect(Math.abs(Number(streams.find(stream=>stream.codec_type==='audio')!.duration)-2.345)).toBeLessThan(0.08)
+    // Apply a reviewed, selected gain edit through the same path as the AI Editor.
+    // The fixture is manual JSON: no model or invented inference is involved.
+    const originalExport=await readFile(file)
+    const voice=saved.tracks.find(track=>track.type==='voice')!
+    const review=reviewAiEditorProposal(saved,{schemaVersion:1,title:'Reviewed gain',objective:'Half level',operations:[{id:'gain',reason:'Test gain',edit:{type:'set-clip-gain',trackId:voice.id,clipId:voice.clips[0].id,gain:0.5}}],provenance:{kind:'manual'}})
+    commitAiEditorReview(saved,review,['gain'],history,next=>{saved=next})
+    let edited=await client.startRender(createRenderPlan(saved,preview1080pPreset,'KINAOU/Renders/edited.mp4'))
+    const editDeadline=Date.now()+20000
+    while(['queued','running'].includes(edited.state) && Date.now()<editDeadline) {
+      await new Promise(resolve=>setTimeout(resolve,50));edited=await client.renderStatus(edited.id)
+    }
+    expect(edited.state,edited.error).toBe('succeeded')
+    const rms=async(filename:string)=>{
+      const raw=(await exec('ffmpeg',['-v','error','-i',filename,'-vn','-ac','1','-ar','16000','-f','f32le','-'],{encoding:'buffer',maxBuffer:1024*1024})).stdout
+      let squared=0
+      for(let i=0;i<raw.length;i+=4) squared+=raw.readFloatLE(i)**2
+      return Math.sqrt(squared/(raw.length/4))
+    }
+    const ratio=(await rms(path.join(managed,'Renders/edited.mp4')))/(await rms(file))
+    expect(ratio).toBeGreaterThan(0.47);expect(ratio).toBeLessThan(0.53)
+    expect(await readFile(file)).toEqual(originalExport)
     expect(await readFile(image)).toEqual(originals[0]);expect(await readFile(audio)).toEqual(originals[1])
     const restored=history.restoreReversibly(saved,history.list(project.id)[0].id).project
     expect(restored.tracks).toEqual([])
