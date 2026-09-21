@@ -1,9 +1,10 @@
 import { expect, it } from 'vitest'
 import { spawn, execFileSync } from 'node:child_process'
-import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, rename, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { AssetImportSession, type AssetImportFeedback } from '../src/core/assetImportSession'
+import { AssetAvailabilitySession, type AvailabilityFeedback } from '../src/core/assetAvailabilitySession'
 import { WorkerClient } from '../src/core/workerClient'
 import { createProject } from '../src/core/project'
 import { ProjectRepository } from '../src/core/persistence'
@@ -39,6 +40,12 @@ it('imports a real explicit WAV through the authenticated worker and retries onl
     fail = false; await session.run(); await session.run()
     expect(states.at(-1)?.phase).toBe('succeeded'); expect(uploads).toBe(1); expect(probes).toBe(1)
     expect(repository.load(project.id)?.assets[0].metadata).toMatchObject({ name: file.name, durationMs: 1000, sizeBytes: bytes.length, mimeType: file.type })
+    const checks: AvailabilityFeedback[] = []
+    const check = () => new AssetAvailabilitySession(project, 'test', { client, environment: () => ({ project, connection: 'test' }), snapshot: value => { history.snapshot(value, 'Before file check', 'system') }, persist: value => { project = repository.save(value) }, publish: value => checks.push(value) }).run()
+    await rename(copy, copy + '.temporarily-away')
+    await check(); expect(checks.at(-1)?.summary?.wentOffline).toBe(1); expect(repository.load(project.id)?.assets[0].offline).toBe(true)
+    await rename(copy + '.temporarily-away', copy)
+    await check(); expect(checks.at(-1)?.summary?.cameOnline).toBe(1); expect(repository.load(project.id)?.assets[0].offline).toBe(false)
     expect(history.restoreReversibly(project, history.list(project.id)[0].id).project.assets).toHaveLength(0)
     expect(await readFile(source)).toEqual(bytes); expect(await readFile(copy)).toEqual(bytes)
   } finally {
