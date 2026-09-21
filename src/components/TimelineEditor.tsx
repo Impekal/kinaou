@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
+import { useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { useUiLanguage } from './UiLanguageProvider'
 import { displayTrackName } from '../core/uiSystemLabels'
 import { commitTimelineChange, timelineTrimFits } from '../core/timelineEditing'
@@ -7,6 +7,7 @@ import type { KinaouAsset, KinaouProject, TimelineClip, TimelineTrack } from '..
 import { touchProject } from '../core/project'
 import { applyTimelineOperation, clipSpeedFitsSource, MIN_TIMELINE_SPLIT_MS } from '../core/timeline'
 import { snapClipGroupDelta, snapTimelinePoint, timelineExtentMs, timelineMsToPx, timelinePxToMs, trimClipEdge, type TimelineMoveMember, type TimelineTrimEdge } from '../core/timelineInteraction'
+import { TimelineUndoSession } from '../core/timelineUndo'
 import { WaveformImage } from './WaveformImage'
 
 interface TimelineEditorProps {
@@ -44,11 +45,18 @@ interface ClipTrimState {
 
 export function TimelineEditor({ project, history, onProjectChange, workerUrl, workerToken, workerConnected }: TimelineEditorProps) {
   const { language, t } = useUiLanguage()
-  const [feedback, setFeedback] = useState<{ saved?: KinaouProject; error?: string } | null>(null)
+  const [feedback, setFeedback] = useState<{ saved?: KinaouProject; error?: string; action?: 'edit' | 'undo' | 'redo' } | null>(null)
   const [selectedClipKeys, setSelectedClipKeys] = useState<Set<string>>(() => new Set())
   const [drag, setDrag] = useState<ClipDragState | null>(null)
   const [trim, setTrim] = useState<ClipTrimState | null>(null)
   const [playheadMs, setPlayheadMs] = useState(0)
+  const undoSessionRef = useRef<TimelineUndoSession | null>(null)
+
+  if (!undoSessionRef.current) undoSessionRef.current = new TimelineUndoSession(project)
+
+  const undoSession = undoSessionRef.current
+  undoSession.observe(project)
+
   const number = (value: number, digits = 1) => value.toLocaleString(language, { minimumFractionDigits: digits, maximumFractionDigits: digits })
 
   const draggedExtentMs = drag
@@ -80,11 +88,79 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
   )
   function change(makeNext: () => KinaouProject) {
     setFeedback(null)
-    try { setFeedback({ saved: commitTimelineChange(project, makeNext, history, onProjectChange) }) }
-    catch (cause) { setFeedback({ error: cause instanceof Error ? cause.message : String(cause) }) }
+
+    try {
+      const next = commitTimelineChange(project, makeNext, history, onProjectChange)
+      undoSession.record(project, next)
+      setFeedback({ saved: next, action: 'edit' })
+    } catch (cause) {
+      setFeedback({ error: cause instanceof Error ? cause.message : String(cause) })
+    }
   }
   function apply(operation: Parameters<typeof applyTimelineOperation>[1]) {
     change(() => applyTimelineOperation(project, operation))
+  }
+
+  function resetTransientEditing() {
+    setSelectedClipKeys(new Set())
+    setDrag(null)
+    setTrim(null)
+  }
+
+  function undoTimeline() {
+    setFeedback(null)
+
+    try {
+      const restored = undoSession.undo(project, onProjectChange)
+      if (!restored) return
+      resetTransientEditing()
+      setFeedback({ saved: restored, action: 'undo' })
+    } catch (cause) {
+      setFeedback({ error: cause instanceof Error ? cause.message : String(cause) })
+    }
+  }
+
+  function redoTimeline() {
+    setFeedback(null)
+
+    try {
+      const restored = undoSession.redo(project, onProjectChange)
+      if (!restored) return
+      resetTransientEditing()
+      setFeedback({ saved: restored, action: 'redo' })
+    } catch (cause) {
+      setFeedback({ error: cause instanceof Error ? cause.message : String(cause) })
+    }
+  }
+
+  function handleTimelineKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    const tag = String((event.target as HTMLElement | null)?.tagName ?? '').toUpperCase()
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return
+
+    const modifier = event.metaKey || event.ctrlKey
+    if (!modifier) return
+
+    const key = event.key.toLowerCase()
+
+    if (key === 'z' && event.shiftKey) {
+      if (!undoSession.canRedo) return
+      event.preventDefault()
+      redoTimeline()
+      return
+    }
+
+    if (key === 'z') {
+      if (!undoSession.canUndo) return
+      event.preventDefault()
+      undoTimeline()
+      return
+    }
+
+    if (key === 'y') {
+      if (!undoSession.canRedo) return
+      event.preventDefault()
+      redoTimeline()
+    }
   }
 
   function moveMembers(keys: Set<string>): TimelineMoveMember[] {
@@ -401,7 +477,7 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
   }
 
   return (
-    <div className="timeline card">
+    <div className="timeline card" tabIndex={0} onKeyDown={handleTimelineKeyDown}>
       <p>{t('timeline.help')}</p>
       <small>{t('timeline.planningHelp')}</small>
       <div className="timelineTransport">
@@ -417,12 +493,17 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
           />
         </label>
         <button className="secondaryButton" disabled={!canSplitSelected} onClick={splitSelectedClip}>{t('timeline.split')}</button>
+        <div className="timelineUndoActions">
+          <button className="secondaryButton" disabled={!undoSession.canUndo} onClick={undoTimeline}>{t('timeline.undo')}</button>
+          <button className="secondaryButton" disabled={!undoSession.canRedo} onClick={redoTimeline}>{t('timeline.redo')}</button>
+        </div>
         <div className="timelineSelectionStatus" role="status">
           {t('timeline.selectionCount', { count: selectedClipKeys.size })}
           <button disabled={selectedClipKeys.size === 0} onClick={() => setSelectedClipKeys(new Set())}>{t('timeline.clearSelection')}</button>
         </div>
       </div>
-      {feedback?.saved === project && <div className="successBox" role="status">{t('timeline.saved')}</div>}
+      <small className="timelineUndoHelp">{t('timeline.undoHelp')}</small>
+      {feedback?.saved === project && <div className="successBox" role="status">{t(feedback.action === 'undo' ? 'timeline.undone' : feedback.action === 'redo' ? 'timeline.redone' : 'timeline.saved')}</div>}
       {feedback?.error !== undefined && <div className="errorBox" role="alert">{t('timeline.failed')}<details><summary>{t('common.details')}</summary>{feedback.error}</details></div>}
       {project.tracks.map((track, trackIndex) => (
         <div className={track.muted ? 'trackRow mutedTrack' : 'trackRow'} key={track.id}>
