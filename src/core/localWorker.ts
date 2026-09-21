@@ -141,6 +141,26 @@ function letterboxedSize(asset: KinaouAsset, width: number, height: number): { w
   return { w: Math.max(2, Math.round(sourceWidth * factor)), h: Math.max(2, Math.round(sourceHeight * factor)) }
 }
 
+function linearExpression(start: number, end: number, progress: string): string {
+  return `(${start}+(${end}-${start})*${progress})`
+}
+
+function transformAnimation(clip: RenderClipStep): { scale: string; x: string; y: string } | null {
+  if (!clip.transformKeyframes) return null
+
+  const sourceDurationSeconds = seconds(clip.durationMs * (clip.asset.kind === 'image' ? 1 : clip.speed))
+  const timelineDurationSeconds = seconds(clip.durationMs)
+  const timelineStartSeconds = seconds(clip.startMs)
+  const sourceProgress = `min(1,max(0,t/${sourceDurationSeconds}))`
+  const timelineProgress = `min(1,max(0,(t-${timelineStartSeconds})/${timelineDurationSeconds}))`
+
+  return {
+    scale: linearExpression(clip.transformKeyframes.start.scale, clip.transformKeyframes.end.scale, sourceProgress),
+    x: linearExpression(clip.transformKeyframes.start.x, clip.transformKeyframes.end.x, timelineProgress),
+    y: linearExpression(clip.transformKeyframes.start.y, clip.transformKeyframes.end.y, timelineProgress)
+  }
+}
+
 export function buildCompositeFilter(plan: RenderPlan, subtitleAbsolutePath?: string): CompositeFilter {
   const width = plan.preset.width
   const height = plan.preset.height
@@ -187,11 +207,19 @@ export function buildCompositeFilter(plan: RenderPlan, subtitleAbsolutePath?: st
     const start = seconds(clip.startMs)
     const end = seconds(clip.startMs + clip.durationMs)
     const transform = clip.transform
+    const animation = transformAnimation(clip)
     const visualFadeIn = clip.transitionIn?.durationMs ?? clip.fades.inMs
     const fadeFilters = visualFadeIn || clip.fades.outMs ? [',format=rgba', ...(visualFadeIn ? [`,fade=t=in:st=0:d=${seconds(visualFadeIn)}:alpha=1`] : []), ...(clip.fades.outMs ? [`,fade=t=out:st=${seconds(clip.durationMs - clip.fades.outMs)}:d=${seconds(clip.fades.outMs)}:alpha=1`] : [])].join('') : ''
     const timing = clip.asset.kind === 'image' || clip.speed === 1 ? 'PTS-STARTPTS' : `(PTS-STARTPTS)/${clip.speed}`
-    parts.push(`[${index}:v]${framePrefix(clip)},crop=iw-${transform.cropLeft}-${transform.cropRight}:ih-${transform.cropTop}-${transform.cropBottom}:${transform.cropLeft}:${transform.cropTop},scale=iw*${transform.scale}:ih*${transform.scale}${fadeFilters},setpts=${timing}+${start}/TB[${prepared}]`)
-    parts.push(`[${currentVideo}][${prepared}]overlay=(W-w)/2${signedOffset(transform.x)}:(H-h)/2${signedOffset(transform.y)}:enable='between(t,${start},${end})'[${output}]`)
+    const scaleFilter = animation
+      ? `scale=w='iw*${animation.scale}':h='ih*${animation.scale}':eval=frame`
+      : `scale=iw*${transform.scale}:ih*${transform.scale}`
+    parts.push(`[${index}:v]${framePrefix(clip)},crop=iw-${transform.cropLeft}-${transform.cropRight}:ih-${transform.cropTop}-${transform.cropBottom}:${transform.cropLeft}:${transform.cropTop},${scaleFilter}${fadeFilters},setpts=${timing}+${start}/TB[${prepared}]`)
+    if (animation) {
+      parts.push(`[${currentVideo}][${prepared}]overlay=x='(W-w)/2+${animation.x}':y='(H-h)/2+${animation.y}':enable='between(t,${start},${end})'[${output}]`)
+    } else {
+      parts.push(`[${currentVideo}][${prepared}]overlay=(W-w)/2${signedOffset(transform.x)}:(H-h)/2${signedOffset(transform.y)}:enable='between(t,${start},${end})'[${output}]`)
+    }
     currentVideo = output
   })
 

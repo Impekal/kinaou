@@ -9,6 +9,12 @@ export const assetSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).default({})
 })
 
+export const transformKeyframeSchema = z.object({
+  x: z.number().finite(),
+  y: z.number().finite(),
+  scale: z.number().min(0.1).max(4)
+})
+
 export const clipSchema = z.object({
   id: z.string().min(1),
   assetId: z.string().min(1),
@@ -28,6 +34,10 @@ export const clipSchema = z.object({
     cropTop: z.number().int().nonnegative().default(0),
     cropRight: z.number().int().nonnegative().default(0),
     cropBottom: z.number().int().nonnegative().default(0)
+  }).optional(),
+  transformKeyframes: z.object({
+    start: transformKeyframeSchema,
+    end: transformKeyframeSchema
   }).optional(),
   transitionIn: z.object({
     type: z.literal('dissolve'),

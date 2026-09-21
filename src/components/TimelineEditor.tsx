@@ -89,6 +89,7 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
     track.clips.some((clip) => `${track.id}:${clip.id}` === singleSelectedKey)
   )
   const selectedClip = selectedTrack?.clips.find((clip) => `${selectedTrack.id}:${clip.id}` === singleSelectedKey)
+  const selectedVisualClip = Boolean(selectedTrack && selectedClip && visualTrackTypes.has(selectedTrack.type))
   const canSplitSelected = Boolean(
     selectedTrack
     && selectedClip
@@ -479,6 +480,61 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
     apply({ type: 'set-clip-transform', trackId: track.id, clipId: clip.id, transform: { x: 0, y: 0, scale: 1, cropLeft: 0, cropTop: 0, cropRight: 0, cropBottom: 0, ...clip.transform, ...change } })
   }
 
+  function transformKeyframesFor(clip: TimelineClip): NonNullable<TimelineClip['transformKeyframes']> {
+    const base = {
+      x: clip.transform?.x ?? 0,
+      y: clip.transform?.y ?? 0,
+      scale: clip.transform?.scale ?? 1
+    }
+
+    return clip.transformKeyframes ?? {
+      start: { ...base },
+      end: { ...base }
+    }
+  }
+
+  function enableTransformKeyframes(track: TimelineTrack, clip: TimelineClip) {
+    apply({
+      type: 'set-clip-transform-keyframes',
+      trackId: track.id,
+      clipId: clip.id,
+      keyframes: transformKeyframesFor(clip)
+    })
+  }
+
+  function adjustTransformKeyframe(
+    track: TimelineTrack,
+    clip: TimelineClip,
+    edge: 'start' | 'end',
+    change: Partial<NonNullable<TimelineClip['transformKeyframes']>['start']>
+  ) {
+    const keyframes = transformKeyframesFor(clip)
+    const nextPoint = {
+      ...keyframes[edge],
+      ...change
+    }
+
+    nextPoint.scale = Math.max(0.1, Math.min(4, Math.round(nextPoint.scale * 10) / 10))
+
+    apply({
+      type: 'set-clip-transform-keyframes',
+      trackId: track.id,
+      clipId: clip.id,
+      keyframes: {
+        ...keyframes,
+        [edge]: nextPoint
+      }
+    })
+  }
+
+  function removeTransformKeyframes(track: TimelineTrack, clip: TimelineClip) {
+    apply({
+      type: 'set-clip-transform-keyframes',
+      trackId: track.id,
+      clipId: clip.id
+    })
+  }
+
   function toggleFade(track: TimelineTrack, clip: TimelineClip, edge: 'inMs' | 'outMs') {
     const current = { inMs: 0, outMs: 0, ...clip.fades }
     const next = current[edge] ? 0 : Math.min(500, clip.durationMs - current[edge === 'inMs' ? 'outMs' : 'inMs'])
@@ -513,6 +569,54 @@ export function TimelineEditor({ project, history, onProjectChange, workerUrl, w
         </div>
       </div>
       <small className="timelineUndoHelp">{t('timeline.undoHelp')}</small>
+      <section className="timelineEffectInspector" aria-label={t('timeline.effects')}>
+        <strong>{t('timeline.effects')}</strong>
+        {!selectedTrack || !selectedClip || !selectedVisualClip ? (
+          <small>{t('timeline.effectsSelectOne')}</small>
+        ) : (
+          <>
+            <small>{t('timeline.keyframesHelp')}</small>
+            {!selectedClip.transformKeyframes ? (
+              <button
+                className="secondaryButton"
+                disabled={selectedTrack.locked}
+                onClick={() => enableTransformKeyframes(selectedTrack, selectedClip)}
+              >
+                {t('timeline.keyframesEnable')}
+              </button>
+            ) : (
+              <>
+                {(['start', 'end'] as const).map((edge) => {
+                  const point = selectedClip.transformKeyframes![edge]
+                  return <div className="timelineKeyframeRow" key={edge}>
+                    <strong>{t(edge === 'start' ? 'timeline.keyframeStart' : 'timeline.keyframeEnd')}</strong>
+                    <small>{t('timeline.keyframeSummary', {
+                      x: number(point.x, 0),
+                      y: number(point.y, 0),
+                      scale: number(point.scale, 1)
+                    })}</small>
+                    <div className="timelineKeyframeActions">
+                      <button disabled={selectedTrack.locked} onClick={() => adjustTransformKeyframe(selectedTrack, selectedClip, edge, { x: point.x - 50 })} aria-label={t('timeline.left')}>←</button>
+                      <button disabled={selectedTrack.locked} onClick={() => adjustTransformKeyframe(selectedTrack, selectedClip, edge, { x: point.x + 50 })} aria-label={t('timeline.right')}>→</button>
+                      <button disabled={selectedTrack.locked} onClick={() => adjustTransformKeyframe(selectedTrack, selectedClip, edge, { y: point.y - 50 })} aria-label={t('timeline.top')}>↑</button>
+                      <button disabled={selectedTrack.locked} onClick={() => adjustTransformKeyframe(selectedTrack, selectedClip, edge, { y: point.y + 50 })} aria-label={t('timeline.bottom')}>↓</button>
+                      <button disabled={selectedTrack.locked || point.scale <= 0.1} onClick={() => adjustTransformKeyframe(selectedTrack, selectedClip, edge, { scale: point.scale - 0.1 })}>{t('timeline.scaleDown')}</button>
+                      <button disabled={selectedTrack.locked || point.scale >= 4} onClick={() => adjustTransformKeyframe(selectedTrack, selectedClip, edge, { scale: point.scale + 0.1 })}>{t('timeline.scaleUp')}</button>
+                    </div>
+                  </div>
+                })}
+                <button
+                  className="secondaryButton"
+                  disabled={selectedTrack.locked}
+                  onClick={() => removeTransformKeyframes(selectedTrack, selectedClip)}
+                >
+                  {t('timeline.keyframesRemove')}
+                </button>
+              </>
+            )}
+          </>
+        )}
+      </section>
       {feedback?.saved === project && <div className="successBox" role="status">{t(feedback.action === 'undo' ? 'timeline.undone' : feedback.action === 'redo' ? 'timeline.redone' : 'timeline.saved')}</div>}
       {feedback?.error !== undefined && <div className="errorBox" role="alert">{t('timeline.failed')}<details><summary>{t('common.details')}</summary>{feedback.error}</details></div>}
       {project.tracks.map((track, trackIndex) => (
