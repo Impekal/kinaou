@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { parseSpeechJob } from '../src/core/speechJobs'
+import { parseSpeechJob, speechJobFromLegacyTts } from '../src/core/speechJobs'
 import { WorkerClient } from '../src/core/workerClient'
 
 const running = {
@@ -97,5 +97,30 @@ describe('generic speech jobs', () => {
 
     expect(requests[1].url).toContain('/speech/jobs/job-1')
     expect(requests[2].url).toContain('/speech/jobs/job-1/cancel')
+  })
+})
+
+it('converts pre-generic minimal Piper jobs without inventing new provenance', () => {
+  const legacy = {
+    id: 'legacy-job',
+    state: 'succeeded',
+    progress: 1,
+    voicePath: 'KINAOU/Models/legacy.onnx',
+    audioPath: 'KINAOU/Assets/GeneratedVoice/legacy-job.wav',
+    durationMs: 900,
+    sizeBytes: 123
+  } as any
+
+  expect(speechJobFromLegacyTts(legacy)).toEqual({
+    id: 'legacy-job',
+    adapterId: 'piper',
+    voiceId: 'KINAOU/Models/legacy.onnx',
+    state: 'succeeded',
+    progress: 1,
+    createdAt: '',
+    updatedAt: '',
+    audioPath: 'KINAOU/Assets/GeneratedVoice/legacy-job.wav',
+    durationMs: 900,
+    sizeBytes: 123
   })
 })

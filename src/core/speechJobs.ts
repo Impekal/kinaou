@@ -1,3 +1,5 @@
+import type { TtsJobRecord } from './ttsJobs'
+
 export type SpeechJobState =
   | 'queued'
   | 'running'
@@ -67,4 +69,26 @@ export function parseSpeechJob(value: unknown): SpeechJobRecord {
   }
 
   return job as SpeechJobRecord
+}
+
+
+export function speechJobFromLegacyTts(job: TtsJobRecord): SpeechJobRecord {
+  return parseSpeechJob({
+    id: job.id,
+    adapterId: 'piper',
+    voiceId: job.voicePath,
+    state: job.state,
+    progress: job.progress,
+    // Older in-memory Piper fixtures and integrations predate generic speech
+    // timestamps. Keep that legacy boundary readable without weakening the
+    // generic worker response parser.
+    createdAt: typeof job.createdAt === 'string' ? job.createdAt : '',
+    updatedAt: typeof job.updatedAt === 'string' ? job.updatedAt : '',
+    ...(job.audioPath ? {
+      audioPath: job.audioPath,
+      durationMs: job.durationMs,
+      sizeBytes: job.sizeBytes
+    } : {}),
+    ...(job.error ? { error: job.error } : {})
+  })
 }

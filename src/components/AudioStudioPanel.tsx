@@ -4,8 +4,8 @@ import type { KinaouProject } from '../core/project'
 import type { PersistentVersionHistory } from '../core/versioning'
 import { WorkerClient } from '../core/workerClient'
 import { projectContentProfile } from '../core/contentProfile'
-import type { VoiceDetails } from '../core/voiceLanguage'
-import { PiperVoiceSelect } from './PiperVoiceSelect'
+import type { SpeechVoiceDescriptor } from '../core/speech'
+import { SpeechVoiceSelect } from './SpeechVoiceSelect'
 import { useUiLanguage } from './UiLanguageProvider'
 import { AudioStudioSession, type AudioFeedback } from '../core/audioStudioSession'
 import { AiEditorRequestScope } from '../core/aiEditorReview'
@@ -16,7 +16,7 @@ interface Props { project: KinaouProject; history: PersistentVersionHistory; wor
 export function AudioStudioPanel({ project, history, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange }: Props) {
   const { language, t } = useUiLanguage()
   const [text, setText] = useState(project.script)
-  const [voices, setVoices] = useState<VoiceDetails[]>([])
+  const [voices, setVoices] = useState<SpeechVoiceDescriptor[]>([])
   const [voice, setVoice] = useState('')
   const [feedback, setFeedback] = useState<AudioFeedback | null>(null)
   const [submittedText, setSubmittedText] = useState('')
@@ -42,7 +42,7 @@ export function AudioStudioPanel({ project, history, workerUrl, workerToken, wor
   useEffect(() => { setText(project.script); setFeedback(null); setSubmittedText(''); setError(''); setEmpty(false) }, [project.id])
   const available = workerConnected && Boolean(workerToken.trim()) && workerCapabilities.includes('text-to-speech')
   const installed = voicesScope.current === discoveryKey ? voices : []
-  const selectedVoice = installed.some(entry => entry.path === voice) ? voice : ''
+  const selectedVoice = installed.find(entry => entry.id === voice)
   const locked = Boolean(session.current?.unresolved)
   const detecting = discovering && discoveryScope === discoveryKey
   const currentFeedback: AudioFeedback | null = session.current?.wasDetached ? { phase: 'detached' } : feedback
@@ -53,7 +53,7 @@ export function AudioStudioPanel({ project, history, workerUrl, workerToken, wor
     const current = scope.current.begin()
     setDiscovering(true); setDiscoveryScope(discoveryKey); setError(''); setEmpty(false); setVoices([]); setVoice('')
     try {
-      const next = await client().listTtsVoiceDetails()
+      const next = await client().listSpeechVoices()
       if (!current()) return
       setVoices(next); voicesScope.current = discoveryKey; setEmpty(!next.length)
     } catch (cause) { if (current()) setError(cause instanceof Error ? cause.message : String(cause)) }
@@ -71,13 +71,20 @@ export function AudioStudioPanel({ project, history, workerUrl, workerToken, wor
     session.current = task
     await task.run()
   }
-  const generated = project.assets.filter(asset => asset.kind === 'audio' && asset.metadata.adapterId === 'piper')
+  const generated = project.assets.filter(asset =>
+    asset.kind === 'audio'
+    && typeof asset.metadata.adapterId === 'string'
+    && (
+      typeof asset.metadata.speechJobId === 'string'
+      || typeof asset.metadata.ttsJobId === 'string'
+    )
+  )
   const seconds = (ms: number) => new Intl.NumberFormat(language, { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(ms / 1000)
   return <section className="stack"><div className="sectionLead"><div><div className="eyebrow">{t('audio.eyebrow')}</div><h2>{t('audio.heading')}</h2><p>{t('audio.help')}</p></div><span className={available ? 'status online' : 'status'}>{t(available ? 'audio.available' : 'audio.unavailable')}</span></div>
     <div className="card audioStudio">
       <p>{t('audio.scope')}</p>
       <label>{t('audio.text')}<textarea value={text} onChange={event => setText(event.target.value)} placeholder={t('audio.placeholder')} /></label>
-      <PiperVoiceSelect voices={installed} value={selectedVoice} language={projectContentProfile(project).outputLanguage} uiLanguage={language} disabled={!available || locked || detecting} onChange={setVoice} />
+      <SpeechVoiceSelect voices={installed} value={selectedVoice?.id ?? ''} language={projectContentProfile(project).outputLanguage} uiLanguage={language} disabled={!available || locked || detecting} onChange={setVoice} />
       <div className="directorActions">
         <button className="secondaryButton" disabled={!available || locked || detecting} onClick={detect}>{t(detecting ? 'audio.detecting' : 'audio.detect')}</button>
         <button className="primary" disabled={!available || !selectedVoice || !text.trim() || locked || detecting} onClick={generate}>{t('audio.generate')}</button>
@@ -86,6 +93,6 @@ export function AudioStudioPanel({ project, history, workerUrl, workerToken, wor
       {empty && <div className="note" role="status">{t('audio.empty')}</div>}
       {error && <div className="errorBox" role="alert">{t('audio.error')}<details><summary>{t('common.details')}</summary>{error}</details></div>}
     </div>
-    {generated.length > 0 && <div className="card generatedVoices"><div className="eyebrow">{t('audio.assets')}</div>{generated.map(asset => <div key={asset.id}><span><strong>{String(asset.metadata.name)}</strong><small>{seconds(Number(asset.metadata.durationMs))}s · {String(asset.metadata.voicePath).split('/').pop()}</small></span><AssetPlacementControl project={project} asset={asset} onProjectChange={onProjectChange} /></div>)}</div>}
+    {generated.length > 0 && <div className="card generatedVoices"><div className="eyebrow">{t('audio.assets')}</div>{generated.map(asset => <div key={asset.id}><span><strong>{String(asset.metadata.name)}</strong><small>{seconds(Number(asset.metadata.durationMs))}s · {String(asset.metadata.voiceId ?? asset.metadata.voicePath ?? asset.metadata.adapterId)}</small></span><AssetPlacementControl project={project} asset={asset} onProjectChange={onProjectChange} /></div>)}</div>}
   </section>
 }
