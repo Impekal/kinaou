@@ -10,6 +10,8 @@ import { useUiLanguage } from './UiLanguageProvider'
 import { AudioStudioSession, type AudioFeedback } from '../core/audioStudioSession'
 import { AiEditorRequestScope } from '../core/aiEditorReview'
 import { AudioJobStatus } from './AudioJobStatus'
+import { SpeechDeliveryControls } from './SpeechDeliveryControls'
+import { defaultSpeechDeliveryDraft, speechDeliveryOptionsFromDraft, type SpeechDeliveryDraft } from '../core/speechDelivery'
 
 interface Props { project: KinaouProject; history: PersistentVersionHistory; workerUrl: string; workerToken: string; workerConnected: boolean; workerCapabilities: string[]; onProjectChange: (project: KinaouProject) => void }
 
@@ -18,6 +20,10 @@ export function AudioStudioPanel({ project, history, workerUrl, workerToken, wor
   const [text, setText] = useState(project.script)
   const [voices, setVoices] = useState<SpeechVoiceDescriptor[]>([])
   const [voice, setVoice] = useState('')
+  const outputLanguage = projectContentProfile(project).outputLanguage
+  const [delivery, setDelivery] = useState<SpeechDeliveryDraft>(
+    () => defaultSpeechDeliveryDraft(outputLanguage)
+  )
   const [feedback, setFeedback] = useState<AudioFeedback | null>(null)
   const [submittedText, setSubmittedText] = useState('')
   const [error, setError] = useState('')
@@ -39,7 +45,14 @@ export function AudioStudioPanel({ project, history, workerUrl, workerToken, wor
     mounted.current = true; scope.current.attach()
     return () => { mounted.current = false; scope.current.detach(); session.current?.detach() }
   }, [])
-  useEffect(() => { setText(project.script); setFeedback(null); setSubmittedText(''); setError(''); setEmpty(false) }, [project.id])
+  useEffect(() => {
+    setText(project.script)
+    setDelivery(defaultSpeechDeliveryDraft(outputLanguage))
+    setFeedback(null)
+    setSubmittedText('')
+    setError('')
+    setEmpty(false)
+  }, [project.id, outputLanguage])
   const available = workerConnected && Boolean(workerToken.trim()) && workerCapabilities.includes('text-to-speech')
   const installed = voicesScope.current === discoveryKey ? voices : []
   const selectedVoice = installed.find(entry => entry.id === voice)
@@ -61,15 +74,30 @@ export function AudioStudioPanel({ project, history, workerUrl, workerToken, wor
   }
   async function generate() {
     if (!available || !selectedVoice || !text.trim() || session.current?.unresolved || detecting) return
-    setError(''); setSubmittedText(text.trim())
-    const task = new AudioStudioSession(project, connection, text, selectedVoice, {
-      client: client(), environment: () => environment.current,
-      snapshot: value => { history.snapshot(value, 'Before saving generated voice', 'system') },
-      persist: value => { onProjectChange(value); environment.current = { project: value, connection } },
-      publish: value => { if (mounted.current && session.current === task) setFeedback(value) }
-    })
-    session.current = task
-    await task.run()
+    setError('')
+    setSubmittedText(text.trim())
+
+    try {
+      const speechOptions = speechDeliveryOptionsFromDraft(
+        project,
+        selectedVoice,
+        delivery
+      )
+
+      const task = new AudioStudioSession(project, connection, text, selectedVoice, {
+        client: client(),
+        environment: () => environment.current,
+        snapshot: value => { history.snapshot(value, 'Before saving generated voice', 'system') },
+        persist: value => { onProjectChange(value); environment.current = { project: value, connection } },
+        publish: value => { if (mounted.current && session.current === task) setFeedback(value) },
+        speechOptions
+      })
+
+      session.current = task
+      await task.run()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause))
+    }
   }
   const generated = project.assets.filter(asset =>
     asset.kind === 'audio'
@@ -84,7 +112,11 @@ export function AudioStudioPanel({ project, history, workerUrl, workerToken, wor
     <div className="card audioStudio">
       <p>{t('audio.scope')}</p>
       <label>{t('audio.text')}<textarea value={text} onChange={event => setText(event.target.value)} placeholder={t('audio.placeholder')} /></label>
-      <SpeechVoiceSelect voices={installed} value={selectedVoice?.id ?? ''} language={projectContentProfile(project).outputLanguage} uiLanguage={language} disabled={!available || locked || detecting} onChange={setVoice} />
+      <SpeechVoiceSelect voices={installed} value={selectedVoice?.id ?? ''} language={outputLanguage} uiLanguage={language} disabled={!available || locked || detecting} onChange={(value) => {
+        setVoice(value)
+        setDelivery(defaultSpeechDeliveryDraft(outputLanguage))
+      }} />
+      <SpeechDeliveryControls project={project} voice={selectedVoice} draft={delivery} disabled={!available || locked || detecting} onChange={setDelivery} />
       <div className="directorActions">
         <button className="secondaryButton" disabled={!available || locked || detecting} onClick={detect}>{t(detecting ? 'audio.detecting' : 'audio.detect')}</button>
         <button className="primary" disabled={!available || !selectedVoice || !text.trim() || locked || detecting} onClick={generate}>{t('audio.generate')}</button>

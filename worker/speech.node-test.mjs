@@ -104,3 +104,34 @@ test('maps generic Piper requests and jobs without adding capabilities', async (
     }
   )
 })
+
+test('Piper rejects delivery controls it does not implement', async () => {
+  const { piperRequestFromSpeech } = await import('./speech.mjs')
+
+  const base = {
+    adapterId: 'piper',
+    voiceId: 'KINAOU/Models/de.onnx',
+    text: 'Hallo'
+  }
+
+  for (const extra of [
+    { language: 'de' },
+    { styleInstruction: 'warm' },
+    { pace: 0.9 },
+    {
+      referenceAudio: {
+        assetId: 'own',
+        path: 'KINAOU/Assets/own.wav',
+        authorized: true
+      }
+    }
+  ]) {
+    assert.throws(
+      () => piperRequestFromSpeech({
+        ...base,
+        ...extra
+      }),
+      /Piper does not support/
+    )
+  }
+})

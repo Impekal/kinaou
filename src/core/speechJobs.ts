@@ -21,10 +21,20 @@ export interface SpeechJobRecord {
   error?: string
 }
 
+export interface SpeechReferenceAudio {
+  assetId: string
+  path: string
+  authorized: true
+}
+
 export interface SpeechSynthesisRequest {
   adapterId: string
   voiceId: string
   text: string
+  language?: string
+  styleInstruction?: string
+  pace?: number
+  referenceAudio?: SpeechReferenceAudio
 }
 
 export function parseSpeechJob(value: unknown): SpeechJobRecord {

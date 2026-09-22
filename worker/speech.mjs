@@ -48,6 +48,19 @@ export function piperRequestFromSpeech(input) {
     throw new Error('Invalid Piper speech voice')
   }
 
+  for (const field of [
+    'language',
+    'styleInstruction',
+    'pace',
+    'referenceAudio'
+  ]) {
+    if (input[field] !== undefined) {
+      throw new Error(
+        `Piper does not support ${field}`
+      )
+    }
+  }
+
   return {
     text: input.text,
     voicePath: input.voiceId

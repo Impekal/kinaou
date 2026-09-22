@@ -1,4 +1,5 @@
 import type { KinaouProject } from './project'
+import { buildSpeechSynthesisRequest, type SpeechDeliveryOptions } from './speechDelivery'
 import {
   placeSceneNarration,
   planSceneVoiceovers,
@@ -77,14 +78,19 @@ function normalizeVoice(
 async function startJob(
   client: Client,
   text: string,
-  voice: SpeechVoiceDescriptor
+  voice: SpeechVoiceDescriptor,
+  options: SpeechDeliveryOptions
 ): Promise<SpeechJobRecord> {
   if (isGeneric(client)) {
-    return parseSpeechJob(await client.startSpeech({
-      adapterId: voice.adapterId,
-      voiceId: voice.id,
-      text
-    }))
+    return parseSpeechJob(
+      await client.startSpeech(
+        buildSpeechSynthesisRequest(
+          text,
+          voice,
+          options
+        )
+      )
+    )
   }
 
   if (voice.adapterId !== 'piper') {
@@ -140,6 +146,7 @@ export class SceneNarrationSession {
       persist: (project: KinaouProject) => void
       publish: (feedback: NarrationFeedback) => void
       wait?: () => Promise<void>
+      speechOptions?: SpeechDeliveryOptions
     }
   ) {
     this.project = project
@@ -213,7 +220,8 @@ export class SceneNarrationSession {
             await startJob(
               this.deps.client,
               scene.text,
-              this.voice
+              this.voice,
+              this.deps.speechOptions ?? {}
             )
           )
 
