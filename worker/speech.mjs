@@ -30,3 +30,48 @@ export function piperSpeechVoiceDescriptors(details) {
     }
   })
 }
+
+export function piperRequestFromSpeech(input) {
+  if (!input || typeof input !== 'object') {
+    throw new Error('Speech synthesis request required')
+  }
+
+  if (input.adapterId !== 'piper') {
+    throw new Error('Requested speech adapter is not available')
+  }
+
+  if (
+    typeof input.voiceId !== 'string'
+    || !input.voiceId.startsWith('KINAOU/Models/')
+    || !input.voiceId.endsWith('.onnx')
+  ) {
+    throw new Error('Invalid Piper speech voice')
+  }
+
+  return {
+    text: input.text,
+    voicePath: input.voiceId
+  }
+}
+
+export function speechJobFromPiper(job) {
+  if (!job || typeof job !== 'object') {
+    throw new Error('Invalid Piper job')
+  }
+
+  return {
+    id: job.id,
+    adapterId: 'piper',
+    voiceId: job.voicePath,
+    state: job.state,
+    progress: job.progress,
+    createdAt: job.createdAt,
+    updatedAt: job.updatedAt,
+    ...(job.audioPath ? {
+      audioPath: job.audioPath,
+      durationMs: job.durationMs,
+      sizeBytes: job.sizeBytes
+    } : {}),
+    ...(job.error ? { error: job.error } : {})
+  }
+}

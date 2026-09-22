@@ -5,6 +5,7 @@ import { parseRenderJob, type RenderJobRecord } from './renderJobs'
 import { parseSttJob, type SttJobRecord } from './sttJobs'
 import { parseTtsJob, type TtsJobRecord } from './ttsJobs'
 import { parseSpeechVoiceCatalog, type SpeechVoiceDescriptor } from './speech'
+import { parseSpeechJob, type SpeechJobRecord, type SpeechSynthesisRequest } from './speechJobs'
 import { parseImageGenerationAvailability, parseImageJob, type ImageGenerationAvailability, type ImageJobParameters, type ImageJobRecord } from './imageJobs'
 import { parseVideoJob, type VideoJobRecord } from './videoJobs'
 import { parseCaptureJob, type CaptureJobRecord, type CaptureRequest } from './captureJobs'
@@ -217,6 +218,45 @@ export class WorkerClient {
       throw new Error('Invalid speech voice response')
     }
     return parseSpeechVoiceCatalog(payload.voices)
+  }
+
+  async startSpeech(request: SpeechSynthesisRequest): Promise<SpeechJobRecord> {
+    const payload = await this.request('/speech/jobs', {
+      method: 'POST',
+      body: JSON.stringify(request)
+    })
+
+    if (payload?.ok !== true || payload?.type !== 'speech-job') {
+      throw new Error('Invalid speech start response')
+    }
+
+    return parseSpeechJob(payload.job)
+  }
+
+  async speechStatus(jobId: string): Promise<SpeechJobRecord> {
+    const payload = await this.request(
+      `/speech/jobs/${encodeURIComponent(jobId)}`,
+      { method: 'GET' }
+    )
+
+    if (payload?.ok !== true || payload?.type !== 'speech-job') {
+      throw new Error('Invalid speech status response')
+    }
+
+    return parseSpeechJob(payload.job)
+  }
+
+  async cancelSpeech(jobId: string): Promise<SpeechJobRecord> {
+    const payload = await this.request(
+      `/speech/jobs/${encodeURIComponent(jobId)}/cancel`,
+      { method: 'POST' }
+    )
+
+    if (payload?.ok !== true || payload?.type !== 'speech-job') {
+      throw new Error('Invalid speech cancellation response')
+    }
+
+    return parseSpeechJob(payload.job)
   }
 
   async listTtsVoices(): Promise<string[]> {
