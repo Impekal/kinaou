@@ -14,7 +14,7 @@ import { generateAiEditorProposal, generateDirectorPlan, generateMediaAcquisitio
 import { MAX_GENERATED_IMAGE_BYTES, MAX_GENERATED_VIDEO_BYTES, MAX_WORKFLOW_FILE_BYTES, buildComfyPromptRequest, comfyHistoryStatus, comfyOutputQuery, comfyQueuePhase, comfyTempImageRelativePath, comfyTempVideoRelativePath, comfyWorkflowRelativePaths, detectComfyUi, generatedMediaExtensionFor, generatedImageRelativePath, generatedVideoRelativePath, normalizeComfyUrl, parseComfyPromptResponse, pickComfyOutputForMediaType, templateMediaType, validateComfyTemplate } from './comfyui.mjs'
 import { buildSttCommands, normalizeWhisperTranscript, sttPaths, whisperModelRelativePaths } from './whisper.mjs'
 import { buildPiperCommand, piperVoiceDetails, piperVoiceRelativePaths, ttsPaths, validateTtsText } from './piper.mjs'
-import { piperSpeechVoiceDescriptors } from './speech.mjs'
+import { piperRequestFromSpeech, piperSpeechVoiceDescriptors, speechJobFromPiper } from './speech.mjs'
 import { DEFAULT_OSASCRIPT_PATH, DEFAULT_SCREENCAPTURE_PATH, buildAppActivateCommand, buildAppWindowBoundsCommand, buildCaptureCommand, buildCaptureProvenance, captureAssetRelativePath, captureTempRelativePath, parseAppWindowBounds, validateCaptureRequest } from './capture.mjs'
 import os from 'node:os'
 import { buildWebCaptureCommand, buildWebCaptureProvenance, validateWebCaptureRequest, webCaptureBrowserCandidates, webCaptureProfileDirectory, webCapturePaths } from './webcapture.mjs'
@@ -185,6 +185,38 @@ const server = http.createServer(async (request, response) => {
       const job = await createTtsJob(await readJson(request))
       queueMicrotask(() => executeTtsJob(job.id).catch(() => {}))
       return send(response, 202, { ok: true, type: 'tts-job', job: publicTtsJob(job) })
+    }
+
+    if (request.method === 'POST' && request.url === '/speech/jobs') {
+      const input = piperRequestFromSpeech(await readJson(request))
+      const job = await createTtsJob(input)
+      queueMicrotask(() => executeTtsJob(job.id).catch(() => {}))
+      return send(response, 202, {
+        ok: true,
+        type: 'speech-job',
+        job: speechJobFromPiper(job)
+      })
+    }
+
+    const speechStatusMatch = request.url?.match(/^\/speech\/jobs\/([^/]+)$/)
+    if (request.method === 'GET' && speechStatusMatch) {
+      const job = requireTtsJob(decodeURIComponent(speechStatusMatch[1]))
+      return send(response, 200, {
+        ok: true,
+        type: 'speech-job',
+        job: speechJobFromPiper(job)
+      })
+    }
+
+    const speechCancelMatch = request.url?.match(/^\/speech\/jobs\/([^/]+)\/cancel$/)
+    if (request.method === 'POST' && speechCancelMatch) {
+      const job = requireTtsJob(decodeURIComponent(speechCancelMatch[1]))
+      cancelTtsJob(job)
+      return send(response, 200, {
+        ok: true,
+        type: 'speech-job',
+        job: speechJobFromPiper(job)
+      })
     }
     const ttsStatusMatch = request.url?.match(/^\/tts\/jobs\/([^/]+)$/)
     if (request.method === 'GET' && ttsStatusMatch) return send(response, 200, { ok: true, type: 'tts-job', job: publicTtsJob(requireTtsJob(decodeURIComponent(ttsStatusMatch[1]))) })
