@@ -12,6 +12,8 @@ import { SceneNarrationSession, type NarrationFeedback } from '../core/sceneNarr
 import { commitStoryboardChange } from '../core/storyboardEditing'
 import { useUiLanguage } from './UiLanguageProvider'
 import { displayTrackName } from '../core/uiSystemLabels'
+import { SpeechDeliveryControls } from './SpeechDeliveryControls'
+import { defaultSpeechDeliveryDraft, speechDeliveryOptionsFromDraft, type SpeechDeliveryDraft } from '../core/speechDelivery'
 
 interface Props {
   project: KinaouProject
@@ -31,7 +33,11 @@ export function SceneVoiceoverPanel({ project, history, workerUrl, workerToken, 
   const [visualId, setVisualId] = useState('')
   const [voiceId, setVoiceId] = useState('')
   const [voices, setVoices] = useState<SpeechVoiceDescriptor[]>([])
+  const outputLanguage = projectContentProfile(project).outputLanguage
   const [voice, setVoice] = useState('')
+  const [delivery, setDelivery] = useState<SpeechDeliveryDraft>(
+    () => defaultSpeechDeliveryDraft(outputLanguage)
+  )
   const [detecting, setDetecting] = useState(false)
   const [noVoices, setNoVoices] = useState(false)
   const [feedback, setFeedback] = useState<NarrationFeedback | null>(null)
@@ -62,10 +68,14 @@ export function SceneVoiceoverPanel({ project, history, workerUrl, workerToken, 
   }
   useEffect(() => {
     discovery.current++
-    setVoices([]); setVoice(''); setDetecting(false); setNoVoices(false)
+    setVoices([])
+    setVoice('')
+    setDelivery(defaultSpeechDeliveryDraft(outputLanguage))
+    setDetecting(false)
+    setNoVoices(false)
     detach()
     return () => { discovery.current++; session.current?.detach() }
-  }, [workerUrl, workerToken, available])
+  }, [workerUrl, workerToken, available, outputLanguage])
   useEffect(() => {
     if (session.current && session.current.project !== project) detach()
   }, [project])
@@ -103,12 +113,20 @@ export function SceneVoiceoverPanel({ project, history, workerUrl, workerToken, 
       session.current?.detach()
       const selected = voices.find((entry) => entry.id === voice)
       if (!selected) throw new Error('Selected speech voice is no longer available')
+
+      const speechOptions = speechDeliveryOptionsFromDraft(
+        project,
+        selected,
+        delivery
+      )
+
       const run = new SceneNarrationSession(project, effectiveVisual, effectiveVoice, selected, {
         client: new WorkerClient({ baseUrl: workerUrl, token: workerToken }),
         current: (expected) => context.current.project === expected && context.current.workerUrl === workerUrl && context.current.workerToken === workerToken && context.current.available,
         snapshot: () => history.snapshot(project, 'Before generating scene narration', 'system'),
         persist: (next) => { onProjectChange(next); context.current.project = next },
-        publish: setFeedback
+        publish: setFeedback,
+        speechOptions
       })
       session.current = run
       void run.run()
@@ -120,7 +138,15 @@ export function SceneVoiceoverPanel({ project, history, workerUrl, workerToken, 
     <div><div className="eyebrow">{t('narration.eyebrow')}</div><h3>{t('narration.heading')}</h3><p>{t('narration.help')}</p><p>{t('narration.quality')}</p><p>{t('narration.scopeHelp')}</p></div>
     <div className="directorActions">
       <button className="secondaryButton" disabled={!available || locked} onClick={detect}>{t(detecting ? 'narration.detecting' : 'narration.detect')}</button>
-      <SpeechVoiceSelect voices={voices} value={voice} language={projectContentProfile(project).outputLanguage} uiLanguage={language} disabled={!available || locked} onChange={(value) => { setVoice(value); clearResults() }} />
+      <SpeechVoiceSelect voices={voices} value={voice} language={outputLanguage} uiLanguage={language} disabled={!available || locked} onChange={(value) => {
+        setVoice(value)
+        setDelivery(defaultSpeechDeliveryDraft(outputLanguage))
+        clearResults()
+      }} />
+      <SpeechDeliveryControls project={project} voice={voices.find((entry) => entry.id === voice)} draft={delivery} disabled={!available || locked} onChange={(next) => {
+        setDelivery(next)
+        clearResults()
+      }} />
       <label>{t('narration.visual')}<select disabled={locked} value={effectiveVisual} onChange={(event) => { setVisualId(event.target.value); clearResults() }}>{visualTracks.map((track) => <option key={track.id} value={track.id}>{displayTrackName(track, t)}</option>)}</select></label>
       <label>{t('narration.target')}<select disabled={locked} value={effectiveVoice} onChange={(event) => { setVoiceId(event.target.value); clearResults() }}>{voiceTracks.map((track) => <option key={track.id} value={track.id}>{displayTrackName(track, t)}</option>)}</select></label>
       <button className="primary" disabled={Boolean(blockedReason) || locked} onClick={narrate}>{t('narration.start')}</button>

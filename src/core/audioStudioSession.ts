@@ -1,4 +1,5 @@
 import { registerGeneratedVoice } from './generatedVoice'
+import { buildSpeechSynthesisRequest, type SpeechDeliveryOptions } from './speechDelivery'
 import type { KinaouProject } from './project'
 import {
   parseSpeechVoiceCatalog,
@@ -76,14 +77,19 @@ function normalizeVoice(
 async function start(
   client: SpeechClient,
   text: string,
-  voice: SpeechVoiceDescriptor
+  voice: SpeechVoiceDescriptor,
+  options: SpeechDeliveryOptions
 ): Promise<SpeechJobRecord> {
   if (genericClient(client)) {
-    return parseSpeechJob(await client.startSpeech({
-      adapterId: voice.adapterId,
-      voiceId: voice.id,
-      text
-    }))
+    return parseSpeechJob(
+      await client.startSpeech(
+        buildSpeechSynthesisRequest(
+          text,
+          voice,
+          options
+        )
+      )
+    )
   }
 
   if (voice.adapterId !== 'piper') {
@@ -156,6 +162,7 @@ export class AudioStudioSession {
       persist: (project: KinaouProject) => void
       publish: (feedback: AudioFeedback) => void
       wait?: () => Promise<void>
+      speechOptions?: SpeechDeliveryOptions
     }
   ) {
     this.text = text.trim()
@@ -261,7 +268,8 @@ export class AudioStudioSession {
         const job = await start(
           this.deps.client,
           this.text,
-          this.voice
+          this.voice,
+          this.deps.speechOptions ?? {}
         )
 
         if (!this.current() || epoch !== this.epoch) return
