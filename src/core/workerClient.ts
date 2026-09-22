@@ -4,6 +4,7 @@ import type { RenderPlan } from './render'
 import { parseRenderJob, type RenderJobRecord } from './renderJobs'
 import { parseSttJob, type SttJobRecord } from './sttJobs'
 import { parseTtsJob, type TtsJobRecord } from './ttsJobs'
+import { parseSpeechVoiceCatalog, type SpeechVoiceDescriptor } from './speech'
 import { parseImageGenerationAvailability, parseImageJob, type ImageGenerationAvailability, type ImageJobParameters, type ImageJobRecord } from './imageJobs'
 import { parseVideoJob, type VideoJobRecord } from './videoJobs'
 import { parseCaptureJob, type CaptureJobRecord, type CaptureRequest } from './captureJobs'
@@ -208,6 +209,14 @@ export class WorkerClient {
       const locale = typeof detail?.locale === 'string' && /^[a-z]{2,3}(?:-[A-Za-z]{2,4})?$/.test(detail.locale) ? detail.locale : null
       return { path, locale }
     })
+  }
+
+  async listSpeechVoices(): Promise<SpeechVoiceDescriptor[]> {
+    const payload = await this.request('/speech/voices', { method: 'GET' })
+    if (payload?.ok !== true || payload?.type !== 'speech-voices') {
+      throw new Error('Invalid speech voice response')
+    }
+    return parseSpeechVoiceCatalog(payload.voices)
   }
 
   async listTtsVoices(): Promise<string[]> {

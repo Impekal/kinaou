@@ -14,6 +14,7 @@ import { generateAiEditorProposal, generateDirectorPlan, generateMediaAcquisitio
 import { MAX_GENERATED_IMAGE_BYTES, MAX_GENERATED_VIDEO_BYTES, MAX_WORKFLOW_FILE_BYTES, buildComfyPromptRequest, comfyHistoryStatus, comfyOutputQuery, comfyQueuePhase, comfyTempImageRelativePath, comfyTempVideoRelativePath, comfyWorkflowRelativePaths, detectComfyUi, generatedMediaExtensionFor, generatedImageRelativePath, generatedVideoRelativePath, normalizeComfyUrl, parseComfyPromptResponse, pickComfyOutputForMediaType, templateMediaType, validateComfyTemplate } from './comfyui.mjs'
 import { buildSttCommands, normalizeWhisperTranscript, sttPaths, whisperModelRelativePaths } from './whisper.mjs'
 import { buildPiperCommand, piperVoiceDetails, piperVoiceRelativePaths, ttsPaths, validateTtsText } from './piper.mjs'
+import { piperSpeechVoiceDescriptors } from './speech.mjs'
 import { DEFAULT_OSASCRIPT_PATH, DEFAULT_SCREENCAPTURE_PATH, buildAppActivateCommand, buildAppWindowBoundsCommand, buildCaptureCommand, buildCaptureProvenance, captureAssetRelativePath, captureTempRelativePath, parseAppWindowBounds, validateCaptureRequest } from './capture.mjs'
 import os from 'node:os'
 import { buildWebCaptureCommand, buildWebCaptureProvenance, validateWebCaptureRequest, webCaptureBrowserCandidates, webCaptureProfileDirectory, webCapturePaths } from './webcapture.mjs'
@@ -169,6 +170,16 @@ const server = http.createServer(async (request, response) => {
     if (request.method === 'GET' && request.url === '/tts/voices') {
       const voices = await listPiperVoices()
       return send(response, 200, { ok: true, type: 'tts-voices', voices, details: await piperVoiceDetails(voices, resolveManaged) })
+    }
+
+    if (request.method === 'GET' && request.url === '/speech/voices') {
+      const voices = await listPiperVoices()
+      const details = await piperVoiceDetails(voices, resolveManaged)
+      return send(response, 200, {
+        ok: true,
+        type: 'speech-voices',
+        voices: piperSpeechVoiceDescriptors(details)
+      })
     }
     if (request.method === 'POST' && request.url === '/tts/jobs') {
       const job = await createTtsJob(await readJson(request))
