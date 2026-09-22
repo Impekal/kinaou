@@ -1,6 +1,7 @@
 import type { KinaouProject, TimelineClip, TimelineTrack } from './project'
 import { applyTimelineOperation } from './timeline'
 import { registerGeneratedVoice } from './generatedVoice'
+import type { SpeechJobRecord } from './speechJobs'
 import type { TtsJobRecord } from './ttsJobs'
 import { sceneSpeech, type SceneSpeechSource } from './sceneSpeech'
 
@@ -93,7 +94,7 @@ export function planSceneVoiceovers(project: KinaouProject, visualTrackId: strin
  * Registers one finished narration job and places it under its scene. The voice keeps
  * its natural length: trimming a sentence to fit a picture would cut words off.
  */
-export function placeSceneNarration(project: KinaouProject, scene: VoiceoverScene, job: TtsJobRecord, voiceTrackId: string): { project: KinaouProject; narrated: NarratedScene } {
+export function placeSceneNarration(project: KinaouProject, scene: VoiceoverScene, job: SpeechJobRecord | TtsJobRecord, voiceTrackId: string): { project: KinaouProject; narrated: NarratedScene } {
   const track = project.tracks.find((entry) => entry.id === voiceTrackId)
   if (!track) throw new Error(`Timeline track not found: ${voiceTrackId}`)
   if (!VOICE_TRACK_TYPES.has(track.type)) throw new Error(`Narration needs a voice track, not ${track.type}`)

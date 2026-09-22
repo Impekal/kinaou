@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { projectContentProfile } from '../core/contentProfile'
-import type { VoiceDetails } from '../core/voiceLanguage'
-import { PiperVoiceSelect } from './PiperVoiceSelect'
+import type { SpeechVoiceDescriptor } from '../core/speech'
+import { SpeechVoiceSelect } from './SpeechVoiceSelect'
 import { assemblyTargetTracks } from '../core/storyboardAssembly'
 import { voiceoverTargetTracks } from '../core/sceneVoiceover'
 import { fitScenesToNarration, planNarrationFit, type NarrationFitResult } from '../core/narrationFit'
@@ -30,7 +30,7 @@ export function SceneVoiceoverPanel({ project, history, workerUrl, workerToken, 
   const voiceTracks = useMemo(() => voiceoverTargetTracks(project), [project])
   const [visualId, setVisualId] = useState('')
   const [voiceId, setVoiceId] = useState('')
-  const [voices, setVoices] = useState<VoiceDetails[]>([])
+  const [voices, setVoices] = useState<SpeechVoiceDescriptor[]>([])
   const [voice, setVoice] = useState('')
   const [detecting, setDetecting] = useState(false)
   const [noVoices, setNoVoices] = useState(false)
@@ -75,13 +75,13 @@ export function SceneVoiceoverPanel({ project, history, workerUrl, workerToken, 
       : !voiceTracks.length ? t('narration.noTrack')
         : selectedVoiceTrack?.locked ? t('assembly.locked', { track: displayTrackName(selectedVoiceTrack, t) })
           : !effectiveVisual ? t('assembly.noTrack')
-            : !voice || !voices.some((entry) => entry.path === voice) ? t('narration.chooseFirst') : ''
+            : !voice || !voices.some((entry) => entry.id === voice) ? t('narration.chooseFirst') : ''
 
   async function detect() {
     const request = ++discovery.current
     setError(''); setVoices([]); setVoice(''); setDetecting(true); setNoVoices(false)
     try {
-      const found = await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).listTtsVoiceDetails()
+      const found = await new WorkerClient({ baseUrl: workerUrl, token: workerToken }).listSpeechVoices()
       if (request !== discovery.current) return
       setVoices(found); setNoVoices(!found.length)
     } catch (cause) { if (request === discovery.current) setError(String(cause)) }
@@ -101,7 +101,9 @@ export function SceneVoiceoverPanel({ project, history, workerUrl, workerToken, 
     clearResults()
     try {
       session.current?.detach()
-      const run = new SceneNarrationSession(project, effectiveVisual, effectiveVoice, voice, {
+      const selected = voices.find((entry) => entry.id === voice)
+      if (!selected) throw new Error('Selected speech voice is no longer available')
+      const run = new SceneNarrationSession(project, effectiveVisual, effectiveVoice, selected, {
         client: new WorkerClient({ baseUrl: workerUrl, token: workerToken }),
         current: (expected) => context.current.project === expected && context.current.workerUrl === workerUrl && context.current.workerToken === workerToken && context.current.available,
         snapshot: () => history.snapshot(project, 'Before generating scene narration', 'system'),
@@ -118,7 +120,7 @@ export function SceneVoiceoverPanel({ project, history, workerUrl, workerToken, 
     <div><div className="eyebrow">{t('narration.eyebrow')}</div><h3>{t('narration.heading')}</h3><p>{t('narration.help')}</p><p>{t('narration.quality')}</p><p>{t('narration.scopeHelp')}</p></div>
     <div className="directorActions">
       <button className="secondaryButton" disabled={!available || locked} onClick={detect}>{t(detecting ? 'narration.detecting' : 'narration.detect')}</button>
-      <PiperVoiceSelect voices={voices} value={voice} language={projectContentProfile(project).outputLanguage} uiLanguage={language} disabled={!available || locked} onChange={(value) => { setVoice(value); clearResults() }} />
+      <SpeechVoiceSelect voices={voices} value={voice} language={projectContentProfile(project).outputLanguage} uiLanguage={language} disabled={!available || locked} onChange={(value) => { setVoice(value); clearResults() }} />
       <label>{t('narration.visual')}<select disabled={locked} value={effectiveVisual} onChange={(event) => { setVisualId(event.target.value); clearResults() }}>{visualTracks.map((track) => <option key={track.id} value={track.id}>{displayTrackName(track, t)}</option>)}</select></label>
       <label>{t('narration.target')}<select disabled={locked} value={effectiveVoice} onChange={(event) => { setVoiceId(event.target.value); clearResults() }}>{voiceTracks.map((track) => <option key={track.id} value={track.id}>{displayTrackName(track, t)}</option>)}</select></label>
       <button className="primary" disabled={Boolean(blockedReason) || locked} onClick={narrate}>{t('narration.start')}</button>
