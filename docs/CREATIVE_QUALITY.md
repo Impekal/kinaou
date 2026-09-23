@@ -96,3 +96,21 @@ KINAOU now preserves every retake instead of overwriting the previous audio. Ret
 For scene narration, newly generated takes are not activated automatically. One existing narration clip remains active until the user explicitly chooses another retained take. Switching takes changes that clip's source and natural duration while keeping the other takes as reusable project assets.
 
 This design directly addresses the real-hardware findings where one German generation elongated "Morgen", another German retake was judged perfect, and French generations differed in pause quality. It avoids treating first-generation speech as automatically final.
+
+### Completion Point 3 — final human acceptance (2026-09-23)
+
+The final continuity test generated seven independent own-voice speech jobs from the same explicitly authorized reference recording: three German scenes, two English scenes and two French scenes. The jobs used different random seeds and the real local Chatterbox Multilingual 0.1.7 worker on supported Apple M2 Pro hardware.
+
+The reference speaker accepted the voice identity and overall quality across all seven scenes. German and English were accepted as strong. French retained a small audible non-native accent; this was explicitly accepted as an acceptable current quality boundary. This acceptance must not be rewritten as a claim that the French output is native or accent-free.
+
+The final Point 3 quality contract therefore includes:
+- real local DE/EN/FR synthesis;
+- explicitly authorized own-voice cloning;
+- stable-enough identity across independent jobs;
+- human audition of actual generated output;
+- non-destructive retakes for stochastic prosody/pause defects;
+- one explicitly selected active scene take while alternatives remain retained;
+- measured DE/EN/FR tempo post-processing;
+- honest capability reporting without invented style or pace controls.
+
+Completion Point 3 is accepted complete under those measured boundaries.

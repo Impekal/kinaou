@@ -312,7 +312,7 @@ The repeated GitHub “all jobs failed” emails did not indicate a broken `main
 
 Local environment note (2026-09-20): the default `/opt/homebrew/opt/ffmpeg/bin/ffmpeg` and `ffmpeg@9` resolve to the same 9.0.1 binary without `subtitles`/libass. Real caption burn-in on this Mac needs an explicitly approved libass-enabled binary and worker PATH; no install was performed. Independent repository work and CI remain unblocked. See MAC-TEST stage 0.
 
-Completion points 1 and 2 are complete. Point 2 now includes direct dragging, trim handles, playhead split, precise snapping, multi-selection, session Undo/Redo, shared playhead behavior, render-backed transform keyframes and the cache-backed immediate visual editing preview, with the composed FFmpeg preview retained for authoritative quality review. Immediate product priority moves to completion point 3: natural expressive and authorized own-voice speech, including measured DE/EN/FR pronunciation, emotion, continuity and retake workflows on supported hardware.
+Completion points 1 and 2 are complete. Point 2 now includes direct dragging, trim handles, playhead split, precise snapping, multi-selection, session Undo/Redo, shared playhead behavior, render-backed transform keyframes and the cache-backed immediate visual editing preview, with the composed FFmpeg preview retained for authoritative quality review. Completion points 1, 2 and 3 are complete. Immediate product priority now moves to completion point 4: real animated avatars, including identity continuity, motion, expression and lip sync with actual generated-output review.
 
 Prerequisite corrected in #181: Director speech now actually reaches TTS and captions. Authorized portrait/own-recording transport to installed video workflows is implemented in #183, but verified lip-synced performance and generating new speech in the user's voice still require the relevant local adapters and measured model output. Course/module/lesson persistence and individual video exports are now real (#185); next course work is lesson content/resources, demonstration evidence, exercises/solutions and review invalidation after edits. Manual editing remains a parallel usability priority; the core operations exist but the direct editing experience does not yet match a conventional editor.
 
@@ -373,3 +373,19 @@ Voice continuity is defined from adapter, voice, language, model, authorized ref
 Scene narration now retains multiple takes per scene without stacking multiple active narration clips. A newly generated take remains inactive until the user explicitly chooses it. Selecting a take replaces only the active clip's source/duration for that scene; earlier and later take assets remain available, and the user can switch back reversibly through project history. Exactly one take is treated as active for a scene on the selected narration track.
 
 The full application gate passed 112/112 test files and 1070/1070 tests locally, followed by a successful production build. Completion Point 3 remains open for final longer-form continuity/quality acceptance and the remaining French accent-quality decision.
+
+### 2026-09-23 — Completion Point 3 final acceptance
+
+Completion Point 3, natural expressive and authorized own-voice speech, is complete.
+
+Final supported-hardware acceptance used the real Chatterbox Multilingual 0.1.7 worker path on the MacBook Pro M2 Pro with the same explicitly authorized own-voice reference across seven separate synthesis jobs: three German scenes, two English scenes and two French scenes. Each job used a different seed. The reference speaker accepted voice identity across the separate scenes and accepted the overall output in all three languages.
+
+German and English were accepted as strong. French continues to carry a slight audible non-native accent, but the reference speaker explicitly judged this remaining limitation acceptable for KINAOU. The product therefore does not claim native-French reproduction or guaranteed accent-free output.
+
+Earlier real-hardware tests demonstrated generation-specific stochastic prosody problems: an elongated vowel in one German take and an unnecessary pause in one French take. Alternate retakes corrected those examples. KINAOU now productizes that reality instead of hiding it: retry/recovery never creates a new synthesis, while an explicit retake creates a new job, seed and retained audio asset in the same checked voice-continuity lineage.
+
+Audio Studio and scene narration preserve multiple takes non-destructively. Exactly one narration take per scene is active on the selected voice track, and retained takes can be selected again through a reversible project edit. Continuity covers adapter, voice, language, model, authorized reference recording and measured internal tempo. Seed intentionally varies between retakes.
+
+The truthful Chatterbox capability set remains synthesis, language control, voice cloning and reference audio. Free-form style instruction and user-selectable pace control are not advertised by this adapter.
+
+With completion points 1, 2 and 3 complete, the next sequential completion target is Point 4: real animated avatars with actual photo/video identity, motion, expression and lip-sync output review.
