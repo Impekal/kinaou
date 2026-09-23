@@ -15,6 +15,7 @@ describe('project engine', () => {
     expect(project.tracks).toEqual([])
     expect(project.avatars).toEqual([])
     expect(project.avatarInstances).toEqual([])
+    expect(project.avatarCreationReceipts).toEqual([])
   })
 
   it('applies timeline operations without mutating the source project', () => {
