@@ -553,6 +553,15 @@ it.each(uiLanguages)(
                     created.project,
                   history:
                     history(),
+                  workerUrl:
+                    'http://127.0.0.1:43117',
+                  workerToken:
+                    'test-token',
+                  workerConnected:
+                    true,
+                  workerCapabilities: [
+                    'avatar-creation-receipt'
+                  ],
                   onProjectChange:
                     vi.fn()
                 }
@@ -571,7 +580,11 @@ it.each(uiLanguages)(
         'avatar.sceneHeading',
         'avatar.createInstance',
         'avatar.boundary',
-        'avatar.rightsStored'
+        'avatar.rightsStored',
+        'avatar.receiptsHeading',
+        'avatar.receiptsTitle',
+        'avatar.receiptsHelp',
+        'avatar.receiptsEmpty'
       ] as const
     ) {
       expect(html)

@@ -415,3 +415,17 @@ Each accepted generated take creates a durable KINAOU avatar creation receipt. T
 4.2A does not yet calculate file SHA-256 values itself and does not export a receipt file. Those are the next provenance slice. It also does not claim that any real identity-generation engine is installed.
 
 Local validation note for 4.2B: the complete macOS worker node-test suite was also executed. 96/98 worker tests passed. The only failing subtest was the pre-existing real caption-burn smoke test because the currently installed Homebrew FFmpeg 9.0.1 build does not provide the `subtitles` filter / libass support. Point 4.2B does not modify the caption test or caption module. The Avatar receipt real-worker test passes locally. GitHub CI remains the authoritative complete worker gate because the repository CI installs its own Ubuntu FFmpeg and executes the full `worker/*.node-test.mjs` suite.
+
+### 2026-09-23 — Avatar 4.2C Creation Receipts in Avatar Studio
+
+The cryptographic Avatar Creation Receipt pipeline is now exposed in Avatar Studio rather than existing only as core/worker infrastructure.
+
+Avatar Studio receives the authenticated local-worker connection and checks for the explicit `avatar-creation-receipt` worker capability. Each generated avatar take with a durable receipt is presented with its Avatar Identity and Version, generated output, exact engine/model identity, captured commercial-output rights status and cryptographic evidence state.
+
+When requested, Avatar Studio reconstructs the exact stored receipt document, sends it to the local worker, lets the worker hash the real source/output files and export or verify the immutable JSON sidecar, then persists the verified hashes and sidecar identity into the project. A persistent version-history snapshot is created before that project mutation.
+
+The asynchronous path protects against stale project state: if the project changes while the worker is hashing/exporting evidence, the completed worker result is not applied to the newer project. The user must verify again against the current state.
+
+A secured take visibly exposes the output SHA-256, receipt SHA-256, managed receipt path and evidence capture time. Rights status is localized in DE/EN/FR rather than exposing internal enum values as UI copy.
+
+4.2 is now a complete provenance path from a generated Avatar Take through real managed-file hashes to a visible Studio-managed Creation Receipt. It still does not provide the real identity-generation engine itself.
