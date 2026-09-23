@@ -363,3 +363,13 @@ Human listening evidence from supported hardware:
 - Retakes produced materially different prosody. One French generation introduced an unnecessary internal pause. One German generation elongated the vowel in "Morgen" unnaturally, while a later retake of the same text was judged perfect. This demonstrates that retakes are a real quality-control requirement rather than a simulated control.
 
 Completion Point 3 remains open because the product-level retake/version and continuity workflow still needs to be implemented and accepted.
+
+### 2026-09-23 — Speech 3.3B/3.3C: non-destructive retakes and voice continuity
+
+Speech retakes are now explicit new synthesis requests rather than retries of an uncertain or accepted job. Audio Studio keeps every generated take as a distinct managed asset. Takes share a durable retake group and continuity key while keeping their own job ID, seed and file. Retaking an older take still allocates the next group-wide take number instead of creating duplicate Take 2/Take 3 labels.
+
+Voice continuity is defined from adapter, voice, language, model, authorized reference asset and measured internal tempo factor. Seed is deliberately excluded so stochastic retakes can differ while remaining the same voice. Known request-level changes to text, adapter/voice, language or authorized reference are blocked before synthesis; the full continuity key is rechecked when saving the generated result.
+
+Scene narration now retains multiple takes per scene without stacking multiple active narration clips. A newly generated take remains inactive until the user explicitly chooses it. Selecting a take replaces only the active clip's source/duration for that scene; earlier and later take assets remain available, and the user can switch back reversibly through project history. Exactly one take is treated as active for a scene on the selected narration track.
+
+The full application gate passed 112/112 test files and 1070/1070 tests locally, followed by a successful production build. Completion Point 3 remains open for final longer-form continuity/quality acceptance and the remaining French accent-quality decision.

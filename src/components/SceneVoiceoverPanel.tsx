@@ -3,17 +3,33 @@ import { projectContentProfile } from '../core/contentProfile'
 import type { SpeechVoiceDescriptor } from '../core/speech'
 import { SpeechVoiceSelect } from './SpeechVoiceSelect'
 import { assemblyTargetTracks } from '../core/storyboardAssembly'
-import { voiceoverTargetTracks } from '../core/sceneVoiceover'
+import {
+  activeSceneNarrationAssetId,
+  registerSceneNarrationTake,
+  sceneNarrationTakes,
+  selectSceneNarrationTake,
+  voiceoverTargetTracks,
+  type VoiceoverScene
+} from '../core/sceneVoiceover'
 import { fitScenesToNarration, planNarrationFit, type NarrationFitResult } from '../core/narrationFit'
 import type { KinaouProject } from '../core/project'
 import type { PersistentVersionHistory } from '../core/versioning'
 import { WorkerClient } from '../core/workerClient'
 import { SceneNarrationSession, type NarrationFeedback } from '../core/sceneNarrationSession'
+import {
+  AudioStudioSession,
+  type AudioFeedback
+} from '../core/audioStudioSession'
 import { commitStoryboardChange } from '../core/storyboardEditing'
 import { useUiLanguage } from './UiLanguageProvider'
 import { displayTrackName } from '../core/uiSystemLabels'
 import { SpeechDeliveryControls } from './SpeechDeliveryControls'
 import { defaultSpeechDeliveryDraft, speechDeliveryOptionsFromDraft, type SpeechDeliveryDraft } from '../core/speechDelivery'
+import {
+  assertSpeechRetakeRequest,
+  speechRetakeContextForAsset
+} from '../core/speechRetakes'
+import { AudioJobStatus } from './AudioJobStatus'
 
 interface Props {
   project: KinaouProject
@@ -45,6 +61,10 @@ export function SceneVoiceoverPanel({ project, history, workerUrl, workerToken, 
   const [fitted, setFitted] = useState<NarrationFitResult | null>(null)
   const discovery = useRef(0)
   const session = useRef<SceneNarrationSession | null>(null)
+  const retakeSession = useRef<AudioStudioSession | null>(null)
+  const [retakeFeedback, setRetakeFeedback] = useState<AudioFeedback | null>(null)
+  const [retakeSceneId, setRetakeSceneId] = useState('')
+  const [retakeText, setRetakeText] = useState('')
   const available = workerConnected && workerCapabilities.includes('text-to-speech')
   const context = useRef({ project, workerUrl, workerToken, available })
   context.current = { project, workerUrl, workerToken, available }
@@ -53,7 +73,8 @@ export function SceneVoiceoverPanel({ project, history, workerUrl, workerToken, 
   const selectedVoiceTrack = voiceTracks.find((track) => track.id === effectiveVoice)
   const busy = Boolean(feedback && ['starting', 'queued', 'running', 'saving'].includes(feedback.phase))
   const unresolved = Boolean(feedback && ['startFailed', 'pollFailed', 'saveFailed'].includes(feedback.phase))
-  const locked = busy || unresolved || detecting
+  const retakeLocked = Boolean(retakeSession.current?.unresolved)
+  const locked = busy || unresolved || retakeLocked || detecting
   const plan = useMemo(() => {
     if (!effectiveVisual || !effectiveVoice) return { entries: [], error: '' }
     try { return { entries: planNarrationFit(project, effectiveVisual, effectiveVoice), error: '' } }
@@ -64,6 +85,11 @@ export function SceneVoiceoverPanel({ project, history, workerUrl, workerToken, 
   function detach() {
     session.current?.detach()
     session.current = null
+    retakeSession.current?.detach()
+    retakeSession.current = null
+    setRetakeFeedback(null)
+    setRetakeSceneId('')
+    setRetakeText('')
     setFeedback((previous) => previous && previous.phase !== 'complete' ? { ...previous, phase: 'detached', detail: undefined, done: [], skipped: [] } : null)
   }
   useEffect(() => {
@@ -106,6 +132,267 @@ export function SceneVoiceoverPanel({ project, history, workerUrl, workerToken, 
       setFitted(result)
     } catch (cause) { setError(String(cause)) }
   }
+  async function retakeScene(
+    sceneId: string,
+    sourceAssetId: string
+  ) {
+    if (
+      !available
+      || locked
+      || !effectiveVoice
+    ) return
+
+    clearResults()
+
+    try {
+      const selected =
+        voices.find(
+          entry =>
+            entry.id === voice
+        )
+
+      if (!selected) {
+        throw new Error(
+          'Selected speech voice is no longer available'
+        )
+      }
+
+      const source =
+        project.assets.find(
+          asset =>
+            asset.id ===
+            sourceAssetId
+        )
+
+      if (!source) {
+        throw new Error(
+          'Speech retake source is no longer available'
+        )
+      }
+
+      if (
+        source.metadata.adapterId
+          !== selected.adapterId
+        || source.metadata.voiceId
+          !== selected.id
+      ) {
+        throw new Error(
+          'Select the same speech voice before creating a retake'
+        )
+      }
+
+      const sourceText =
+        typeof source.metadata
+          .sourceText === 'string'
+          ? source.metadata
+              .sourceText.trim()
+          : ''
+
+      if (!sourceText) {
+        throw new Error(
+          'Speech retake source text is missing'
+        )
+      }
+
+      const storyboardScene =
+        project.storyboard.find(
+          entry =>
+            entry.id === sceneId
+        )
+
+      if (!storyboardScene) {
+        throw new Error(
+          'Storyboard scene is no longer available'
+        )
+      }
+
+      const sourceKind =
+        source.metadata.source
+          === 'storyboard-narration'
+          ? 'storyboard-narration'
+          : undefined
+
+      const scene: VoiceoverScene = {
+        sceneId,
+        title:
+          storyboardScene.title,
+        text:
+          sourceText,
+        startMs: 0,
+        sceneDurationMs:
+          storyboardScene.durationMs,
+        ...(sourceKind
+          ? {
+              textSource:
+                sourceKind
+            }
+          : {})
+      }
+
+      const speechOptions =
+        speechDeliveryOptionsFromDraft(
+          project,
+          selected,
+          delivery
+        )
+
+      assertSpeechRetakeRequest(
+        source,
+        sourceText,
+        selected,
+        speechOptions
+      )
+
+      const connection =
+        JSON.stringify([
+          workerUrl,
+          workerToken,
+          available
+        ])
+
+      setRetakeSceneId(
+        sceneId
+      )
+
+      setRetakeText(
+        sourceText
+      )
+
+      setRetakeFeedback(null)
+
+      const task =
+        new AudioStudioSession(
+          project,
+          connection,
+          sourceText,
+          selected,
+          {
+            client:
+              new WorkerClient({
+                baseUrl:
+                  workerUrl,
+                token:
+                  workerToken
+              }),
+            environment: () => ({
+              project:
+                context.current.project,
+              connection:
+                JSON.stringify([
+                  context.current.workerUrl,
+                  context.current.workerToken,
+                  context.current.available
+                ])
+            }),
+            snapshot: value =>
+              history.snapshot(
+                value,
+                'Before saving scene narration retake',
+                'system'
+              ),
+            persist: next => {
+              onProjectChange(next)
+              context.current.project =
+                next
+            },
+            publish: value => {
+              if (
+                retakeSession.current
+                  === task
+              ) {
+                setRetakeFeedback(
+                  value
+                )
+              }
+            },
+            speechOptions,
+            retakeContext:
+              speechRetakeContextForAsset(
+                source,
+                project.assets
+              ),
+            saveResult: (
+              base,
+              job,
+              _text,
+              retakeContext
+            ) => {
+              if (!retakeContext) {
+                throw new Error(
+                  'Scene retake context is required'
+                )
+              }
+
+              return registerSceneNarrationTake(
+                base,
+                scene,
+                job,
+                retakeContext
+              ).project
+            }
+          }
+        )
+
+      retakeSession.current =
+        task
+
+      await task.run()
+
+      if (
+        retakeSession.current
+          === task
+        && !task.unresolved
+      ) {
+        retakeSession.current =
+          null
+      }
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : String(cause)
+      )
+    }
+  }
+
+  function useSceneTake(
+    sceneId: string,
+    assetId: string
+  ) {
+    if (
+      !effectiveVoice
+      || locked
+    ) return
+
+    clearResults()
+
+    try {
+      const result =
+        commitStoryboardChange(
+          project,
+          () =>
+            selectSceneNarrationTake(
+              project,
+              sceneId,
+              assetId,
+              effectiveVoice
+            ),
+          history,
+          onProjectChange,
+          'Before changing scene narration take'
+        )
+
+      context.current.project =
+        result.project
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : String(cause)
+      )
+    }
+  }
+
   function narrate() {
     if (blockedReason || locked) return
     clearResults()
@@ -161,6 +448,69 @@ export function SceneVoiceoverPanel({ project, history, workerUrl, workerToken, 
     </div>}
     {fitted?.project === project && <div className="successBox" role="status">{t('narration.fitSaved', { count: fitted.fitted.length, seconds: seconds(fitted.addedMs), remaining: fitted.remaining.length })}</div>}
     {error && <div className="errorBox" role="alert">{t('narration.failure')}{details(error)}</div>}
+    {effectiveVoice && project.storyboard.some(scene => sceneNarrationTakes(project, scene.id).length > 0) && <div className="card">
+      <div className="eyebrow">{t('narration.retakes')}</div>
+      <p>{t('narration.retakesHelp')}</p>
+      <div className="assetList">
+        {project.storyboard.flatMap(scene => {
+          const takes = sceneNarrationTakes(project, scene.id)
+          if (!takes.length) return []
+
+          let activeAssetId: string | undefined
+          try {
+            activeAssetId = activeSceneNarrationAssetId(project, scene.id, effectiveVoice)
+          } catch {
+            activeAssetId = undefined
+          }
+
+          return [<div className="assetRow" key={scene.id}>
+            <div>
+              <strong>{scene.title}</strong>
+              <div className="assetList">
+                {takes.map(asset => {
+                  const index = Number(asset.metadata.speechRetakeIndex ?? 1)
+                  const active = asset.id === activeAssetId
+                  return <div className="assetRow" key={asset.id}>
+                    <div>
+                      <strong>{t('narration.take', { index })}</strong>
+                      <small>{seconds(Number(asset.metadata.durationMs ?? 0))} s · {String(asset.metadata.voiceId ?? asset.metadata.adapterId ?? '')}</small>
+                    </div>
+                    <div className="directorActions">
+                      {active
+                        ? <span className="badge">{t('narration.activeTake')}</span>
+                        : <button
+                            className="secondaryButton"
+                            disabled={locked}
+                            onClick={() => useSceneTake(scene.id, asset.id)}
+                          >{t('narration.useTake')}</button>}
+                      <button
+                        className="secondaryButton"
+                        disabled={locked || !voice}
+                        onClick={() => void retakeScene(scene.id, asset.id)}
+                      >{t('narration.retake')}</button>
+                    </div>
+                  </div>
+                })}
+              </div>
+            </div>
+          </div>]
+        })}
+      </div>
+    </div>}
+    {retakeFeedback && <div className="card">
+      <strong>{project.storyboard.find(scene => scene.id === retakeSceneId)?.title ?? ''}</strong>
+      <AudioJobStatus
+        feedback={retakeFeedback}
+        submittedText={retakeText}
+        onRetry={() => void retakeSession.current?.run()}
+        onCancel={() => void retakeSession.current?.cancel()}
+        onDetach={() => {
+          retakeSession.current?.detach()
+          retakeSession.current = null
+          setRetakeFeedback({ phase: 'detached' })
+        }}
+      />
+    </div>}
     {feedback && <div role="status">
       <p>{t(`narration.phase.${feedback.phase}`)}</p>
       {busy && <p>{t('narration.progress', { title: feedback.title ?? '', index: feedback.index, total: feedback.total, saved: feedback.done.length })}</p>}

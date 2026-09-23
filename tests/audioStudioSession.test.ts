@@ -6,6 +6,7 @@ import { createProject, type KinaouProject } from '../src/core/project'
 import { ProjectRepository } from '../src/core/persistence'
 import { PersistentVersionHistory } from '../src/core/versioning'
 import type { TtsJobRecord } from '../src/core/ttsJobs'
+import type { SpeechVoiceDescriptor } from '../src/core/speech'
 import { AudioStudioPanel } from '../src/components/AudioStudioPanel'
 import { AudioJobStatus } from '../src/components/AudioJobStatus'
 import { AssetPlacementControl } from '../src/components/AssetPlacementControl'
@@ -120,4 +121,278 @@ it.each(uiLanguages)('localizes placement without renaming original media or tra
   const project = { ...createProject('Original'), assets: [asset], tracks: [{ id: 'voice', name: 'Original <track>', type: 'voice' as const, muted: false, locked: true, clips: [] }] }
   const html = renderToStaticMarkup(createElement(UiLanguageProvider, { initialLanguage: language, children: createElement(AssetPlacementControl, { project, asset, onProjectChange: vi.fn() }) }))
   expect(html).toContain('Original &lt;voice&gt;'); expect(html).toContain('Original &lt;track&gt;'); expect(html).toContain(translateUi(language, 'placement.add')); expect(html).toContain('disabled=""')
+})
+
+it('explicit retake submits one new synthesis while preserving the earlier generated asset', async () => {
+  const genericVoice: SpeechVoiceDescriptor = {
+    id: 'chatterbox:multilingual-0.1.7',
+    adapterId: 'chatterbox',
+    label: 'Chatterbox',
+    locale: null,
+    capabilities: [
+      'synthesis',
+      'language-control',
+      'voice-clone',
+      'reference-audio'
+    ]
+  }
+
+  let project = createProject('Retakes')
+
+  const firstJob = {
+    id: 'first',
+    adapterId: 'chatterbox',
+    voiceId: genericVoice.id,
+    state: 'succeeded' as const,
+    progress: 1,
+    createdAt: 'a',
+    updatedAt: 'b',
+    language: 'de',
+    modelId: 'chatterbox-model',
+    referenceAssetId: 'own',
+    seed: 1,
+    tempoFactor: 1.25,
+    audioPath: 'KINAOU/Assets/GeneratedVoice/first.wav',
+    durationMs: 1000,
+    sizeBytes: 100
+  }
+
+  const secondJob = {
+    ...firstJob,
+    id: 'second',
+    seed: 2,
+    audioPath: 'KINAOU/Assets/GeneratedVoice/second.wav'
+  }
+
+  const firstClient = {
+    startSpeech: vi.fn(async () => firstJob),
+    speechStatus: vi.fn(),
+    cancelSpeech: vi.fn()
+  }
+
+  const first = new AudioStudioSession(
+    project,
+    'connection',
+    'Guten Morgen',
+    genericVoice,
+    {
+      client: firstClient,
+      environment: () => ({
+        project,
+        connection: 'connection'
+      }),
+      snapshot: vi.fn(),
+      persist: next => {
+        project = next
+      },
+      publish: vi.fn(),
+      speechOptions: {
+        language: 'de',
+        referenceAudio: {
+          assetId: 'own',
+          path: 'KINAOU/Assets/own.wav',
+          authorized: true
+        }
+      }
+    }
+  )
+
+  await first.run()
+
+  const source =
+    project.assets[0]
+
+  const {
+    speechRetakeContextForAsset
+  } = await import(
+    '../src/core/speechRetakes'
+  )
+
+  const secondClient = {
+    startSpeech: vi.fn(async () => secondJob),
+    speechStatus: vi.fn(),
+    cancelSpeech: vi.fn()
+  }
+
+  const retake = new AudioStudioSession(
+    project,
+    'connection',
+    'Guten Morgen',
+    genericVoice,
+    {
+      client: secondClient,
+      environment: () => ({
+        project,
+        connection: 'connection'
+      }),
+      snapshot: vi.fn(),
+      persist: next => {
+        project = next
+      },
+      publish: vi.fn(),
+      speechOptions: {
+        language: 'de',
+        referenceAudio: {
+          assetId: 'own',
+          path: 'KINAOU/Assets/own.wav',
+          authorized: true
+        }
+      },
+      retakeContext:
+        speechRetakeContextForAsset(
+          source
+        )
+    }
+  )
+
+  await retake.run()
+
+  expect(
+    firstClient.startSpeech
+  ).toHaveBeenCalledTimes(1)
+
+  expect(
+    secondClient.startSpeech
+  ).toHaveBeenCalledTimes(1)
+
+  expect(project.assets)
+    .toHaveLength(2)
+
+  expect(
+    project.assets.map(
+      asset =>
+        asset.metadata
+          .speechRetakeIndex
+    )
+  ).toEqual([1, 2])
+})
+
+it.each(uiLanguages)('renders retained Audio Studio takes without overwriting them in %s', language => {
+  const base = createProject('Audio takes')
+  const project = {
+    ...base,
+    script: 'Original words',
+    assets: [
+      {
+        id: 'take-1',
+        kind: 'audio' as const,
+        uri:
+          'KINAOU/Assets/GeneratedVoice/take-1.wav',
+        managed: true,
+        offline: false,
+        metadata: {
+          name: 'Generated voice',
+          durationMs: 1000,
+          adapterId: 'chatterbox',
+          voiceId:
+            'chatterbox:multilingual-0.1.7',
+          speechJobId: 'job-1',
+          sourceText:
+            'Original words',
+          speechRetakeGroupId:
+            'group',
+          speechRetakeIndex: 1,
+          speechContinuityKey:
+            'continuity'
+        }
+      },
+      {
+        id: 'take-2',
+        kind: 'audio' as const,
+        uri:
+          'KINAOU/Assets/GeneratedVoice/take-2.wav',
+        managed: true,
+        offline: false,
+        metadata: {
+          name: 'Generated voice',
+          durationMs: 1100,
+          adapterId: 'chatterbox',
+          voiceId:
+            'chatterbox:multilingual-0.1.7',
+          speechJobId: 'job-2',
+          sourceText:
+            'Original words',
+          speechRetakeGroupId:
+            'group',
+          speechRetakeIndex: 2,
+          speechRetakeOfAssetId:
+            'take-1',
+          speechContinuityKey:
+            'continuity'
+        }
+      }
+    ]
+  }
+
+  const data =
+    new Map<string, string>()
+
+  const history =
+    new PersistentVersionHistory({
+      getItem:
+        key =>
+          data.get(key) ?? null,
+      setItem:
+        (key, value) => {
+          data.set(key, value)
+        },
+      removeItem:
+        key => {
+          data.delete(key)
+        }
+    })
+
+  const html =
+    renderToStaticMarkup(
+      createElement(
+        UiLanguageProvider,
+        {
+          initialLanguage: language,
+          children:
+            createElement(
+              AudioStudioPanel,
+              {
+                project,
+                history,
+                workerUrl:
+                  'http://127.0.0.1:43117',
+                workerToken:
+                  'token',
+                workerConnected:
+                  true,
+                workerCapabilities:
+                  ['text-to-speech'],
+                onProjectChange:
+                  vi.fn()
+              }
+            )
+        }
+      )
+    )
+
+  expect(html)
+    .toContain(
+      translateUi(
+        language,
+        'audio.retake'
+      )
+    )
+
+  expect(html)
+    .toContain(
+      translateUi(
+        language,
+        'audio.take',
+        { index: 1 }
+      )
+    )
+
+  expect(html)
+    .toContain(
+      translateUi(
+        language,
+        'audio.take',
+        { index: 2 }
+      )
+    )
 })

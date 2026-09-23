@@ -1,7 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import { assetSchema, clipSchema, createProject, trackSchema, type KinaouProject } from '../src/core/project'
-import { placeSceneNarration, planSceneVoiceovers, voiceoverTargetTracks } from '../src/core/sceneVoiceover'
+import {
+  activeSceneNarrationAssetId,
+  placeSceneNarration,
+  planSceneVoiceovers,
+  registerSceneNarrationTake,
+  sceneNarrationTakes,
+  selectSceneNarrationTake,
+  voiceoverTargetTracks
+} from '../src/core/sceneVoiceover'
 import type { TtsJobRecord } from '../src/core/ttsJobs'
+import {
+  speechRetakeContextForAsset
+} from '../src/core/speechRetakes'
 
 function baseProject(): KinaouProject {
   const visual = assetSchema.parse({ id: 'a1', kind: 'image', uri: 'KINAOU/Assets/a1.png', managed: true, offline: false, metadata: {} })
@@ -133,5 +144,209 @@ describe('narration for a picture that appears in two scenes', () => {
       ]
     }
     expect(planSceneVoiceovers(project, 'video-1').pending.map((entry) => [entry.sceneId, entry.startMs])).toEqual([['s1', 0], ['s2', 4000]])
+  })
+})
+
+describe('scene narration retakes', () => {
+  it('keeps a new retake inactive until explicitly selected and preserves the earlier take', () => {
+    const project = baseProject()
+    const [scene] =
+      planSceneVoiceovers(
+        project,
+        'video-1'
+      ).pending
+
+    const first =
+      placeSceneNarration(
+        project,
+        scene,
+        job(3000, 'take-1'),
+        'voice-1'
+      )
+
+    const firstAsset =
+      first.project.assets.find(
+        asset =>
+          asset.id ===
+          first.narrated.assetId
+      )!
+
+    const firstActive =
+      activeSceneNarrationAssetId(
+        first.project,
+        scene.sceneId,
+        'voice-1'
+      )
+
+    expect(firstActive)
+      .toBe(firstAsset.id)
+
+    const retake =
+      registerSceneNarrationTake(
+        first.project,
+        scene,
+        job(3500, 'take-2'),
+        speechRetakeContextForAsset(
+          firstAsset
+        )
+      )
+
+    expect(
+      sceneNarrationTakes(
+        retake.project,
+        scene.sceneId
+      )
+    ).toHaveLength(2)
+
+    expect(
+      activeSceneNarrationAssetId(
+        retake.project,
+        scene.sceneId,
+        'voice-1'
+      )
+    ).toBe(firstAsset.id)
+
+    const switched =
+      selectSceneNarrationTake(
+        retake.project,
+        scene.sceneId,
+        retake.asset.id,
+        'voice-1'
+      )
+
+    expect(
+      switched.previousAssetId
+    ).toBe(firstAsset.id)
+
+    expect(
+      activeSceneNarrationAssetId(
+        switched.project,
+        scene.sceneId,
+        'voice-1'
+      )
+    ).toBe(retake.asset.id)
+
+    const clip =
+      switched.project.tracks
+        .find(
+          track =>
+            track.id ===
+            'voice-1'
+        )!
+        .clips[0]
+
+    expect(clip)
+      .toMatchObject({
+        assetId:
+          retake.asset.id,
+        durationMs: 3500,
+        sourceOffsetMs: 0,
+        speed: 1,
+        sceneId:
+          scene.sceneId
+      })
+
+    expect(
+      switched.project.assets
+        .some(
+          asset =>
+            asset.id ===
+            firstAsset.id
+        )
+    ).toBe(true)
+  })
+
+  it('can switch back to an earlier take without deleting the newer one', () => {
+    const project = baseProject()
+    const [scene] =
+      planSceneVoiceovers(
+        project,
+        'video-1'
+      ).pending
+
+    const first =
+      placeSceneNarration(
+        project,
+        scene,
+        job(3000, 'take-1'),
+        'voice-1'
+      )
+
+    const firstAsset =
+      first.project.assets.find(
+        asset =>
+          asset.id ===
+          first.narrated.assetId
+      )!
+
+    const second =
+      registerSceneNarrationTake(
+        first.project,
+        scene,
+        job(3500, 'take-2'),
+        speechRetakeContextForAsset(
+          firstAsset
+        )
+      )
+
+    const usingSecond =
+      selectSceneNarrationTake(
+        second.project,
+        scene.sceneId,
+        second.asset.id,
+        'voice-1'
+      ).project
+
+    const back =
+      selectSceneNarrationTake(
+        usingSecond,
+        scene.sceneId,
+        firstAsset.id,
+        'voice-1'
+      ).project
+
+    expect(
+      activeSceneNarrationAssetId(
+        back,
+        scene.sceneId,
+        'voice-1'
+      )
+    ).toBe(firstAsset.id)
+
+    expect(
+      sceneNarrationTakes(
+        back,
+        scene.sceneId
+      )
+    ).toHaveLength(2)
+  })
+
+  it('refuses cross-scene or unavailable take selection', () => {
+    const project = baseProject()
+    const [scene] =
+      planSceneVoiceovers(
+        project,
+        'video-1'
+      ).pending
+
+    const first =
+      placeSceneNarration(
+        project,
+        scene,
+        job(3000),
+        'voice-1'
+      )
+
+    expect(
+      () =>
+        selectSceneNarrationTake(
+          first.project,
+          'another-scene',
+          first.narrated.assetId,
+          'voice-1'
+        )
+    ).toThrow(
+      'not available'
+    )
   })
 })

@@ -12,6 +12,7 @@ import {
 } from './speechJobs'
 import type { TtsJobRecord } from './ttsJobs'
 import type { WorkerClient } from './workerClient'
+import type { SpeechRetakeContext } from './speechRetakes'
 
 export type AudioPhase =
   | 'starting'
@@ -163,6 +164,13 @@ export class AudioStudioSession {
       publish: (feedback: AudioFeedback) => void
       wait?: () => Promise<void>
       speechOptions?: SpeechDeliveryOptions
+      retakeContext?: SpeechRetakeContext
+      saveResult?: (
+        project: KinaouProject,
+        job: SpeechJobRecord,
+        text: string,
+        retakeContext?: SpeechRetakeContext
+      ) => KinaouProject
     }
   ) {
     this.text = text.trim()
@@ -314,11 +322,20 @@ export class AudioStudioSession {
         phase = 'saving'
         this.publish(phase)
 
-        const next = registerGeneratedVoice(
-          this.project,
-          this.job!,
-          this.text
-        )
+        const next =
+          this.deps.saveResult
+            ? this.deps.saveResult(
+                this.project,
+                this.job!,
+                this.text,
+                this.deps.retakeContext
+              )
+            : registerGeneratedVoice(
+                this.project,
+                this.job!,
+                this.text,
+                this.deps.retakeContext
+              )
 
         if (!this.snapshotDone) {
           this.deps.snapshot(this.project)

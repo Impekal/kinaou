@@ -144,3 +144,112 @@ it('provides translated stable skip codes with original track names', () => {
   const p = fixture(); p.tracks[0].clips = []
   expect(planSceneVoiceovers(p, 'visual').skipped[0]).toMatchObject({ code: 'unplaced', values: { track: 'Original <track>' } })
 })
+
+it.each(uiLanguages)('renders retained scene takes and active-take controls in %s', language => {
+  const base = fixture()
+  const firstAsset = {
+    id: 'take-1',
+    kind: 'audio' as const,
+    managed: true,
+    offline: false,
+    uri: 'KINAOU/Assets/GeneratedVoice/take-1.wav',
+    metadata: {
+      name: 'Take 1',
+      durationMs: 1000,
+      adapterId: 'chatterbox',
+      voiceId: 'chatterbox:multilingual-0.1.7',
+      speechJobId: 'job-1',
+      sourceText: 'Spoken words, not visual directions',
+      sceneId: 'scene',
+      speechRetakeGroupId: 'group',
+      speechRetakeIndex: 1,
+      speechContinuityKey: 'continuity'
+    }
+  }
+  const secondAsset = {
+    ...firstAsset,
+    id: 'take-2',
+    uri: 'KINAOU/Assets/GeneratedVoice/take-2.wav',
+    metadata: {
+      ...firstAsset.metadata,
+      name: 'Take 2',
+      speechJobId: 'job-2',
+      speechRetakeIndex: 2,
+      speechRetakeOfAssetId: 'take-1'
+    }
+  }
+  const project = parseProject({
+    ...base,
+    assets: [
+      ...base.assets,
+      firstAsset,
+      secondAsset
+    ],
+    tracks: base.tracks.map(track =>
+      track.id === 'voice'
+        ? {
+            ...track,
+            clips: [{
+              id: 'voice-clip',
+              assetId: 'take-2',
+              startMs: 0,
+              durationMs: 1000,
+              sourceOffsetMs: 0,
+              gain: 1,
+              speed: 1,
+              sceneId: 'scene'
+            }]
+          }
+        : track
+    )
+  })
+
+  const html = renderToStaticMarkup(
+    createElement(
+      UiLanguageProvider,
+      {
+        initialLanguage: language,
+        children: createElement(
+          SceneVoiceoverPanel,
+          {
+            project,
+            history: history(),
+            workerUrl: 'http://127.0.0.1:43117',
+            workerToken: 'token',
+            workerConnected: true,
+            workerCapabilities: ['text-to-speech'],
+            onProjectChange: vi.fn()
+          }
+        )
+      }
+    )
+  )
+
+  expect(html).toContain(
+    translateUi(
+      language,
+      'narration.retakes'
+    )
+  )
+
+  expect(html).toContain(
+    translateUi(
+      language,
+      'narration.activeTake'
+    )
+  )
+
+  expect(html).toContain(
+    translateUi(
+      language,
+      'narration.useTake'
+    )
+  )
+
+  expect(html).toContain(
+    translateUi(
+      language,
+      'narration.retake'
+    )
+  )
+})
