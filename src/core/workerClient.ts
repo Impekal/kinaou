@@ -13,6 +13,12 @@ import { parseWebCaptureBrowsers, parseWebCaptureJob, type WebCaptureBrowser, ty
 import { assertSafeManagedPath } from './storage'
 import { managedPublishPathSchema, parsePublishPreflightResult, publishIntegrityResultSchema, publishPackageListSchema, publishPackageRequestSchema, publishPackageResultSchema, publishProjectIdSchema, type PublishIntegrityResult, type PublishPackageEntry, type PublishPackageRequest, type PublishPackageResult, type PublishPreflightResult } from './publishPackage'
 import { exportReceiptSchema, type ExportReceipt } from './exportHistory'
+import {
+  avatarReceiptExportResultSchema,
+  managedFileHashEvidenceSchema,
+  type AvatarReceiptExportResult,
+  type ManagedFileHashEvidence
+} from './avatarReceipt'
 
 export interface WorkerClientOptions {
   baseUrl: string
@@ -114,6 +120,133 @@ export class WorkerClient {
     const result = publishIntegrityResultSchema.parse(payload.result)
     if (result.packagePath !== packagePath) throw new Error('Publish package integrity result does not match the requested package')
     return result
+  }
+
+  async hashManagedAssets(
+    paths: string[]
+  ): Promise<ManagedFileHashEvidence[]> {
+    if (
+      !paths.length
+      || paths.length > 64
+    ) {
+      throw new Error(
+        'Managed hashing accepts 1–64 asset paths'
+      )
+    }
+
+    if (
+      new Set(paths).size
+        !== paths.length
+    ) {
+      throw new Error(
+        'Managed hash paths must be unique'
+      )
+    }
+
+    for (
+      const value
+      of paths
+    ) {
+      let canonical = ''
+
+      try {
+        canonical =
+          assertSafeManagedPath(
+            value
+          )
+      } catch {
+        canonical = ''
+      }
+
+      if (
+        canonical !== value
+        || !value.startsWith(
+          'KINAOU/Assets/'
+        )
+      ) {
+        throw new Error(
+          'Invalid managed asset hash path'
+        )
+      }
+    }
+
+    const payload =
+      await this.request(
+        '/assets/hash',
+        {
+          method: 'POST',
+          body:
+            JSON.stringify({
+              paths
+            })
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'managed-file-hashes'
+      || !Array.isArray(
+        payload.results
+      )
+    ) {
+      throw new Error(
+        'Invalid managed hash response'
+      )
+    }
+
+    return payload.results.map(
+      (
+        entry: unknown,
+        index: number
+      ) => {
+        const parsed =
+          managedFileHashEvidenceSchema
+            .parse(entry)
+
+        if (
+          parsed.id
+            !== String(index)
+          || parsed.path
+            !== paths[index]
+        ) {
+          throw new Error(
+            'Managed hash response does not match the requested asset'
+          )
+        }
+
+        return parsed
+      }
+    )
+  }
+
+  async exportAvatarCreationReceipt(
+    document: unknown
+  ): Promise<AvatarReceiptExportResult> {
+    const payload =
+      await this.request(
+        '/avatar/receipts/export',
+        {
+          method: 'POST',
+          body:
+            JSON.stringify({
+              document
+            })
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'avatar-creation-receipt'
+    ) {
+      throw new Error(
+        'Invalid avatar creation receipt response'
+      )
+    }
+
+    return avatarReceiptExportResultSchema
+      .parse(payload.result)
   }
 
   async assetAvailability(paths: string[]): Promise<Array<{ path: string; available: boolean }>> {
