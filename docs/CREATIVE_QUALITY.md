@@ -150,3 +150,36 @@ Each accepted take receives a creation receipt linking:
 - output SHA-256 field.
 
 4.2A defines and validates this evidence structure. Subsequent work must calculate hashes from actual managed files and export receipts so the evidence can leave KINAOU with the produced content.
+
+### Cryptographic Avatar Creation Receipt (2026-09-23)
+
+Avatar provenance is now anchored to real file bytes.
+
+For each exported avatar receipt, KINAOU can record:
+- the exact managed identity/reference files;
+- SHA-256 of each source file;
+- the exact generated image/video file;
+- SHA-256 of that generated output;
+- the persistent Avatar Identity and Avatar Version;
+- the optional Scene Instance;
+- job, seed, prompt and targeted edit instruction;
+- engine/model identity and versions;
+- captured model/license rights metadata;
+- the exported receipt JSON path;
+- SHA-256 of the receipt JSON itself.
+
+The worker computes hashes directly from managed files and checks that the file did not change while hashing. Provenance therefore describes the bytes that actually existed at evidence-capture time instead of trusting hashes supplied by the UI.
+
+Receipt JSON files are write-once for a receipt identity. A second export is idempotent when the underlying evidence is unchanged. If the existing receipt and current source/output hashes differ, KINAOU refuses to overwrite the old evidence.
+
+The evidence chain is therefore:
+
+source/reference bytes
+→ source SHA-256
+→ avatar generation lineage
+→ generated output bytes
+→ output SHA-256
+→ creation receipt JSON
+→ receipt SHA-256.
+
+This proves file identity and recorded production provenance. It does not by itself prove copyright ownership, consent, personality rights, trademark clearance or the truth of a user's authorization statement; those remain distinct legal/evidentiary questions.

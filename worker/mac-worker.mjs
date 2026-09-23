@@ -31,6 +31,12 @@ import { DEFAULT_OSASCRIPT_PATH, DEFAULT_SCREENCAPTURE_PATH, buildAppActivateCom
 import os from 'node:os'
 import { buildWebCaptureCommand, buildWebCaptureProvenance, validateWebCaptureRequest, webCaptureBrowserCandidates, webCaptureProfileDirectory, webCapturePaths } from './webcapture.mjs'
 import { buildPublishPackageDocument, buildPublishPreflightResult, publishPackageRelativePath, validatePublishExportReceipt, validatePublishPackageDocument, validatePublishPackagePath, validatePublishPackageRequest, validatePublishProjectId } from './publish-package.mjs'
+import {
+  avatarReceiptRelativePath,
+  existingAvatarReceiptMatches,
+  finalizeAvatarReceiptDocument,
+  validateAvatarReceiptExportDocument
+} from './avatar-receipt.mjs'
 
 const HOST = '127.0.0.1'
 const PORT = Number(process.env.KINAOU_WORKER_PORT ?? 43117)
@@ -128,7 +134,7 @@ const server = http.createServer(async (request, response) => {
           name: 'KINAOU Mac Worker',
           platform: process.platform,
           version: VERSION,
-          capabilities: ['filesystem', 'asset-upload', 'publish-package-library', 'publish-package-integrity', 'format-reframing', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe', 'publish-preflight', 'publish-package'] : []), ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(((PIPER_CLI && piperVoices.length) || chatterboxRuntime?.available) && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : [])],
+          capabilities: ['filesystem', 'asset-upload', 'managed-sha256', 'avatar-creation-receipt', 'publish-package-library', 'publish-package-integrity', 'format-reframing', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe', 'publish-preflight', 'publish-package'] : []), ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(((PIPER_CLI && piperVoices.length) || chatterboxRuntime?.available) && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : [])],
           managedRoots: [MANAGED_ROOT],
           ffmpegVersion: versions.ffmpeg,
           ffprobeVersion: versions.ffprobe
@@ -427,6 +433,97 @@ const server = http.createServer(async (request, response) => {
       return send(response, 201, { ok: true, type: 'media-waveform', result: { path: outputRelativePath, sizeBytes: info.size } })
     }
 
+    if (request.method === 'POST' && request.url === '/assets/hash') {
+      const body =
+        await readJson(request)
+
+      if (
+        !Array.isArray(
+          body.paths
+        )
+        || body.paths.length === 0
+        || body.paths.length > 64
+      ) {
+        throw new Error(
+          'paths must be a non-empty array of at most 64 managed asset paths'
+        )
+      }
+
+      const unique =
+        [...new Set(body.paths)]
+
+      if (
+        unique.length
+          !== body.paths.length
+      ) {
+        throw new Error(
+          'Managed hash paths must be unique'
+        )
+      }
+
+      const results = []
+
+      for (
+        let index = 0;
+        index < unique.length;
+        index += 1
+      ) {
+        const relativePath =
+          requireManagedRelativePath(
+            unique[index]
+          )
+
+        if (
+          !relativePath.startsWith(
+            'KINAOU/Assets/'
+          )
+        ) {
+          throw unauthorizedPath(
+            'Managed hashing is limited to KINAOU/Assets'
+          )
+        }
+
+        results.push(
+          await managedFileHashEvidence(
+            relativePath,
+            String(index)
+          )
+        )
+      }
+
+      return send(
+        response,
+        200,
+        {
+          ok: true,
+          type:
+            'managed-file-hashes',
+          results
+        }
+      )
+    }
+
+    if (request.method === 'POST' && request.url === '/avatar/receipts/export') {
+      const body =
+        await readJson(request)
+
+      const result =
+        await exportAvatarCreationReceipt(
+          body.document
+        )
+
+      return send(
+        response,
+        201,
+        {
+          ok: true,
+          type:
+            'avatar-creation-receipt',
+          result
+        }
+      )
+    }
+
     if (request.method === 'POST' && request.url === '/assets/availability') {
       const body = await readJson(request)
       if (!Array.isArray(body.paths) || body.paths.length === 0 || body.paths.length > 1000) throw new Error('paths must be a non-empty array of at most 1000 managed paths')
@@ -691,26 +788,215 @@ async function preflightPublishExport(exportReceipt) {
   return buildPublishPreflightResult(exportReceipt, { ...probe, sizeBytes: sourceInfo.size }, new Date().toISOString())
 }
 
-async function sha256ManagedFile(relativePath, expectedSize) {
+async function sha256ManagedFile(relativePath, expectedSize, label = 'Publish source') {
   const absolutePath = resolveManaged(relativePath)
   const handle = await open(absolutePath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW)
   const buffer = Buffer.allocUnsafe(1024 * 1024)
   try {
     const before = await handle.stat()
-    if (!before.isFile() || before.size <= 0 || before.size !== expectedSize) throw new Error('Publish source changed before its integrity fingerprint could be captured')
+    if (!before.isFile() || before.size <= 0 || before.size !== expectedSize) throw new Error(`${label} changed before its integrity fingerprint could be captured`)
     const hash = crypto.createHash('sha256')
     let position = 0
     while (position < before.size) {
       const { bytesRead } = await handle.read(buffer, 0, Math.min(buffer.length, before.size - position), position)
-      if (bytesRead <= 0) throw new Error('Publish source ended while its integrity fingerprint was being captured')
+      if (bytesRead <= 0) throw new Error(`${label} ended while its integrity fingerprint was being captured`)
       hash.update(buffer.subarray(0, bytesRead))
       position += bytesRead
     }
     const after = await handle.stat()
-    if (after.size !== before.size || after.mtimeMs !== before.mtimeMs || after.ctimeMs !== before.ctimeMs || after.ino !== before.ino || after.dev !== before.dev) throw new Error('Publish source changed while its integrity fingerprint was being captured')
+    if (after.size !== before.size || after.mtimeMs !== before.mtimeMs || after.ctimeMs !== before.ctimeMs || after.ino !== before.ino || after.dev !== before.dev) throw new Error(`${label} changed while its integrity fingerprint was being captured`)
     return hash.digest('hex')
   } finally {
     await handle.close()
+  }
+}
+
+async function managedFileHashEvidence(relativePath, id) {
+  const absolutePath =
+    resolveManaged(relativePath)
+
+  const info =
+    await lstat(
+      absolutePath
+    ).catch(() => null)
+
+  if (
+    !info?.isFile()
+    || info.isSymbolicLink()
+    || info.size <= 0
+  ) {
+    throw new Error(
+      'Managed evidence source is missing, empty or not a regular file'
+    )
+  }
+
+  const sha256 =
+    await sha256ManagedFile(
+      relativePath,
+      info.size,
+      'Managed evidence file'
+    )
+
+  return {
+    id,
+    path: relativePath,
+    sizeBytes: info.size,
+    sha256
+  }
+}
+
+async function exportAvatarCreationReceipt(documentValue) {
+  const document =
+    validateAvatarReceiptExportDocument(
+      documentValue
+    )
+
+  const outputPath =
+    requireManagedRelativePath(
+      document.output.uri
+    )
+
+  const output =
+    await managedFileHashEvidence(
+      outputPath,
+      document.output.id
+    )
+
+  const sources = []
+
+  for (
+    const source
+    of document.sources
+  ) {
+    const sourcePath =
+      requireManagedRelativePath(
+        source.uri
+      )
+
+    sources.push(
+      await managedFileHashEvidence(
+        sourcePath,
+        source.id
+      )
+    )
+  }
+
+  const capturedAt =
+    new Date().toISOString()
+
+  const finalized =
+    finalizeAvatarReceiptDocument(
+      document,
+      {
+        capturedAt,
+        output,
+        sources
+      }
+    )
+
+  const relativePath =
+    avatarReceiptRelativePath(
+      document
+    )
+
+  const absolutePath =
+    resolveManaged(relativePath)
+
+  await mkdir(
+    path.dirname(
+      absolutePath
+    ),
+    {
+      recursive: true
+    }
+  )
+
+  let createdAt =
+    capturedAt
+
+  try {
+    await writeFile(
+      absolutePath,
+      JSON.stringify(
+        finalized,
+        null,
+        2
+      ),
+      {
+        encoding: 'utf8',
+        flag: 'wx'
+      }
+    )
+  } catch (error) {
+    if (
+      error?.code !== 'EEXIST'
+    ) {
+      throw error
+    }
+
+    const existing =
+      JSON.parse(
+        await readFile(
+          absolutePath,
+          'utf8'
+        )
+      )
+
+    if (
+      !existingAvatarReceiptMatches(
+        existing,
+        finalized
+      )
+    ) {
+      throw new Error(
+        'Existing avatar receipt no longer matches the current source/output evidence'
+      )
+    }
+
+    if (
+      typeof existing
+        ?.evidence
+        ?.capturedAt === 'string'
+    ) {
+      createdAt =
+        existing.evidence
+          .capturedAt
+    }
+  }
+
+  const receiptInfo =
+    await stat(
+      absolutePath
+    )
+
+  if (
+    !receiptInfo.isFile()
+    || receiptInfo.size <= 0
+  ) {
+    throw new Error(
+      'Avatar receipt export produced no file'
+    )
+  }
+
+  const documentSha256 =
+    await sha256ManagedFile(
+      relativePath,
+      receiptInfo.size,
+      'Avatar receipt'
+    )
+
+  return {
+    schemaVersion: 1,
+    receiptId:
+      document.receipt.id,
+    path:
+      relativePath,
+    createdAt,
+    sizeBytes:
+      receiptInfo.size,
+    documentSha256,
+    output,
+    sources
   }
 }
 
