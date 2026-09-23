@@ -58,6 +58,84 @@ export const trackSchema = z.object({
   clips: z.array(clipSchema).default([])
 })
 
+export const avatarSourceSchema = z.object({
+  kind: z.enum([
+    'preset',
+    'prompt',
+    'image',
+    'video',
+    'multi-reference'
+  ]),
+  presetId: z.string().min(1).optional(),
+  prompt: z.string().max(8000).default(''),
+  assetIds: z.array(
+    z.string().min(1)
+  ).max(12).default([]),
+  rights: z.object({
+    basis: z.enum([
+      'preset',
+      'generated',
+      'own',
+      'authorized'
+    ]),
+    commercialUseIntended:
+      z.boolean().default(true),
+    confirmedAt:
+      z.string().datetime().optional()
+  })
+})
+
+export const avatarVersionSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1).max(120),
+  createdAt: z.string().datetime(),
+  parentVersionId: z.string().min(1).optional(),
+  source: avatarSourceSchema,
+  prompt: z.string().max(8000).default(''),
+  editInstruction: z.string().max(8000).default(''),
+  previewAssetId: z.string().min(1).optional(),
+  outputAssetId: z.string().min(1).optional(),
+  metadata: z.record(
+    z.string(),
+    z.unknown()
+  ).default({})
+})
+
+export const avatarIdentitySchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).max(80),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  activeVersionId: z.string().min(1),
+  versions: z.array(
+    avatarVersionSchema
+  ).min(1),
+  voiceAssetId: z.string().min(1).optional(),
+  metadata: z.record(
+    z.string(),
+    z.unknown()
+  ).default({})
+})
+
+export const avatarInstanceSchema = z.object({
+  id: z.string().min(1),
+  avatarId: z.string().min(1),
+  versionId: z.string().min(1),
+  sceneId: z.string().min(1).optional(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  prompt: z.string().max(8000).default(''),
+  environmentPrompt: z.string().max(8000).default(''),
+  motionPrompt: z.string().max(8000).default(''),
+  expressionPrompt: z.string().max(8000).default(''),
+  voiceAssetId: z.string().min(1).optional(),
+  outputAssetId: z.string().min(1).optional(),
+  metadata: z.record(
+    z.string(),
+    z.unknown()
+  ).default({})
+})
+
 export const projectSchema = z.object({
   schemaVersion: z.literal(1),
   id: z.string().min(1),
@@ -76,6 +154,12 @@ export const projectSchema = z.object({
   })).default([]),
   assets: z.array(assetSchema).default([]),
   tracks: z.array(trackSchema).default([]),
+  avatars: z.array(
+    avatarIdentitySchema
+  ).default([]),
+  avatarInstances: z.array(
+    avatarInstanceSchema
+  ).default([]),
   metadata: z.record(z.string(), z.unknown()).default({})
 })
 
@@ -83,6 +167,10 @@ export type KinaouProject = z.infer<typeof projectSchema>
 export type KinaouAsset = z.infer<typeof assetSchema>
 export type TimelineTrack = z.infer<typeof trackSchema>
 export type TimelineClip = z.infer<typeof clipSchema>
+export type AvatarSource = z.infer<typeof avatarSourceSchema>
+export type AvatarVersion = z.infer<typeof avatarVersionSchema>
+export type AvatarIdentity = z.infer<typeof avatarIdentitySchema>
+export type AvatarInstance = z.infer<typeof avatarInstanceSchema>
 
 export function createProject(title: string, now = new Date()): KinaouProject {
   const timestamp = now.toISOString()
@@ -96,6 +184,8 @@ export function createProject(title: string, now = new Date()): KinaouProject {
     storyboard: [],
     assets: [],
     tracks: [],
+    avatars: [],
+    avatarInstances: [],
     metadata: {}
   })
 }

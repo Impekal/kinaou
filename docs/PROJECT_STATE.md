@@ -389,3 +389,15 @@ Audio Studio and scene narration preserve multiple takes non-destructively. Exac
 The truthful Chatterbox capability set remains synthesis, language control, voice cloning and reference audio. Free-form style instruction and user-selectable pace control are not advertised by this adapter.
 
 With completion points 1, 2 and 3 complete, the next sequential completion target is Point 4: real animated avatars with actual photo/video identity, motion, expression and lip-sync output review.
+
+### 2026-09-23 — Avatar Studio 4.1 persistent identity foundation
+
+Completion Point 4 has been expanded from a narrow animated-avatar feature into a persistent reusable character system. The target is a private KINAOU Avatar Studio in which one identity can be created from a preset, text description, image, video or multiple references, then retained, revised into non-destructive versions and reused across many video scenes.
+
+The project document now stores avatar identities separately from generated media. Each identity owns one or more lineage versions and one active version. A version can inherit from an earlier version with a targeted edit instruction while retaining the original version for later reactivation. Scene instances reference an avatar identity and exact version and can independently describe scenario/action, environment, motion/pose and expression/performance. A project audio asset can be bound as the avatar's default voice.
+
+Imported image/video identity sources require explicit confirmation that the user either owns the references or has authorization to use them. The selected rights basis and confirmation timestamp are stored with the avatar source. This records the user's representation and intended commercial use of resulting content; it is provenance evidence rather than an automatic legal conclusion.
+
+Avatar Studio is now the main Avatar navigation surface. The earlier voiced-still presenter remains in the codebase as an existing composition primitive but is no longer presented as the Avatar product target.
+
+No real avatar-generation engine is claimed in 4.1. Identity synthesis/continuity, targeted visual regeneration, body/head motion, expression control, audio-driven lip sync, generated-take provenance and real-output acceptance remain for subsequent Point 4 slices.

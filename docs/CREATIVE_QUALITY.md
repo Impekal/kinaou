@@ -114,3 +114,17 @@ The final Point 3 quality contract therefore includes:
 - honest capability reporting without invented style or pace controls.
 
 Completion Point 3 is accepted complete under those measured boundaries.
+
+### Avatar identity and rights provenance foundation (2026-09-23)
+
+An avatar is now modeled as a persistent identity rather than a generated clip. The core lineage is:
+
+Avatar Identity → Avatar Version → Scene Instance → future Generated Take.
+
+Imported identity references require an explicit user representation that the references are owned by the user or used with authorization. KINAOU stores that basis and confirmation time with the source identity. Prompt-created and preset-created identities are separately marked as generated or preset sources.
+
+This provenance must remain attached when later engines create images, motion or lip-synced video from an avatar. Future generated-take receipts should additionally capture the exact engine/model version, parameters, prompt/edit instructions, source hashes, output hash and applicable engine/model rights snapshot so the production path can be demonstrated later.
+
+The rights record separates two questions deliberately: whether the source/reference use was represented as authorized, and whether a particular engine/model permits the intended commercial use of generated output. Future model adapters must keep those facts distinct.
+
+This foundation does not itself prove copyright ownership, personality rights, trademark clearance or commercial permission from a model provider. KINAOU documents evidence and provenance rather than inventing legal conclusions.

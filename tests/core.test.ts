@@ -13,6 +13,8 @@ describe('project engine', () => {
     expect(project.title).toBe('First film')
     expect(project.assets).toEqual([])
     expect(project.tracks).toEqual([])
+    expect(project.avatars).toEqual([])
+    expect(project.avatarInstances).toEqual([])
   })
 
   it('applies timeline operations without mutating the source project', () => {
