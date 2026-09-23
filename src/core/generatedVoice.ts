@@ -45,6 +45,27 @@ export function registerGeneratedVoice(
     voiceId: job.voiceId,
     speechJobId: job.id,
     sourceText: text,
+    ...(job.language
+      ? { speechLanguage: job.language }
+      : {}),
+    ...(job.modelId
+      ? { speechModelId: job.modelId }
+      : {}),
+    ...(job.referenceAssetId
+      ? {
+          speechReferenceAssetId:
+            job.referenceAssetId
+        }
+      : {}),
+    ...(job.seed !== undefined
+      ? { speechSeed: job.seed }
+      : {}),
+    ...(job.tempoFactor !== undefined
+      ? {
+          speechTempoFactor:
+            job.tempoFactor
+        }
+      : {}),
     ...(job.adapterId === 'piper' ? {
       voicePath: job.voiceId,
       ttsJobId: job.id
