@@ -16,6 +16,7 @@ import { uiShortPreviewMessages } from './uiShortPreviewMessages'
 import { uiShortArchiveMessages } from './uiShortArchiveMessages'
 import { uiShortBatchMessages } from './uiShortBatchMessages'
 import { uiPresenterMessages } from './uiPresenterMessages'
+import { uiAvatarMessages } from './uiAvatarMessages'
 import { uiAiEditorMessages } from './uiAiEditorMessages'
 import { uiDirectorMessages } from './uiDirectorMessages'
 import { uiMediaPlanMessages } from './uiMediaPlanMessages'
@@ -51,6 +52,7 @@ export const uiMessages = {
   ...uiShortArchiveMessages,
   ...uiShortBatchMessages,
   ...uiPresenterMessages,
+  ...uiAvatarMessages,
   ...uiAiEditorMessages,
   ...uiDirectorMessages,
   ...uiMediaPlanMessages,

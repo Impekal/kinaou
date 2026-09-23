@@ -12,7 +12,7 @@ import { VersionHistoryPanel } from './components/VersionHistoryPanel'
 import { DirectorPanel } from './components/DirectorPanel'
 import { SttPanel } from './components/SttPanel'
 import { AudioStudioPanel } from './components/AudioStudioPanel'
-import { PortraitPresenterPanel } from './components/PortraitPresenterPanel'
+import { AvatarStudioPanel } from './components/AvatarStudioPanel'
 import { ImageStudioPanel } from './components/ImageStudioPanel'
 import { VideoStudioPanel } from './components/VideoStudioPanel'
 import { CapturePanel } from './components/CapturePanel'
@@ -167,7 +167,7 @@ export function App() {
 
         {section === 'Director' && (project ? <section className="stack"><DirectorPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /><MediaPlanPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /></section> : <section className="card emptyState">{t('shell.openProject')}</section>)}
         {section === 'Audio' && (project ? <AudioStudioPanel key={project.id} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
-        {section === 'Avatar' && (project ? <PortraitPresenterPanel key={project.id} project={project} history={versionHistory} onProjectChange={persistProject} onOpenStudio={() => setSection('Studio')} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
+        {section === 'Avatar' && (project ? <AvatarStudioPanel key={project.id} project={project} history={versionHistory} onProjectChange={persistProject} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
         {section === 'Images' && (project ? <ImageStudioPanel key={project.id} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
         {section === 'Video' && (project ? <VideoStudioPanel key={`${project.id}:${workerUrl}:${workerToken}`} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
         {section === 'Capture' && (project ? <CapturePanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
