@@ -18,6 +18,11 @@ export interface SpeechJobRecord {
   audioPath?: string
   durationMs?: number
   sizeBytes?: number
+  language?: string
+  modelId?: string
+  referenceAssetId?: string
+  seed?: number
+  tempoFactor?: number
   error?: string
 }
 
@@ -61,6 +66,60 @@ export function parseSpeechJob(value: unknown): SpeechJobRecord {
     || typeof job.updatedAt !== 'string'
   ) {
     throw new Error('Invalid speech job metadata')
+  }
+
+  if (
+    job.language !== undefined
+    && (
+      typeof job.language !== 'string'
+      || !/^[a-z]{2,3}(?:-[A-Za-z]{2,4})?$/.test(job.language)
+    )
+  ) {
+    throw new Error('Invalid speech language')
+  }
+
+  if (
+    job.modelId !== undefined
+    && (
+      typeof job.modelId !== 'string'
+      || !job.modelId
+      || job.modelId.length > 200
+    )
+  ) {
+    throw new Error('Invalid speech model id')
+  }
+
+  if (
+    job.referenceAssetId !== undefined
+    && (
+      typeof job.referenceAssetId !== 'string'
+      || !job.referenceAssetId
+      || job.referenceAssetId.length > 512
+    )
+  ) {
+    throw new Error('Invalid speech reference asset')
+  }
+
+  if (
+    job.seed !== undefined
+    && (
+      !Number.isSafeInteger(job.seed)
+      || job.seed < 0
+    )
+  ) {
+    throw new Error('Invalid speech seed')
+  }
+
+  if (
+    job.tempoFactor !== undefined
+    && (
+      typeof job.tempoFactor !== 'number'
+      || !Number.isFinite(job.tempoFactor)
+      || job.tempoFactor < 0.5
+      || job.tempoFactor > 2
+    )
+  ) {
+    throw new Error('Invalid speech tempo factor')
   }
 
   if (job.state === 'succeeded') {

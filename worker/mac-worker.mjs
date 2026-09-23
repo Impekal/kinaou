@@ -6,6 +6,7 @@ import { Readable, Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import path from 'node:path'
 import crypto from 'node:crypto'
+import { fileURLToPath } from 'node:url'
 import { managedUploadPaths } from './asset-upload.mjs'
 import { validateReferenceBindings, validateReferences, uploadComfyReferences } from './comfy-inputs.mjs'
 import { buildAssDocument, captionTempPaths, escapeSubtitleFilterPath } from './captions.mjs'
@@ -15,6 +16,17 @@ import { MAX_GENERATED_IMAGE_BYTES, MAX_GENERATED_VIDEO_BYTES, MAX_WORKFLOW_FILE
 import { buildSttCommands, normalizeWhisperTranscript, sttPaths, whisperModelRelativePaths } from './whisper.mjs'
 import { buildPiperCommand, piperVoiceDetails, piperVoiceRelativePaths, ttsPaths, validateTtsText } from './piper.mjs'
 import { piperRequestFromSpeech, piperSpeechVoiceDescriptors, speechJobFromPiper } from './speech.mjs'
+import {
+  CHATTERBOX_MODEL_ID,
+  buildChatterboxBridgeCommand,
+  buildChatterboxPostprocessCommand,
+  buildChatterboxReferenceCommand,
+  chatterboxPaths,
+  chatterboxPostprocessRate,
+  chatterboxRequestFromSpeech,
+  chatterboxSpeechVoiceDescriptor,
+  speechJobFromChatterbox
+} from './chatterbox.mjs'
 import { DEFAULT_OSASCRIPT_PATH, DEFAULT_SCREENCAPTURE_PATH, buildAppActivateCommand, buildAppWindowBoundsCommand, buildCaptureCommand, buildCaptureProvenance, captureAssetRelativePath, captureTempRelativePath, parseAppWindowBounds, validateCaptureRequest } from './capture.mjs'
 import os from 'node:os'
 import { buildWebCaptureCommand, buildWebCaptureProvenance, validateWebCaptureRequest, webCaptureBrowserCandidates, webCaptureProfileDirectory, webCapturePaths } from './webcapture.mjs'
@@ -30,6 +42,12 @@ const VERSION = '0.9.0'
 const OLLAMA_URL = normalizeOllamaUrl(process.env.KINAOU_OLLAMA_URL)
 const WHISPER_CLI = process.env.KINAOU_WHISPER_CLI ?? ''
 const PIPER_CLI = process.env.KINAOU_PIPER_CLI ?? ''
+const CHATTERBOX_PYTHON = process.env.KINAOU_CHATTERBOX_PYTHON ?? ''
+const CHATTERBOX_HF_HOME = process.env.KINAOU_CHATTERBOX_HF_HOME ?? ''
+const CHATTERBOX_DEVICE = process.env.KINAOU_CHATTERBOX_DEVICE ?? 'mps'
+const CHATTERBOX_BRIDGE = fileURLToPath(
+  new URL('./chatterbox-bridge.py', import.meta.url)
+)
 const COMFYUI_URL = normalizeComfyUrl(process.env.KINAOU_COMFYUI_URL)
 const SCREENCAPTURE_PATH = process.env.KINAOU_SCREENCAPTURE ?? DEFAULT_SCREENCAPTURE_PATH
 const OSASCRIPT_PATH = process.env.KINAOU_OSASCRIPT ?? DEFAULT_OSASCRIPT_PATH
@@ -39,6 +57,7 @@ const COMFYUI_JOB_TIMEOUT_MS = Number(process.env.KINAOU_COMFYUI_JOB_TIMEOUT_MS 
 const renderJobs = new Map()
 const sttJobs = new Map()
 const ttsJobs = new Map()
+const speechJobs = new Map()
 const WEBCAPTURE_TIMEOUT_MS = Number(process.env.KINAOU_WEBCAPTURE_TIMEOUT_MS ?? 120_000)
 const generationJobs = new Map()
 const captureJobs = new Map()
@@ -62,6 +81,8 @@ const versions = {
   ffmpeg: await readVersion('ffmpeg'),
   ffprobe: await readVersion('ffprobe')
 }
+
+const chatterboxRuntime = await detectChatterboxRuntime()
 
 const server = http.createServer(async (request, response) => {
   setCorsHeaders(request, response)
@@ -107,7 +128,7 @@ const server = http.createServer(async (request, response) => {
           name: 'KINAOU Mac Worker',
           platform: process.platform,
           version: VERSION,
-          capabilities: ['filesystem', 'asset-upload', 'publish-package-library', 'publish-package-integrity', 'format-reframing', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe', 'publish-preflight', 'publish-package'] : []), ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(PIPER_CLI && piperVoices.length && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : [])],
+          capabilities: ['filesystem', 'asset-upload', 'publish-package-library', 'publish-package-integrity', 'format-reframing', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe', 'publish-preflight', 'publish-package'] : []), ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(((PIPER_CLI && piperVoices.length) || chatterboxRuntime?.available) && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : [])],
           managedRoots: [MANAGED_ROOT],
           ffmpegVersion: versions.ffmpeg,
           ffprobeVersion: versions.ffprobe
@@ -175,10 +196,20 @@ const server = http.createServer(async (request, response) => {
     if (request.method === 'GET' && request.url === '/speech/voices') {
       const voices = await listPiperVoices()
       const details = await piperVoiceDetails(voices, resolveManaged)
+      const speechVoices = piperSpeechVoiceDescriptors(details)
+
+      if (chatterboxRuntime?.available) {
+        speechVoices.push(
+          chatterboxSpeechVoiceDescriptor({
+            referenceAudio: Boolean(versions.ffmpeg)
+          })
+        )
+      }
+
       return send(response, 200, {
         ok: true,
         type: 'speech-voices',
-        voices: piperSpeechVoiceDescriptors(details)
+        voices: speechVoices
       })
     }
     if (request.method === 'POST' && request.url === '/tts/jobs') {
@@ -188,30 +219,89 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === 'POST' && request.url === '/speech/jobs') {
-      const input = piperRequestFromSpeech(await readJson(request))
-      const job = await createTtsJob(input)
-      queueMicrotask(() => executeTtsJob(job.id).catch(() => {}))
-      return send(response, 202, {
-        ok: true,
-        type: 'speech-job',
-        job: speechJobFromPiper(job)
-      })
+      const body = await readJson(request)
+
+      if (body?.adapterId === 'piper') {
+        const input = piperRequestFromSpeech(body)
+        const job = await createTtsJob(input)
+
+        queueMicrotask(
+          () => executeTtsJob(job.id).catch(() => {})
+        )
+
+        return send(response, 202, {
+          ok: true,
+          type: 'speech-job',
+          job: speechJobFromPiper(job)
+        })
+      }
+
+      if (body?.adapterId === 'chatterbox') {
+        const job = await createChatterboxSpeechJob(body)
+
+        queueMicrotask(
+          () => executeChatterboxSpeechJob(job.id).catch(() => {})
+        )
+
+        return send(response, 202, {
+          ok: true,
+          type: 'speech-job',
+          job: speechJobFromChatterbox(job)
+        })
+      }
+
+      throw capabilityError(
+        'Requested speech adapter is not available'
+      )
     }
 
     const speechStatusMatch = request.url?.match(/^\/speech\/jobs\/([^/]+)$/)
     if (request.method === 'GET' && speechStatusMatch) {
-      const job = requireTtsJob(decodeURIComponent(speechStatusMatch[1]))
+      const id = decodeURIComponent(
+        speechStatusMatch[1]
+      )
+
+      if (speechJobs.has(id)) {
+        return send(response, 200, {
+          ok: true,
+          type: 'speech-job',
+          job: speechJobFromChatterbox(
+            requireChatterboxSpeechJob(id)
+          )
+        })
+      }
+
       return send(response, 200, {
         ok: true,
         type: 'speech-job',
-        job: speechJobFromPiper(job)
+        job: speechJobFromPiper(
+          requireTtsJob(id)
+        )
       })
     }
 
     const speechCancelMatch = request.url?.match(/^\/speech\/jobs\/([^/]+)\/cancel$/)
     if (request.method === 'POST' && speechCancelMatch) {
-      const job = requireTtsJob(decodeURIComponent(speechCancelMatch[1]))
+      const id = decodeURIComponent(
+        speechCancelMatch[1]
+      )
+
+      if (speechJobs.has(id)) {
+        const job =
+          requireChatterboxSpeechJob(id)
+
+        cancelChatterboxSpeechJob(job)
+
+        return send(response, 200, {
+          ok: true,
+          type: 'speech-job',
+          job: speechJobFromChatterbox(job)
+        })
+      }
+
+      const job = requireTtsJob(id)
       cancelTtsJob(job)
+
       return send(response, 200, {
         ok: true,
         type: 'speech-job',
@@ -1141,6 +1231,603 @@ function cancelSttJob(job) {
   if (['succeeded', 'failed', 'cancelled'].includes(job.state)) return
   job.state = 'cancelled'; touchSttJob(job)
   if (job.child && !job.child.killed) job.child.kill('SIGTERM')
+}
+
+
+function chatterboxEnvironment() {
+  return {
+    ...process.env,
+    HF_HOME: CHATTERBOX_HF_HOME,
+    HF_HUB_CACHE: path.join(
+      CHATTERBOX_HF_HOME,
+      'hub'
+    ),
+    HUGGINGFACE_HUB_CACHE: path.join(
+      CHATTERBOX_HF_HOME,
+      'hub'
+    ),
+    HF_HUB_DISABLE_XET: '1',
+    HF_HUB_OFFLINE: '1',
+    TRANSFORMERS_OFFLINE: '1'
+  }
+}
+
+async function captureChild(
+  executable,
+  args,
+  env,
+  timeoutMs = 20_000
+) {
+  const child = spawn(
+    executable,
+    args,
+    {
+      shell: false,
+      env,
+      stdio: [
+        'ignore',
+        'pipe',
+        'pipe'
+      ]
+    }
+  )
+
+  let stdout = ''
+  let stderr = ''
+  let timedOut = false
+
+  child.stdout.on(
+    'data',
+    data => {
+      stdout += data.toString()
+    }
+  )
+
+  child.stderr.on(
+    'data',
+    data => {
+      stderr += data.toString()
+    }
+  )
+
+  const timeout = setTimeout(
+    () => {
+      timedOut = true
+      child.kill('SIGTERM')
+    },
+    timeoutMs
+  )
+
+  try {
+    await new Promise(
+      (resolve, reject) => {
+        child.on('error', reject)
+
+        child.on(
+          'close',
+          code => {
+            if (code === 0) {
+              resolve()
+              return
+            }
+
+            reject(
+              new Error(
+                timedOut
+                  ? 'Chatterbox probe timed out'
+                  : `Process exited with code ${code}: ${stderr.trim()}`
+              )
+            )
+          }
+        )
+      }
+    )
+  } finally {
+    clearTimeout(timeout)
+  }
+
+  return {
+    stdout,
+    stderr
+  }
+}
+
+async function detectChatterboxRuntime() {
+  if (
+    !CHATTERBOX_PYTHON
+    || !path.isAbsolute(
+      CHATTERBOX_PYTHON
+    )
+    || !CHATTERBOX_HF_HOME
+    || !path.isAbsolute(
+      CHATTERBOX_HF_HOME
+    )
+  ) {
+    return null
+  }
+
+  try {
+    await access(
+      CHATTERBOX_PYTHON
+    )
+
+    await access(
+      CHATTERBOX_BRIDGE
+    )
+
+    await access(
+      CHATTERBOX_HF_HOME
+    )
+
+    const result =
+      await captureChild(
+        CHATTERBOX_PYTHON,
+        [
+          CHATTERBOX_BRIDGE,
+          '--probe',
+          '--device',
+          CHATTERBOX_DEVICE
+        ],
+        chatterboxEnvironment()
+      )
+
+    const line = result.stdout
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .at(-1)
+
+    if (!line) return null
+
+    const parsed = JSON.parse(line)
+
+    return parsed?.available === true
+      ? parsed
+      : null
+  } catch {
+    return null
+  }
+}
+
+async function createChatterboxSpeechJob(
+  input
+) {
+  if (
+    !chatterboxRuntime?.available
+    || !versions.ffprobe
+  ) {
+    throw capabilityError(
+      'Configured Chatterbox runtime and ffprobe are required'
+    )
+  }
+
+  const request =
+    chatterboxRequestFromSpeech(
+      input
+    )
+
+  let referenceAudio
+
+  if (request.referenceAudio) {
+    if (!versions.ffmpeg) {
+      throw capabilityError(
+        'ffmpeg is required for Chatterbox reference audio'
+      )
+    }
+
+    const relativePath =
+      requireManagedRelativePath(
+        request.referenceAudio.path
+      )
+
+    if (
+      !relativePath.startsWith(
+        'KINAOU/Assets/'
+      )
+    ) {
+      throw unauthorizedPath(
+        'Chatterbox reference audio must stay inside KINAOU/Assets'
+      )
+    }
+
+    await access(
+      resolveManaged(relativePath)
+    )
+
+    referenceAudio = {
+      ...request.referenceAudio,
+      path: relativePath
+    }
+  }
+
+  const now =
+    new Date().toISOString()
+
+  const job = {
+    id: crypto.randomUUID(),
+    adapterId: 'chatterbox',
+    voiceId: request.voiceId,
+    modelId: CHATTERBOX_MODEL_ID,
+    language: request.language,
+    seed: crypto.randomInt(
+      0,
+      2_147_483_647
+    ),
+    tempoFactor:
+      chatterboxPostprocessRate(
+        request.language
+      ),
+    state: 'queued',
+    progress: 0,
+    createdAt: now,
+    updatedAt: now,
+    text: validateTtsText(
+      request.text
+    ),
+    referenceAudio,
+    child: null
+  }
+
+  speechJobs.set(
+    job.id,
+    job
+  )
+
+  return job
+}
+
+function requireChatterboxSpeechJob(
+  id
+) {
+  const job =
+    speechJobs.get(id)
+
+  if (!job) {
+    const error =
+      new Error(
+        'Speech job not found'
+      )
+
+    error.code = 'NOT_FOUND'
+    throw error
+  }
+
+  return job
+}
+
+function touchChatterboxSpeechJob(
+  job
+) {
+  job.updatedAt =
+    new Date().toISOString()
+}
+
+async function runChatterboxChild(
+  job,
+  command,
+  env = process.env
+) {
+  const child = spawn(
+    command.executable,
+    command.args,
+    {
+      shell: false,
+      env,
+      stdio: [
+        'ignore',
+        'ignore',
+        'pipe'
+      ]
+    }
+  )
+
+  job.child = child
+
+  let stderr = ''
+
+  child.stderr.on(
+    'data',
+    data => {
+      if (
+        stderr.length < 64_000
+      ) {
+        stderr += data.toString()
+      }
+    }
+  )
+
+  try {
+    await new Promise(
+      (resolve, reject) => {
+        child.on(
+          'error',
+          reject
+        )
+
+        child.on(
+          'close',
+          code => {
+            if (
+              code === 0
+              || job.state
+                === 'cancelled'
+            ) {
+              resolve()
+              return
+            }
+
+            reject(
+              Object.assign(
+                new Error(
+                  `Chatterbox process exited with code ${code}: ${stderr.trim()}`
+                ),
+                {
+                  code:
+                    'PROCESS_FAILED'
+                }
+              )
+            )
+          }
+        )
+      }
+    )
+  } finally {
+    job.child = null
+  }
+}
+
+async function executeChatterboxSpeechJob(
+  id
+) {
+  const job =
+    requireChatterboxSpeechJob(
+      id
+    )
+
+  if (
+    job.state === 'cancelled'
+  ) return
+
+  const relative =
+    chatterboxPaths(job.id)
+
+  const requestPath =
+    resolveManaged(
+      relative.request
+    )
+
+  const referencePath =
+    resolveManaged(
+      relative.reference
+    )
+
+  const audioPath =
+    resolveManaged(
+      relative.audio
+    )
+
+  const postprocessPath =
+    resolveManaged(
+      relative.postprocess
+    )
+
+  job.state = 'running'
+  job.progress = 0.05
+
+  touchChatterboxSpeechJob(
+    job
+  )
+
+  try {
+    await mkdir(
+      path.dirname(requestPath),
+      {
+        recursive: true
+      }
+    )
+
+    await mkdir(
+      path.dirname(audioPath),
+      {
+        recursive: true
+      }
+    )
+
+    let promptPath
+
+    if (job.referenceAudio) {
+      const referenceCommand =
+        buildChatterboxReferenceCommand({
+          sourcePath:
+            resolveManaged(
+              job.referenceAudio.path
+            ),
+          outputPath:
+            referencePath
+        })
+
+      await runChatterboxChild(
+        job,
+        referenceCommand
+      )
+
+      if (
+        job.state === 'cancelled'
+      ) return
+
+      promptPath =
+        referencePath
+
+      job.progress = 0.12
+
+      touchChatterboxSpeechJob(
+        job
+      )
+    }
+
+    await writeFile(
+      requestPath,
+      JSON.stringify({
+        text: job.text,
+        language:
+          job.language,
+        seed: job.seed,
+        ...(promptPath
+          ? {
+              referencePath:
+                promptPath
+            }
+          : {})
+      }),
+      {
+        encoding: 'utf8',
+        flag: 'wx'
+      }
+    )
+
+    const command =
+      buildChatterboxBridgeCommand({
+        pythonPath:
+          CHATTERBOX_PYTHON,
+        bridgePath:
+          CHATTERBOX_BRIDGE,
+        requestPath,
+        audioPath,
+        device:
+          CHATTERBOX_DEVICE
+      })
+
+    await runChatterboxChild(
+      job,
+      command,
+      chatterboxEnvironment()
+    )
+
+    if (
+      job.state === 'cancelled'
+    ) {
+      await unlink(
+        audioPath
+      ).catch(() => {})
+
+      return
+    }
+
+    job.progress = 0.9
+    touchChatterboxSpeechJob(
+      job
+    )
+
+    const postprocessCommand =
+      buildChatterboxPostprocessCommand({
+        sourcePath:
+          audioPath,
+        outputPath:
+          postprocessPath,
+        rate:
+          job.tempoFactor
+      })
+
+    await runChatterboxChild(
+      job,
+      postprocessCommand
+    )
+
+    if (
+      job.state === 'cancelled'
+    ) {
+      await unlink(
+        audioPath
+      ).catch(() => {})
+
+      await unlink(
+        postprocessPath
+      ).catch(() => {})
+
+      return
+    }
+
+    await rename(
+      postprocessPath,
+      audioPath
+    )
+
+    const probe =
+      await probeMedia(
+        audioPath
+      )
+
+    job.state = 'succeeded'
+    job.progress = 1
+    job.audioPath =
+      relative.audio
+    job.durationMs =
+      probe.durationMs
+    job.sizeBytes =
+      probe.sizeBytes
+
+    touchChatterboxSpeechJob(
+      job
+    )
+  } catch (error) {
+    await unlink(
+      audioPath
+    ).catch(() => {})
+
+    if (
+      job.state !== 'cancelled'
+    ) {
+      job.state = 'failed'
+
+      job.error =
+        error instanceof Error
+          ? error.message
+          : String(error)
+
+      touchChatterboxSpeechJob(
+        job
+      )
+    }
+  } finally {
+    await unlink(
+      requestPath
+    ).catch(() => {})
+
+    await unlink(
+      referencePath
+    ).catch(() => {})
+
+    await unlink(
+      postprocessPath
+    ).catch(() => {})
+  }
+}
+
+function cancelChatterboxSpeechJob(
+  job
+) {
+  if (
+    [
+      'succeeded',
+      'failed',
+      'cancelled'
+    ].includes(job.state)
+  ) return
+
+  job.state = 'cancelled'
+
+  touchChatterboxSpeechJob(
+    job
+  )
+
+  if (
+    job.child
+    && !job.child.killed
+  ) {
+    job.child.kill(
+      'SIGTERM'
+    )
+  }
 }
 
 async function listPiperVoices() {

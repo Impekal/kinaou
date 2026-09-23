@@ -2,7 +2,10 @@ import {
   contentLanguageLabels,
   type ContentLanguage
 } from '../core/contentProfile'
-import type { SpeechVoiceDescriptor } from '../core/speech'
+import {
+  speechVoiceSupports,
+  type SpeechVoiceDescriptor
+} from '../core/speech'
 import { translateUi } from '../core/uiMessages'
 import type { UiLanguage } from '../core/uiLanguage'
 
@@ -44,14 +47,19 @@ export function SpeechVoiceSelect({
       </option>
 
       {voices.map((voice) => {
-        const languageLabel = voice.locale
-          ? t(
-              voice.locale.split('-')[0] === language
-                ? 'narration.matches'
-                : 'narration.differs',
-              { locale: voice.locale }
-            )
-          : t('narration.unknown')
+        const languageLabel = speechVoiceSupports(
+          voice,
+          'language-control'
+        )
+          ? t('narration.controlled')
+          : voice.locale
+            ? t(
+                voice.locale.split('-')[0] === language
+                  ? 'narration.matches'
+                  : 'narration.differs',
+                { locale: voice.locale }
+              )
+            : t('narration.unknown')
 
         return <option key={voice.id} value={voice.id}>
           {voice.label} · {voice.adapterId} · {languageLabel}

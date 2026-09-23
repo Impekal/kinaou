@@ -345,3 +345,21 @@ The Mac execution test requires:
 4. For image/video generation: a locally installed ComfyUI running on `http://127.0.0.1:8188` (or set `KINAOU_COMFYUI_URL`), with the user's own models installed in ComfyUI, and at least one API-format workflow template JSON (wrapper with `schemaVersion`, `id`, `label`, optional `"mediaType": "video"`, `workflow`, `bindings`) placed under `KINAOU/Models/ComfyUI/Workflows`.
 5. For Director/AI Editor: local Ollama with a pulled model; for STT: whisper-cli plus a GGML model under `KINAOU/Models` (`KINAOU_WHISPER_CLI`); for TTS: Piper plus an ONNX voice+JSON under `KINAOU/Models` (`KINAOU_PIPER_CLI`).
 KINAOU downloads none of these itself and shows honestly what is missing. Keep independent repo work moving until the Mac test.
+
+### 2026-09-23 — Speech 3.3A: real local Chatterbox adapter
+
+The generic speech boundary now has a second real local adapter alongside Piper: Chatterbox Multilingual `0.1.7`. The Mac worker discovers the adapter only when an explicitly configured Python runtime and an already-present local Hugging Face model cache pass an offline probe. It does not auto-download a speech model. Piper remains available as the baseline adapter.
+
+The real Chatterbox path has been exercised end-to-end on the supported MacBook Pro M2 Pro through `/health`, `/speech/voices` and `/speech/jobs`, including an explicitly authorized managed own-voice reference asset. The successful real job preserved adapter, model, language, reference-asset, seed and internal tempo provenance and wrote the generated WAV under `KINAOU/Assets/GeneratedVoice`.
+
+Advertised Chatterbox capabilities are deliberately limited to `synthesis`, `language-control`, `voice-clone` and `reference-audio`. The installed release does not expose free-form style instructions or a true user-selectable pace control, so KINAOU does not claim those capabilities.
+
+Human listening evidence from supported hardware:
+- German own-voice similarity was rated 4.5/5 by the reference speaker.
+- English output was judged top after measured 1.20x internal tempo correction.
+- French was natural and usable at 1.20x, but retained a slight non-native accent.
+- German was preferred at 1.25x internal tempo correction.
+- Higher Chatterbox `exaggeration` values were not preferred; neutral delivery sounded better.
+- Retakes produced materially different prosody. One French generation introduced an unnecessary internal pause. One German generation elongated the vowel in "Morgen" unnaturally, while a later retake of the same text was judged perfect. This demonstrates that retakes are a real quality-control requirement rather than a simulated control.
+
+Completion Point 3 remains open because the product-level retake/version and continuity workflow still needs to be implemented and accepted.

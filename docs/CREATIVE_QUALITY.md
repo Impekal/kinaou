@@ -72,3 +72,17 @@ The [AI-use policy](https://support.udemy.com/hc/en-us/articles/30999984483607-C
 Independent code/tests use temporary fixtures and do not require the SSD. Real model runs and end-to-end production use the user's configured managed storage. Notify the user when connecting the SSD, installing a runtime/model or granting Mac permissions is actually necessary. Do not silently download models or touch unrelated SSD files.
 
 Passing automated tests proves contracts and measured media properties, not premium voice quality, avatar realism, instructor expertise or platform acceptance. Those need actual generated samples and review.
+
+### Chatterbox Multilingual 0.1.7 — supported-hardware speech evidence (2026-09-23)
+
+Test hardware: MacBook Pro, Apple M2 Pro, 16 GB unified memory, PyTorch MPS.
+
+Real local synthesis and explicitly authorized own-voice cloning were tested in German, English and French.
+
+German own-voice similarity was rated 4.5/5 by the reference speaker. English was judged strong at the measured 1.20x internal tempo correction. French was natural and usable at 1.20x, but retained a slight non-native accent. German was preferred at 1.25x.
+
+Neutral Chatterbox expressiveness was preferred to higher `exaggeration` values. The language-specific tempo defaults are internal audio post-processing and are not exposed or advertised as Chatterbox `pace-control`.
+
+Retakes showed meaningful stochastic prosody differences. A French generation inserted an unnecessary internal pause. A German generation unnaturally elongated the vowel in "Morgen"; a later retake of the same text was judged perfect. This is direct evidence that first-generation output must not be treated as automatically final and that KINAOU needs a non-destructive retake/version-selection workflow.
+
+The Chatterbox adapter therefore satisfies the real local synthesis and authorized-own-voice foundation, but French accent quality and product-level retake/continuity handling remain open before Completion Point 3 can be closed.

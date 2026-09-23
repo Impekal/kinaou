@@ -15,6 +15,7 @@ export const uiNarrationMessages = {
   'narration.choose': ['Stimme auswählen', 'Choose a voice', 'Choisir une voix'],
   'narration.detectFirst': ['Zuerst Stimmen suchen', 'Detect voices first', 'Détectez d’abord les voix'],
   'narration.unknown': ['Sprache unbekannt', 'Language unknown', 'Langue inconnue'],
+  'narration.controlled': ['Sprache wählbar', 'Language selectable', 'Langue sélectionnable'],
   'narration.matches': ['{locale} · passt zur Projektsprache', '{locale} · matches project', '{locale} · correspond au projet'],
   'narration.differs': ['{locale} · andere Sprache', '{locale} · different language', '{locale} · autre langue'],
   'narration.voiceHelp': ['Adapter, deklarierte Sprache und Fähigkeiten stammen aus der lokalen Installation. Unbekannte Sprache bedeutet nicht mehrsprachig. Fehlende Fähigkeiten werden nicht simuliert. Höre das Ergebnis vor dem Export an.', 'Adapter, declared language and capabilities come from the local installation. Unknown does not mean multilingual. Missing capabilities are not simulated. Audition the result before export.', 'L’adaptateur, la langue déclarée et les fonctions proviennent de l’installation locale. Une langue inconnue ne signifie pas multilingue. Les fonctions absentes ne sont pas simulées. Écoutez le résultat avant l’export.'],
