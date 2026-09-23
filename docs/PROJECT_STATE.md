@@ -401,3 +401,15 @@ Imported image/video identity sources require explicit confirmation that the use
 Avatar Studio is now the main Avatar navigation surface. The earlier voiced-still presenter remains in the codebase as an existing composition primitive but is no longer presented as the Avatar product target.
 
 No real avatar-generation engine is claimed in 4.1. Identity synthesis/continuity, targeted visual regeneration, body/head motion, expression control, audio-driven lip sync, generated-take provenance and real-output acceptance remain for subsequent Point 4 slices.
+
+### 2026-09-23 — Avatar 4.2A engine rights and creation-receipt contract
+
+Avatar generation is now separated from any specific model implementation through a typed engine descriptor. Each engine declares its adapter/engine/model identity, exact versions, supported avatar capabilities and a rights snapshot captured for the generation context.
+
+Rights are deliberately represented as separate facts: private use, commercial use of generated output, commercial software use, model redistribution and attribution. Because current KINAOU avatar identities are marked as intended for commercially usable output, registration rejects an engine whose commercial-output permission is restricted or unknown. This is intentionally stricter than merely allowing local/private model execution.
+
+A generated image/video can now be registered as an exact take belonging to one Avatar Identity, Avatar Version and optionally one Scene Instance. Imported-reference identities and derived versions require identity-preservation; edited versions additionally require targeted-edit capability. Image/video output capability must also be explicitly declared.
+
+Each accepted generated take creates a durable KINAOU avatar creation receipt. The receipt records the avatar/version/instance lineage, output asset, job ID, seed, prompts/edit instruction, engine and model versions, rights/license snapshot, source asset IDs, source-hash fields and output-hash field. A structured receipt document can be reconstructed from the saved project.
+
+4.2A does not yet calculate file SHA-256 values itself and does not export a receipt file. Those are the next provenance slice. It also does not claim that any real identity-generation engine is installed.

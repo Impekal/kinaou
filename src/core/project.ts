@@ -136,6 +136,83 @@ export const avatarInstanceSchema = z.object({
   ).default({})
 })
 
+export const avatarEngineCapabilitySchema = z.enum([
+  'identity-generation',
+  'identity-preservation',
+  'targeted-edit',
+  'image-reference',
+  'video-reference',
+  'multi-reference',
+  'scene-image',
+  'scene-video',
+  'motion',
+  'expression',
+  'lip-sync',
+  'character-replacement'
+])
+
+export const avatarRightStatusSchema = z.enum([
+  'allowed',
+  'restricted',
+  'unknown'
+])
+
+export const avatarEngineRightsSchema = z.object({
+  licenseName: z.string().min(1).max(200),
+  licenseUrl: z.string().url().optional(),
+  licenseSnapshotAt: z.string().datetime(),
+  privateUse: avatarRightStatusSchema,
+  commercialOutput: avatarRightStatusSchema,
+  commercialSoftwareUse: avatarRightStatusSchema,
+  modelRedistribution: avatarRightStatusSchema,
+  attributionRequired: z.boolean().default(false),
+  notes: z.string().max(4000).default('')
+})
+
+export const avatarEngineDescriptorSchema = z.object({
+  adapterId: z.string().min(1).max(120),
+  engineId: z.string().min(1).max(160),
+  engineVersion: z.string().min(1).max(160),
+  modelId: z.string().min(1).max(240),
+  modelVersion: z.string().min(1).max(160).optional(),
+  capabilities: z.array(
+    avatarEngineCapabilitySchema
+  ).min(1).max(12),
+  rights: avatarEngineRightsSchema
+})
+
+export const avatarCreationReceiptSchema = z.object({
+  id: z.string().min(1),
+  createdAt: z.string().datetime(),
+  avatarId: z.string().min(1),
+  versionId: z.string().min(1),
+  instanceId: z.string().min(1).optional(),
+  outputAssetId: z.string().min(1),
+  outputKind: z.enum([
+    'image',
+    'video'
+  ]),
+  jobId: z.string().min(1).max(240),
+  seed: z.number().int().nonnegative().optional(),
+  prompt: z.string().max(8000).default(''),
+  editInstruction: z.string().max(8000).default(''),
+  engine: avatarEngineDescriptorSchema,
+  sourceAssetIds: z.array(
+    z.string().min(1)
+  ).max(32).default([]),
+  sourceHashes: z.record(
+    z.string(),
+    z.string().regex(/^[a-f0-9]{64}$/)
+  ).default({}),
+  outputSha256: z.string()
+    .regex(/^[a-f0-9]{64}$/)
+    .optional(),
+  metadata: z.record(
+    z.string(),
+    z.unknown()
+  ).default({})
+})
+
 export const projectSchema = z.object({
   schemaVersion: z.literal(1),
   id: z.string().min(1),
@@ -160,6 +237,9 @@ export const projectSchema = z.object({
   avatarInstances: z.array(
     avatarInstanceSchema
   ).default([]),
+  avatarCreationReceipts: z.array(
+    avatarCreationReceiptSchema
+  ).default([]),
   metadata: z.record(z.string(), z.unknown()).default({})
 })
 
@@ -171,6 +251,11 @@ export type AvatarSource = z.infer<typeof avatarSourceSchema>
 export type AvatarVersion = z.infer<typeof avatarVersionSchema>
 export type AvatarIdentity = z.infer<typeof avatarIdentitySchema>
 export type AvatarInstance = z.infer<typeof avatarInstanceSchema>
+export type AvatarEngineCapability = z.infer<typeof avatarEngineCapabilitySchema>
+export type AvatarRightStatus = z.infer<typeof avatarRightStatusSchema>
+export type AvatarEngineRights = z.infer<typeof avatarEngineRightsSchema>
+export type AvatarEngineDescriptor = z.infer<typeof avatarEngineDescriptorSchema>
+export type AvatarCreationReceipt = z.infer<typeof avatarCreationReceiptSchema>
 
 export function createProject(title: string, now = new Date()): KinaouProject {
   const timestamp = now.toISOString()
@@ -186,6 +271,7 @@ export function createProject(title: string, now = new Date()): KinaouProject {
     tracks: [],
     avatars: [],
     avatarInstances: [],
+    avatarCreationReceipts: [],
     metadata: {}
   })
 }

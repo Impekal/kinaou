@@ -128,3 +128,25 @@ This provenance must remain attached when later engines create images, motion or
 The rights record separates two questions deliberately: whether the source/reference use was represented as authorized, and whether a particular engine/model permits the intended commercial use of generated output. Future model adapters must keep those facts distinct.
 
 This foundation does not itself prove copyright ownership, personality rights, trademark clearance or commercial permission from a model provider. KINAOU documents evidence and provenance rather than inventing legal conclusions.
+
+### Avatar generated-take provenance contract (2026-09-23)
+
+Generated avatar media must not be accepted merely because a model returned an image or video. KINAOU now requires an explicit engine contract and records the generation as part of the persistent identity lineage.
+
+For commercially intended avatar output, the model/engine rights snapshot must explicitly mark commercial output as allowed. Private model use, commercial output rights, commercial use of KINAOU itself, redistribution of model weights and attribution duties are tracked separately rather than collapsed into one license assumption.
+
+A derived avatar version requires an engine that declares identity preservation. A version containing a targeted edit instruction additionally requires targeted-edit support. These checks prevent a generic image/video generator from being presented as an identity-consistent character engine.
+
+Each accepted take receives a creation receipt linking:
+- avatar identity and exact version;
+- optional exact scene instance;
+- output asset and output media type;
+- generation job and seed;
+- prompt and targeted edit instruction;
+- engine/model identity and versions;
+- captured rights/license snapshot;
+- identity-lineage source assets;
+- source SHA-256 fields;
+- output SHA-256 field.
+
+4.2A defines and validates this evidence structure. Subsequent work must calculate hashes from actual managed files and export receipts so the evidence can leave KINAOU with the produced content.
