@@ -1,6 +1,11 @@
 import { parseProject, touchProject, type KinaouProject } from './project'
 import { parseSpeechJob, speechJobFromLegacyTts, type SpeechJobRecord } from './speechJobs'
 import type { TtsJobRecord } from './ttsJobs'
+import {
+  assertSpeechRetakeContinuity,
+  speechRetakeContextForNewGroup,
+  type SpeechRetakeContext
+} from './speechRetakes'
 
 type GeneratedSpeechJob = SpeechJobRecord | TtsJobRecord
 
@@ -13,7 +18,8 @@ function normalizeJob(job: GeneratedSpeechJob): SpeechJobRecord {
 export function registerGeneratedVoice(
   project: KinaouProject,
   value: GeneratedSpeechJob,
-  sourceText: string
+  sourceText: string,
+  retakeContext?: SpeechRetakeContext
 ): KinaouProject {
   const job = normalizeJob(value)
 
@@ -36,6 +42,15 @@ export function registerGeneratedVoice(
     throw new Error('Generated voice source text is required')
   }
 
+  const lineage =
+    retakeContext
+    ?? speechRetakeContextForNewGroup(job)
+
+  assertSpeechRetakeContinuity(
+    lineage,
+    job
+  )
+
   const metadata = {
     name: `Generated voice · ${text.slice(0, 60)}`,
     mimeType: 'audio/wav',
@@ -45,6 +60,18 @@ export function registerGeneratedVoice(
     voiceId: job.voiceId,
     speechJobId: job.id,
     sourceText: text,
+    speechRetakeGroupId:
+      lineage.groupId,
+    speechRetakeIndex:
+      lineage.index,
+    speechContinuityKey:
+      lineage.continuityKey,
+    ...(lineage.replacesAssetId
+      ? {
+          speechRetakeOfAssetId:
+            lineage.replacesAssetId
+        }
+      : {}),
     ...(job.language
       ? { speechLanguage: job.language }
       : {}),

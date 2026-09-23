@@ -30,6 +30,9 @@ export const uiAudioMessages = {
   'audio.detached': ['Überwachung gelöst. Dies bestätigt keinen Abbruch. Prüfe Worker und Dateien vor einem neuen Auftrag; bereits gespeicherte Medien bleiben erhalten.', 'Monitoring detached. This does not confirm cancellation. Check the worker and files before a new job; already saved media remain.', 'Suivi détaché. Ceci ne confirme pas une annulation. Vérifiez le worker et les fichiers avant une nouvelle tâche ; les médias enregistrés restent conservés.'],
   'audio.error': ['Stimmen konnten nicht geprüft werden.', 'Could not check voices.', 'Impossible de vérifier les voix.'],
   'audio.assets': ['GESPEICHERTE STIMM-MEDIEN', 'SAVED VOICE ASSETS', 'MÉDIAS VOCAUX ENREGISTRÉS'],
+
+  'audio.retake': ['Neue Variante', 'New retake', 'Nouvelle variante'],
+  'audio.take': ['Variante {index}', 'Take {index}', 'Prise {index}'],
   'audio.source': ['Gesendeter Sprechtext', 'Submitted narration', 'Narration envoyée'],
   'placement.none': ['Keine passende Timeline-Spur', 'No compatible timeline track', 'Aucune piste compatible'],
   'placement.offline': ['Dieses Medium ist offline. Verbinde den Speicher vor dem Einfügen.', 'This asset is offline. Reconnect its media before placing it.', 'Ce média est hors ligne. Reconnectez son stockage avant de l’insérer.'],

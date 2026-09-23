@@ -1,8 +1,16 @@
-import type { KinaouProject, TimelineClip, TimelineTrack } from './project'
+import type {
+  KinaouAsset,
+  KinaouProject,
+  TimelineClip,
+  TimelineTrack
+} from './project'
 import { applyTimelineOperation } from './timeline'
 import { registerGeneratedVoice } from './generatedVoice'
 import type { SpeechJobRecord } from './speechJobs'
 import type { TtsJobRecord } from './ttsJobs'
+import type {
+  SpeechRetakeContext
+} from './speechRetakes'
 import { sceneSpeech, type SceneSpeechSource } from './sceneSpeech'
 
 const VOICE_TRACK_TYPES = new Set<TimelineTrack['type']>(['voice', 'dialog'])
@@ -29,6 +37,107 @@ export interface SkippedVoiceoverScene {
   reason: string
   code: 'existing' | 'silent' | 'empty' | 'visual' | 'unplaced' | 'failed' | 'cancelled'
   values?: { track: string }
+}
+
+function speechTakeIndex(
+  asset: KinaouAsset
+): number {
+  const value =
+    asset.metadata.speechRetakeIndex
+
+  return Number.isSafeInteger(value)
+    && Number(value) > 0
+    ? Number(value)
+    : 1
+}
+
+export function sceneNarrationTakes(
+  project: KinaouProject,
+  sceneId: string
+): KinaouAsset[] {
+  return project.assets
+    .filter(
+      asset =>
+        asset.kind === 'audio'
+        && asset.metadata.sceneId
+          === sceneId
+        && (
+          typeof asset.metadata
+            .speechJobId === 'string'
+          || typeof asset.metadata
+            .ttsJobId === 'string'
+        )
+    )
+    .sort(
+      (a, b) =>
+        speechTakeIndex(a)
+        - speechTakeIndex(b)
+    )
+}
+
+function activeSceneNarrationClip(
+  project: KinaouProject,
+  sceneId: string,
+  voiceTrackId: string
+): TimelineClip | undefined {
+  const track =
+    project.tracks.find(
+      entry =>
+        entry.id === voiceTrackId
+    )
+
+  if (!track) {
+    throw new Error(
+      `Timeline track not found: ${voiceTrackId}`
+    )
+  }
+
+  if (!VOICE_TRACK_TYPES.has(track.type)) {
+    throw new Error(
+      `Narration needs a voice track, not ${track.type}`
+    )
+  }
+
+  const matches =
+    track.clips.filter(
+      clip => {
+        if (clip.sceneId === sceneId) {
+          return true
+        }
+
+        const asset =
+          project.assets.find(
+            entry =>
+              entry.id === clip.assetId
+          )
+
+        return (
+          asset?.kind === 'audio'
+          && asset.metadata.sceneId
+            === sceneId
+        )
+      }
+    )
+
+  if (matches.length > 1) {
+    throw new Error(
+      'Scene has multiple active narration clips'
+    )
+  }
+
+  return matches[0]
+}
+
+export function activeSceneNarrationAssetId(
+  project: KinaouProject,
+  sceneId: string,
+  voiceTrackId: string
+): string | undefined {
+  return activeSceneNarrationClip(
+    project,
+    sceneId,
+    voiceTrackId
+  )?.assetId
 }
 
 export function voiceoverTargetTracks(project: KinaouProject): TimelineTrack[] {
@@ -90,6 +199,205 @@ export function planSceneVoiceovers(project: KinaouProject, visualTrackId: strin
   return { pending, skipped }
 }
 
+export function registerSceneNarrationTake(
+  project: KinaouProject,
+  scene: VoiceoverScene,
+  job: SpeechJobRecord | TtsJobRecord,
+  retakeContext?: SpeechRetakeContext
+): {
+  project: KinaouProject
+  asset: KinaouAsset
+} {
+  const withAsset =
+    registerGeneratedVoice(
+      project,
+      job,
+      scene.text,
+      retakeContext
+    )
+
+  const asset =
+    withAsset.assets.find(
+      entry =>
+        entry.uri === job.audioPath
+    )
+
+  if (!asset) {
+    throw new Error(
+      'Generated narration was not registered'
+    )
+  }
+
+  const taggedAsset = {
+    ...asset,
+    metadata: {
+      ...asset.metadata,
+      sceneId: scene.sceneId,
+      source:
+        scene.textSource
+        ?? 'storyboard-description'
+    }
+  }
+
+  return {
+    project: {
+      ...withAsset,
+      assets:
+        withAsset.assets.map(
+          entry =>
+            entry.id === asset.id
+              ? taggedAsset
+              : entry
+        )
+    },
+    asset: taggedAsset
+  }
+}
+
+export function selectSceneNarrationTake(
+  project: KinaouProject,
+  sceneId: string,
+  assetId: string,
+  voiceTrackId: string
+): {
+  project: KinaouProject
+  assetId: string
+  previousAssetId: string
+} {
+  const track =
+    project.tracks.find(
+      entry =>
+        entry.id === voiceTrackId
+    )
+
+  if (!track) {
+    throw new Error(
+      `Timeline track not found: ${voiceTrackId}`
+    )
+  }
+
+  if (!VOICE_TRACK_TYPES.has(track.type)) {
+    throw new Error(
+      `Narration needs a voice track, not ${track.type}`
+    )
+  }
+
+  if (track.locked) {
+    throw new Error(
+      `"${track.name}" is locked. Unlock it before changing narration.`
+    )
+  }
+
+  const asset =
+    sceneNarrationTakes(
+      project,
+      sceneId
+    ).find(
+      entry =>
+        entry.id === assetId
+    )
+
+  if (
+    !asset
+    || !asset.managed
+    || asset.offline
+  ) {
+    throw new Error(
+      'Requested scene narration take is not available'
+    )
+  }
+
+  const durationMs =
+    Number(
+      asset.metadata.durationMs
+    )
+
+  if (
+    !Number.isFinite(durationMs)
+    || durationMs <= 0
+  ) {
+    throw new Error(
+      'Requested scene narration take has no duration'
+    )
+  }
+
+  const clip =
+    activeSceneNarrationClip(
+      project,
+      sceneId,
+      voiceTrackId
+    )
+
+  if (!clip) {
+    throw new Error(
+      'Scene has no active narration clip to replace'
+    )
+  }
+
+  if (clip.assetId === asset.id) {
+    return {
+      project,
+      assetId: asset.id,
+      previousAssetId:
+        clip.assetId
+    }
+  }
+
+  let next =
+    applyTimelineOperation(
+      project,
+      {
+        type: 'set-clip-asset',
+        trackId: voiceTrackId,
+        clipId: clip.id,
+        assetId: asset.id
+      }
+    )
+
+  next =
+    applyTimelineOperation(
+      next,
+      {
+        type: 'trim-clip',
+        trackId: voiceTrackId,
+        clipId: clip.id,
+        startMs: clip.startMs,
+        durationMs:
+          Math.round(durationMs),
+        sourceOffsetMs: 0
+      }
+    )
+
+  next =
+    applyTimelineOperation(
+      next,
+      {
+        type: 'set-clip-speed',
+        trackId: voiceTrackId,
+        clipId: clip.id,
+        speed: 1
+      }
+    )
+
+  next =
+    applyTimelineOperation(
+      next,
+      {
+        type: 'set-clip-scene',
+        trackId: voiceTrackId,
+        clipId: clip.id,
+        sceneId
+      }
+    )
+
+  return {
+    project: next,
+    assetId: asset.id,
+    previousAssetId:
+      clip.assetId
+  }
+}
+
 /**
  * Registers one finished narration job and places it under its scene. The voice keeps
  * its natural length: trimming a sentence to fit a picture would cut words off.
@@ -100,24 +408,35 @@ export function placeSceneNarration(project: KinaouProject, scene: VoiceoverScen
   if (!VOICE_TRACK_TYPES.has(track.type)) throw new Error(`Narration needs a voice track, not ${track.type}`)
   if (track.locked) throw new Error(`"${track.name}" is locked. Unlock it before adding narration.`)
 
-  const withAsset = registerGeneratedVoice(project, job, scene.text)
-  const asset = withAsset.assets.find((entry) => entry.uri === job.audioPath)
-  if (!asset) throw new Error('Generated narration was not registered')
+  const registered =
+    registerSceneNarrationTake(
+      project,
+      scene,
+      job
+    )
+
+  const withAsset =
+    registered.project
+
+  const asset =
+    registered.asset
 
   const narrationMs = Math.round(job.durationMs ?? 0)
   if (narrationMs <= 0) throw new Error('Generated narration has no duration')
 
-  const tagged = {
-    ...withAsset,
-    assets: withAsset.assets.map((entry) => entry.id === asset.id
-      ? { ...entry, metadata: { ...entry.metadata, sceneId: scene.sceneId, source: scene.textSource ?? 'storyboard-description' } }
-      : entry)
-  }
-
-  const next = applyTimelineOperation(tagged, {
+  const next = applyTimelineOperation(withAsset, {
     type: 'add-clip',
     trackId: voiceTrackId,
-    clip: { id: crypto.randomUUID(), assetId: asset.id, startMs: scene.startMs, durationMs: narrationMs, sourceOffsetMs: 0, gain: 1, speed: 1 }
+    clip: {
+      id: crypto.randomUUID(),
+      assetId: asset.id,
+      startMs: scene.startMs,
+      durationMs: narrationMs,
+      sourceOffsetMs: 0,
+      gain: 1,
+      speed: 1,
+      sceneId: scene.sceneId
+    }
   })
 
   return {

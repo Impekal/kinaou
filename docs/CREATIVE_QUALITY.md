@@ -86,3 +86,13 @@ Neutral Chatterbox expressiveness was preferred to higher `exaggeration` values.
 Retakes showed meaningful stochastic prosody differences. A French generation inserted an unnecessary internal pause. A German generation unnaturally elongated the vowel in "Morgen"; a later retake of the same text was judged perfect. This is direct evidence that first-generation output must not be treated as automatically final and that KINAOU needs a non-destructive retake/version-selection workflow.
 
 The Chatterbox adapter therefore satisfies the real local synthesis and authorized-own-voice foundation, but French accent quality and product-level retake/continuity handling remain open before Completion Point 3 can be closed.
+
+### Retake and voice-continuity acceptance (2026-09-23)
+
+Retake is distinct from retry. A retry continues monitoring or saving an already accepted synthesis job; a retake intentionally submits a new synthesis and therefore receives a new job ID, seed and audio file.
+
+KINAOU now preserves every retake instead of overwriting the previous audio. Retained takes share a continuity lineage covering adapter, voice, language, model, authorized reference recording and measured internal tempo. Seed is not part of continuity because changing it is the mechanism used to obtain an alternate prosody while retaining the same voice identity.
+
+For scene narration, newly generated takes are not activated automatically. One existing narration clip remains active until the user explicitly chooses another retained take. Switching takes changes that clip's source and natural duration while keeping the other takes as reusable project assets.
+
+This design directly addresses the real-hardware findings where one German generation elongated "Morgen", another German retake was judged perfect, and French generations differed in pause quality. It avoids treating first-generation speech as automatically final.
