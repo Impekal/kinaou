@@ -1,4 +1,5 @@
 import {
+  useRef,
   useState
 } from 'react'
 
@@ -19,6 +20,14 @@ import type {
   KinaouProject
 } from '../core/project'
 
+import {
+  exportAvatarReceiptEvidence
+} from '../core/avatarReceiptSession'
+
+import {
+  WorkerClient
+} from '../core/workerClient'
+
 import type {
   PersistentVersionHistory
 } from '../core/versioning'
@@ -30,6 +39,10 @@ import {
 interface Props {
   project: KinaouProject
   history: PersistentVersionHistory
+  workerUrl: string
+  workerToken: string
+  workerConnected: boolean
+  workerCapabilities: string[]
   onProjectChange:
     (project: KinaouProject) => void
 }
@@ -37,10 +50,32 @@ interface Props {
 export function AvatarStudioPanel({
   project,
   history,
+  workerUrl,
+  workerToken,
+  workerConnected,
+  workerCapabilities,
   onProjectChange
 }: Props) {
-  const { t } =
-    useUiLanguage()
+  const {
+    t,
+    language
+  } = useUiLanguage()
+
+  const projectRef =
+    useRef(project)
+
+  projectRef.current =
+    project
+
+  const receiptReady =
+    workerConnected
+    && Boolean(
+      workerToken.trim()
+    )
+    && workerCapabilities
+      .includes(
+        'avatar-creation-receipt'
+      )
 
   const [name, setName] =
     useState('')
@@ -131,6 +166,22 @@ export function AvatarStudioPanel({
 
   const [saved, setSaved] =
     useState(false)
+
+
+  const [
+    receiptBusyId,
+    setReceiptBusyId
+  ] = useState('')
+
+  const [
+    receiptSaved,
+    setReceiptSaved
+  ] = useState(false)
+
+  const [
+    receiptError,
+    setReceiptError
+  ] = useState('')
 
   const selectedAvatar =
     project.avatars.find(
@@ -393,6 +444,72 @@ export function AvatarStudioPanel({
       markSaved()
     } catch (cause) {
       fail(cause)
+    }
+  }
+
+  async function saveReceiptEvidence(
+    receiptId: string
+  ) {
+    if (
+      !receiptReady
+      || receiptBusyId
+    ) {
+      return
+    }
+
+    const startedProject =
+      project
+
+    setReceiptBusyId(
+      receiptId
+    )
+    setReceiptSaved(false)
+    setReceiptError('')
+
+    try {
+      const result =
+        await exportAvatarReceiptEvidence(
+          startedProject,
+          receiptId,
+          new WorkerClient({
+            baseUrl: workerUrl,
+            token: workerToken
+          })
+        )
+
+      if (
+        projectRef.current
+          !== startedProject
+      ) {
+        throw new Error(
+          t(
+            'avatar.receiptStale'
+          )
+        )
+      }
+
+      history.snapshot(
+        startedProject,
+        'Before saving avatar creation receipt evidence',
+        'system'
+      )
+
+      onProjectChange(
+        result.project
+      )
+
+      projectRef.current =
+        result.project
+
+      setReceiptSaved(true)
+    } catch (cause) {
+      setReceiptError(
+        cause instanceof Error
+          ? cause.message
+          : String(cause)
+      )
+    } finally {
+      setReceiptBusyId('')
     }
   }
 
@@ -1064,6 +1181,320 @@ export function AvatarStudioPanel({
         </div>
       )}
 
+      <div className="card stack">
+        <div className="sectionLead">
+          <div>
+            <div className="eyebrow">
+              {t(
+                'avatar.receiptsHeading'
+              )}
+            </div>
+            <h3>
+              {t(
+                'avatar.receiptsTitle'
+              )}
+            </h3>
+            <p>
+              {t(
+                'avatar.receiptsHelp'
+              )}
+            </p>
+          </div>
+
+          <span
+            className={
+              receiptReady
+                ? 'status online'
+                : 'status'
+            }
+          >
+            {receiptReady
+              ? t(
+                  'avatar.receiptReady'
+                )
+              : t(
+                  'avatar.receiptPending'
+                )}
+          </span>
+        </div>
+
+        {!receiptReady && (
+          <div className="card note">
+            {t(
+              'avatar.receiptWorkerUnavailable'
+            )}
+          </div>
+        )}
+
+        {!project
+          .avatarCreationReceipts
+          .length && (
+          <p>
+            {t(
+              'avatar.receiptsEmpty'
+            )}
+          </p>
+        )}
+
+        {project
+          .avatarCreationReceipts
+          .map(receipt => {
+            const avatar =
+              project.avatars.find(
+                entry =>
+                  entry.id ===
+                  receipt.avatarId
+              )
+
+            const version =
+              avatar?.versions.find(
+                entry =>
+                  entry.id ===
+                  receipt.versionId
+              )
+
+            const output =
+              project.assets.find(
+                entry =>
+                  entry.id ===
+                  receipt.outputAssetId
+              )
+
+            const path =
+              typeof receipt
+                .metadata
+                .receiptExportPath
+                === 'string'
+                ? receipt
+                    .metadata
+                    .receiptExportPath
+                : ''
+
+            const receiptHash =
+              typeof receipt
+                .metadata
+                .receiptFileSha256
+                === 'string'
+                ? receipt
+                    .metadata
+                    .receiptFileSha256
+                : ''
+
+            const capturedAt =
+              typeof receipt
+                .metadata
+                .evidenceCapturedAt
+                === 'string'
+                ? receipt
+                    .metadata
+                    .evidenceCapturedAt
+                : ''
+
+            const secured =
+              Boolean(
+                receipt.outputSha256
+                && receiptHash
+                && path
+              )
+
+            return (
+              <div
+                className="assetRow"
+                key={receipt.id}
+              >
+                <div className="stack">
+                  <strong>
+                    {
+                      avatar?.name
+                      ?? receipt.avatarId
+                    }
+                    {' · '}
+                    {
+                      version?.label
+                      ?? receipt.versionId
+                    }
+                  </strong>
+
+                  <small>
+                    {
+                      output
+                        ?.metadata
+                        .name
+                        ? String(
+                            output
+                              .metadata
+                              .name
+                          )
+                        : output?.uri
+                          ?? receipt
+                            .outputAssetId
+                    }
+                  </small>
+
+                  <small>
+                    {t(
+                      'avatar.receiptEngine',
+                      {
+                        engine:
+                          receipt
+                            .engine
+                            .engineId,
+                        model:
+                          receipt
+                            .engine
+                            .modelId
+                      }
+                    )}
+                  </small>
+
+                  <small>
+                    {t(
+                      'avatar.receiptCommercial',
+                      {
+                        status:
+                          t(
+                            `avatar.rightStatus.${receipt.engine.rights.commercialOutput}`
+                          )
+                      }
+                    )}
+                  </small>
+
+                  {receipt
+                    .outputSha256 && (
+                    <small>
+                      {t(
+                        'avatar.receiptOutputHash',
+                        {
+                          hash:
+                            receipt
+                              .outputSha256
+                        }
+                      )}
+                    </small>
+                  )}
+
+                  {receiptHash && (
+                    <small>
+                      {t(
+                        'avatar.receiptFileHash',
+                        {
+                          hash:
+                            receiptHash
+                        }
+                      )}
+                    </small>
+                  )}
+
+                  {path && (
+                    <small>
+                      {t(
+                        'avatar.receiptPath',
+                        {
+                          path
+                        }
+                      )}
+                    </small>
+                  )}
+
+                  {capturedAt && (
+                    <small>
+                      {t(
+                        'avatar.receiptCaptured',
+                        {
+                          date:
+                            new Date(
+                              capturedAt
+                            )
+                              .toLocaleString(
+                                language
+                              )
+                        }
+                      )}
+                    </small>
+                  )}
+                </div>
+
+                <div className="stackControls">
+                  <span
+                    className={
+                      secured
+                        ? 'badge'
+                        : 'status'
+                    }
+                  >
+                    {secured
+                      ? t(
+                          'avatar.receiptReady'
+                        )
+                      : t(
+                          'avatar.receiptPending'
+                        )}
+                  </span>
+
+                  <button
+                    className="secondaryButton"
+                    disabled={
+                      !receiptReady
+                      || Boolean(
+                        receiptBusyId
+                      )
+                    }
+                    onClick={
+                      () =>
+                        void saveReceiptEvidence(
+                          receipt.id
+                        )
+                    }
+                  >
+                    {receiptBusyId
+                      === receipt.id
+                      ? t(
+                          'avatar.receiptWorking'
+                        )
+                      : secured
+                        ? t(
+                            'avatar.receiptVerify'
+                          )
+                        : t(
+                            'avatar.receiptExport'
+                          )}
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+      </div>
+
+      {receiptSaved && (
+        <div
+          className="successBox"
+          role="status"
+        >
+          {t(
+            'avatar.receiptSaved'
+          )}
+        </div>
+      )}
+
+      {receiptError && (
+        <div
+          className="errorBox"
+          role="alert"
+        >
+          {t(
+            'avatar.receiptFailed'
+          )}
+          <details>
+            <summary>
+              {t(
+                'common.details'
+              )}
+            </summary>
+            {receiptError}
+          </details>
+        </div>
+      )}
+
       {!!project.avatarInstances.length && (
         <div className="card stack">
           <h3>
@@ -1146,7 +1577,9 @@ export function AvatarStudioPanel({
           {t('avatar.failed')}
           <details>
             <summary>
-              Details
+              {t(
+                'common.details'
+              )}
             </summary>
             {error}
           </details>

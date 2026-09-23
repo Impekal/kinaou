@@ -183,3 +183,17 @@ source/reference bytes
 → receipt SHA-256.
 
 This proves file identity and recorded production provenance. It does not by itself prove copyright ownership, consent, personality rights, trademark clearance or the truth of a user's authorization statement; those remain distinct legal/evidentiary questions.
+
+### Avatar Studio evidence UX (2026-09-23)
+
+Creation Receipts are now a first-class Avatar Studio surface.
+
+A generated avatar take can show whether cryptographic evidence has been captured, which engine and model produced it, whether commercial output was recorded as allowed/restricted/unverified, and the SHA-256 fingerprints of the output and receipt sidecar.
+
+The evidence action is deliberately repeatable as verification rather than overwrite. The worker's immutable-sidecar rules remain authoritative: changed source/output bytes cause verification failure.
+
+An asynchronous evidence result is only persisted if the project object is still the one from which the request started. This prevents a slow worker operation from overwriting a newer avatar edit or other concurrent project mutation.
+
+Rights-state labels and evidence timestamps follow the selected DE/EN/FR interface language.
+
+This UI makes provenance inspectable but does not convert an engine license snapshot or a user's source-rights declaration into an independent legal determination.
