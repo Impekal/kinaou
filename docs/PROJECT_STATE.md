@@ -475,3 +475,29 @@ The Plus-Face and ViT-H files were SHA-256 verified. Revision-bound rights evide
 Commercial output remains `pending-verification` until the combined rights review is completed.
 
 The real authenticated KINAOU Mac Worker successfully reports the installed runtime as available on MPS with no missing dependencies. It still exposes only `avatar-identity-runtime`, not `avatar-identity-generation`, because no real identity image has yet been generated and accepted.
+
+### 2026-09-24 — Avatar 4.3C real Plus-Face baseline rejected for identity preservation
+
+KINAOU executed its first real local Avatar identity-generation experiments on the M2 Pro development machine.
+
+A fictional SDXL identity seed was generated locally on Apple MPS at 512×512. The exact seed output was retained and reused as an identity reference.
+
+IP-Adapter Plus-Face then successfully completed real reference-conditioned inference using the pinned non-FaceID/non-InsightFace adapter. Early integration issues around Diffusers VAE memory controls and attention slicing were resolved without changing model weights or downloading additional models.
+
+For the final acceptance experiment, the seed portrait was tightly cropped around the face and three independent Plus-Face conditioning strengths were tested with otherwise fixed generation parameters:
+- scale 0.95;
+- scale 1.00;
+- scale 1.10.
+
+All three generations completed successfully.
+
+Human review did not accept the result as persistent identity preservation. Across the generated takes, facial width, skin tone/lightness, beard shape/density, eye appearance and additional facial geometry visibly drifted from the reference. The output was similar to the reference person but not sufficiently stable to represent the exact same reusable KINAOU identity.
+
+Consequently:
+- SDXL prompt identity generation is technically proven;
+- IP-Adapter Plus-Face reference conditioning is technically proven;
+- Plus-Face is retained as an experimental baseline;
+- `identity-preservation` remains disabled for the product;
+- Plus-Face will not be promoted as KINAOU's persistent Avatar engine.
+
+The next identity path is a trainable per-avatar adapter rather than more prompt/scale tuning of Plus-Face.

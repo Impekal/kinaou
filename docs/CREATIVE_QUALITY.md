@@ -226,3 +226,27 @@ The installation is reproducible:
 Technical runtime availability is not creative acceptance. KINAOU must not advertise real Avatar generation until the next generation slice loads the pipeline and produces a managed image from a real reference.
 
 The first render should use conservative MPS settings for 16 GB unified memory and undergo human review for identity, eyes, skin detail, artifacts, composition and resemblance. Multiple independently seeded takes are required before identity continuity can be considered demonstrated.
+
+### Plus-Face identity acceptance result (4.3C, 2026-09-24)
+
+The first real persistent-identity acceptance test did not pass.
+
+The experiment used:
+- one real locally generated fictional SDXL identity seed;
+- a tight face reference crop;
+- fixed scene prompt and seed;
+- IP-Adapter Plus-Face scales 0.95, 1.00 and 1.10;
+- pinned SDXL and IP-Adapter revisions;
+- Apple MPS;
+- no FaceID or InsightFace.
+
+The generated images were technically valid and visually related to the source identity, but human comparison found unacceptable drift in identity-critical features, particularly:
+- face width/proportions;
+- skin tone/lightness;
+- eye appearance;
+- beard pattern;
+- facial geometry.
+
+KINAOU therefore must not claim identity preservation from Plus-Face.
+
+Further prompt engineering or scale tuning is not considered sufficient evidence for the target product requirement. The next candidate must bind identity more strongly, preferably through a trainable per-avatar identity adapter, and must again pass multi-scene human review before being exposed as `identity-preservation`.
