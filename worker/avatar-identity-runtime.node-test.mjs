@@ -66,6 +66,25 @@ test(
       }
     )
 
+
+    const manifestPath =
+      path.join(
+        root,
+        'install-manifest.json'
+      )
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify({
+        schemaVersion: 1,
+        adapterId:
+          'sdxl-ip-adapter-plus-face',
+        faceIdUsed: false,
+        insightFaceUsed: false
+      }),
+      'utf8'
+    )
+
     const fakePython =
       path.join(
         root,
@@ -151,6 +170,8 @@ test(
               fakePython,
             KINAOU_AVATAR_HF_HOME:
               hfHome,
+            KINAOU_AVATAR_MANIFEST:
+              manifestPath,
             KINAOU_AVATAR_DEVICE:
               'mps'
           },

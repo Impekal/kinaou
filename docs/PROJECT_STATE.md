@@ -447,3 +447,31 @@ Preflight hardware on the development Mac was Apple M2 Pro, 10 CPU cores, 16 GB 
 Commercial-output status remains deliberately `pending-verification`. Before real avatar output is accepted into the Creation Receipt pipeline as commercially permitted, the exact installed SDXL and IP-Adapter revisions and their license snapshots must be captured and reviewed.
 
 Local full-worker validation reached 101/103 passing tests. The only concrete failing test location was the pre-existing caption smoke test in `worker/render-smoke.node-test.mjs`; the local Homebrew FFmpeg 9.0.1 build lacks the `subtitles`/libass filter. Caption code and its smoke test are unchanged by 4.3A. GitHub CI remains the authoritative full worker gate.
+
+### 2026-09-24 — Avatar 4.3B pinned local identity runtime
+
+The first real local Avatar identity runtime is installed on the development Mac.
+
+Runtime:
+- isolated Python 3.11 environment;
+- PyTorch 2.6.0;
+- Diffusers 0.40.0;
+- Transformers 5.17.0;
+- Accelerate 1.15.0;
+- Safetensors 0.8.0;
+- Apple MPS verified available.
+
+Pinned models:
+- `stabilityai/stable-diffusion-xl-base-1.0` revision `462165984030d82259a11f4367a4eed129e94a7b`;
+- `h94/IP-Adapter` revision `018e402774aeeddd60609b4ecdb7e298259dc729`;
+- adapter weight `ip-adapter-plus-face_sdxl_vit-h.safetensors`;
+- CLIP ViT-H image encoder;
+- no FaceID or InsightFace model files.
+
+The model cache is separate from Chatterbox. Runtime discovery resolves exact local snapshot paths from the install manifest and does not depend on Hub `main`, Hub cache completeness, or network access.
+
+The Plus-Face and ViT-H files were SHA-256 verified. Revision-bound rights evidence is stored locally from the pinned model-card files. SDXL declares `openrail++`; IP-Adapter declares `apache-2.0`. The SDXL snapshot includes its license file. The IP-Adapter snapshot contains no separate LICENSE file, so its pinned model-card declaration and hash are retained explicitly.
+
+Commercial output remains `pending-verification` until the combined rights review is completed.
+
+The real authenticated KINAOU Mac Worker successfully reports the installed runtime as available on MPS with no missing dependencies. It still exposes only `avatar-identity-runtime`, not `avatar-identity-generation`, because no real identity image has yet been generated and accepted.
