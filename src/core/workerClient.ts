@@ -14,6 +14,10 @@ import { assertSafeManagedPath } from './storage'
 import { managedPublishPathSchema, parsePublishPreflightResult, publishIntegrityResultSchema, publishPackageListSchema, publishPackageRequestSchema, publishPackageResultSchema, publishProjectIdSchema, type PublishIntegrityResult, type PublishPackageEntry, type PublishPackageRequest, type PublishPackageResult, type PublishPreflightResult } from './publishPackage'
 import { exportReceiptSchema, type ExportReceipt } from './exportHistory'
 import {
+  avatarIdentityRuntimeSchema,
+  type AvatarIdentityRuntime
+} from './avatarIdentityRuntime'
+import {
   avatarReceiptExportResultSchema,
   managedFileHashEvidenceSchema,
   type AvatarReceiptExportResult,
@@ -40,6 +44,32 @@ export class WorkerClient {
     this.baseUrl = url.toString().replace(/\/$/, '')
     this.token = options.token
     this.fetchImpl = options.fetchImpl ?? ((input, init) => fetch(input, init))
+  }
+
+  async avatarIdentityRuntime():
+    Promise<AvatarIdentityRuntime> {
+    const payload =
+      await this.request(
+        '/avatar/identity/runtime',
+        {
+          method: 'GET'
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'avatar-identity-runtime'
+    ) {
+      throw new Error(
+        'Invalid avatar identity runtime response'
+      )
+    }
+
+    return avatarIdentityRuntimeSchema
+      .parse(
+        payload.runtime
+      )
   }
 
   async health(): Promise<WorkerHandshake> {

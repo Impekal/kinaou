@@ -429,3 +429,21 @@ The asynchronous path protects against stale project state: if the project chang
 A secured take visibly exposes the output SHA-256, receipt SHA-256, managed receipt path and evidence capture time. Rights status is localized in DE/EN/FR rather than exposing internal enum values as UI copy.
 
 4.2 is now a complete provenance path from a generated Avatar Take through real managed-file hashes to a visible Studio-managed Creation Receipt. It still does not provide the real identity-generation engine itself.
+
+### 2026-09-23 — Avatar 4.3A offline identity runtime discovery
+
+KINAOU now has the first concrete runtime contract for real reusable-avatar identity generation, while deliberately stopping short of claiming generation before a tested model is installed.
+
+The initial baseline is SDXL with IP-Adapter Plus-Face using the non-FaceID path. The adapter identity is `sdxl-ip-adapter-plus-face`. The selected architecture is intended to use the normal CLIP/ViT-H image-embedding path rather than an InsightFace/FaceID identity encoder.
+
+The local worker now exposes authenticated Avatar Identity runtime discovery. Runtime configuration is explicit through `KINAOU_AVATAR_PYTHON`, `KINAOU_AVATAR_HF_HOME` and `KINAOU_AVATAR_DEVICE`. Discovery reports Python/package versions, MPS or CPU device selection, exact base-model and IP-Adapter repository identities, resolved local snapshots/revisions, missing dependencies and readiness.
+
+The Python probe is intentionally offline-only. Hugging Face Hub, Transformers and Diffusers offline modes are set, and repository resolution uses `local_files_only=True`. 4.3A contains no model download or package-install path.
+
+Runtime discovery and generation capability are separate. The worker advertises `avatar-identity-runtime` for the discovery surface but does not advertise `avatar-identity-generation`. A missing or incomplete runtime therefore cannot be mistaken for a working avatar generator.
+
+Preflight hardware on the development Mac was Apple M2 Pro, 10 CPU cores, 16 GB unified memory with PyTorch MPS available. The machine had approximately 118 GiB free disk space at the 4.3 preflight.
+
+Commercial-output status remains deliberately `pending-verification`. Before real avatar output is accepted into the Creation Receipt pipeline as commercially permitted, the exact installed SDXL and IP-Adapter revisions and their license snapshots must be captured and reviewed.
+
+Local full-worker validation reached 101/103 passing tests. The only concrete failing test location was the pre-existing caption smoke test in `worker/render-smoke.node-test.mjs`; the local Homebrew FFmpeg 9.0.1 build lacks the `subtitles`/libass filter. Caption code and its smoke test are unchanged by 4.3A. GitHub CI remains the authoritative full worker gate.

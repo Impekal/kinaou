@@ -197,3 +197,15 @@ An asynchronous evidence result is only persisted if the project object is still
 Rights-state labels and evidence timestamps follow the selected DE/EN/FR interface language.
 
 This UI makes provenance inspectable but does not convert an engine license snapshot or a user's source-rights declaration into an independent legal determination.
+
+### Real Avatar identity baseline (4.3A, 2026-09-23)
+
+The first real identity-generation baseline is defined as SDXL plus IP-Adapter Plus-Face, explicitly excluding FaceID/InsightFace variants.
+
+This is a baseline engine, not the final quality target. Its purpose is to establish the first truthful end-to-end identity-generation path on the user's Apple Silicon hardware. A model is not considered an Avatar engine merely because its packages or weights are present: runtime discovery, generation capability, generated output, identity continuity and human output review remain separate acceptance layers.
+
+The runtime probe cannot download model weights. It only validates explicitly configured local dependencies and local model snapshots. KINAOU must not show real Avatar generation as available until a later slice proves the installed pipeline can actually produce managed output.
+
+The runtime also keeps rights verification separate from technical readiness. An installed model can be technically available while commercial-output permission remains unverified. Such a runtime must not create a Creation Receipt claiming commercial output is allowed.
+
+Because the target machine has 16 GB unified memory, later generation should favor MPS-safe memory controls such as attention slicing and conservative initial output dimensions before quality/performance acceptance is expanded.
