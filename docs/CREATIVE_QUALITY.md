@@ -300,3 +300,34 @@ KINAOU's acceptance bar is now explicit:
 The 4.3E single-source LoRA does not meet that bar.
 
 No product identity-preservation capability may be advertised from this engine.
+
+### PhotoMaker V1 identity acceptance result (4.3F, 2026-09-25)
+
+PhotoMaker V1 passed KINAOU's local-runtime test but failed the persistent-identity quality gate.
+
+The real single-reference, multi-reference and changed-outfit outputs were visually reviewed against the approved fictional identity seed.
+
+The required question is not whether the output is photorealistic or resembles the source. The acceptance question is:
+
+> Does the image immediately read as the exact same person, with only the requested scene, clothing, pose, expression or camera setup changed?
+
+The PhotoMaker V1 outputs did not meet that standard.
+
+Observed failures included:
+- different apparent face geometry;
+- eye and eye-region drift;
+- beard shape/density drift;
+- hair and apparent-age drift;
+- whole-person identity moving from the approved avatar toward a merely similar individual.
+
+Multi-reference conditioning using crops of one source image did not solve the problem.
+
+Therefore:
+- PhotoMaker V1 remains a technical baseline;
+- no persistent-identity product claim is enabled;
+- no `identity-preservation` capability is advertised;
+- further prompt-only tuning is not the preferred next step.
+
+The next quality strategy is reference-preserving multi-image editing. KINAOU should preserve an approved Identity Master and gradually build a human-approved Reference Pack. New scene images should be edits conditioned on those references instead of independent re-synthesis from an identity representation.
+
+For production rights, distinguish the private KINAOU application from the intended use of its outputs. Monetized YouTube videos, paid course media and other revenue-generating outputs require an engine/model path whose license permits that intended use. A research/non-commercial model is not accepted as KINAOU's normal production engine solely because KINAOU itself is not sold.
