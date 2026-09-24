@@ -44,6 +44,8 @@ test(
           '/tmp/avatar-bridge.py',
         cachePath:
           '/tmp/avatar-cache',
+        manifestPath:
+          '/tmp/install-manifest.json',
         device: 'mps'
       })
 
@@ -60,7 +62,9 @@ test(
         '--device',
         'mps',
         '--cache',
-        '/tmp/avatar-cache'
+        '/tmp/avatar-cache',
+        '--manifest',
+        '/tmp/install-manifest.json'
       ]
     )
 
@@ -72,7 +76,9 @@ test(
           bridgePath:
             '/tmp/bridge.py',
           cachePath:
-            '/tmp/cache'
+            '/tmp/cache',
+          manifestPath:
+            '/tmp/install-manifest.json'
         }),
       /absolute/
     )
@@ -177,9 +183,9 @@ test(
         'utf8'
       )
 
-    assert.match(
+    assert.doesNotMatch(
       source,
-      /local_files_only=True/
+      /snapshot_download/
     )
 
     assert.match(

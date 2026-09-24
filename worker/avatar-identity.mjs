@@ -97,6 +97,7 @@ export function buildAvatarIdentityProbeCommand({
   pythonPath,
   bridgePath,
   cachePath,
+  manifestPath,
   device = 'mps'
 }) {
   if (
@@ -128,6 +129,11 @@ export function buildAvatarIdentityProbeCommand({
       absolute(
         cachePath,
         'Avatar identity cache'
+      ),
+      '--manifest',
+      absolute(
+        manifestPath,
+        'Avatar identity manifest'
       )
     ]
   }

@@ -48,6 +48,10 @@ def parse_args():
         required=True,
     )
 
+    parser.add_argument(
+        "--manifest",
+    )
+
     return parser.parse_args()
 
 
@@ -192,28 +196,195 @@ def valid_ip_snapshot(
     )
 
 
-def local_snapshot(
-    repo_id,
-    cache_dir,
+def require_inside(
+    child,
+    parent,
 ):
+    child = Path(
+        child
+    ).resolve()
+
+    parent = Path(
+        parent
+    ).resolve()
+
     try:
-        from huggingface_hub import (
-            snapshot_download,
+        child.relative_to(
+            parent
+        )
+    except ValueError as exc:
+        raise RuntimeError(
+            "Pinned model snapshot is outside "
+            "the configured Avatar cache"
+        ) from exc
+
+    return child
+
+
+def pinned_models(
+    manifest_path,
+    cache_path,
+):
+    if not manifest_path:
+        return (
+            None,
+            None,
+            ["runtime:manifest"],
+            [
+                "Pinned Avatar install manifest "
+                "is not configured."
+            ],
         )
 
-        return snapshot_download(
-            repo_id=repo_id,
-            repo_type="model",
-            cache_dir=cache_dir,
-            local_files_only=True,
-        )
-    except Exception:
-        return None
+    manifest_file = Path(
+        manifest_path
+    ).resolve()
 
+    if not manifest_file.is_file():
+        return (
+            None,
+            None,
+            ["runtime:manifest"],
+            [
+                "Pinned Avatar install manifest "
+                "does not exist."
+            ],
+        )
+
+    data = json.loads(
+        manifest_file.read_text(
+            encoding="utf8"
+        )
+    )
+
+    if (
+        data.get("adapterId")
+        != ADAPTER_ID
+    ):
+        raise RuntimeError(
+            "Avatar manifest adapter mismatch"
+        )
+
+    if (
+        data.get("faceIdUsed")
+        is not False
+        or data.get(
+            "insightFaceUsed"
+        )
+        is not False
+    ):
+        raise RuntimeError(
+            "FaceID/InsightFace is forbidden"
+        )
+
+    base = data.get(
+        "baseModel",
+        {}
+    )
+
+    adapter = data.get(
+        "ipAdapter",
+        {}
+    )
+
+    if (
+        base.get("repoId")
+        != BASE_MODEL
+        or adapter.get("repoId")
+        != IP_ADAPTER
+    ):
+        raise RuntimeError(
+            "Pinned repository identity mismatch"
+        )
+
+    hub = (
+        Path(cache_path)
+        .resolve()
+        / "hub"
+    )
+
+    base_snapshot = require_inside(
+        base["snapshot"],
+        hub,
+    )
+
+    ip_snapshot = require_inside(
+        adapter["snapshot"],
+        hub,
+    )
+
+    if (
+        base_snapshot.name
+        != base.get("revision")
+        or ip_snapshot.name
+        != adapter.get("revision")
+    ):
+        raise RuntimeError(
+            "Pinned snapshot/revision mismatch"
+        )
+
+    base_result = {
+        "repoId":
+            BASE_MODEL,
+        "available":
+            valid_sdxl_snapshot(
+                base_snapshot
+            ),
+        "snapshot":
+            str(base_snapshot),
+        "revision":
+            base["revision"],
+    }
+
+    ip_result = {
+        "repoId":
+            IP_ADAPTER,
+        "available":
+            valid_ip_snapshot(
+                ip_snapshot
+            ),
+        "snapshot":
+            str(ip_snapshot),
+        "revision":
+            adapter["revision"],
+    }
+
+    missing = []
+
+    if not base_result[
+        "available"
+    ]:
+        missing.append(
+            "model:sdxl-base"
+        )
+
+    if not ip_result[
+        "available"
+    ]:
+        missing.append(
+            "model:ip-adapter-plus-face"
+        )
+
+    return (
+        base_result,
+        ip_result,
+        missing,
+        [
+            (
+                "Pinned snapshots resolved "
+                "directly from local manifest."
+            ),
+            (
+                "No Hugging Face snapshot lookup "
+                "is used during runtime discovery."
+            ),
+        ],
+    )
 
 def probe(
     device,
     cache,
+    manifest,
 ):
     cache_path = Path(
         cache
@@ -331,50 +502,35 @@ def probe(
                     "device:mps"
                 )
 
-    base_snapshot = None
-    ip_snapshot = None
+    (
+        base_model,
+        ip_adapter,
+        model_missing,
+        model_notes,
+    ) = pinned_models(
+        manifest,
+        cache_path,
+    )
 
-    if (
-        "package:huggingface_hub"
-        not in missing
-    ):
-        base_snapshot = (
-            local_snapshot(
+    missing.extend(
+        model_missing
+    )
+
+    if base_model is None:
+        base_model = {
+            "repoId":
                 BASE_MODEL,
-                str(hub),
-            )
-        )
+            "available":
+                False,
+        }
 
-        ip_snapshot = (
-            local_snapshot(
+    if ip_adapter is None:
+        ip_adapter = {
+            "repoId":
                 IP_ADAPTER,
-                str(hub),
-            )
-        )
-
-    base_available = bool(
-        base_snapshot
-        and valid_sdxl_snapshot(
-            base_snapshot
-        )
-    )
-
-    ip_available = bool(
-        ip_snapshot
-        and valid_ip_snapshot(
-            ip_snapshot
-        )
-    )
-
-    if not base_available:
-        missing.append(
-            "model:sdxl-base"
-        )
-
-    if not ip_available:
-        missing.append(
-            "model:ip-adapter-plus-face"
-        )
+            "available":
+                False,
+        }
 
     available = bool(
         not missing
@@ -395,74 +551,31 @@ def probe(
         "packageVersions":
             packages,
         "models": {
-            "baseModel": {
-                "repoId":
-                    BASE_MODEL,
-                "available":
-                    base_available,
-                **(
-                    {
-                        "snapshot":
-                            str(
-                                Path(
-                                    base_snapshot
-                                )
-                                .resolve()
-                            ),
-                        "revision":
-                            snapshot_revision(
-                                base_snapshot
-                            ),
-                    }
-                    if base_available
-                    else {}
-                ),
-            },
-            "ipAdapter": {
-                "repoId":
-                    IP_ADAPTER,
-                "available":
-                    ip_available,
-                **(
-                    {
-                        "snapshot":
-                            str(
-                                Path(
-                                    ip_snapshot
-                                )
-                                .resolve()
-                            ),
-                        "revision":
-                            snapshot_revision(
-                                ip_snapshot
-                            ),
-                    }
-                    if ip_available
-                    else {}
-                ),
-            },
+            "baseModel":
+                base_model,
+            "ipAdapter":
+                ip_adapter,
         },
         "missing":
             sorted(
                 set(missing)
             ),
-        "notes": [
-            (
-                "Probe is offline-only; "
-                "no Hub download is permitted."
-            ),
-            (
-                "FaceID/InsightFace "
-                "variants are intentionally "
-                "not used by this adapter."
-            ),
-            (
-                "Commercial-output status "
-                "remains pending until the "
-                "combined license snapshot "
-                "is explicitly accepted."
-            ),
-        ],
+        "notes":
+            model_notes
+            + [
+                (
+                    "Probe is offline-only."
+                ),
+                (
+                    "FaceID/InsightFace variants "
+                    "are intentionally excluded."
+                ),
+                (
+                    "Commercial-output status "
+                    "remains pending explicit "
+                    "combined license review."
+                ),
+            ],
     }
 
     print(
@@ -488,6 +601,7 @@ def main():
     probe(
         args.device,
         args.cache,
+        args.manifest,
     )
 
 

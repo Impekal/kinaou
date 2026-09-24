@@ -73,6 +73,10 @@ const AVATAR_IDENTITY_DEVICE =
   process.env.KINAOU_AVATAR_DEVICE
   ?? 'mps'
 
+const AVATAR_IDENTITY_MANIFEST =
+  process.env.KINAOU_AVATAR_MANIFEST
+  ?? ''
+
 const AVATAR_IDENTITY_BRIDGE =
   fileURLToPath(
     new URL(
@@ -1604,6 +1608,10 @@ async function detectAvatarIdentityRuntime() {
     || !path.isAbsolute(
       AVATAR_IDENTITY_HF_HOME
     )
+    || !AVATAR_IDENTITY_MANIFEST
+    || !path.isAbsolute(
+      AVATAR_IDENTITY_MANIFEST
+    )
   ) {
     return unconfiguredAvatarIdentityRuntime(
       AVATAR_IDENTITY_DEVICE
@@ -1617,6 +1625,10 @@ async function detectAvatarIdentityRuntime() {
 
     await access(
       AVATAR_IDENTITY_BRIDGE
+    )
+
+    await access(
+      AVATAR_IDENTITY_MANIFEST
     )
 
     await mkdir(
@@ -1634,6 +1646,8 @@ async function detectAvatarIdentityRuntime() {
           AVATAR_IDENTITY_BRIDGE,
         cachePath:
           AVATAR_IDENTITY_HF_HOME,
+        manifestPath:
+          AVATAR_IDENTITY_MANIFEST,
         device:
           AVATAR_IDENTITY_DEVICE
       })

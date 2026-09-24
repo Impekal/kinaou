@@ -209,3 +209,20 @@ The runtime probe cannot download model weights. It only validates explicitly co
 The runtime also keeps rights verification separate from technical readiness. An installed model can be technically available while commercial-output permission remains unverified. Such a runtime must not create a Creation Receipt claiming commercial output is allowed.
 
 Because the target machine has 16 GB unified memory, later generation should favor MPS-safe memory controls such as attention slicing and conservative initial output dimensions before quality/performance acceptance is expanded.
+
+### Installed Avatar identity runtime (4.3B, 2026-09-24)
+
+The SDXL + IP-Adapter Plus-Face baseline now exists as a real installed local runtime on the M2 Pro development machine.
+
+The installation is reproducible:
+- exact repository revisions are pinned;
+- runtime discovery uses exact local snapshot paths from the install manifest;
+- no `main` lookup is used at runtime;
+- no model-download path exists in the runtime bridge;
+- FaceID/InsightFace variants are excluded;
+- principal IP-Adapter weights are cryptographically checked;
+- local model-card/license evidence is captured with SHA-256 hashes.
+
+Technical runtime availability is not creative acceptance. KINAOU must not advertise real Avatar generation until the next generation slice loads the pipeline and produces a managed image from a real reference.
+
+The first render should use conservative MPS settings for 16 GB unified memory and undergo human review for identity, eyes, skin detail, artifacts, composition and resemblance. Multiple independently seeded takes are required before identity continuity can be considered demonstrated.
