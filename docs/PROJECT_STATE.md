@@ -501,3 +501,29 @@ Consequently:
 - Plus-Face will not be promoted as KINAOU's persistent Avatar engine.
 
 The next identity path is a trainable per-avatar adapter rather than more prompt/scale tuning of Plus-Face.
+
+### 2026-09-24 — Avatar 4.3D MLX SDXL-LoRA feasibility
+
+KINAOU has now proven that the M2 Pro 16 GB development Mac can execute real gradient-based SDXL LoRA work locally.
+
+A separate Python 3.11 runtime was created for MLX training so the existing Diffusers Avatar runtime remains isolated. The MLX runtime contains MLX 0.31.0 and mlx-diffuser 0.1.6 pinned to repository commit `a26b42aee4e31999dbb4429226b66d896d49e1d8`.
+
+No new SDXL model weights were downloaded. The test reused KINAOU's existing SDXL snapshot pinned to revision `462165984030d82259a11f4367a4eed129e94a7b`.
+
+A dedicated SDXL UNet feasibility harness:
+- converts the real pinned SDXL UNet into MLX;
+- injects rank-4 LoRA into `to_q`, `to_k` and `to_v`;
+- adapts 420 attention projections;
+- exposes 4,474,880 trainable LoRA parameters;
+- performs a real forward pass;
+- computes gradients with MLX `value_and_grad`;
+- performs a real AdamW optimizer update;
+- refuses to expose any Avatar product capability.
+
+Measured runs:
+- 8×8 latent / 64×64 equivalent image: real gradient step succeeded;
+- 16×16 latent / 128×128 equivalent image: real gradient step succeeded.
+
+The 16×16 process reported approximately 4.9 GB maximum resident set size and approximately 14.5 GB peak memory footprint. The test therefore demonstrates technical feasibility on the 16 GB M2 Pro while also confirming that memory headroom must be treated conservatively.
+
+This is not yet identity training. It only establishes that the expensive SDXL UNet + LoRA + gradient + optimizer core can execute locally. The next slice must precompute image latents and prompt embeddings so VAE/text encoders do not need to remain resident during LoRA optimization.
