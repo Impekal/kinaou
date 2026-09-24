@@ -27,6 +27,12 @@ import {
   chatterboxSpeechVoiceDescriptor,
   speechJobFromChatterbox
 } from './chatterbox.mjs'
+import {
+  buildAvatarIdentityProbeCommand,
+  failedAvatarIdentityRuntime,
+  parseAvatarIdentityProbe,
+  unconfiguredAvatarIdentityRuntime
+} from './avatar-identity.mjs'
 import { DEFAULT_OSASCRIPT_PATH, DEFAULT_SCREENCAPTURE_PATH, buildAppActivateCommand, buildAppWindowBoundsCommand, buildCaptureCommand, buildCaptureProvenance, captureAssetRelativePath, captureTempRelativePath, parseAppWindowBounds, validateCaptureRequest } from './capture.mjs'
 import os from 'node:os'
 import { buildWebCaptureCommand, buildWebCaptureProvenance, validateWebCaptureRequest, webCaptureBrowserCandidates, webCaptureProfileDirectory, webCapturePaths } from './webcapture.mjs'
@@ -54,6 +60,26 @@ const CHATTERBOX_DEVICE = process.env.KINAOU_CHATTERBOX_DEVICE ?? 'mps'
 const CHATTERBOX_BRIDGE = fileURLToPath(
   new URL('./chatterbox-bridge.py', import.meta.url)
 )
+
+const AVATAR_IDENTITY_PYTHON =
+  process.env.KINAOU_AVATAR_PYTHON
+  ?? ''
+
+const AVATAR_IDENTITY_HF_HOME =
+  process.env.KINAOU_AVATAR_HF_HOME
+  ?? ''
+
+const AVATAR_IDENTITY_DEVICE =
+  process.env.KINAOU_AVATAR_DEVICE
+  ?? 'mps'
+
+const AVATAR_IDENTITY_BRIDGE =
+  fileURLToPath(
+    new URL(
+      './avatar-identity-bridge.py',
+      import.meta.url
+    )
+  )
 const COMFYUI_URL = normalizeComfyUrl(process.env.KINAOU_COMFYUI_URL)
 const SCREENCAPTURE_PATH = process.env.KINAOU_SCREENCAPTURE ?? DEFAULT_SCREENCAPTURE_PATH
 const OSASCRIPT_PATH = process.env.KINAOU_OSASCRIPT ?? DEFAULT_OSASCRIPT_PATH
@@ -89,6 +115,7 @@ const versions = {
 }
 
 const chatterboxRuntime = await detectChatterboxRuntime()
+let avatarIdentityRuntime = await detectAvatarIdentityRuntime()
 
 const server = http.createServer(async (request, response) => {
   setCorsHeaders(request, response)
@@ -134,12 +161,33 @@ const server = http.createServer(async (request, response) => {
           name: 'KINAOU Mac Worker',
           platform: process.platform,
           version: VERSION,
-          capabilities: ['filesystem', 'asset-upload', 'managed-sha256', 'avatar-creation-receipt', 'publish-package-library', 'publish-package-integrity', 'format-reframing', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe', 'publish-preflight', 'publish-package'] : []), ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(((PIPER_CLI && piperVoices.length) || chatterboxRuntime?.available) && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : [])],
+          capabilities: ['filesystem', 'asset-upload', 'managed-sha256', 'avatar-creation-receipt', 'avatar-identity-runtime', 'publish-package-library', 'publish-package-integrity', 'format-reframing', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe', 'publish-preflight', 'publish-package'] : []), ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(((PIPER_CLI && piperVoices.length) || chatterboxRuntime?.available) && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : [])],
           managedRoots: [MANAGED_ROOT],
           ffmpegVersion: versions.ffmpeg,
           ffprobeVersion: versions.ffprobe
         }
       })
+    }
+
+    if (
+      request.method === 'GET'
+      && request.url
+        === '/avatar/identity/runtime'
+    ) {
+      avatarIdentityRuntime =
+        await detectAvatarIdentityRuntime()
+
+      return send(
+        response,
+        200,
+        {
+          ok: true,
+          type:
+            'avatar-identity-runtime',
+          runtime:
+            avatarIdentityRuntime
+        }
+      )
     }
 
     if (request.method === 'POST' && request.url === '/assets/import') {
@@ -1519,6 +1567,110 @@ function cancelSttJob(job) {
   if (job.child && !job.child.killed) job.child.kill('SIGTERM')
 }
 
+
+function avatarIdentityEnvironment() {
+  const hub =
+    path.join(
+      AVATAR_IDENTITY_HF_HOME,
+      'hub'
+    )
+
+  return {
+    ...process.env,
+    HF_HOME:
+      AVATAR_IDENTITY_HF_HOME,
+    HF_HUB_CACHE:
+      hub,
+    HUGGINGFACE_HUB_CACHE:
+      hub,
+    HF_HUB_OFFLINE:
+      '1',
+    TRANSFORMERS_OFFLINE:
+      '1',
+    DIFFUSERS_OFFLINE:
+      '1',
+    HF_HUB_DISABLE_XET:
+      '1'
+  }
+}
+
+async function detectAvatarIdentityRuntime() {
+  if (
+    !AVATAR_IDENTITY_PYTHON
+    || !path.isAbsolute(
+      AVATAR_IDENTITY_PYTHON
+    )
+    || !AVATAR_IDENTITY_HF_HOME
+    || !path.isAbsolute(
+      AVATAR_IDENTITY_HF_HOME
+    )
+  ) {
+    return unconfiguredAvatarIdentityRuntime(
+      AVATAR_IDENTITY_DEVICE
+    )
+  }
+
+  try {
+    await access(
+      AVATAR_IDENTITY_PYTHON
+    )
+
+    await access(
+      AVATAR_IDENTITY_BRIDGE
+    )
+
+    await mkdir(
+      AVATAR_IDENTITY_HF_HOME,
+      {
+        recursive: true
+      }
+    )
+
+    const command =
+      buildAvatarIdentityProbeCommand({
+        pythonPath:
+          AVATAR_IDENTITY_PYTHON,
+        bridgePath:
+          AVATAR_IDENTITY_BRIDGE,
+        cachePath:
+          AVATAR_IDENTITY_HF_HOME,
+        device:
+          AVATAR_IDENTITY_DEVICE
+      })
+
+    const result =
+      await captureChild(
+        command.executable,
+        command.args,
+        avatarIdentityEnvironment(),
+        30_000
+      )
+
+    const line =
+      result.stdout
+        .trim()
+        .split('\n')
+        .filter(Boolean)
+        .at(-1)
+
+    if (!line) {
+      throw new Error(
+        'Avatar identity probe returned no result'
+      )
+    }
+
+    return parseAvatarIdentityProbe(
+      JSON.parse(line)
+    )
+  } catch (error) {
+    return failedAvatarIdentityRuntime(
+      AVATAR_IDENTITY_DEVICE,
+      error instanceof Error
+        ? error.message
+        : String(error)
+    )
+  }
+}
 
 function chatterboxEnvironment() {
   return {
