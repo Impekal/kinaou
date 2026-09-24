@@ -250,3 +250,23 @@ The generated images were technically valid and visually related to the source i
 KINAOU therefore must not claim identity preservation from Plus-Face.
 
 Further prompt engineering or scale tuning is not considered sufficient evidence for the target product requirement. The next candidate must bind identity more strongly, preferably through a trainable per-avatar identity adapter, and must again pass multi-scene human review before being exposed as `identity-preservation`.
+
+### Trainable identity feasibility (4.3D, 2026-09-24)
+
+The Apple-Silicon training route passed its first real technical gate.
+
+KINAOU successfully executed SDXL UNet LoRA forward/backward optimization with real pinned model weights on the M2 Pro 16 GB machine. Rank-4 LoRA adapters were attached to 420 attention q/k/v projections, representing 4,474,880 trainable parameters.
+
+Both 8×8 and 16×16 latent smoke tests completed with finite losses and real optimizer updates.
+
+This establishes hardware/runtime feasibility only. It does not establish:
+- learned identity fidelity;
+- multi-scene consistency;
+- resistance to skin/eye/beard drift;
+- editability;
+- production training speed;
+- product readiness.
+
+The next acceptance gate requires a real identity dataset, latent/prompt precomputation, an actual saved LoRA adapter, and multiple generated scene outputs reviewed against the source identity.
+
+`identity-preservation` remains disabled until that review passes.
