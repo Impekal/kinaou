@@ -270,3 +270,33 @@ This establishes hardware/runtime feasibility only. It does not establish:
 The next acceptance gate requires a real identity dataset, latent/prompt precomputation, an actual saved LoRA adapter, and multiple generated scene outputs reviewed against the source identity.
 
 `identity-preservation` remains disabled until that review passes.
+
+### Single-source Identity-LoRA acceptance result (4.3E, 2026-09-24)
+
+The first real trained per-avatar Identity-LoRA passed its technical gate but failed the persistent-identity quality gate.
+
+The pilot demonstrated:
+- real latent and prompt-embedding precomputation;
+- real SDXL LoRA optimization;
+- a persistable standalone adapter;
+- independent new scene generation from that adapter;
+- stable execution on the M2 Pro 16 GB development machine.
+
+Human review found the trained result better than Plus-Face, but still insufficiently identity-faithful.
+
+A controlled adapter-strength sweep at 0.00, 0.35, 0.50, 0.75 and 1.00 did not produce a setting that consistently preserved the exact same person.
+
+Observed failure modes included:
+- facial proportion drift;
+- eye/eye-region drift;
+- beard shape and density drift;
+- person-level resemblance changing into a merely similar individual;
+- occasional style/softness changes instead of stronger identity.
+
+KINAOU's acceptance bar is now explicit:
+
+> The avatar must immediately read as the same person across independent generations, while outfit, environment, pose, expression and camera setup may change.
+
+The 4.3E single-source LoRA does not meet that bar.
+
+No product identity-preservation capability may be advertised from this engine.

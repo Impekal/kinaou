@@ -527,3 +527,51 @@ Measured runs:
 The 16×16 process reported approximately 4.9 GB maximum resident set size and approximately 14.5 GB peak memory footprint. The test therefore demonstrates technical feasibility on the 16 GB M2 Pro while also confirming that memory headroom must be treated conservatively.
 
 This is not yet identity training. It only establishes that the expensive SDXL UNet + LoRA + gradient + optimizer core can execute locally. The next slice must precompute image latents and prompt embeddings so VAE/text encoders do not need to remain resident during LoRA optimization.
+
+### 2026-09-24 — Avatar 4.3E first real Identity-LoRA technically passed, quality rejected
+
+KINAOU completed its first real per-avatar SDXL Identity-LoRA experiment on the M2 Pro 16 GB machine.
+
+The pilot reused the already pinned SDXL base model. No new SDXL base weights were downloaded.
+
+Dataset:
+- one fictional KINAOU identity seed;
+- six lossless/geometric crops of that same source;
+- no colour augmentation;
+- 256×256 training resolution.
+
+Precomputation:
+- six real SDXL VAE latents at 32×32×4;
+- real SDXL prompt embeddings at 77×2048;
+- real pooled SDXL text embedding at 1280 dimensions.
+
+Training:
+- rank 4 LoRA;
+- 420 adapted q/k/v attention projections;
+- 4,474,880 trainable parameters;
+- 18 real optimization steps;
+- AdamW;
+- saved standalone adapter;
+- finite loss throughout;
+- training completed locally on Apple MLX.
+
+Inference:
+- the saved adapter produced independent new portrait and museum-scene renders;
+- a second controlled sweep generated otherwise identical portraits at adapter scales 0.00, 0.35, 0.50, 0.75 and 1.00.
+
+Human acceptance result:
+- visually better than the earlier IP-Adapter Plus-Face baseline;
+- nevertheless not accepted as persistent identity;
+- face geometry, eyes, beard and person-level identity still drift;
+- changing inference scale does not solve the problem.
+
+The accepted product standard remains stricter: a viewer should immediately read multiple images as the same person with only outfit, scene, pose or expression changed.
+
+Consequently:
+- real local per-avatar LoRA training is proven;
+- adapter persistence and reuse are proven;
+- the single-source pilot is not KINAOU's final identity engine;
+- `identity-preservation` remains disabled;
+- Point 4 remains open.
+
+Next candidate: PhotoMaker V1, evaluated separately from PhotoMaker V2 because V1 does not use the V2 InsightFace encoder path.
