@@ -29,8 +29,22 @@ IP_WEIGHT = (
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group(
+        required=True
+    )
+
+    mode.add_argument(
         "--probe",
+        action="store_true",
+    )
+
+    mode.add_argument(
+        "--generate-seed",
+        action="store_true",
+    )
+
+    mode.add_argument(
+        "--generate-reference",
         action="store_true",
     )
 
@@ -50,6 +64,59 @@ def parse_args():
 
     parser.add_argument(
         "--manifest",
+    )
+
+    parser.add_argument(
+        "--output",
+    )
+
+    parser.add_argument(
+        "--reference",
+    )
+
+    parser.add_argument(
+        "--prompt",
+    )
+
+    parser.add_argument(
+        "--negative-prompt",
+        default="",
+    )
+
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=24681357,
+    )
+
+    parser.add_argument(
+        "--width",
+        type=int,
+        default=512,
+    )
+
+    parser.add_argument(
+        "--height",
+        type=int,
+        default=512,
+    )
+
+    parser.add_argument(
+        "--steps",
+        type=int,
+        default=18,
+    )
+
+    parser.add_argument(
+        "--guidance",
+        type=float,
+        default=6.0,
+    )
+
+    parser.add_argument(
+        "--ip-scale",
+        type=float,
+        default=0.80,
     )
 
     return parser.parse_args()
@@ -589,19 +656,407 @@ def probe(
     )
 
 
+
+def generation_request(
+    args,
+):
+    if not args.manifest:
+        raise RuntimeError(
+            "--manifest is required for generation"
+        )
+
+    if not args.output:
+        raise RuntimeError(
+            "--output is required for generation"
+        )
+
+    if not args.prompt:
+        raise RuntimeError(
+            "--prompt is required for generation"
+        )
+
+    output = Path(
+        args.output
+    )
+
+    if not output.is_absolute():
+        raise RuntimeError(
+            "Generation output must be an absolute path"
+        )
+
+    if output.suffix.lower() != ".png":
+        raise RuntimeError(
+            "Avatar generation output must be PNG"
+        )
+
+    if (
+        args.width < 256
+        or args.width > 1024
+        or args.height < 256
+        or args.height > 1024
+        or args.width % 8
+        or args.height % 8
+    ):
+        raise RuntimeError(
+            "Avatar dimensions must be multiples of 8 between 256 and 1024"
+        )
+
+    if (
+        args.steps < 1
+        or args.steps > 60
+    ):
+        raise RuntimeError(
+            "Avatar inference steps must be between 1 and 60"
+        )
+
+    if (
+        args.guidance < 0
+        or args.guidance > 20
+    ):
+        raise RuntimeError(
+            "Avatar guidance must be between 0 and 20"
+        )
+
+    if (
+        args.ip_scale < 0
+        or args.ip_scale > 1.5
+    ):
+        raise RuntimeError(
+            "IP-Adapter scale must be between 0 and 1.5"
+        )
+
+    if args.seed < 0:
+        raise RuntimeError(
+            "Avatar seed must be non-negative"
+        )
+
+    cache = Path(
+        args.cache
+    ).resolve()
+
+    (
+        base_model,
+        ip_adapter,
+        missing,
+        _notes,
+    ) = pinned_models(
+        args.manifest,
+        cache,
+    )
+
+    if missing:
+        raise RuntimeError(
+            "Avatar runtime is incomplete: "
+            + ", ".join(
+                missing
+            )
+        )
+
+    reference = None
+
+    if args.generate_reference:
+        if not args.reference:
+            raise RuntimeError(
+                "--reference is required for reference generation"
+            )
+
+        reference = Path(
+            args.reference
+        )
+
+        if not reference.is_absolute():
+            raise RuntimeError(
+                "Avatar reference must be an absolute path"
+            )
+
+        if not reference.is_file():
+            raise RuntimeError(
+                "Avatar reference file does not exist"
+            )
+
+    return {
+        "output":
+            output,
+        "reference":
+            reference,
+        "base":
+            Path(
+                base_model[
+                    "snapshot"
+                ]
+            ),
+        "adapter":
+            Path(
+                ip_adapter[
+                    "snapshot"
+                ]
+            ),
+    }
+
+
+def generate(
+    args,
+):
+    import gc
+    import time
+
+    import torch
+
+    from PIL import Image
+    from diffusers import (
+        StableDiffusionXLPipeline,
+    )
+
+    request = generation_request(
+        args
+    )
+
+    if (
+        args.device == "mps"
+        and not (
+            torch.backends
+            .mps
+            .is_built()
+            and torch.backends
+            .mps
+            .is_available()
+        )
+    ):
+        raise RuntimeError(
+            "PyTorch MPS is unavailable"
+        )
+
+    dtype = (
+        torch.float16
+        if args.device == "mps"
+        else torch.float32
+    )
+
+    started = time.time()
+
+    pipe = (
+        StableDiffusionXLPipeline
+        .from_pretrained(
+            str(
+                request[
+                    "base"
+                ]
+            ),
+            torch_dtype=dtype,
+            variant="fp16",
+            use_safetensors=True,
+            local_files_only=True,
+        )
+    )
+
+    if hasattr(
+        pipe.vae,
+        "enable_slicing"
+    ):
+        pipe.vae.enable_slicing()
+
+    if hasattr(
+        pipe.vae,
+        "enable_tiling"
+    ):
+        pipe.vae.enable_tiling()
+
+    if args.generate_reference:
+        pipe.load_ip_adapter(
+            str(
+                request[
+                    "adapter"
+                ]
+            ),
+            subfolder=
+                "sdxl_models",
+            weight_name=
+                "ip-adapter-plus-face_sdxl_vit-h.safetensors",
+            image_encoder_folder=
+                "models/image_encoder",
+            local_files_only=True,
+        )
+
+        pipe.set_ip_adapter_scale(
+            args.ip_scale
+        )
+
+    if not args.generate_reference:
+        pipe.enable_attention_slicing(
+            "max"
+        )
+
+    pipe = pipe.to(
+        args.device
+    )
+
+    generator = (
+        torch.Generator(
+            device="cpu"
+        )
+        .manual_seed(
+            args.seed
+        )
+    )
+
+    kwargs = {
+        "prompt":
+            args.prompt,
+        "negative_prompt":
+            args.negative_prompt,
+        "num_inference_steps":
+            args.steps,
+        "guidance_scale":
+            args.guidance,
+        "width":
+            args.width,
+        "height":
+            args.height,
+        "generator":
+            generator,
+    }
+
+    if args.generate_reference:
+        reference = (
+            Image.open(
+                request[
+                    "reference"
+                ]
+            )
+            .convert(
+                "RGB"
+            )
+        )
+
+        kwargs[
+            "ip_adapter_image"
+        ] = reference
+
+    with torch.inference_mode():
+        result = pipe(
+            **kwargs
+        )
+
+    image = result.images[0]
+
+    request[
+        "output"
+    ].parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    image.save(
+        request[
+            "output"
+        ],
+        format="PNG",
+    )
+
+    size = (
+        request[
+            "output"
+        ]
+        .stat()
+        .st_size
+    )
+
+    elapsed = (
+        time.time()
+        - started
+    )
+
+    payload = {
+        "ok": True,
+        "type":
+            (
+                "avatar-reference-generation"
+                if args.generate_reference
+                else "avatar-seed-generation"
+            ),
+        "output":
+            str(
+                request[
+                    "output"
+                ]
+            ),
+        "sizeBytes":
+            size,
+        "seed":
+            args.seed,
+        "width":
+            args.width,
+        "height":
+            args.height,
+        "steps":
+            args.steps,
+        "guidance":
+            args.guidance,
+        "device":
+            args.device,
+        "baseRevision":
+            request[
+                "base"
+            ].name,
+        "ipAdapterRevision":
+            (
+                request[
+                    "adapter"
+                ].name
+                if args.generate_reference
+                else None
+            ),
+        "ipScale":
+            (
+                args.ip_scale
+                if args.generate_reference
+                else None
+            ),
+        "elapsedSeconds":
+            round(
+                elapsed,
+                3
+            ),
+    }
+
+    print(
+        json.dumps(
+            payload,
+            separators=(
+                ",",
+                ":",
+            ),
+        )
+    )
+
+    del pipe
+
+    gc.collect()
+
+    if (
+        args.device == "mps"
+        and hasattr(
+            torch,
+            "mps"
+        )
+    ):
+        torch.mps.empty_cache()
+
+
+
 def main():
     args = parse_args()
 
-    if not args.probe:
-        raise RuntimeError(
-            "Only --probe is implemented "
-            "in Avatar Identity 4.3A"
+    if args.probe:
+        probe(
+            args.device,
+            args.cache,
+            args.manifest,
         )
+        return
 
-    probe(
-        args.device,
-        args.cache,
-        args.manifest,
+    generate(
+        args
     )
 
 
