@@ -24,6 +24,11 @@ import {
 } from '../core/shortCutPlan'
 
 import {
+  createMaterializedShortDerivative,
+  reviewedShortCutKey
+} from '../core/shortDerivativeCreate'
+
+import {
   parseShortHighlightProposal,
   type ShortHighlightProposal
 } from '../core/shortHighlightProposal'
@@ -79,6 +84,12 @@ interface Props {
 
   disabled:
     boolean
+
+  onCreateDerivative?:
+    (
+      project:
+        KinaouProject
+    ) => void
 }
 
 
@@ -89,7 +100,8 @@ export function ShortIntelligencePanel({
   workerToken,
   workerConnected,
   workerCapabilities,
-  disabled
+  disabled,
+  onCreateDerivative
 }: Props) {
   const {
     language,
@@ -249,6 +261,22 @@ export function ShortIntelligencePanel({
       ''
     )
 
+  const [
+    acceptedPreviewKey,
+    setAcceptedPreviewKey
+  ] =
+    useState(
+      ''
+    )
+
+  const [
+    creating,
+    setCreating
+  ] =
+    useState(
+      false
+    )
+
 
   function disposePreview(
     resetState =
@@ -273,6 +301,7 @@ export function ShortIntelligencePanel({
 
     if (resetState) {
       setUrl('')
+      setAcceptedPreviewKey('')
       setFeedback({
         phase:
           'idle'
@@ -289,6 +318,7 @@ export function ShortIntelligencePanel({
       setProposal(null)
       setSelected([])
       setPending(false)
+      setCreating(false)
       setMessage(null)
       setError('')
 
@@ -375,6 +405,7 @@ export function ShortIntelligencePanel({
     disabled
     || pending
     || previewBusy
+    || creating
 
 
   let cut:
@@ -436,6 +467,32 @@ export function ShortIntelligencePanel({
           : String(cause)
     }
   }
+
+  const currentReviewKey =
+    cut
+      ? reviewedShortCutKey(
+          project,
+          cut,
+          format
+        )
+      : ''
+
+  const creationReady =
+    Boolean(
+      onCreateDerivative
+    )
+    && Boolean(
+      cut
+    )
+    && !cutError
+    && !previewPlanError
+    && feedback.phase
+      === 'ready'
+    && Boolean(
+      url
+    )
+    && acceptedPreviewKey
+      === currentReviewKey
 
 
   async function detectModels() {
@@ -628,6 +685,9 @@ export function ShortIntelligencePanel({
 
     disposePreview()
 
+    const reviewedKey =
+      currentReviewKey
+
     const currentPlan =
       freshPreviewPlan(
         previewPlan
@@ -666,6 +726,10 @@ export function ShortIntelligencePanel({
               setUrl(
                 objectUrl.current
               )
+
+              setAcceptedPreviewKey(
+                reviewedKey
+              )
             }
         }
       )
@@ -674,6 +738,42 @@ export function ShortIntelligencePanel({
       nextSession
 
     void nextSession.run()
+  }
+
+
+  function createDerivative() {
+    if (
+      creating
+      || !creationReady
+      || !cut
+      || !onCreateDerivative
+    ) {
+      return
+    }
+
+    setCreating(true)
+    setError('')
+
+    try {
+      const child =
+        createMaterializedShortDerivative(
+          project,
+          cut,
+          format
+        )
+
+      onCreateDerivative(
+        child
+      )
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : String(cause)
+      )
+
+      setCreating(false)
+    }
   }
 
 
@@ -1292,8 +1392,72 @@ export function ShortIntelligencePanel({
               }
             />
           )}
+
+          {creationReady && (
+            <ShortDerivativeCreateAction
+              ready={
+                creationReady
+              }
+              creating={
+                creating
+              }
+              onCreate={
+                createDerivative
+              }
+            />
+          )}
         </div>
       )}
+    </div>
+  )
+}
+
+
+export function ShortDerivativeCreateAction({
+  ready,
+  creating,
+  onCreate
+}: {
+  ready:
+    boolean
+
+  creating:
+    boolean
+
+  onCreate:
+    () => void
+}) {
+  const {
+    t
+  } =
+    useUiLanguage()
+
+  return (
+    <div className="card stack">
+      <p className="cardBody">
+        {t(
+          'shortIntelligence.createHelp'
+        )}
+      </p>
+
+      <div className="renderActions">
+        <button
+          className="primary"
+          disabled={
+            !ready
+            || creating
+          }
+          onClick={
+            onCreate
+          }
+        >
+          {t(
+            creating
+              ? 'shortIntelligence.creating'
+              : 'shortIntelligence.create'
+          )}
+        </button>
+      </div>
     </div>
   )
 }

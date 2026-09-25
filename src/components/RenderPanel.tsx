@@ -35,6 +35,7 @@ interface RenderPanelProps {
   workerConnected: boolean
   workerCapabilities: string[]
   onProjectChange: (project: KinaouProject) => void
+  onCreateDerivative?: (project: KinaouProject) => void
 }
 
 const terminalStates = new Set(['succeeded', 'failed', 'cancelled'])
@@ -42,7 +43,7 @@ const targetFormats = Object.keys(formatProfiles) as TargetFormat[]
 interface ArchivedBatchSelectionReview { batchId: string; unavailable: Array<{ candidateId: string; title: string }> }
 interface ShortRecipeReview { recipeId: string; unavailableCandidateIds: string[] }
 
-export function RenderPanel({ project, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange }: RenderPanelProps) {
+export function RenderPanel({ project, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange, onCreateDerivative }: RenderPanelProps) {
   const readiness = useMemo(() => renderReadiness(project), [project])
   const format = projectTargetFormat(project)
   const profile = formatProfiles[format]
@@ -534,6 +535,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         workerConnected={workerConnected}
         workerCapabilities={workerCapabilities}
         disabled={busy || submitting}
+        onCreateDerivative={onCreateDerivative}
       />
 
       {project.storyboard.length > 0 && <div className="renderJob">

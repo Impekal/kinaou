@@ -92,6 +92,9 @@ export interface ShortCutPlan {
   sourceTimelineDurationMs:
     number
 
+  sourceProjectUpdatedAt:
+    string
+
   title:
     string
 
@@ -361,6 +364,10 @@ export function buildShortCutPlan(
       context.project
         .timelineDurationMs,
 
+    sourceProjectUpdatedAt:
+      context.project
+        .updatedAt,
+
     title:
       proposal.title,
 
@@ -440,11 +447,13 @@ export function createShortCutRenderPlan(
     )
 
   if (
-    base.durationMs
-    !== cut.sourceTimelineDurationMs
+    project.updatedAt
+      !== cut.sourceProjectUpdatedAt
+    || base.durationMs
+      !== cut.sourceTimelineDurationMs
   ) {
     throw new Error(
-      'The project timeline changed after Short intelligence review'
+      'The project changed after Short intelligence review'
     )
   }
 

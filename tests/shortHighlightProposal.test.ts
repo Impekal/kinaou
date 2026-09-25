@@ -24,6 +24,10 @@ function context():
         'project',
       title:
         'Interview',
+
+      updatedAt:
+        '2026-09-25T18:00:00.000Z',
+
       timelineDurationMs:
         120_000
     },

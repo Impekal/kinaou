@@ -71,6 +71,22 @@ export function App() {
     refreshProjects(next)
   }
 
+  function createDerivativeProject(next: KinaouProject) {
+    if (projectRepo.load(next.id)) {
+      throw new Error('A project with this Short derivative identity already exists')
+    }
+
+    projectRepo.save(next)
+
+    setStudioPlayheads((current) => ({
+      ...current,
+      [next.id]: 0
+    }))
+
+    refreshProjects(next)
+    setSection('Studio')
+  }
+
   const studioPlayheadMs = project ? studioPlayheads[project.id] ?? 0 : 0
 
   function setStudioPlayheadMs(value: number) {
@@ -187,7 +203,7 @@ export function App() {
             <SceneVoiceoverPanel key={`narration-${project.id}`} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
             <TimelineEditor key={`timeline-${project.id}`} project={project} history={versionHistory} onProjectChange={persistProject} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} playheadMs={studioPlayheadMs} onPlayheadChange={setStudioPlayheadMs} />
             <CaptionEditor key={`captions-${project.id}`} project={project} history={versionHistory} onProjectChange={persistProject} />
-            <RenderPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
+            <RenderPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} onCreateDerivative={createDerivativeProject} />
             <div className="card note">{t('timeline.boundary')}</div>
           </>}
         </section>}
