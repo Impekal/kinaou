@@ -684,3 +684,40 @@ Approved Identity Master → identity-preserving Scene Edit → human-approved t
 The next product slice is to move this accepted manual runtime into the authenticated KINAOU worker and Avatar Studio rather than leaving it as a terminal-only experiment.
 
 Whole completion point 4 remains open.
+
+### 2026-09-25 — Avatar 4.3H-A authenticated FLUX.2 worker
+
+The human-accepted FLUX.2 Klein still-image identity engine is no longer terminal-only.
+
+KINAOU's authenticated localhost worker now provides:
+- `POST /avatar/edit/jobs`;
+- `GET /avatar/edit/jobs/:id`;
+- `POST /avatar/edit/jobs/:id/cancel`;
+- managed successful outputs under `KINAOU/Assets/GeneratedAvatars/`;
+- temporary generation under `KINAOU/Temp/GeneratedAvatars/` with cleanup;
+- shell-free MFLUX execution;
+- exact pinned runtime-manifest verification before advertising `avatar-identity-edit`;
+- immutable job provenance containing adapter, engine, runtime/model revisions, prompt, seed, steps, dimensions and managed reference identity.
+
+The product worker currently accepts exactly one managed image reference because only single-reference identity quality has been human accepted. The lower-level MFLUX command contract may technically carry multiple references, but KINAOU does not expose that as an accepted product capability yet.
+
+Real M2 Pro evidence:
+- authenticated health advertised the configured Avatar edit capability;
+- a real FLUX.2 worker job succeeded;
+- status polling reached terminal success;
+- output was written under `KINAOU/Assets/GeneratedAvatars/`;
+- temporary files were removed;
+- a separate job was cancelled and remained cancelled;
+- the exact 4.3G human-accepted seed/prompt/reference profile was regenerated through the worker and matched the accepted image pixel-for-pixel.
+
+CI uses a small fake local executable to test the authenticated worker lifecycle without downloading or executing the multi-gigabyte model.
+
+Not yet complete:
+- Avatar Studio Generate/Retake UI;
+- registering worker result as the active Avatar generated take;
+- automatic source/output hashing into the Creation Receipt;
+- automatic receipt export/re-verification;
+- multi-reference quality acceptance;
+- video/motion/expression/lip-sync.
+
+Whole completion point 4 remains open.

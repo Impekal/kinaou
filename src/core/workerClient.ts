@@ -7,6 +7,7 @@ import { parseTtsJob, type TtsJobRecord } from './ttsJobs'
 import { parseSpeechVoiceCatalog, type SpeechVoiceDescriptor } from './speech'
 import { parseSpeechJob, type SpeechJobRecord, type SpeechSynthesisRequest } from './speechJobs'
 import { parseImageGenerationAvailability, parseImageJob, type ImageGenerationAvailability, type ImageJobParameters, type ImageJobRecord } from './imageJobs'
+import { parseAvatarEditJob, type AvatarEditJobParameters, type AvatarEditJobRecord } from './avatarJobs'
 import { parseVideoJob, type VideoJobRecord } from './videoJobs'
 import { parseCaptureJob, type CaptureJobRecord, type CaptureRequest } from './captureJobs'
 import { parseWebCaptureBrowsers, parseWebCaptureJob, type WebCaptureBrowser, type WebCaptureJobRecord, type WebCaptureRequest } from './webCaptureJobs'
@@ -441,6 +442,88 @@ export class WorkerClient {
     const payload = await this.request(`/tts/jobs/${encodeURIComponent(jobId)}/cancel`, { method: 'POST' })
     if (payload?.ok !== true || payload?.type !== 'tts-job') throw new Error('Invalid TTS cancellation response')
     return parseTtsJob(payload.job)
+  }
+
+  async startAvatarEditJob(
+    parameters: AvatarEditJobParameters
+  ): Promise<AvatarEditJobRecord> {
+    const payload =
+      await this.request(
+        '/avatar/edit/jobs',
+        {
+          method: 'POST',
+          body:
+            JSON.stringify(
+              parameters
+            )
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'avatar-edit-job'
+    ) {
+      throw new Error(
+        'Invalid Avatar edit job start response'
+      )
+    }
+
+    return parseAvatarEditJob(
+      payload.job
+    )
+  }
+
+  async avatarEditJobStatus(
+    jobId: string
+  ): Promise<AvatarEditJobRecord> {
+    const payload =
+      await this.request(
+        `/avatar/edit/jobs/${encodeURIComponent(jobId)}`,
+        {
+          method: 'GET'
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'avatar-edit-job'
+    ) {
+      throw new Error(
+        'Invalid Avatar edit job status response'
+      )
+    }
+
+    return parseAvatarEditJob(
+      payload.job
+    )
+  }
+
+  async cancelAvatarEditJob(
+    jobId: string
+  ): Promise<AvatarEditJobRecord> {
+    const payload =
+      await this.request(
+        `/avatar/edit/jobs/${encodeURIComponent(jobId)}/cancel`,
+        {
+          method: 'POST'
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'avatar-edit-job'
+    ) {
+      throw new Error(
+        'Invalid Avatar edit cancellation response'
+      )
+    }
+
+    return parseAvatarEditJob(
+      payload.job
+    )
   }
 
   async imageGenerationAvailability(): Promise<ImageGenerationAvailability> {

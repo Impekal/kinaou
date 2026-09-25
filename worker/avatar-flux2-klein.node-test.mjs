@@ -204,3 +204,73 @@ test(
     )
   }
 )
+
+test(
+  'accepts only the exact pinned runtime manifest',
+  async () => {
+    const {
+      parseFlux2KleinRuntimeManifest
+    } =
+      await import(
+        './avatar-flux2-klein.mjs'
+      )
+
+    const manifest = {
+      schemaVersion:
+        1,
+      runtime:
+        'mflux',
+      runtimeVersion:
+        '0.20.0',
+      runtimeReleaseCommit:
+        '83ca6f2c230830e8e90e106ef7adb33abc93c9fc',
+      modelRepository:
+        'Runpod/FLUX.2-klein-4B-mflux-4bit',
+      modelRevision:
+        '73dcaa322be48ea49374b32b4b23aab1a3e59b87',
+      modelAggregateSha256:
+        '59f63035f2800752eb18f6afb24d88bbc6ae5759bb9d46a02038fbc7c2d05f32',
+      baseModelRepository:
+        'black-forest-labs/FLUX.2-klein-4B',
+      baseLicenseEvidenceRevision:
+        '6dfcebfd3cb91f82d131896f70845e96d902a304',
+      licenseId:
+        'apache-2.0',
+      commercialOutput:
+        'allowed',
+      insightFaceUsed:
+        false,
+      faceIdUsed:
+        false,
+      quantization:
+        '4-bit'
+    }
+
+    assert.equal(
+      parseFlux2KleinRuntimeManifest(
+        manifest
+      ).modelAggregateSha256,
+      manifest.modelAggregateSha256
+    )
+
+    assert.throws(
+      () =>
+        parseFlux2KleinRuntimeManifest({
+          ...manifest,
+          modelRevision:
+            '0'.repeat(40)
+        }),
+      /runtime manifest/
+    )
+
+    assert.throws(
+      () =>
+        parseFlux2KleinRuntimeManifest({
+          ...manifest,
+          commercialOutput:
+            'restricted'
+        }),
+      /runtime manifest/
+    )
+  }
+)

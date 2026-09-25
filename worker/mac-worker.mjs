@@ -33,6 +33,17 @@ import {
   parseAvatarIdentityProbe,
   unconfiguredAvatarIdentityRuntime
 } from './avatar-identity.mjs'
+import {
+  FLUX2_KLEIN_ACCEPTED_SIZE,
+  FLUX2_KLEIN_ACCEPTED_STEPS,
+  FLUX2_KLEIN_MODEL_ID,
+  FLUX2_KLEIN_MODEL_REVISION,
+  FLUX2_KLEIN_MODEL_AGGREGATE_SHA256,
+  buildFlux2KleinAvatarEditCommand,
+  parseFlux2KleinRuntimeManifest,
+  flux2KleinAvatarOutputRelativePath,
+  flux2KleinAvatarTempRelativePath
+} from './avatar-flux2-klein.mjs'
 import { DEFAULT_OSASCRIPT_PATH, DEFAULT_SCREENCAPTURE_PATH, buildAppActivateCommand, buildAppWindowBoundsCommand, buildCaptureCommand, buildCaptureProvenance, captureAssetRelativePath, captureTempRelativePath, parseAppWindowBounds, validateCaptureRequest } from './capture.mjs'
 import os from 'node:os'
 import { buildWebCaptureCommand, buildWebCaptureProvenance, validateWebCaptureRequest, webCaptureBrowserCandidates, webCaptureProfileDirectory, webCapturePaths } from './webcapture.mjs'
@@ -84,6 +95,18 @@ const AVATAR_IDENTITY_BRIDGE =
       import.meta.url
     )
   )
+
+const FLUX2_KLEIN_EDIT_CLI =
+  process.env.KINAOU_FLUX2_EDIT_CLI
+  ?? ''
+
+const FLUX2_KLEIN_MODEL_PATH =
+  process.env.KINAOU_FLUX2_MODEL_PATH
+  ?? ''
+
+const FLUX2_KLEIN_RUNTIME_MANIFEST =
+  process.env.KINAOU_FLUX2_RUNTIME_MANIFEST
+  ?? ''
 const COMFYUI_URL = normalizeComfyUrl(process.env.KINAOU_COMFYUI_URL)
 const SCREENCAPTURE_PATH = process.env.KINAOU_SCREENCAPTURE ?? DEFAULT_SCREENCAPTURE_PATH
 const OSASCRIPT_PATH = process.env.KINAOU_OSASCRIPT ?? DEFAULT_OSASCRIPT_PATH
@@ -96,6 +119,7 @@ const ttsJobs = new Map()
 const speechJobs = new Map()
 const WEBCAPTURE_TIMEOUT_MS = Number(process.env.KINAOU_WEBCAPTURE_TIMEOUT_MS ?? 120_000)
 const generationJobs = new Map()
+const avatarEditJobs = new Map()
 const captureJobs = new Map()
 const webCaptureJobs = new Map()
 const browserVersions = new Map()
@@ -157,6 +181,8 @@ const server = http.createServer(async (request, response) => {
       const hasVideoTemplates = comfyTemplates.some((template) => template.mediaType === 'video')
       const captureAvailable = await screencaptureAvailable()
       const webBrowsers = await listWebCaptureBrowsers()
+      const avatarEditAvailable =
+        await flux2KleinAvatarEditRuntimeAvailable()
       return send(response, 200, {
         ok: true,
         type: 'health',
@@ -165,7 +191,7 @@ const server = http.createServer(async (request, response) => {
           name: 'KINAOU Mac Worker',
           platform: process.platform,
           version: VERSION,
-          capabilities: ['filesystem', 'asset-upload', 'managed-sha256', 'avatar-creation-receipt', 'avatar-identity-runtime', 'publish-package-library', 'publish-package-integrity', 'format-reframing', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe', 'publish-preflight', 'publish-package'] : []), ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(((PIPER_CLI && piperVoices.length) || chatterboxRuntime?.available) && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : [])],
+          capabilities: ['filesystem', 'asset-upload', 'managed-sha256', 'avatar-creation-receipt', 'avatar-identity-runtime', 'publish-package-library', 'publish-package-integrity', 'format-reframing', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe', 'publish-preflight', 'publish-package'] : []), ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(((PIPER_CLI && piperVoices.length) || chatterboxRuntime?.available) && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : []), ...(avatarEditAvailable ? ['avatar-identity-edit'] : [])],
           managedRoots: [MANAGED_ROOT],
           ffmpegVersion: versions.ffmpeg,
           ffprobeVersion: versions.ffprobe
@@ -190,6 +216,100 @@ const server = http.createServer(async (request, response) => {
             'avatar-identity-runtime',
           runtime:
             avatarIdentityRuntime
+        }
+      )
+    }
+
+    if (
+      request.method === 'POST'
+      && request.url === '/avatar/edit/jobs'
+    ) {
+      const job =
+        await createAvatarEditJob(
+          await readJson(request)
+        )
+
+      queueMicrotask(
+        () =>
+          executeAvatarEditJob(
+            job.id
+          ).catch(() => {})
+      )
+
+      return send(
+        response,
+        202,
+        {
+          ok: true,
+          type:
+            'avatar-edit-job',
+          job:
+            publicAvatarEditJob(
+              job
+            )
+        }
+      )
+    }
+
+    const avatarEditStatusMatch =
+      request.url?.match(
+        /^\/avatar\/edit\/jobs\/([^/]+)$/
+      )
+
+    if (
+      request.method === 'GET'
+      && avatarEditStatusMatch
+    ) {
+      return send(
+        response,
+        200,
+        {
+          ok: true,
+          type:
+            'avatar-edit-job',
+          job:
+            publicAvatarEditJob(
+              requireAvatarEditJob(
+                decodeURIComponent(
+                  avatarEditStatusMatch[1]
+                )
+              )
+            )
+        }
+      )
+    }
+
+    const avatarEditCancelMatch =
+      request.url?.match(
+        /^\/avatar\/edit\/jobs\/([^/]+)\/cancel$/
+      )
+
+    if (
+      request.method === 'POST'
+      && avatarEditCancelMatch
+    ) {
+      const job =
+        requireAvatarEditJob(
+          decodeURIComponent(
+            avatarEditCancelMatch[1]
+          )
+        )
+
+      cancelAvatarEditJob(
+        job
+      )
+
+      return send(
+        response,
+        200,
+        {
+          ok: true,
+          type:
+            'avatar-edit-job',
+          job:
+            publicAvatarEditJob(
+              job
+            )
         }
       )
     }
@@ -2340,6 +2460,567 @@ function cancelTtsJob(job) {
   if (['succeeded', 'failed', 'cancelled'].includes(job.state)) return
   job.state = 'cancelled'; touchTtsJob(job)
   if (job.child && !job.child.killed) job.child.kill('SIGTERM')
+}
+
+
+async function flux2KleinAvatarEditRuntimeAvailable() {
+  if (
+    !path.isAbsolute(
+      FLUX2_KLEIN_EDIT_CLI
+    )
+    || !path.isAbsolute(
+      FLUX2_KLEIN_MODEL_PATH
+    )
+    || !path.isAbsolute(
+      FLUX2_KLEIN_RUNTIME_MANIFEST
+    )
+  ) {
+    return false
+  }
+
+  try {
+    await access(
+      FLUX2_KLEIN_EDIT_CLI,
+      fsConstants.X_OK
+    )
+
+    const modelInfo =
+      await stat(
+        FLUX2_KLEIN_MODEL_PATH
+      )
+
+    if (
+      !modelInfo.isDirectory()
+    ) {
+      return false
+    }
+
+    const manifest =
+      parseFlux2KleinRuntimeManifest(
+        JSON.parse(
+          await readFile(
+            FLUX2_KLEIN_RUNTIME_MANIFEST,
+            'utf8'
+          )
+        )
+      )
+
+    return (
+      manifest.modelAggregateSha256
+        === FLUX2_KLEIN_MODEL_AGGREGATE_SHA256
+    )
+  } catch {
+    return false
+  }
+}
+
+function avatarReferenceRelativePaths(
+  input
+) {
+  if (
+    !Array.isArray(
+      input?.referencePaths
+    )
+    || input.referencePaths.length !== 1
+  ) {
+    throw new Error(
+      'Avatar edit currently requires exactly one managed reference image'
+    )
+  }
+
+  const references =
+    input.referencePaths.map(
+      value => {
+        const relative =
+          requireManagedRelativePath(
+            value
+          )
+
+        if (
+          !relative.startsWith(
+            'KINAOU/Assets/'
+          )
+          || !/\.(png|jpe?g|webp)$/i
+            .test(relative)
+        ) {
+          throw unauthorizedPath(
+            'Avatar edit references must be managed image assets'
+          )
+        }
+
+        return relative
+      }
+    )
+
+  if (
+    new Set(references).size
+      !== references.length
+  ) {
+    throw new Error(
+      'Avatar edit references must be unique'
+    )
+  }
+
+  return references
+}
+
+async function createAvatarEditJob(
+  input
+) {
+  if (
+    !await flux2KleinAvatarEditRuntimeAvailable()
+  ) {
+    throw capabilityError(
+      'FLUX.2 Klein Avatar edit runtime is not configured'
+    )
+  }
+
+  const referencePaths =
+    avatarReferenceRelativePaths(
+      input
+    )
+
+  for (
+    const relative
+    of referencePaths
+  ) {
+    await access(
+      resolveManaged(
+        relative
+      )
+    )
+  }
+
+  const prompt =
+    typeof input?.prompt
+      === 'string'
+      ? input.prompt.trim()
+      : ''
+
+  if (
+    !prompt
+    || prompt.length > 20_000
+  ) {
+    throw new Error(
+      'Avatar edit prompt must contain 1–20000 characters'
+    )
+  }
+
+  if (
+    !Number.isSafeInteger(
+      input?.seed
+    )
+    || input.seed < 0
+  ) {
+    throw new Error(
+      'Avatar edit seed must be a non-negative safe integer'
+    )
+  }
+
+  const id =
+    crypto.randomUUID()
+
+  const now =
+    new Date().toISOString()
+
+  const job = {
+    id,
+    state:
+      'queued',
+    progress:
+      0,
+    createdAt:
+      now,
+    updatedAt:
+      now,
+    referencePaths,
+    prompt,
+    seed:
+      input.seed,
+    child:
+      null,
+    tempPath:
+      null,
+    provenance: {
+      kind:
+        'local-model',
+      adapterId:
+        'mflux-flux2-klein-edit',
+      engineId:
+        'mflux-flux2-klein-4b-edit',
+      engineVersion:
+        'mflux-0.20.0',
+      modelId:
+        FLUX2_KLEIN_MODEL_ID,
+      modelVersion:
+        FLUX2_KLEIN_MODEL_REVISION,
+      prompt,
+      seed:
+        input.seed,
+      steps:
+        FLUX2_KLEIN_ACCEPTED_STEPS,
+      width:
+        FLUX2_KLEIN_ACCEPTED_SIZE,
+      height:
+        FLUX2_KLEIN_ACCEPTED_SIZE,
+      referencePaths
+    }
+  }
+
+  avatarEditJobs.set(
+    id,
+    job
+  )
+
+  return job
+}
+
+function requireAvatarEditJob(
+  id
+) {
+  const job =
+    avatarEditJobs.get(
+      id
+    )
+
+  if (!job) {
+    const error =
+      new Error(
+        'Avatar edit job not found'
+      )
+
+    error.code =
+      'NOT_FOUND'
+
+    throw error
+  }
+
+  return job
+}
+
+function publicAvatarEditJob(
+  job
+) {
+  return {
+    id:
+      job.id,
+    state:
+      job.state,
+    progress:
+      job.progress,
+    createdAt:
+      job.createdAt,
+    updatedAt:
+      job.updatedAt,
+    provenance:
+      job.provenance,
+    ...(job.outputPath
+      ? {
+          outputPath:
+            job.outputPath,
+          sizeBytes:
+            job.sizeBytes
+        }
+      : {}),
+    ...(job.error
+      ? {
+          error:
+            job.error
+        }
+      : {})
+  }
+}
+
+function touchAvatarEditJob(
+  job
+) {
+  job.updatedAt =
+    new Date().toISOString()
+}
+
+async function executeAvatarEditJob(
+  id
+) {
+  const job =
+    requireAvatarEditJob(
+      id
+    )
+
+  if (
+    job.state === 'cancelled'
+  ) {
+    return
+  }
+
+  job.state =
+    'running'
+
+  job.progress =
+    0.1
+
+  touchAvatarEditJob(
+    job
+  )
+
+  const tempRelative =
+    flux2KleinAvatarTempRelativePath(
+      job.id
+    )
+
+  const finalRelative =
+    flux2KleinAvatarOutputRelativePath(
+      job.id
+    )
+
+  const tempAbsolute =
+    resolveManaged(
+      tempRelative
+    )
+
+  const finalAbsolute =
+    resolveManaged(
+      finalRelative
+    )
+
+  const metadataTemp =
+    tempAbsolute.replace(
+      /\.png$/i,
+      '.metadata.json'
+    )
+
+  try {
+    await mkdir(
+      path.dirname(
+        tempAbsolute
+      ),
+      {
+        recursive: true
+      }
+    )
+
+    await mkdir(
+      path.dirname(
+        finalAbsolute
+      ),
+      {
+        recursive: true
+      }
+    )
+
+    job.tempPath =
+      tempAbsolute
+
+    const command =
+      buildFlux2KleinAvatarEditCommand({
+        cliPath:
+          FLUX2_KLEIN_EDIT_CLI,
+        modelPath:
+          FLUX2_KLEIN_MODEL_PATH,
+        referencePaths:
+          job.referencePaths.map(
+            reference =>
+              resolveManaged(
+                reference
+              )
+          ),
+        prompt:
+          job.prompt,
+        outputPath:
+          tempAbsolute,
+        seed:
+          job.seed
+      })
+
+    let stderr = ''
+
+    await new Promise(
+      (
+        resolve,
+        reject
+      ) => {
+        const child =
+          spawn(
+            command.executable,
+            command.args,
+            {
+              shell:
+                false,
+              stdio: [
+                'ignore',
+                'ignore',
+                'pipe'
+              ],
+              env: {
+                ...process.env,
+                ...command.env
+              }
+            }
+          )
+
+        job.child =
+          child
+
+        child.stderr.on(
+          'data',
+          data => {
+            stderr +=
+              data.toString()
+
+            if (
+              stderr.length
+                > 20_000
+            ) {
+              stderr =
+                stderr.slice(
+                  -20_000
+                )
+            }
+          }
+        )
+
+        child.on(
+          'error',
+          reject
+        )
+
+        child.on(
+          'close',
+          code => {
+            job.child =
+              null
+
+            if (
+              job.state
+                === 'cancelled'
+            ) {
+              return resolve()
+            }
+
+            if (
+              code === 0
+            ) {
+              return resolve()
+            }
+
+            reject(
+              processFailed(
+                `FLUX.2 Avatar edit exited with code ${code ?? 'null'}: ${stderr.trim()}`
+              )
+            )
+          }
+        )
+      }
+    )
+
+    if (
+      job.state === 'cancelled'
+    ) {
+      return
+    }
+
+    const info =
+      await stat(
+        tempAbsolute
+      )
+
+    if (
+      !info.isFile()
+      || info.size <= 0
+      || info.size
+        > MAX_GENERATED_IMAGE_BYTES
+    ) {
+      throw processFailed(
+        'FLUX.2 Avatar edit produced an invalid image file'
+      )
+    }
+
+    await rename(
+      tempAbsolute,
+      finalAbsolute
+    )
+
+    job.tempPath =
+      null
+
+    job.state =
+      'succeeded'
+
+    job.progress =
+      1
+
+    job.outputPath =
+      finalRelative
+
+    job.sizeBytes =
+      info.size
+
+    touchAvatarEditJob(
+      job
+    )
+  } catch (error) {
+    if (
+      job.state !== 'cancelled'
+    ) {
+      job.state =
+        'failed'
+
+      job.error =
+        error instanceof Error
+          ? error.message
+          : String(error)
+
+      touchAvatarEditJob(
+        job
+      )
+    }
+  } finally {
+    if (
+      job.tempPath
+    ) {
+      await unlink(
+        job.tempPath
+      ).catch(() => {})
+
+      job.tempPath =
+        null
+    }
+
+    await unlink(
+      metadataTemp
+    ).catch(() => {})
+  }
+}
+
+function cancelAvatarEditJob(
+  job
+) {
+  if (
+    [
+      'succeeded',
+      'failed',
+      'cancelled'
+    ].includes(
+      job.state
+    )
+  ) {
+    return
+  }
+
+  job.state =
+    'cancelled'
+
+  touchAvatarEditJob(
+    job
+  )
+
+  if (
+    job.child
+    && !job.child.killed
+  ) {
+    job.child.kill(
+      'SIGTERM'
+    )
+  }
 }
 
 async function listComfyTemplates() {
