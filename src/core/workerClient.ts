@@ -365,6 +365,28 @@ export class WorkerClient {
     return payload.proposal
   }
 
+  async generateShortHighlightProposal(model: string, context: unknown): Promise<unknown> {
+    const payload = await this.request('/short-intelligence/generate', {
+      method: 'POST',
+      body: JSON.stringify({
+        model,
+        context
+      })
+    })
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'short-highlight-proposal'
+    ) {
+      throw new Error(
+        'Invalid Short intelligence response'
+      )
+    }
+
+    return payload.proposal
+  }
+
   async generateMediaAcquisitionPlan(model: string, context: unknown): Promise<unknown> {
     const payload = await this.request('/media-plan/generate', { method: 'POST', body: JSON.stringify({ model, context }) })
     if (payload?.ok !== true || payload?.type !== 'media-plan') throw new Error('Invalid media plan response')

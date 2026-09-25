@@ -342,6 +342,84 @@ describe('worker client', () => {
     expect(seen).toHaveLength(4)
   })
 
+  it('requests Short intelligence through the authenticated local worker', async () => {
+    const context = {
+      schemaVersion:
+        1,
+      project: {
+        timelineDurationMs:
+          60000
+      }
+    }
+
+    const client =
+      new WorkerClient({
+        baseUrl:
+          'http://localhost:43117',
+
+        token:
+          'secret',
+
+        fetchImpl:
+          async (
+            input,
+            init
+          ) => {
+            expect(
+              String(input)
+            ).toContain(
+              '/short-intelligence/generate'
+            )
+
+            expect(
+              new Headers(
+                init?.headers
+              ).get(
+                'authorization'
+              )
+            ).toBe(
+              'Bearer secret'
+            )
+
+            expect(
+              JSON.parse(
+                String(
+                  init?.body
+                )
+              )
+            ).toEqual({
+              model:
+                'qwen:7b',
+              context
+            })
+
+            return jsonResponse({
+              ok:
+                true,
+
+              type:
+                'short-highlight-proposal',
+
+              proposal: {
+                schemaVersion:
+                  1
+              }
+            })
+          }
+      })
+
+    expect(
+      await client
+        .generateShortHighlightProposal(
+          'qwen:7b',
+          context
+        )
+    ).toEqual({
+      schemaVersion:
+        1
+    })
+  })
+
   it('lists local models and returns Director output through the authenticated worker', async () => {
     let calls = 0
     const client = new WorkerClient({ baseUrl: 'http://localhost:43117', token: 'secret', fetchImpl: async (input, init) => {

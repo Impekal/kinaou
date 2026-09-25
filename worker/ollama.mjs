@@ -43,6 +43,269 @@ export async function generateAiEditorProposal(baseUrl, model, instruction, cont
   return proposal
 }
 
+export async function generateShortHighlightProposal(baseUrl, model, context, fetchImpl = fetch) {
+  if (
+    typeof model !== 'string'
+    || !model.trim()
+  ) {
+    throw new Error(
+      'Local model is required'
+    )
+  }
+
+  const contextJson =
+    JSON.stringify(
+      context
+    )
+
+  if (
+    !contextJson.length
+    || contextJson.length > 300_000
+  ) {
+    throw new Error(
+      'Short intelligence context is too large'
+    )
+  }
+
+  const response =
+    await fetchImpl(
+      `${normalizeOllamaUrl(baseUrl)}/api/generate`,
+      {
+        method:
+          'POST',
+
+        headers: {
+          'content-type':
+            'application/json'
+        },
+
+        signal:
+          AbortSignal.timeout(
+            10 * 60_000
+          ),
+
+        body:
+          JSON.stringify({
+            model:
+              model.trim(),
+
+            stream:
+              false,
+
+            options: {
+              temperature:
+                0
+            },
+
+            format:
+              shortHighlightJsonSchema(),
+
+            prompt:
+              `Propose review-only Short highlight candidates from the supplied KINAOU evidence context. Use only exact scene IDs and transcript segment IDs that exist in the context. Every candidate must include an exact inMs/outMs range, a concise editorial hook, a factual rationale, a contiguous order value starting at 1, and one or more evidence references. Write title, objective, hook and rationale in target.outputLanguage. A hook is an editorial label grounded in evidence, never an invented quotation. Keep every candidate inside project.timelineDurationMs and at or below target.maximumDurationMs. Evidence references must overlap the proposed range. Do not claim virality, trend performance, platform success or current popularity. Do not invent facts, quotes, scene IDs, transcript IDs or timing. Return only supported candidates; if evidence is sparse, return fewer candidates rather than inventing support.\nContext: ${contextJson}`
+          })
+      }
+    )
+
+  const payload =
+    await response
+      .json()
+      .catch(
+        () => ({})
+      )
+
+  if (!response.ok) {
+    throw new Error(
+      typeof payload.error
+        === 'string'
+        ? payload.error
+        : `Ollama generation failed with HTTP ${response.status}`
+    )
+  }
+
+  if (
+    typeof payload.response
+    !== 'string'
+  ) {
+    throw new Error(
+      'Ollama returned no structured response'
+    )
+  }
+
+  const proposal =
+    JSON.parse(
+      payload.response
+    )
+
+  proposal.provenance = {
+    kind:
+      'local-model',
+    adapterId:
+      'ollama',
+    modelId:
+      model.trim()
+  }
+
+  return proposal
+}
+
+
+function shortHighlightJsonSchema() {
+  const evidence = {
+    oneOf: [
+      {
+        type:
+          'object',
+
+        properties: {
+          kind: {
+            const:
+              'scene'
+          },
+
+          id: {
+            type:
+              'string'
+          }
+        },
+
+        required: [
+          'kind',
+          'id'
+        ]
+      },
+
+      {
+        type:
+          'object',
+
+        properties: {
+          kind: {
+            const:
+              'transcript'
+          },
+
+          id: {
+            type:
+              'string'
+          }
+        },
+
+        required: [
+          'kind',
+          'id'
+        ]
+      }
+    ]
+  }
+
+  return {
+    type:
+      'object',
+
+    properties: {
+      schemaVersion: {
+        const:
+          1
+      },
+
+      title: {
+        type:
+          'string'
+      },
+
+      objective: {
+        type:
+          'string'
+      },
+
+      candidates: {
+        type:
+          'array',
+
+        minItems:
+          1,
+
+        maxItems:
+          20,
+
+        items: {
+          type:
+            'object',
+
+          properties: {
+            id: {
+              type:
+                'string'
+            },
+
+            hook: {
+              type:
+                'string'
+            },
+
+            rationale: {
+              type:
+                'string'
+            },
+
+            inMs: {
+              type:
+                'integer',
+              minimum:
+                0
+            },
+
+            outMs: {
+              type:
+                'integer',
+              minimum:
+                1
+            },
+
+            order: {
+              type:
+                'integer',
+              minimum:
+                1,
+              maximum:
+                20
+            },
+
+            evidence: {
+              type:
+                'array',
+              minItems:
+                1,
+              maxItems:
+                50,
+              items:
+                evidence
+            }
+          },
+
+          required: [
+            'id',
+            'hook',
+            'rationale',
+            'inMs',
+            'outMs',
+            'order',
+            'evidence'
+          ]
+        }
+      }
+    },
+
+    required: [
+      'schemaVersion',
+      'title',
+      'objective',
+      'candidates'
+    ]
+  }
+}
+
+
 export async function generateMediaAcquisitionPlan(baseUrl, model, context, fetchImpl = fetch) {
   if (typeof model !== 'string' || !model.trim()) throw new Error('Local model is required')
   const contextJson = JSON.stringify(context)

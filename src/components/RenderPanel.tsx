@@ -20,6 +20,7 @@ import { SingleExportStatus } from './SingleExportStatus'
 import { FormatFramingPanel } from './FormatFramingPanel'
 import { ExportHistoryPanel } from './ExportHistoryPanel'
 import { ShortPreviewPanel } from './ShortPreviewPanel'
+import { ShortIntelligencePanel } from './ShortIntelligencePanel'
 import { ShortBatchArchivePanel } from './ShortBatchArchivePanel'
 import { ShortBatchStatus, ShortBatchReceiptRecovery } from './ShortBatchStatus'
 import { persistShortBatchReceipts } from '../core/shortBatchReceipts'
@@ -524,6 +525,16 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         {rangeCheck.valid && <span className="cardBody">{t('export.range', { start: (range.inMs / 1000).toLocaleString(language), end: (range.outMs / 1000).toLocaleString(language), duration: ((range.outMs - range.inMs) / 1000).toLocaleString(language) })}</span>}
       </div>
       {!rangeCheck.valid && <div className="warning">{t('export.invalidRange')}<details><summary>{t('common.details')}</summary>{resolveUiMessage(language, rangeCheck.reason ?? '')}</details></div>}
+
+      <ShortIntelligencePanel
+        project={project}
+        maximumDurationMs={shortMaximumMs}
+        workerUrl={workerUrl}
+        workerToken={workerToken}
+        workerConnected={workerConnected}
+        workerCapabilities={workerCapabilities}
+        disabled={busy || submitting}
+      />
 
       {project.storyboard.length > 0 && <div className="renderJob">
         <div className="renderJobHead"><strong>{t('shortSelect.heading')}</strong><span>{t('shortSelect.limit', { seconds: (shortMaximumMs / 1000).toLocaleString(language) })}</span></div>
