@@ -14,6 +14,10 @@ import {
   formatProfiles
 } from '../src/core/render'
 
+import {
+  applyTimelineOperation
+} from '../src/core/timeline'
+
 
 function fixture() {
   return parseProject({
@@ -227,6 +231,70 @@ describe(
         ).not.toContain(
           'format-reframing'
         )
+      }
+    )
+
+    it(
+      'supports explicit set and clear operations through the normal timeline API',
+      () => {
+        const project =
+          fixture()
+
+        const set =
+          applyTimelineOperation(
+            project,
+            {
+              type:
+                'set-clip-reframe',
+
+              trackId:
+                'video-track',
+
+              clipId:
+                'left',
+
+              reframe: {
+                focusX:
+                  0.33,
+
+                focusY:
+                  0.66
+              }
+            }
+          )
+
+        expect(
+          set.tracks[0]
+            .clips[0]
+            .reframe
+        ).toEqual({
+          focusX:
+            0.33,
+
+          focusY:
+            0.66
+        })
+
+        const cleared =
+          applyTimelineOperation(
+            set,
+            {
+              type:
+                'set-clip-reframe',
+
+              trackId:
+                'video-track',
+
+              clipId:
+                'left'
+            }
+          )
+
+        expect(
+          cleared.tracks[0]
+            .clips[0]
+            .reframe
+        ).toBeUndefined()
       }
     )
 
