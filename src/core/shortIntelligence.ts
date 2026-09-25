@@ -148,6 +148,9 @@ export interface ShortIntelligenceContext {
     title:
       string
 
+    updatedAt:
+      string
+
     timelineDurationMs:
       number
   }
@@ -811,6 +814,9 @@ export function buildShortIntelligenceContext(
 
         title:
           project.title,
+
+        updatedAt:
+          project.updatedAt,
 
         timelineDurationMs:
           durationMs

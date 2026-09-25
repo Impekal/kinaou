@@ -733,7 +733,48 @@ describe(
               'KINAOU/Cache/Previews/stale-short.mp4'
             )
         ).toThrow(
-          /timeline changed/i
+          /project changed/i
+        )
+      }
+    )
+
+    it(
+      'blocks rendering after a source revision even when timeline duration is unchanged',
+      () => {
+        const {
+          project,
+          context
+        } =
+          fixture()
+
+        const cut =
+          buildShortCutPlan(
+            context,
+            proposal(),
+            [
+              'opening'
+            ]
+          )
+
+        const changed =
+          structuredClone(
+            project
+          )
+
+        changed.updatedAt =
+          '2026-09-25T23:59:59.000Z'
+
+        expect(
+          () =>
+            createShortCutRenderPlan(
+              changed,
+              cut,
+              formatProfiles.vertical
+                .preview,
+              'KINAOU/Cache/Previews/stale-revision-short.mp4'
+            )
+        ).toThrow(
+          /project changed/i
         )
       }
     )
