@@ -34,7 +34,7 @@ export async function generateAiEditorProposal(baseUrl, model, instruction, cont
   if (typeof instruction !== 'string' || !instruction.trim() || instruction.length > 4000) throw new Error('Edit instruction must contain 1–4000 characters')
   const contextJson = JSON.stringify(context)
   if (contextJson.length > 200_000) throw new Error('AI Editor context is too large')
-  const response = await fetchImpl(`${normalizeOllamaUrl(baseUrl)}/api/generate`, { method: 'POST', headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(10 * 60_000), body: JSON.stringify({ model: model.trim(), stream: false, options: { temperature: 0 }, format: aiEditorJsonSchema(), prompt: `Propose safe edits for the supplied KINAOU timeline. Use only existing trackId/clipId values and allowed operation types. Return only the schema.\nInstruction: ${instruction.trim()}\nTimeline: ${contextJson}` }) })
+  const response = await fetchImpl(`${normalizeOllamaUrl(baseUrl)}/api/generate`, { method: 'POST', headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(10 * 60_000), body: JSON.stringify({ model: model.trim(), stream: false, options: { temperature: 0 }, format: aiEditorJsonSchema(), prompt: `Propose safe edits for the supplied KINAOU timeline. Use only existing trackId/clipId values and allowed operation types. When Director execution context exists and readiness.ready is true, treat its scene IDs, planned starts, planned durations and linked clips as authoritative constraints. Use move-clips only when multiple existing clips must move together. A set-clip-transition durationMs of 0 removes the transition. A set-clip-motion value of "none" removes motion. Never invent tracks, clips, assets or scene IDs. Return only the schema.\nInstruction: ${instruction.trim()}\nTimeline: ${contextJson}` }) })
   const payload = await response.json().catch(() => ({}))
   if (!response.ok) throw new Error(typeof payload.error === 'string' ? payload.error : `Ollama generation failed with HTTP ${response.status}`)
   if (typeof payload.response !== 'string') throw new Error('Ollama returned no structured response')
@@ -82,9 +82,317 @@ function mediaAcquisitionJsonSchema() {
 }
 
 function aiEditorJsonSchema() {
-  const target = { trackId: { type: 'string' }, clipId: { type: 'string' } }
-  const edit = (type, properties, required = []) => ({ type: 'object', properties: { type: { const: type }, ...target, ...properties }, required: ['type', 'trackId', 'clipId', ...required] })
-  return { type: 'object', properties: { schemaVersion: { const: 1 }, title: { type: 'string' }, objective: { type: 'string' }, operations: { type: 'array', minItems: 1, maxItems: 500, items: { type: 'object', properties: { id: { type: 'string' }, reason: { type: 'string' }, edit: { oneOf: [edit('move-clip', { startMs: { type: 'integer', minimum: 0 } }, ['startMs']), edit('trim-clip', { startMs: { type: 'integer', minimum: 0 }, durationMs: { type: 'integer', minimum: 1 }, sourceOffsetMs: { type: 'integer', minimum: 0 } }, ['startMs', 'durationMs', 'sourceOffsetMs']), edit('set-clip-gain', { gain: { type: 'number', minimum: 0, maximum: 4 } }, ['gain']), edit('set-clip-speed', { speed: { type: 'number', minimum: .25, maximum: 4 } }, ['speed']), edit('set-clip-fades', { inMs: { type: 'integer', minimum: 0, maximum: 5000 }, outMs: { type: 'integer', minimum: 0, maximum: 5000 } }, ['inMs', 'outMs']), edit('update-caption-text', { text: { type: 'string' } }, ['text'])] } }, required: ['id', 'reason', 'edit'] } } }, required: ['schemaVersion', 'title', 'objective', 'operations'] }
+  const target = {
+    trackId:
+      { type: 'string' },
+    clipId:
+      { type: 'string' }
+  }
+
+  const edit = (
+    type,
+    properties,
+    required = []
+  ) => ({
+    type:
+      'object',
+
+    properties: {
+      type: {
+        const:
+          type
+      },
+      ...target,
+      ...properties
+    },
+
+    required: [
+      'type',
+      'trackId',
+      'clipId',
+      ...required
+    ]
+  })
+
+  const moveClips = {
+    type:
+      'object',
+
+    properties: {
+      type: {
+        const:
+          'move-clips'
+      },
+
+      moves: {
+        type:
+          'array',
+
+        minItems:
+          2,
+
+        maxItems:
+          100,
+
+        items: {
+          type:
+            'object',
+
+          properties: {
+            trackId: {
+              type:
+                'string'
+            },
+
+            clipId: {
+              type:
+                'string'
+            },
+
+            startMs: {
+              type:
+                'integer',
+              minimum:
+                0
+            }
+          },
+
+          required: [
+            'trackId',
+            'clipId',
+            'startMs'
+          ]
+        }
+      }
+    },
+
+    required: [
+      'type',
+      'moves'
+    ]
+  }
+
+  return {
+    type:
+      'object',
+
+    properties: {
+      schemaVersion: {
+        const:
+          1
+      },
+
+      title: {
+        type:
+          'string'
+      },
+
+      objective: {
+        type:
+          'string'
+      },
+
+      operations: {
+        type:
+          'array',
+
+        minItems:
+          1,
+
+        maxItems:
+          500,
+
+        items: {
+          type:
+            'object',
+
+          properties: {
+            id: {
+              type:
+                'string'
+            },
+
+            reason: {
+              type:
+                'string'
+            },
+
+            edit: {
+              oneOf: [
+                edit(
+                  'move-clip',
+                  {
+                    startMs: {
+                      type:
+                        'integer',
+                      minimum:
+                        0
+                    }
+                  },
+                  [
+                    'startMs'
+                  ]
+                ),
+
+                moveClips,
+
+                edit(
+                  'trim-clip',
+                  {
+                    startMs: {
+                      type:
+                        'integer',
+                      minimum:
+                        0
+                    },
+
+                    durationMs: {
+                      type:
+                        'integer',
+                      minimum:
+                        1
+                    },
+
+                    sourceOffsetMs: {
+                      type:
+                        'integer',
+                      minimum:
+                        0
+                    }
+                  },
+                  [
+                    'startMs',
+                    'durationMs',
+                    'sourceOffsetMs'
+                  ]
+                ),
+
+                edit(
+                  'set-clip-gain',
+                  {
+                    gain: {
+                      type:
+                        'number',
+                      minimum:
+                        0,
+                      maximum:
+                        4
+                    }
+                  },
+                  [
+                    'gain'
+                  ]
+                ),
+
+                edit(
+                  'set-clip-speed',
+                  {
+                    speed: {
+                      type:
+                        'number',
+                      minimum:
+                        .25,
+                      maximum:
+                        4
+                    }
+                  },
+                  [
+                    'speed'
+                  ]
+                ),
+
+                edit(
+                  'set-clip-fades',
+                  {
+                    inMs: {
+                      type:
+                        'integer',
+                      minimum:
+                        0,
+                      maximum:
+                        5000
+                    },
+
+                    outMs: {
+                      type:
+                        'integer',
+                      minimum:
+                        0,
+                      maximum:
+                        5000
+                    }
+                  },
+                  [
+                    'inMs',
+                    'outMs'
+                  ]
+                ),
+
+                edit(
+                  'set-clip-transition',
+                  {
+                    durationMs: {
+                      type:
+                        'integer',
+                      minimum:
+                        0,
+                      maximum:
+                        5000
+                    }
+                  },
+                  [
+                    'durationMs'
+                  ]
+                ),
+
+                edit(
+                  'set-clip-motion',
+                  {
+                    motion: {
+                      enum: [
+                        'none',
+                        'zoom-in',
+                        'zoom-out'
+                      ]
+                    }
+                  },
+                  [
+                    'motion'
+                  ]
+                ),
+
+                edit(
+                  'update-caption-text',
+                  {
+                    text: {
+                      type:
+                        'string'
+                    }
+                  },
+                  [
+                    'text'
+                  ]
+                )
+              ]
+            }
+          },
+
+          required: [
+            'id',
+            'reason',
+            'edit'
+          ]
+        }
+      }
+    },
+
+    required: [
+      'schemaVersion',
+      'title',
+      'objective',
+      'operations'
+    ]
+  }
 }
 
 function directorJsonSchema() {
