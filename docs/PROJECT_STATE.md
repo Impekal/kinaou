@@ -751,3 +751,36 @@ Reference selection follows the accepted quality boundary:
 This slice does not add or claim scene-video, animation, motion, expression performance or lip sync.
 
 Whole completion point 4 remains open.
+
+### 2026-09-25 — Avatar 4.3I Quality Reference Pack
+
+FLUX.2 Klein multi-reference identity preservation passed the real human-review gate.
+
+The accepted standard is a three-image Quality Reference Pack:
+- Identity Master;
+- approved complementary three-quarter view;
+- approved complementary medium-shot view.
+
+Seven real acceptance outputs were reviewed, including changed clothing/environment/framing, an opposite facial angle, an independent seed and changed reference order. All remained the same persistent fictional identity.
+
+Product implementation now includes:
+- persistent Reference Packs on `AvatarIdentity`;
+- explicit `human-accepted` status and acceptance timestamp;
+- exact profile id `flux2-klein-pack3-v1`;
+- selection restricted to managed image assets already belonging to that Avatar's identity lineage;
+- exactly three unique images for the accepted Pack 3 profile;
+- explicit human confirmation before activation;
+- active Reference Pack selection;
+- automatic active-Pack use by Avatar Studio generation;
+- accepted single-reference fallback when no pack is active;
+- product-worker acceptance of only one or three references;
+- FLUX.2 engine descriptor now advertises `multi-reference`;
+- exact used source asset ids and Reference Pack identity stored in each Creation Receipt.
+
+A real authenticated three-reference worker run reproduced the human-accepted Pack 3 output pixel-for-pixel.
+
+Prompt-only identity generation, video identity continuity, real motion, expression performance, lip sync and character replacement remain outside the accepted capability set.
+
+Local macOS full-worker note: the Homebrew FFmpeg 9.0.1 build lacks the subtitles/libass filter, so the pre-existing real caption smoke and its parent suite fail locally. The test is retained unchanged; CI remains authoritative.
+
+Whole completion point 4 remains open.

@@ -33,6 +33,10 @@ import type {
 } from '../core/versioning'
 
 import {
+  AvatarReferencePackControl
+} from './AvatarReferencePackControl'
+
+import {
   AvatarGenerationControl
 } from './AvatarGenerationControl'
 
@@ -902,6 +906,24 @@ export function AvatarStudioPanel({
               )}
             </p>
           </div>
+
+          <AvatarReferencePackControl
+            key={
+              selectedAvatar.id
+            }
+            project={
+              project
+            }
+            avatarId={
+              selectedAvatar.id
+            }
+            history={
+              history
+            }
+            onProjectChange={
+              onProjectChange
+            }
+          />
 
           <div className="stack">
             <strong>

@@ -34,6 +34,7 @@ describe(
           'identity-preservation',
           'targeted-edit',
           'image-reference',
+          'multi-reference',
           'scene-image'
         ])
 
@@ -69,7 +70,7 @@ describe(
 
         expect(
           engine.capabilities
-        ).not.toContain(
+        ).toContain(
           'multi-reference'
         )
       }

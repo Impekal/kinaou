@@ -21,6 +21,8 @@ export interface RegisterAvatarGeneratedTakeInput {
   seed?: number
   prompt?: string
   engine: AvatarEngineDescriptor
+  sourceAssetIds?: string[]
+  referencePackId?: string
   sourceHashes?: Record<string, string>
   outputSha256?: string
 }
@@ -165,6 +167,72 @@ function lineageSourceAssetIds(
   )
 }
 
+function allowedAvatarLineageAssetIds(
+  project: KinaouProject,
+  avatar: AvatarIdentity
+): string[] {
+  const values: string[] = []
+
+  for (
+    const version
+    of avatar.versions
+  ) {
+    values.push(
+      ...version.source.assetIds
+    )
+
+    if (
+      version.outputAssetId
+    ) {
+      values.push(
+        version.outputAssetId
+      )
+    }
+
+    if (
+      version.previewAssetId
+    ) {
+      values.push(
+        version.previewAssetId
+      )
+    }
+  }
+
+  for (
+    const pack
+    of avatar.referencePacks
+  ) {
+    values.push(
+      ...pack.assetIds
+    )
+  }
+
+  for (
+    const receipt
+    of project
+      .avatarCreationReceipts
+  ) {
+    if (
+      receipt.avatarId
+        === avatar.id
+    ) {
+      values.push(
+        receipt.outputAssetId
+      )
+    }
+  }
+
+  return Array.from(
+    new Set(values)
+  ).filter(
+    id =>
+      project.assets.some(
+        asset =>
+          asset.id === id
+      )
+  )
+}
+
 export function assertAvatarEngineRights(
   engineValue: AvatarEngineDescriptor,
   commercialOutputIntended: boolean
@@ -289,12 +357,107 @@ export function registerAvatarGeneratedTake(
     )
   }
 
-  const sourceAssetIds =
+  const defaultSourceAssetIds =
     lineageSourceAssetIds(
       project,
       avatar,
       version
     )
+
+  const allowedSourceAssetIds =
+    new Set(
+      allowedAvatarLineageAssetIds(
+        project,
+        avatar
+      )
+    )
+
+  const sourceAssetIds =
+    input.sourceAssetIds
+      ? [...input.sourceAssetIds]
+      : defaultSourceAssetIds
+
+  const explicitSourceAssetIds =
+    input.sourceAssetIds
+      !== undefined
+
+  if (
+    (
+      explicitSourceAssetIds
+      && sourceAssetIds.length
+        === 0
+    )
+    || sourceAssetIds.length > 12
+    || new Set(
+      sourceAssetIds
+    ).size
+      !== sourceAssetIds.length
+  ) {
+    throw new Error(
+      'Explicit Avatar generation sources must contain 1–12 unique identity-lineage assets'
+    )
+  }
+
+  for (
+    const assetId
+    of sourceAssetIds
+  ) {
+    if (
+      !allowedSourceAssetIds.has(
+        assetId
+      )
+    ) {
+      throw new Error(
+        'Avatar generation source does not belong to the identity lineage'
+      )
+    }
+  }
+
+  if (
+    sourceAssetIds.length > 1
+    && !engine.capabilities
+      .includes(
+        'multi-reference'
+      )
+  ) {
+    throw new Error(
+      'Avatar engine does not declare multi-reference identity preservation'
+    )
+  }
+
+  const referencePack =
+    input.referencePackId
+      ? avatar.referencePacks.find(
+          pack =>
+            pack.id ===
+            input.referencePackId
+        )
+      : undefined
+
+  if (
+    input.referencePackId
+    && (
+      !referencePack
+      || avatar.activeReferencePackId
+        !== referencePack.id
+      || referencePack.assetIds.length
+        !== sourceAssetIds.length
+      || !referencePack.assetIds.every(
+        (
+          assetId,
+          index
+        ) =>
+          assetId
+            === sourceAssetIds[
+              index
+            ]
+      )
+    )
+  ) {
+    throw new Error(
+      'Avatar Reference Pack does not match the generated take sources'
+    )
+  }
 
   const sourceHashes = {
     ...(input.sourceHashes ?? {})
@@ -385,7 +548,15 @@ export function registerAvatarGeneratedTake(
         commercialOutputReady:
           engine.rights
             .commercialOutput
-            === 'allowed'
+            === 'allowed',
+        ...(referencePack
+          ? {
+              referencePackId:
+                referencePack.id,
+              referencePackProfileId:
+                referencePack.profileId
+            }
+          : {})
       }
     })
 

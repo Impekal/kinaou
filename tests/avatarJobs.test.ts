@@ -76,6 +76,46 @@ describe(
     )
 
     it(
+      'accepts the human-approved three-reference profile but still rejects two references',
+      () => {
+        const three = {
+          ...job(),
+          provenance: {
+            ...job().provenance,
+            referencePaths: [
+              'KINAOU/Assets/master.png',
+              'KINAOU/Assets/three-quarter.png',
+              'KINAOU/Assets/medium.png'
+            ]
+          }
+        }
+
+        expect(
+          parseAvatarEditJob(
+            three
+          ).provenance
+            .referencePaths
+        ).toHaveLength(3)
+
+        expect(
+          () =>
+            parseAvatarEditJob({
+              ...job(),
+              provenance: {
+                ...job().provenance,
+                referencePaths: [
+                  'KINAOU/Assets/master.png',
+                  'KINAOU/Assets/second.png'
+                ]
+              }
+            })
+        ).toThrow(
+          'provenance'
+        )
+      }
+    )
+
+    it(
       'registers a generated Avatar image as a managed generated asset',
       () => {
         const registered =

@@ -2521,10 +2521,15 @@ function avatarReferenceRelativePaths(
     !Array.isArray(
       input?.referencePaths
     )
-    || input.referencePaths.length !== 1
+    || ![
+      1,
+      3
+    ].includes(
+      input.referencePaths.length
+    )
   ) {
     throw new Error(
-      'Avatar edit currently requires exactly one managed reference image'
+      'Avatar edit requires either one managed image or one accepted three-image Reference Pack'
     )
   }
 
