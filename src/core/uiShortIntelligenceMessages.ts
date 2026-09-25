@@ -155,6 +155,24 @@ export const uiShortIntelligenceMessages = {
     'L’aperçu utilise les plages source sélectionnées dans l’ordre proposé et les assemble virtuellement sans espace. Le projet reste inchangé.'
   ],
 
+  'shortIntelligence.createHelp': [
+    'Diese geprüfte Vorschau kann jetzt als neues, eigenständiges KINAOU-Projekt erstellt werden. Das Original bleibt unverändert und beide Projekte verwenden weiterhin dieselben verwalteten Mediendateien.',
+    'This reviewed preview can now become a new independent KINAOU project. The original remains unchanged and both projects continue to reference the same managed media files.',
+    'Cet aperçu vérifié peut maintenant devenir un nouveau projet KINAOU indépendant. L’original reste inchangé et les deux projets continuent de référencer les mêmes fichiers médias gérés.'
+  ],
+
+  'shortIntelligence.create': [
+    'Short als neues Projekt erstellen',
+    'Create Short as new project',
+    'Créer le Short comme nouveau projet'
+  ],
+
+  'shortIntelligence.creating': [
+    'Short-Projekt wird erstellt …',
+    'Creating Short project…',
+    'Création du projet Short…'
+  ],
+
   'shortIntelligence.previewUnavailable': [
     'Für die Video-Vorschau wird ein verbundener lokaler Worker mit FFmpeg benötigt.',
     'Video preview requires a connected local worker with FFmpeg.',
