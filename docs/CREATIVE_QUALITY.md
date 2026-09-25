@@ -331,3 +331,52 @@ Therefore:
 The next quality strategy is reference-preserving multi-image editing. KINAOU should preserve an approved Identity Master and gradually build a human-approved Reference Pack. New scene images should be edits conditioned on those references instead of independent re-synthesis from an identity representation.
 
 For production rights, distinguish the private KINAOU application from the intended use of its outputs. Monetized YouTube videos, paid course media and other revenue-generating outputs require an engine/model path whose license permits that intended use. A research/non-commercial model is not accepted as KINAOU's normal production engine solely because KINAOU itself is not sold.
+
+### FLUX.2 Klein 4B persistent-identity acceptance (4.3G, 2026-09-25)
+
+FLUX.2 Klein 4B through MFLUX 0.20.0 is the first local KINAOU still-image engine to pass the explicit persistent-person quality gate.
+
+The approved fictional Identity Master was independently edited into five 512x512 takes:
+1. same clothing with a new photographic take;
+2. changed business clothing;
+3. changed environment to a museum;
+4. changed camera/head angle to a three-quarter view;
+5. extended framing to a waist-up medium shot.
+
+The human review question remained deliberately strict:
+
+> Does each output immediately read as the exact same person, rather than a plausible person who merely resembles the reference?
+
+The full acceptance set was explicitly judged to be the same person.
+
+This materially differs from the failed Plus-Face, single-source Identity-LoRA and PhotoMaker V1 baselines, all of which produced noticeable person-level drift.
+
+Measured supported-hardware profile:
+- Apple M2 Pro, 16 GB unified memory;
+- 4-bit FLUX.2 Klein 4B;
+- MFLUX 0.20.0 / Apple MLX;
+- 4 inference steps;
+- 512x512;
+- low-RAM mode;
+- 512px VAE tile setting;
+- 2 GB MLX cache limit;
+- approximately 25 seconds per accepted 512px take;
+- approximately 5.02–5.15 GB peak MLX memory.
+
+KINAOU may therefore treat this exact still-image edit profile as providing:
+- identity preservation;
+- targeted visual editing;
+- image-reference conditioning;
+- scene-image output.
+
+The acceptance does not automatically extend to:
+- prompt-created identity generation;
+- arbitrary resolutions or generation profiles;
+- multi-reference identity quality before separate testing;
+- video identity preservation;
+- animation;
+- expression performance;
+- lip sync;
+- person replacement in arbitrary video.
+
+The persistent-reference strategy now changes from repeated re-synthesis to an Identity Master and, after additional testing, a human-approved Reference Pack. No generated take becomes trusted identity evidence merely because generation succeeded; acceptance remains explicit.

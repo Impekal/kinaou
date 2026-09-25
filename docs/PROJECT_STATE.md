@@ -620,3 +620,67 @@ Commercial-output clarification:
 KINAOU itself is currently private/non-commercial, but generated videos may be monetized or otherwise used commercially. Engine rights must therefore permit the intended commercial output/use; non-commercial research permission alone is insufficient for the production path.
 
 Point 4 remains open.
+
+### 2026-09-25 — Avatar 4.3G FLUX.2 Klein identity preservation accepted
+
+KINAOU reached its first human-accepted persistent still-image identity result.
+
+Accepted runtime:
+- MFLUX 0.20.0;
+- release commit `83ca6f2c230830e8e90e106ef7adb33abc93c9fc`;
+- Apple MLX;
+- FLUX.2 Klein 4B;
+- pinned 4-bit runtime repository `Runpod/FLUX.2-klein-4B-mflux-4bit`;
+- pinned model revision `73dcaa322be48ea49374b32b4b23aab1a3e59b87`;
+- model aggregate SHA-256 `59f63035f2800752eb18f6afb24d88bbc6ae5759bb9d46a02038fbc7c2d05f32`;
+- official base model `black-forest-labs/FLUX.2-klein-4B`;
+- base-license evidence revision `6dfcebfd3cb91f82d131896f70845e96d902a304`;
+- Apache License 2.0;
+- InsightFace not used;
+- FaceID not used.
+
+Identity Master SHA-256:
+`d622beab929d7d883cf8a3b716068159dfcaf79ea046da11b08c4c67a3b9f4cc`
+
+Real acceptance set:
+- same person / same outfit, independent photographic take;
+- beige blazer / blue-gray turtleneck clothing edit;
+- contemporary museum environment;
+- approximately 25-degree three-quarter view;
+- waist-up medium shot.
+
+All five production acceptance images were generated at 512x512 in four inference steps.
+
+Measured M2 Pro execution:
+- 384px technical smoke: 26 seconds, 4.40 GB peak MLX memory;
+- 512px acceptance runs: about 25 seconds each;
+- measured 512px peak MLX memory: 5.02–5.15 GB.
+
+Human acceptance:
+The user explicitly judged the generated set to be genuinely the same person. This is the first KINAOU Avatar identity engine to pass that acceptance bar.
+
+Accepted product capabilities for this exact engine/profile:
+- `identity-preservation`;
+- `targeted-edit`;
+- `image-reference`;
+- `scene-image`.
+
+Still not accepted or advertised:
+- prompt-only `identity-generation`;
+- multi-reference identity quality;
+- video-reference identity preservation;
+- `scene-video`;
+- motion;
+- expression;
+- lip sync;
+- character replacement.
+
+Commercial-output boundary:
+The selected FLUX.2 Klein 4B model path is Apache-2.0. The model-rights snapshot therefore permits commercially intended output such as monetized YouTube/course video assets, while source/reference rights and legality of individual outputs remain separate.
+
+Architecture direction:
+Approved Identity Master → identity-preserving Scene Edit → human-approved take → future approved Reference Pack.
+
+The next product slice is to move this accepted manual runtime into the authenticated KINAOU worker and Avatar Studio rather than leaving it as a terminal-only experiment.
+
+Whole completion point 4 remains open.
