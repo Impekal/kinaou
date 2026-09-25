@@ -26,6 +26,16 @@ export const clipSchema = z.object({
   motion: z.enum(['zoom-in', 'zoom-out']).optional(),
   /** Which storyboard scene put this clip here, so a replaced visual can find its own clip again. */
   sceneId: z.string().min(1).optional(),
+
+  /**
+   * Optional clip-local normalized focus used when a target format renders
+   * with `cover`. This overrides the project-format focus only for this clip.
+   */
+  reframe: z.object({
+    focusX: z.number().min(0).max(1),
+    focusY: z.number().min(0).max(1)
+  }).strict().optional(),
+
   transform: z.object({
     x: z.number().finite().default(0),
     y: z.number().finite().default(0),

@@ -1393,6 +1393,10 @@ function validateRenderPlan(plan) {
     if (!Number.isFinite(clip.durationMs) || clip.durationMs <= 0) throw new Error('Invalid clip duration')
     if (!Number.isFinite(clip.sourceOffsetMs) || clip.sourceOffsetMs < 0) throw new Error('Invalid source offset')
     if (!Number.isFinite(clip.speed) || clip.speed < 0.25 || clip.speed > 4) throw new Error('Invalid clip speed')
+    if (clip.reframe !== undefined) {
+      if (!clip.reframe || typeof clip.reframe !== 'object' || Array.isArray(clip.reframe)) throw new Error('Invalid clip reframe')
+      if ([clip.reframe.focusX, clip.reframe.focusY].some((value) => !Number.isFinite(value) || value < 0 || value > 1)) throw new Error('Invalid clip reframe focus')
+    }
     if (clip.motion !== undefined && clip.motion !== 'zoom-in' && clip.motion !== 'zoom-out') throw new Error('Invalid clip motion')
     if ((clip.asset?.kind === 'image' || clip.asset?.kind === 'caption') && clip.speed !== 1) throw new Error('Speed retiming only supports video and audio')
     const transform = clip.transform
@@ -1564,17 +1568,22 @@ function buildCompositeArgs(plan, mediaClips, inputPaths, outputPath, subtitlePa
 
   const width = plan.preset.width
   const height = plan.preset.height
-  const focusX = plan.preset.focusX ?? 0.5
-  const focusY = plan.preset.focusY ?? 0.5
   // contain letterboxes the whole frame; cover fills the canvas and crops the
-  // overflow at the selected format-specific normalized focus point.
-  const fitFilter = plan.preset.fit === 'cover'
-    ? `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}:(iw-${width})*${focusX}:(ih-${height})*${focusY}`
-    : `scale=${width}:${height}:force_original_aspect_ratio=decrease`
+  // overflow at either the clip-local focus or the project-format focus.
+  const fitFilterFor = (clip) => {
+    const focusX = clip.reframe?.focusX ?? plan.preset.focusX ?? 0.5
+    const focusY = clip.reframe?.focusY ?? plan.preset.focusY ?? 0.5
+
+    return plan.preset.fit === 'cover'
+      ? `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}:(iw-${width})*${focusX}:(ih-${height})*${focusY}`
+      : `scale=${width}:${height}:force_original_aspect_ratio=decrease`
+  }
   // A still scene can drift slowly instead of sitting perfectly still. zoompan needs a
   // fixed output size: cover already fills the canvas, while contain must render into
   // the letterboxed size computed from the source pixels — stretching it would distort.
   const framePrefix = (clip) => {
+    const fitFilter = fitFilterFor(clip)
+
     const target = clip.motion && clip.asset.kind === 'image'
       ? (plan.preset.fit === 'cover' ? { w: width, h: height } : letterboxedSize(clip.asset, width, height))
       : null

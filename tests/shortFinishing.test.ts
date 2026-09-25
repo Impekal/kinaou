@@ -260,6 +260,9 @@ describe(
           formatReframing:
             true,
 
+          segmentReframing:
+            true,
+
           captionTextEditing:
             true,
 

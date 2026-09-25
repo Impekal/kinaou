@@ -122,6 +122,9 @@ export interface ShortFinishingContext {
     formatReframing:
       true
 
+    segmentReframing:
+      true
+
     captionTextEditing:
       true
 
@@ -459,6 +462,9 @@ export function buildShortFinishingContext(
 
     capabilities: {
       formatReframing:
+        true,
+
+      segmentReframing:
         true,
 
       captionTextEditing:
