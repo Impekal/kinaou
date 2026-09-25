@@ -10,17 +10,174 @@ interface Props { project: KinaouProject; history: PersistentVersionHistory; wor
 
 export function AiEditorDiff({ project, operation }: { project: KinaouProject; operation: AiEditorProposal['operations'][number] }) {
   const { language, t } = useUiLanguage()
-  const original = describeAiEdit(project, operation)
-  const clip = project.tracks.find(track => track.id === operation.edit.trackId)!.clips.find(clip => clip.id === operation.edit.clipId)!
-  const n = (value: number) => value.toLocaleString(language)
-  const edit = operation.edit
-  let before = original.before, after = original.after
+  const original =
+    describeAiEdit(
+      project,
+      operation
+    )
+
+  const n =
+    (value: number) =>
+      value.toLocaleString(
+        language
+      )
+
+  const edit =
+    operation.edit
+
+  let before =
+    original.before
+
+  let after =
+    original.after
+
+  if (
+    edit.type
+      === 'move-clips'
+  ) {
+    return (
+      <span>
+        <strong>
+          {operation.reason}
+        </strong>
+
+        <small>
+          {t('editor.before')}:
+          {' '}
+          {before}
+        </small>
+
+        <small>
+          {t('editor.after')}:
+          {' '}
+          {after}
+        </small>
+      </span>
+    )
+  }
+
+  const clip =
+    project.tracks
+      .find(
+        track =>
+          track.id
+            === edit.trackId
+      )!
+      .clips
+      .find(
+        clip =>
+          clip.id
+            === edit.clipId
+      )!
   if (edit.type === 'move-clip') { before = t('editor.start', { value: n(clip.startMs) }); after = t('editor.start', { value: n(edit.startMs) }) }
   if (edit.type === 'trim-clip') { before = t('editor.trim', { start: n(clip.startMs), duration: n(clip.durationMs), offset: n(clip.sourceOffsetMs) }); after = t('editor.trim', { start: n(edit.startMs), duration: n(edit.durationMs), offset: n(edit.sourceOffsetMs) }) }
   if (edit.type === 'set-clip-gain') { before = t('editor.gain', { value: n(clip.gain) }); after = t('editor.gain', { value: n(edit.gain) }) }
   if (edit.type === 'set-clip-speed') { before = t('editor.speed', { value: n(clip.speed) }); after = t('editor.speed', { value: n(edit.speed) }) }
-  if (edit.type === 'set-clip-fades') { before = t('editor.fades', { in: n(clip.fades?.inMs ?? 0), out: n(clip.fades?.outMs ?? 0) }); after = t('editor.fades', { in: n(edit.inMs), out: n(edit.outMs) }) }
-  return <span><strong>{operation.reason}</strong><small>{t('editor.before')}: {before}</small><small>{t('editor.after')}: {after}</small></span>
+  if (edit.type === 'set-clip-fades') {
+    before = t(
+      'editor.fades',
+      {
+        in:
+          n(
+            clip.fades?.inMs
+            ?? 0
+          ),
+        out:
+          n(
+            clip.fades?.outMs
+            ?? 0
+          )
+      }
+    )
+
+    after = t(
+      'editor.fades',
+      {
+        in:
+          n(edit.inMs),
+        out:
+          n(edit.outMs)
+      }
+    )
+  }
+
+  if (
+    edit.type
+      === 'set-clip-transition'
+  ) {
+    before =
+      t(
+        'editor.transition',
+        {
+          value:
+            clip.transitionIn
+              ? `${n(clip.transitionIn.durationMs)} ms`
+              : t(
+                  'editor.none'
+                )
+        }
+      )
+
+    after =
+      t(
+        'editor.transition',
+        {
+          value:
+            edit.durationMs > 0
+              ? `${n(edit.durationMs)} ms`
+              : t(
+                  'editor.none'
+                )
+        }
+      )
+  }
+
+  if (
+    edit.type
+      === 'set-clip-motion'
+  ) {
+    before =
+      t(
+        'editor.motion',
+        {
+          value:
+            clip.motion
+            ?? t(
+              'editor.none'
+            )
+        }
+      )
+
+    after =
+      t(
+        'editor.motion',
+        {
+          value:
+            edit.motion
+              === 'none'
+              ? t(
+                  'editor.none'
+                )
+              : edit.motion
+        }
+      )
+  }
+
+  return (
+    <span>
+      <strong>
+        {operation.reason}
+      </strong>
+
+      <small>
+        {t('editor.before')}: {before}
+      </small>
+
+      <small>
+        {t('editor.after')}: {after}
+      </small>
+    </span>
+  )
 }
 
 export function AiEditorPanel({ project, history, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange }: Props) {

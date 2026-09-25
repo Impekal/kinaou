@@ -26,5 +26,8 @@ export const uiAiEditorMessages = {
   'editor.trim': ['Start {start} ms · Dauer {duration} ms · Quellversatz {offset} ms', 'Start {start} ms · duration {duration} ms · source offset {offset} ms', 'Début {start} ms · durée {duration} ms · décalage source {offset} ms'],
   'editor.gain': ['Lautstärkefaktor {value}', 'Gain {value}', 'Gain {value}'],
   'editor.speed': ['Geschwindigkeit {value}×', 'Speed {value}×', 'Vitesse {value}×'],
-  'editor.fades': ['Einblenden {in} ms · Ausblenden {out} ms', 'Fade in {in} ms · fade out {out} ms', 'Fondu entrant {in} ms · sortant {out} ms']
+  'editor.fades': ['Einblenden {in} ms · Ausblenden {out} ms', 'Fade in {in} ms · fade out {out} ms', 'Fondu entrant {in} ms · sortant {out} ms'],
+  'editor.transition': ['Übergang: {value}', 'Transition: {value}', 'Transition : {value}'],
+  'editor.motion': ['Bewegung: {value}', 'Motion: {value}', 'Mouvement : {value}'],
+  'editor.none': ['keine', 'none', 'aucun']
 } satisfies Record<string, readonly [string, string, string]>

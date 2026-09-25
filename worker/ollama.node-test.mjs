@@ -15,6 +15,48 @@ test('requests bounded structured AI Editor output and stamps provenance', async
   })
   assert.equal(body.stream, false)
   assert.ok(body.format.properties.operations)
+
+  const editSchemas =
+    body
+      .format
+      .properties
+      .operations
+      .items
+      .properties
+      .edit
+      .oneOf
+
+  const operationTypes =
+    editSchemas.map(
+      schema =>
+        schema.properties
+          ?.type
+          ?.const
+    )
+
+  assert.ok(
+    operationTypes.includes(
+      'move-clips'
+    )
+  )
+
+  assert.ok(
+    operationTypes.includes(
+      'set-clip-transition'
+    )
+  )
+
+  assert.ok(
+    operationTypes.includes(
+      'set-clip-motion'
+    )
+  )
+
+  assert.match(
+    body.prompt,
+    /Director execution context/
+  )
+
   assert.deepEqual(proposal.provenance, { kind: 'local-model', adapterId: 'ollama', modelId: 'qwen:7b' })
   await assert.rejects(() => generateAiEditorProposal('http://localhost:11434', 'qwen:7b', '', {}, async () => new Response()), /1–4000/)
 })
