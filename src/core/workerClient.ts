@@ -19,6 +19,10 @@ import {
   type AvatarIdentityRuntime
 } from './avatarIdentityRuntime'
 import {
+  avatarRenderRuntimeSchema,
+  type AvatarRenderRuntime
+} from './avatarRenderRuntime'
+import {
   avatarReceiptExportResultSchema,
   managedFileHashEvidenceSchema,
   type AvatarReceiptExportResult,
@@ -68,6 +72,32 @@ export class WorkerClient {
     }
 
     return avatarIdentityRuntimeSchema
+      .parse(
+        payload.runtime
+      )
+  }
+
+  async avatarRenderRuntime():
+    Promise<AvatarRenderRuntime> {
+    const payload =
+      await this.request(
+        '/avatar/render/runtime',
+        {
+          method: 'GET'
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'avatar-render-runtime'
+    ) {
+      throw new Error(
+        'Invalid avatar render runtime response'
+      )
+    }
+
+    return avatarRenderRuntimeSchema
       .parse(
         payload.runtime
       )
