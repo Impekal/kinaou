@@ -41,6 +41,10 @@ import {
 } from './AvatarGenerationControl'
 
 import {
+  AvatarRenderRuntimeStatus
+} from './AvatarRenderRuntimeStatus'
+
+import {
   useUiLanguage
 } from './UiLanguageProvider'
 
@@ -545,6 +549,21 @@ export function AvatarStudioPanel({
       <div className="card note">
         {t('avatar.boundary')}
       </div>
+
+      <AvatarRenderRuntimeStatus
+        workerUrl={
+          workerUrl
+        }
+        workerToken={
+          workerToken
+        }
+        workerConnected={
+          workerConnected
+        }
+        workerCapabilities={
+          workerCapabilities
+        }
+      />
 
       <div className="card stack">
         <h3>
