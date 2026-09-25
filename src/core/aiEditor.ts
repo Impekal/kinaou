@@ -163,7 +163,11 @@ const editSchema =
 export const aiEditorProposalSchema = z.object({
   schemaVersion: z.literal(1), title: z.string().trim().min(1).max(200), objective: z.string().trim().min(1).max(4000),
   operations: z.array(z.object({ id: z.string().min(1).max(120), reason: z.string().trim().min(1).max(1000), edit: editSchema })).min(1).max(500),
-  provenance: z.object({ kind: z.enum(['manual', 'local-model']), adapterId: z.string().min(1).optional(), modelId: z.string().min(1).optional() })
+  provenance: z.object({ kind: z.enum([
+      'manual',
+      'local-model',
+      'director-derived'
+    ]), adapterId: z.string().min(1).optional(), modelId: z.string().min(1).optional() })
 }).superRefine((proposal, context) => {
   const ids = new Set<string>()
   proposal.operations.forEach(
@@ -255,6 +259,24 @@ export const aiEditorProposalSchema = z.object({
       ],
       message:
         'Local model proposals require adapterId and modelId.'
+    })
+  }
+
+  if (
+    proposal.provenance.kind
+      === 'director-derived'
+    && proposal.provenance
+      .adapterId
+      !== 'kinaou-director-execution'
+  ) {
+    context.addIssue({
+      code:
+        'custom',
+      path: [
+        'provenance'
+      ],
+      message:
+        'Director-derived proposals require the trusted KINAOU Director adapter.'
     })
   }
 })

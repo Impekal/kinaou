@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { buildAiEditorContext, describeAiEdit, type AiEditorProposal } from '../core/aiEditor'
 import { AiEditorRequestScope, aiEditorProjectKey, commitAiEditorReview, reviewAiEditorProposal, type AiEditorReview } from '../core/aiEditorReview'
+import { buildDirectorEditProposal } from '../core/directorEditProposal'
+import { directorExecutionReadiness } from '../core/directorExecution'
 import type { KinaouProject } from '../core/project'
 import type { PersistentVersionHistory } from '../core/versioning'
 import { WorkerClient } from '../core/workerClient'
@@ -185,7 +187,15 @@ export function AiEditorPanel({ project, history, workerUrl, workerToken, worker
   const [source, setSource] = useState('')
   const [reviewed, setReviewed] = useState<AiEditorReview | null>(null)
   const [selected, setSelected] = useState<string[]>([])
-  const [message, setMessage] = useState<'valid' | 'models' | 'noModels' | 'applied' | null>(null)
+  const [message, setMessage] = useState<
+    | 'valid'
+    | 'models'
+    | 'noModels'
+    | 'applied'
+    | 'directorProposal'
+    | 'directorAligned'
+    | null
+  >(null)
   const [appliedCount, setAppliedCount] = useState(0)
   const [error, setError] = useState('')
   const [models, setModels] = useState<{ connection: string; items: Array<{ id: string; sizeBytes: number }> } | null>(null)
@@ -202,6 +212,7 @@ export function AiEditorPanel({ project, history, workerUrl, workerToken, worker
   const busy = Boolean(pending?.current())
   const installed = models?.connection === connection ? models.items : []
   const canGenerate = workerConnected && Boolean(workerToken.trim()) && workerCapabilities.includes('local-llm')
+  const directorReady = directorExecutionReadiness(project).ready
   const stale = Boolean(reviewed && reviewed.projectKey !== projectKey)
   const proposal = reviewed?.proposal
 
@@ -214,6 +225,51 @@ export function AiEditorPanel({ project, history, workerUrl, workerToken, worker
     setError(''); setMessage(null)
     try { accept(JSON.parse(source)) }
     catch (cause) { setReviewed(null); setSelected([]); setError(cause instanceof Error ? cause.message : String(cause)) }
+  }
+
+  function generateFromDirector() {
+    if (
+      busy
+      || !directorReady
+    ) {
+      return
+    }
+
+    setError('')
+    setMessage(null)
+    setReviewed(null)
+    setSelected([])
+
+    try {
+      const proposal =
+        buildDirectorEditProposal(
+          project
+        )
+
+      if (!proposal) {
+        setSource('')
+        setMessage(
+          'directorAligned'
+        )
+        return
+      }
+
+      accept(
+        proposal
+      )
+
+      setMessage(
+        'directorProposal'
+      )
+    } catch (cause) {
+      setReviewed(null)
+      setSelected([])
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : String(cause)
+      )
+    }
   }
   async function detectModels() {
     if (busy || inFlight.current?.() || !canGenerate) return
@@ -252,6 +308,31 @@ export function AiEditorPanel({ project, history, workerUrl, workerToken, worker
       <label>{t('editor.instruction')}<input disabled={busy} value={instruction} onChange={event => setInstruction(event.target.value)} placeholder={t('editor.instructionHint')} /></label>
       <label>{t('editor.model')}<select disabled={busy} value={installed.some(item => item.id === model) ? model : ''} onChange={event => setModel(event.target.value)}><option value="">{t('editor.chooseModel')}</option>{installed.map(item => <option key={item.id} value={item.id}>{item.id}</option>)}</select></label>
       <div className="directorActions"><button className="secondaryButton" disabled={busy || !canGenerate} onClick={detectModels}>{t('editor.detect')}</button><button className="primary" disabled={busy || !canGenerate || !installed.some(item => item.id === model) || !instruction.trim()} onClick={generate}>{t(busy ? 'editor.busy' : 'editor.generate')}</button></div>
+
+      <div className="directorActions">
+        <button
+          className="secondaryButton"
+          disabled={
+            busy
+            || !directorReady
+          }
+          onClick={
+            generateFromDirector
+          }
+        >
+          {t(
+            'editor.directorGenerate'
+          )}
+        </button>
+      </div>
+
+      {!directorReady && (
+        <small>
+          {t(
+            'editor.directorUnavailable'
+          )}
+        </small>
+      )}
     </div>
     <label>{t('editor.source')}<textarea value={source} onChange={event => { scope.current.invalidate(); setPending(null); setSource(event.target.value); setReviewed(null); setSelected([]); setMessage(null); setError('') }} placeholder='{"schemaVersion":1,"title":"…","objective":"…","operations":[…],"provenance":{"kind":"manual"}}' /></label>
     <div className="directorActions"><button className="secondaryButton" disabled={busy || !source.trim()} onClick={review}>{t('editor.review')}</button>{proposal && <button className="primary" disabled={busy || stale || !selected.length} onClick={apply}>{t('editor.apply', { count: selected.length })}</button>}</div>
