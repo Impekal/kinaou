@@ -33,6 +33,10 @@ import type {
 } from '../core/versioning'
 
 import {
+  AvatarGenerationControl
+} from './AvatarGenerationControl'
+
+import {
   useUiLanguage
 } from './UiLanguageProvider'
 
@@ -1067,6 +1071,47 @@ export function AvatarStudioPanel({
               'avatar.bindVoice'
             )}
           </button>
+
+          <div className="card note stack">
+            <strong>
+              {t(
+                'avatar.generateHeading'
+              )}
+            </strong>
+
+            <small>
+              {t(
+                'avatar.generateHelp'
+              )}
+            </small>
+
+            <AvatarGenerationControl
+              project={project}
+              avatarId={
+                selectedAvatar.id
+              }
+              versionId={
+                selectedAvatar
+                  .activeVersionId
+              }
+              history={history}
+              workerUrl={
+                workerUrl
+              }
+              workerToken={
+                workerToken
+              }
+              workerConnected={
+                workerConnected
+              }
+              workerCapabilities={
+                workerCapabilities
+              }
+              onProjectChange={
+                onProjectChange
+              }
+            />
+          </div>
         </div>
       )}
 
@@ -1553,6 +1598,37 @@ export function AvatarStudioPanel({
                           )}
                     </small>
                   </div>
+
+                  <AvatarGenerationControl
+                    project={project}
+                    avatarId={
+                      instance.avatarId
+                    }
+                    versionId={
+                      instance.versionId
+                    }
+                    instanceId={
+                      instance.id
+                    }
+                    history={
+                      history
+                    }
+                    workerUrl={
+                      workerUrl
+                    }
+                    workerToken={
+                      workerToken
+                    }
+                    workerConnected={
+                      workerConnected
+                    }
+                    workerCapabilities={
+                      workerCapabilities
+                    }
+                    onProjectChange={
+                      onProjectChange
+                    }
+                  />
                 </div>
               )
             }

@@ -560,7 +560,8 @@ it.each(uiLanguages)(
                   workerConnected:
                     true,
                   workerCapabilities: [
-                    'avatar-creation-receipt'
+                    'avatar-creation-receipt',
+                    'avatar-identity-edit'
                   ],
                   onProjectChange:
                     vi.fn()
@@ -584,7 +585,10 @@ it.each(uiLanguages)(
         'avatar.receiptsHeading',
         'avatar.receiptsTitle',
         'avatar.receiptsHelp',
-        'avatar.receiptsEmpty'
+        'avatar.receiptsEmpty',
+        'avatar.generateHeading',
+        'avatar.generateHelp',
+        'avatar.generate'
       ] as const
     ) {
       expect(html)
