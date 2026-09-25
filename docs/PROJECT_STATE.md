@@ -1,6 +1,6 @@
 # KINAOU — PROJECT STATE & HANDOFF
 
-Last updated: 2026-09-21
+Last updated: 2026-09-25
 
 ## Purpose
 This is KINAOU's durable project-memory / handoff file. Update it after every meaningful merged slice so a new chat/session can continue without relying on conversation memory.
@@ -23,7 +23,7 @@ Long-term flow: Discover → Research → Understand → Script → Direct → G
 10. Start hardware: MacBook Pro M2 Pro, 16 GB unified memory, 512 GB SSD. New hardware is not a prerequisite.
 11. Long videos are scene/asset compositions; individual scenes can be regenerated.
 12. Preferred UI is web/PWA; trusted filesystem/FFmpeg/model execution is delegated to localhost worker/desktop bridge.
-13. The app is private and non-commercial. Optimize freely for that use case, prefer capable local/open components, retain model/voice provenance, and do not implement license or terms circumvention.
+13. The KINAOU application is currently private and is not itself being commercialized, but its generated videos may be published in revenue-generating contexts such as monetized YouTube or paid course content. Model selection must therefore treat commercial-output rights as a separate requirement from commercial software distribution. A model restricted to non-commercial/research use is not an acceptable default production engine merely because the KINAOU application itself is private. Prefer capable local/open components, retain model/voice provenance, and do not implement license or terms circumvention.
 14. Faceless production is a first-class path: scripts, local voices, attributable avatars/generated presenters, screen capture, generated visuals and editing must form a complete workflow without requiring the user's face or voice.
 15. Initial content languages are German, English and French. Language, country/market, audience and objective are explicit project data rather than prompt guesswork.
 16. Trend, search-demand and content-gap claims must retain source, observation time, geography, language and measurement type. KINAOU must never fabricate search volume, competition or likely views; no feature may promise virality or guaranteed outcomes.
@@ -575,3 +575,48 @@ Consequently:
 - Point 4 remains open.
 
 Next candidate: PhotoMaker V1, evaluated separately from PhotoMaker V2 because V1 does not use the V2 InsightFace encoder path.
+
+### 2026-09-25 — Avatar 4.3F PhotoMaker V1 technical pass, identity-quality rejection
+
+KINAOU completed a real local PhotoMaker V1 evaluation on the supported M2 Pro 16 GB development machine.
+
+Runtime and provenance:
+- original TencentARC PhotoMaker V1 source pinned to commit `fb4d1b7b30bb27b20699e8cb40c97fb61c54d6f0`;
+- official `photomaker-v1.bin` pinned to Hugging Face revision `d7ec3fc17290263135825194aeb3bc456da67cc5`;
+- checkpoint SHA-256 `529d503fa378bfb3a74e3384ab2064d7269d59f0638324555d22067c31e275bc`;
+- checkpoint structure safely loaded with `weights_only=True`;
+- original V1 `PhotoMakerIDEncoder` used;
+- no InsightFace package installed;
+- no FaceID model used;
+- existing pinned SDXL base reused;
+- Apple MPS execution proven.
+
+Real acceptance set:
+- one single-reference portrait;
+- one multi-reference portrait;
+- one changed-outfit portrait.
+
+Human quality result:
+- technical generation succeeded;
+- single-reference identity preservation failed clearly;
+- multi-reference identity preservation failed;
+- changed-outfit continuity failed;
+- output frequently read as a similar but different person rather than the exact same avatar.
+
+Observed drift included facial geometry, eye region, beard geometry/density, hair/age cues and overall person identity.
+
+This is not a prompt-only or adapter-strength defect worth extending as the main path. PhotoMaker V1 is retained as a technical baseline, not promoted to KINAOU's persistent-avatar identity engine.
+
+`identity-preservation` remains disabled.
+
+Architecture decision after 4.3F:
+KINAOU will next evaluate reference-preserving image editing rather than repeatedly synthesizing a new person from an identity embedding. The target flow is:
+
+Avatar Identity Master → approved Reference Pack → Scene Edit → Generated Take.
+
+New references enter the persistent pack only after explicit human identity acceptance.
+
+Commercial-output clarification:
+KINAOU itself is currently private/non-commercial, but generated videos may be monetized or otherwise used commercially. Engine rights must therefore permit the intended commercial output/use; non-commercial research permission alone is insufficient for the production path.
+
+Point 4 remains open.
