@@ -721,3 +721,33 @@ Not yet complete:
 - video/motion/expression/lip-sync.
 
 Whole completion point 4 remains open.
+
+### 2026-09-25 — Avatar 4.3H-B Studio generation and receipts
+
+Avatar Studio now consumes the authenticated FLUX.2 Klein Avatar worker path rather than requiring a terminal workflow.
+
+Implemented product path:
+- eligible image-based Avatar Identity/Version selection;
+- active-version generation and non-destructive retake;
+- generation for prepared scene instances;
+- authenticated start/status/cancel through `WorkerClient`;
+- known-job monitoring without automatic resubmission;
+- explicit blocker when submission acceptance is unknown;
+- successful `KINAOU/Assets/GeneratedAvatars/` output registration as a generated managed asset;
+- exact Avatar Identity → Version → optional Scene Instance → Generated Take lineage;
+- FLUX.2 engine descriptor attached through `registerAvatarGeneratedTake`;
+- Creation Receipt creation for every accepted take;
+- automatic cryptographic receipt export when the connected worker advertises `avatar-creation-receipt`;
+- existing manual receipt re-verification remains available if automatic evidence capture fails;
+- prior takes/assets/receipts remain retained when a retake is generated.
+
+Reference selection follows the accepted quality boundary:
+- an original image-sourced version uses its authorized source image;
+- a derived version prefers the generated output of its parent version, keeping the accepted identity chain;
+- the production worker remains single-reference only until multi-reference identity quality receives a separate real human acceptance;
+- prompt-only, video-source and multi-reference identities are not passed through this accepted still-image engine yet;
+- motion or expression-performance instructions are refused rather than silently discarded.
+
+This slice does not add or claim scene-video, animation, motion, expression performance or lip sync.
+
+Whole completion point 4 remains open.
