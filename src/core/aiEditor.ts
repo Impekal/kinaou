@@ -3,6 +3,7 @@ import { updateCaptionText } from './captions'
 import { parseProject, type KinaouProject } from './project'
 import { applyTimelineOperation, type TimelineOperation } from './timeline'
 import { buildDirectorExecutionContext } from './directorExecution'
+import { assertAiEditorProjectedState } from './aiEditorProjection'
 
 const target = {
   trackId:
@@ -724,5 +725,62 @@ export function applyAiEditorProposal(project: KinaouProject, input: unknown, se
         )
     }
   }
-  return parseProject({ ...next, updatedAt: now.toISOString(), metadata: { ...next.metadata, lastAiEditorApply: { proposal, selectedOperationIds: [...selected], appliedAt: now.toISOString() } } })
+  const projectedTargets =
+    proposal.operations
+      .filter(
+        operation =>
+          selected.has(
+            operation.id
+          )
+      )
+      .flatMap(
+        operation => {
+          const edit =
+            operation.edit
+
+          if (
+            edit.type
+              === 'move-clips'
+          ) {
+            return edit.moves.map(
+              move => ({
+                trackId:
+                  move.trackId,
+                clipId:
+                  move.clipId
+              })
+            )
+          }
+
+          return [
+            {
+              trackId:
+                edit.trackId,
+              clipId:
+                edit.clipId
+            }
+          ]
+        }
+      )
+
+  assertAiEditorProjectedState(
+    next,
+    projectedTargets
+  )
+
+  return parseProject({
+    ...next,
+    updatedAt:
+      now.toISOString(),
+    metadata: {
+      ...next.metadata,
+      lastAiEditorApply: {
+        proposal,
+        selectedOperationIds:
+          [...selected],
+        appliedAt:
+          now.toISOString()
+      }
+    }
+  })
 }
