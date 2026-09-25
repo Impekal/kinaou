@@ -439,3 +439,168 @@ describe('probed media import', () => {
     })).toThrow(/KINAOU\/Assets/)
   })
 })
+
+describe(
+  'avatar render runtime worker client',
+  () => {
+    const runtime = {
+      schemaVersion:
+        1 as const,
+
+      host: {
+        platform:
+          'darwin' as const,
+
+        arch:
+          'arm64' as const,
+
+        accelerator:
+          'mps' as const,
+
+        acceleratorName:
+          'Apple M2 Pro',
+
+        systemMemoryBytes:
+          16 * 1024 ** 3
+      },
+
+      preview: {
+        configured:
+          false,
+
+        available:
+          false,
+
+        offlineOnly:
+          true as const,
+
+        notes: [
+          'Preview runtime not yet bound'
+        ]
+      },
+
+      localGenerative: {
+        configured:
+          false,
+
+        available:
+          false,
+
+        offlineOnly:
+          true as const,
+
+        missing: [
+          'runtime:configuration'
+        ],
+
+        notes: [
+          'No final renderer installed'
+        ]
+      }
+    }
+
+    it(
+      'requests and strictly parses the Avatar render runtime',
+      async () => {
+        const seen: string[] = []
+
+        const client =
+          new WorkerClient({
+            baseUrl:
+              'http://127.0.0.1:43117',
+
+            token:
+              'secret',
+
+            fetchImpl:
+              async (
+                input,
+                init
+              ) => {
+                seen.push(
+                  String(input)
+                )
+
+                expect(
+                  new Headers(
+                    init?.headers
+                  ).get(
+                    'authorization'
+                  )
+                ).toBe(
+                  'Bearer secret'
+                )
+
+                return jsonResponse({
+                  ok:
+                    true,
+
+                  type:
+                    'avatar-render-runtime',
+
+                  runtime
+                })
+              }
+          })
+
+        expect(
+          await client
+            .avatarRenderRuntime()
+        ).toEqual(
+          runtime
+        )
+
+        expect(
+          seen
+        ).toEqual([
+          'http://127.0.0.1:43117/avatar/render/runtime'
+        ])
+      }
+    )
+
+    it(
+      'rejects malformed Avatar render runtime responses',
+      async () => {
+        const client =
+          new WorkerClient({
+            baseUrl:
+              'http://127.0.0.1:43117',
+
+            token:
+              'secret',
+
+            fetchImpl:
+              async () =>
+                jsonResponse({
+                  ok:
+                    true,
+
+                  type:
+                    'avatar-render-runtime',
+
+                  runtime: {
+                    ...runtime,
+
+                    localGenerative: {
+                      configured:
+                        true,
+
+                      available:
+                        true,
+
+                      offlineOnly:
+                        true,
+
+                      missing: []
+                    }
+                  }
+                })
+          })
+
+        await expect(
+          client.avatarRenderRuntime()
+        ).rejects.toThrow()
+      }
+    )
+  }
+)
