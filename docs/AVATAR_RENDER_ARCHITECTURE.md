@@ -105,3 +105,50 @@ optional BYOK fallback only.
 
 KINAOU-owned recurring inference cost:
 none.
+
+## Portable runtime contract
+
+KINAOU does not infer final-render quality merely from an
+operating-system name or a GPU brand.
+
+The worker reports:
+
+- operating system
+- architecture
+- accelerator type
+- accelerator name when known
+- dedicated VRAM when known
+- system memory when known
+- Preview runtime availability
+- Local Generative runtime availability
+- exact engine descriptor
+- verified engine rights
+- missing runtime dependencies
+
+The application then selects a backend from actual runtime
+availability.
+
+This keeps KINAOU portable across:
+
+- Apple Silicon / MPS
+- Windows / CUDA
+- Linux / CUDA
+- CPU-only development environments
+
+A future Windows machine can therefore activate a stronger
+local video engine without changing the project format or
+the Avatar Studio UI contract.
+
+A local final engine may report itself as available only if
+it declares at minimum:
+
+- identity preservation
+- scene-video output
+- motion
+
+and its commercial output plus commercial software rights
+have been verified.
+
+Specific model families are deliberately not embedded in
+this contract. The strongest suitable local model can be
+changed later without changing KINAOU projects.
