@@ -380,3 +380,41 @@ The acceptance does not automatically extend to:
 - person replacement in arbitrary video.
 
 The persistent-reference strategy now changes from repeated re-synthesis to an Identity Master and, after additional testing, a human-approved Reference Pack. No generated take becomes trusted identity evidence merely because generation succeeded; acceptance remains explicit.
+
+### FLUX.2 Klein Quality Reference Pack acceptance (4.3I, 2026-09-25)
+
+The three-image Reference Pack profile passed KINAOU's persistent-identity quality gate.
+
+Accepted Quality Reference Pack:
+1. Identity Master;
+2. one human-approved complementary three-quarter view;
+3. one human-approved complementary medium-shot view.
+
+Interactive human review accepted the same fictional identity across:
+- Pack 2 same-outfit new take;
+- Pack 2 combined clothing/environment/camera stress;
+- Pack 3 equivalent combined stress;
+- Pack 3 opposite-angle view;
+- Pack 3 new archive environment;
+- Pack 3 independent second seed;
+- Pack 3 changed reference order.
+
+All seven outputs passed.
+
+Pack 2 remained strong and faster, but Pack 3 is KINAOU's quality standard because it passed the broader angle, environment, independent-seed and reference-order stress set.
+
+Measured on the M2 Pro 16 GB development machine:
+- Pack 2: approximately 36–37 seconds per tested 512x512 four-step generation;
+- Pack 3: approximately 48–50 seconds;
+- peak MLX memory remained approximately 5.0–5.2 GB.
+
+The accepted product boundary is deliberately narrow:
+- one image reference remains accepted;
+- exactly three human-approved same-lineage images are accepted as a Quality Reference Pack;
+- arbitrary two-image or unreviewed multi-reference sets are not an accepted product path;
+- Reference Pack creation requires explicit human same-identity confirmation;
+- motion, expression performance, video identity and lip sync remain separate unaccepted capabilities.
+
+Creation Receipts record the exact images used by each generation rather than every image that has ever existed in the Avatar lineage.
+
+A real authenticated Pack 3 worker run reproduced the human-accepted direct-runtime result pixel-for-pixel.

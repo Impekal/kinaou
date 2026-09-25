@@ -13,6 +13,10 @@ import {
   type AvatarEditJobRecord
 } from './avatarJobs'
 
+import {
+  activeAcceptedAvatarReferencePack
+} from './avatarReferencePack'
+
 import type {
   AvatarIdentity,
   AvatarInstance,
@@ -36,7 +40,8 @@ export type AvatarEditEligibilityReason =
 export interface PreparedAvatarEdit {
   target: AvatarEditTarget
   parameters: AvatarEditJobParameters
-  referenceAssetId: string
+  referenceAssetIds: string[]
+  referencePackId?: string
 }
 
 function avatarById(
@@ -136,7 +141,7 @@ function usableImageAsset(
   return asset
 }
 
-function referenceForVersion(
+function singleReferenceForVersion(
   project: KinaouProject,
   avatar: AvatarIdentity,
   version: AvatarVersion
@@ -160,7 +165,7 @@ function referenceForVersion(
         )
       } catch {
         // Fall through to the original
-        // authorized image source.
+        // authorized source.
       }
     }
   }
@@ -171,7 +176,7 @@ function referenceForVersion(
       !== 1
   ) {
     throw new Error(
-      'The accepted FLUX.2 Avatar engine currently requires one image-based identity source'
+      'The accepted FLUX.2 Avatar engine requires either one image-based identity source or an active accepted Reference Pack'
     )
   }
 
@@ -179,6 +184,46 @@ function referenceForVersion(
     project,
     version.source.assetIds[0]
   )
+}
+
+function referenceSelection(
+  project: KinaouProject,
+  avatar: AvatarIdentity,
+  version: AvatarVersion
+): {
+  assets: KinaouAsset[]
+  referencePackId?: string
+} {
+  const pack =
+    activeAcceptedAvatarReferencePack(
+      project,
+      avatar.id
+    )
+
+  if (pack) {
+    return {
+      assets:
+        pack.assetIds.map(
+          assetId =>
+            usableImageAsset(
+              project,
+              assetId
+            )
+        ),
+      referencePackId:
+        pack.id
+    }
+  }
+
+  return {
+    assets: [
+      singleReferenceForVersion(
+        project,
+        avatar,
+        version
+      )
+    ]
+  }
 }
 
 function normalized(
@@ -189,6 +234,7 @@ function normalized(
 
 function editPrompt(
   version: AvatarVersion,
+  referenceCount: number,
   instance?: AvatarInstance
 ): string {
   if (
@@ -252,10 +298,15 @@ function editPrompt(
       version.prompt
     )
 
+  const referenceInstruction =
+    referenceCount > 1
+      ? 'All reference images depict one and the same adult person. Treat them as multiple approved views of one identity, never as multiple people.'
+      : 'Use the reference image as the identity master.'
+
   const parts = [
-    'Use the reference image as the identity master.',
+    referenceInstruction,
     'Preserve the exact same adult person and keep identity locked: facial proportions, skull and face geometry, eyes and eye color, eyebrows, nose, lips, ears, hairline, skin tone, beard or facial-hair pattern, and apparent age must remain the same person.',
-    'Do not redesign, replace, beautify into a different person, or drift the identity.',
+    'Do not redesign, replace, beautify into a different person, average the references into a new face, or drift the identity.',
     ...(
       identityContext
         ? [
@@ -307,7 +358,7 @@ export function avatarEditEligibility(
         target
       )
 
-    referenceForVersion(
+    referenceSelection(
       project,
       avatar,
       version
@@ -342,7 +393,7 @@ export function avatarEditEligibility(
         : String(error)
 
     if (
-      /image-based identity source|managed image reference/i
+      /image-based identity source|managed image reference|Reference Pack/i
         .test(message)
     ) {
       return {
@@ -392,8 +443,8 @@ export function prepareAvatarEdit(
       target
     )
 
-  const reference =
-    referenceForVersion(
+  const references =
+    referenceSelection(
       project,
       avatar,
       version
@@ -402,6 +453,7 @@ export function prepareAvatarEdit(
   const prompt =
     editPrompt(
       version,
+      references.assets.length,
       instance
     )
 
@@ -412,12 +464,23 @@ export function prepareAvatarEdit(
     parameters: {
       prompt,
       seed,
-      referencePaths: [
-        reference.uri
-      ]
+      referencePaths:
+        references.assets.map(
+          asset =>
+            asset.uri
+        )
     },
-    referenceAssetId:
-      reference.id
+    referenceAssetIds:
+      references.assets.map(
+        asset =>
+          asset.id
+      ),
+    ...(references.referencePackId
+      ? {
+          referencePackId:
+            references.referencePackId
+        }
+      : {})
   }
 }
 
@@ -440,15 +503,30 @@ export function completeAvatarEdit(
     )
   }
 
+  const sameReferences =
+    job.provenance
+      .referencePaths.length
+      === prepared.parameters
+        .referencePaths.length
+    && job.provenance
+      .referencePaths.every(
+        (
+          value,
+          index
+        ) =>
+          value ===
+          prepared.parameters
+            .referencePaths[
+              index
+            ]
+      )
+
   if (
     job.provenance.seed
       !== prepared.parameters.seed
     || job.provenance.prompt
       !== prepared.parameters.prompt
-    || job.provenance.referencePaths.length
-      !== 1
-    || job.provenance.referencePaths[0]
-      !== prepared.parameters.referencePaths[0]
+    || !sameReferences
   ) {
     throw new Error(
       'Avatar edit result does not match the submitted generation'
@@ -488,7 +566,15 @@ export function completeAvatarEdit(
         engine:
           flux2KleinAvatarEngine(
             now.toISOString()
-          )
+          ),
+        sourceAssetIds:
+          prepared.referenceAssetIds,
+        ...(prepared.referencePackId
+          ? {
+              referencePackId:
+                prepared.referencePackId
+            }
+          : {})
       },
       now
     )

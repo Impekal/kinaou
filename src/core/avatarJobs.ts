@@ -147,7 +147,12 @@ export function parseAvatarEditJob(
     || !Array.isArray(
       provenance.referencePaths
     )
-    || provenance.referencePaths.length !== 1
+    || ![
+      1,
+      3
+    ].includes(
+      provenance.referencePaths.length
+    )
   ) {
     throw new Error(
       'Invalid Avatar edit provenance'

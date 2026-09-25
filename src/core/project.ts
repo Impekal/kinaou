@@ -101,6 +101,27 @@ export const avatarVersionSchema = z.object({
   ).default({})
 })
 
+export const avatarReferencePackSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1).max(120),
+  createdAt: z.string().datetime(),
+  profileId: z.string().min(1).max(160),
+  assetIds: z.array(
+    z.string().min(1)
+  ).min(2).max(12),
+  acceptance: z.object({
+    status: z.literal(
+      'human-accepted'
+    ),
+    acceptedAt:
+      z.string().datetime(),
+    note:
+      z.string()
+        .max(1000)
+        .default('')
+  })
+})
+
 export const avatarIdentitySchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1).max(80),
@@ -110,6 +131,11 @@ export const avatarIdentitySchema = z.object({
   versions: z.array(
     avatarVersionSchema
   ).min(1),
+  referencePacks: z.array(
+    avatarReferencePackSchema
+  ).default([]),
+  activeReferencePackId:
+    z.string().min(1).optional(),
   voiceAssetId: z.string().min(1).optional(),
   metadata: z.record(
     z.string(),
@@ -249,6 +275,7 @@ export type TimelineTrack = z.infer<typeof trackSchema>
 export type TimelineClip = z.infer<typeof clipSchema>
 export type AvatarSource = z.infer<typeof avatarSourceSchema>
 export type AvatarVersion = z.infer<typeof avatarVersionSchema>
+export type AvatarReferencePack = z.infer<typeof avatarReferencePackSchema>
 export type AvatarIdentity = z.infer<typeof avatarIdentitySchema>
 export type AvatarInstance = z.infer<typeof avatarInstanceSchema>
 export type AvatarEngineCapability = z.infer<typeof avatarEngineCapabilitySchema>

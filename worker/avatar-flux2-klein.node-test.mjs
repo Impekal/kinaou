@@ -97,7 +97,7 @@ test(
 )
 
 test(
-  'accepts multiple unique local references without claiming multi-reference quality yet',
+  'accepts the human-approved local multi-reference command profile',
   () => {
     const result =
       buildFlux2KleinAvatarEditCommand({

@@ -588,7 +588,9 @@ it.each(uiLanguages)(
         'avatar.receiptsEmpty',
         'avatar.generateHeading',
         'avatar.generateHelp',
-        'avatar.generate'
+        'avatar.generate',
+        'avatar.referencePackHeading',
+        'avatar.referencePackHelp'
       ] as const
     ) {
       expect(html)

@@ -54,6 +54,7 @@ export function flux2KleinAvatarEngine(
       'identity-preservation',
       'targeted-edit',
       'image-reference',
+      'multi-reference',
       'scene-image'
     ],
     rights: {
@@ -76,7 +77,8 @@ export function flux2KleinAvatarEngine(
       notes: [
         'The accepted KINAOU identity-preservation path uses FLUX.2 Klein 4B image-conditioned editing through MFLUX 0.20.0.',
         'The development runtime uses a pinned 4-bit MFLUX conversion derived from the Apache-2.0 FLUX.2 Klein 4B base model.',
-        'Human acceptance on 2026-09-25 found the same fictional identity preserved across a new photographic take, clothing change, environment change, three-quarter view and medium shot.',
+        'Human acceptance on 2026-09-25 found the same fictional identity preserved across single-reference edits and a three-image Reference Pack under same-outfit, combined clothing/environment/camera stress, opposite-angle, new-environment, independent-seed and reference-order tests.',
+        'The accepted multi-reference product profile is exactly three human-approved images: an Identity Master plus two complementary approved views.',
         'This acceptance covers still-image identity-preserving editing at the tested 512x512 four-step profile; it does not claim prompt-only identity generation, video identity, motion, expression, lip sync or character replacement.',
         'Apache-2.0 redistribution conditions and notices still apply when redistributing model/runtime material.',
         'Commercial-output permission concerns model-license permission only; reference-image rights, personality/publicity rights, trademarks, copyright in third-party material and legality of a particular output remain separate.'

@@ -442,6 +442,7 @@ export function createAvatarIdentity(
     activeVersionId:
       version.id,
     versions: [version],
+    referencePacks: [],
     metadata: {
       identityStatus:
         'defined'

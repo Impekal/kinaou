@@ -48,8 +48,9 @@ function succeededJob(
   prompt: string,
   seed: number,
   outputId: string,
-  reference =
-    'KINAOU/Assets/reference.png'
+  reference:
+    string | string[] =
+      'KINAOU/Assets/reference.png'
 ) {
   return {
     id:
@@ -83,9 +84,14 @@ function succeededJob(
         512 as const,
       height:
         512 as const,
-      referencePaths: [
-        reference
-      ]
+      referencePaths:
+        Array.isArray(
+          reference
+        )
+          ? reference
+          : [
+              reference
+            ]
     },
     outputPath:
       `KINAOU/Assets/GeneratedAvatars/${outputId}.png`,
@@ -165,6 +171,7 @@ it(
       'identity-preservation',
       'targeted-edit',
       'image-reference',
+      'multi-reference',
       'scene-image'
     ])
 

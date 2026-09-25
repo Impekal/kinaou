@@ -173,6 +173,22 @@ test(
     )
 
     await writeFile(
+      path.join(
+        assets,
+        'master-2.png'
+      ),
+      PNG
+    )
+
+    await writeFile(
+      path.join(
+        assets,
+        'master-3.png'
+      ),
+      PNG
+    )
+
+    await writeFile(
       manifest,
       JSON.stringify({
         schemaVersion:
@@ -454,6 +470,78 @@ await writeFile(
       assert.equal(
         multiResponse.status,
         400
+      )
+
+
+      const packResponse =
+        await fetch(
+          `${base}/avatar/edit/jobs`,
+          {
+            method:
+              'POST',
+            headers,
+            body:
+              JSON.stringify({
+                prompt:
+                  'Accepted three-image Reference Pack.',
+                seed:
+                  45,
+                referencePaths: [
+                  'KINAOU/Assets/master.png',
+                  'KINAOU/Assets/master-2.png',
+                  'KINAOU/Assets/master-3.png'
+                ]
+              })
+          }
+        )
+
+      const packStarted =
+        await packResponse.json()
+
+      assert.equal(
+        packResponse.status,
+        202
+      )
+
+      assert.equal(
+        packStarted.ok,
+        true
+      )
+
+      const packSucceeded =
+        await waitFor(
+          async () => {
+            const response =
+              await fetch(
+                `${base}/avatar/edit/jobs/${packStarted.job.id}`,
+                {
+                  headers: {
+                    authorization:
+                      `Bearer ${token}`
+                  }
+                }
+              )
+
+            const payload =
+              await response.json()
+
+            return payload.job
+              ?.state
+              === 'succeeded'
+              ? payload.job
+              : false
+          }
+        )
+
+      assert.deepEqual(
+        packSucceeded
+          .provenance
+          .referencePaths,
+        [
+          'KINAOU/Assets/master.png',
+          'KINAOU/Assets/master-2.png',
+          'KINAOU/Assets/master-3.png'
+        ]
       )
 
       const cancelResponse =
