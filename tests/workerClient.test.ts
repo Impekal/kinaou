@@ -682,3 +682,92 @@ describe(
     )
   }
 )
+
+it(
+  'requests Short reframing assistance through the authenticated worker',
+  async () => {
+    const context = {
+      schemaVersion:
+        1,
+
+      visualClips: [
+        {
+          clipId:
+            'clip'
+        }
+      ]
+    }
+
+    const client =
+      new WorkerClient({
+        baseUrl:
+          'http://localhost:43117',
+
+        token:
+          'secret',
+
+        fetchImpl:
+          async (
+            input,
+            init
+          ) => {
+            expect(
+              String(input)
+            ).toContain(
+              '/short-finishing/reframe/generate'
+            )
+
+            expect(
+              new Headers(
+                init?.headers
+              ).get(
+                'authorization'
+              )
+            ).toBe(
+              'Bearer secret'
+            )
+
+            expect(
+              JSON.parse(
+                String(
+                  init?.body
+                )
+              )
+            ).toEqual({
+              model:
+                'qwen:7b',
+
+              instruction:
+                'First scene left.',
+
+              context
+            })
+
+            return jsonResponse({
+              ok:
+                true,
+
+              type:
+                'short-reframe-proposal',
+
+              proposal: {
+                schemaVersion:
+                  1
+              }
+            })
+          }
+      })
+
+    expect(
+      await client
+        .generateShortReframeProposal(
+          'qwen:7b',
+          'First scene left.',
+          context
+        )
+    ).toEqual({
+      schemaVersion:
+        1
+    })
+  }
+)

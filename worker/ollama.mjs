@@ -149,6 +149,261 @@ export async function generateShortHighlightProposal(baseUrl, model, context, fe
 }
 
 
+
+export async function generateShortReframeProposal(
+  baseUrl,
+  model,
+  instruction,
+  context,
+  fetchImpl = fetch
+) {
+  if (
+    typeof model !== 'string'
+    || !model.trim()
+  ) {
+    throw new Error(
+      'Local model is required'
+    )
+  }
+
+  if (
+    typeof instruction !== 'string'
+    || !instruction.trim()
+    || instruction.length > 4000
+  ) {
+    throw new Error(
+      'Reframing instruction must contain 1–4000 characters'
+    )
+  }
+
+  const contextJson =
+    JSON.stringify(
+      context
+    )
+
+  if (
+    !contextJson.length
+    || contextJson.length > 200_000
+  ) {
+    throw new Error(
+      'Short reframing context is too large'
+    )
+  }
+
+  const response =
+    await fetchImpl(
+      `${normalizeOllamaUrl(baseUrl)}/api/generate`,
+      {
+        method:
+          'POST',
+
+        headers: {
+          'content-type':
+            'application/json'
+        },
+
+        signal:
+          AbortSignal.timeout(
+            10 * 60_000
+          ),
+
+        body:
+          JSON.stringify({
+            model:
+              model.trim(),
+
+            stream:
+              false,
+
+            options: {
+              temperature:
+                0
+            },
+
+            format:
+              shortReframeJsonSchema(),
+
+            prompt:
+              `Create review-only per-clip reframing suggestions for this KINAOU Short.
+
+You DO NOT see the video pixels and must never claim that you visually detected a face, person, object, action or composition.
+
+Use only:
+1. the user's reframing instruction;
+2. explicit spatial information already written in scene.title or scene.description;
+3. exact trackId, clipId and sceneId values from context.visualClips.
+
+Never invent IDs.
+
+Only propose a non-centre focus when the instruction or supplied scene text explicitly supports a spatial direction or location. If there is no explicit basis for changing a clip, do not target that clip.
+
+focusX and focusY are normalized from 0 to 1:
+- focusX 0 = left, 0.5 = centre, 1 = right
+- focusY 0 = top, 0.5 = centre, 1 = bottom
+
+Do not reproduce the existing currentFocus as a no-op.
+Do not modify timing, assets, audio, captions or transforms.
+Return only the requested schema.
+
+Instruction: ${instruction.trim()}
+
+Context: ${contextJson}`
+          })
+      }
+    )
+
+  const payload =
+    await response
+      .json()
+      .catch(
+        () => ({})
+      )
+
+  if (!response.ok) {
+    throw new Error(
+      typeof payload.error
+        === 'string'
+        ? payload.error
+        : `Ollama generation failed with HTTP ${response.status}`
+    )
+  }
+
+  if (
+    typeof payload.response
+    !== 'string'
+  ) {
+    throw new Error(
+      'Ollama returned no structured response'
+    )
+  }
+
+  const proposal =
+    JSON.parse(
+      payload.response
+    )
+
+  proposal.provenance = {
+    kind:
+      'local-model',
+
+    adapterId:
+      'ollama',
+
+    modelId:
+      model.trim()
+  }
+
+  return proposal
+}
+
+
+function shortReframeJsonSchema() {
+  return {
+    type:
+      'object',
+
+    properties: {
+      schemaVersion: {
+        const:
+          1
+      },
+
+      title: {
+        type:
+          'string'
+      },
+
+      objective: {
+        type:
+          'string'
+      },
+
+      operations: {
+        type:
+          'array',
+
+        minItems:
+          1,
+
+        maxItems:
+          100,
+
+        items: {
+          type:
+            'object',
+
+          properties: {
+            id: {
+              type:
+                'string'
+            },
+
+            trackId: {
+              type:
+                'string'
+            },
+
+            clipId: {
+              type:
+                'string'
+            },
+
+            sceneId: {
+              type:
+                'string'
+            },
+
+            focusX: {
+              type:
+                'number',
+
+              minimum:
+                0,
+
+              maximum:
+                1
+            },
+
+            focusY: {
+              type:
+                'number',
+
+              minimum:
+                0,
+
+              maximum:
+                1
+            },
+
+            reason: {
+              type:
+                'string'
+            }
+          },
+
+          required: [
+            'id',
+            'trackId',
+            'clipId',
+            'sceneId',
+            'focusX',
+            'focusY',
+            'reason'
+          ]
+        }
+      }
+    },
+
+    required: [
+      'schemaVersion',
+      'title',
+      'objective',
+      'operations'
+    ]
+  }
+}
+
+
 function shortHighlightJsonSchema() {
   const evidence = {
     oneOf: [
