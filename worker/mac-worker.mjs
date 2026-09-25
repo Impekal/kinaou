@@ -34,6 +34,16 @@ import {
   unconfiguredAvatarIdentityRuntime
 } from './avatar-identity.mjs'
 import {
+  availableAvatarRenderRuntime,
+  buildAvatarRenderHost,
+  buildNvidiaSmiProbeCommand,
+  failedAvatarRenderRuntime,
+  incompleteAvatarRenderRuntime,
+  parseAvatarFinalRuntimeManifest,
+  parseNvidiaSmiOutput,
+  unconfiguredAvatarRenderRuntime
+} from './avatar-render-runtime.mjs'
+import {
   FLUX2_KLEIN_ACCEPTED_SIZE,
   FLUX2_KLEIN_ACCEPTED_STEPS,
   FLUX2_KLEIN_MODEL_ID,
@@ -96,6 +106,10 @@ const AVATAR_IDENTITY_BRIDGE =
     )
   )
 
+const AVATAR_FINAL_MANIFEST =
+  process.env.KINAOU_AVATAR_FINAL_MANIFEST
+  ?? ''
+
 const FLUX2_KLEIN_EDIT_CLI =
   process.env.KINAOU_FLUX2_EDIT_CLI
   ?? ''
@@ -144,6 +158,7 @@ const versions = {
 
 const chatterboxRuntime = await detectChatterboxRuntime()
 let avatarIdentityRuntime = await detectAvatarIdentityRuntime()
+let avatarRenderRuntime = await detectAvatarRenderRuntime()
 
 const server = http.createServer(async (request, response) => {
   setCorsHeaders(request, response)
@@ -183,6 +198,10 @@ const server = http.createServer(async (request, response) => {
       const webBrowsers = await listWebCaptureBrowsers()
       const avatarEditAvailable =
         await flux2KleinAvatarEditRuntimeAvailable()
+
+      avatarRenderRuntime =
+        await detectAvatarRenderRuntime()
+
       return send(response, 200, {
         ok: true,
         type: 'health',
@@ -191,12 +210,33 @@ const server = http.createServer(async (request, response) => {
           name: 'KINAOU Mac Worker',
           platform: process.platform,
           version: VERSION,
-          capabilities: ['filesystem', 'asset-upload', 'managed-sha256', 'avatar-creation-receipt', 'avatar-identity-runtime', 'publish-package-library', 'publish-package-integrity', 'format-reframing', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe', 'publish-preflight', 'publish-package'] : []), ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(((PIPER_CLI && piperVoices.length) || chatterboxRuntime?.available) && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : []), ...(avatarEditAvailable ? ['avatar-identity-edit'] : [])],
+          capabilities: ['filesystem', 'asset-upload', 'managed-sha256', 'avatar-creation-receipt', 'avatar-identity-runtime', 'publish-package-library', 'publish-package-integrity', 'format-reframing', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe', 'publish-preflight', 'publish-package'] : []), ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(((PIPER_CLI && piperVoices.length) || chatterboxRuntime?.available) && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : []), ...(avatarEditAvailable ? ['avatar-identity-edit'] : []), 'avatar-render-runtime', ...(avatarRenderRuntime.localGenerative.available ? ['avatar-final-local'] : [])],
           managedRoots: [MANAGED_ROOT],
           ffmpegVersion: versions.ffmpeg,
           ffprobeVersion: versions.ffprobe
         }
       })
+    }
+
+    if (
+      request.method === 'GET'
+      && request.url
+        === '/avatar/render/runtime'
+    ) {
+      avatarRenderRuntime =
+        await detectAvatarRenderRuntime()
+
+      return send(
+        response,
+        200,
+        {
+          ok: true,
+          type:
+            'avatar-render-runtime',
+          runtime:
+            avatarRenderRuntime
+        }
+      )
     }
 
     if (
@@ -1689,6 +1729,131 @@ function cancelSttJob(job) {
   if (['succeeded', 'failed', 'cancelled'].includes(job.state)) return
   job.state = 'cancelled'; touchSttJob(job)
   if (job.child && !job.child.killed) job.child.kill('SIGTERM')
+}
+
+
+async function detectAvatarRenderHost() {
+  let cuda
+
+  try {
+    const command =
+      buildNvidiaSmiProbeCommand()
+
+    const result =
+      await captureChild(
+        command.executable,
+        command.args,
+        process.env,
+        5_000
+      )
+
+    cuda =
+      parseNvidiaSmiOutput(
+        result.stdout
+      )
+  } catch {
+    cuda =
+      undefined
+  }
+
+  return buildAvatarRenderHost({
+    platform:
+      process.platform,
+
+    arch:
+      process.arch,
+
+    cpuModel:
+      os.cpus()
+        .at(0)
+        ?.model
+        ?? '',
+
+    systemMemoryBytes:
+      os.totalmem(),
+
+    cuda
+  })
+}
+
+
+async function detectAvatarRenderRuntime() {
+  const host =
+    await detectAvatarRenderHost()
+
+  if (
+    !AVATAR_FINAL_MANIFEST
+    || !path.isAbsolute(
+      AVATAR_FINAL_MANIFEST
+    )
+  ) {
+    return unconfiguredAvatarRenderRuntime(
+      host
+    )
+  }
+
+  try {
+    await access(
+      AVATAR_FINAL_MANIFEST
+    )
+
+    const manifest =
+      parseAvatarFinalRuntimeManifest(
+        JSON.parse(
+          await readFile(
+            AVATAR_FINAL_MANIFEST,
+            'utf8'
+          )
+        )
+      )
+
+    const missing = []
+
+    try {
+      await access(
+        manifest.executable
+      )
+    } catch {
+      missing.push(
+        `executable:${manifest.executable}`
+      )
+    }
+
+    for (
+      const modelPath
+      of manifest.modelPaths
+    ) {
+      try {
+        await access(
+          modelPath
+        )
+      } catch {
+        missing.push(
+          `model:${modelPath}`
+        )
+      }
+    }
+
+    if (missing.length) {
+      return incompleteAvatarRenderRuntime(
+        host,
+        manifest,
+        missing
+      )
+    }
+
+    return availableAvatarRenderRuntime(
+      host,
+      manifest
+    )
+  } catch (error) {
+    return failedAvatarRenderRuntime(
+      host,
+      error instanceof Error
+        ? error.message
+        : String(error)
+    )
+  }
 }
 
 
