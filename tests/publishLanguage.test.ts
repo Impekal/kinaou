@@ -14,6 +14,7 @@ const expected: Record<UiLanguage, {
   offline: string
   export: string
   destination: string
+  placement: string
   save: string
   use: string
   clear: string
@@ -29,7 +30,8 @@ const expected: Record<UiLanguage, {
     heading: 'Fertigen Export vorbereiten',
     offline: 'WORKER OFFLINE',
     export: 'Erfolgreicher Export',
-    destination: 'Zielprofil',
+    destination: 'Plattform',
+    placement: 'Veröffentlichungsformat',
     save: 'Als Projektstandard speichern',
     use: 'Gespeicherte Standards verwenden',
     clear: 'Gespeicherte Standards löschen',
@@ -45,7 +47,8 @@ const expected: Record<UiLanguage, {
     heading: 'Prepare a finished export',
     offline: 'WORKER OFFLINE',
     export: 'Successful export',
-    destination: 'Destination profile',
+    destination: 'Platform',
+    placement: 'Publishing placement',
     save: 'Save as project defaults',
     use: 'Use saved defaults',
     clear: 'Clear saved defaults',
@@ -61,7 +64,8 @@ const expected: Record<UiLanguage, {
     heading: 'Préparer un export finalisé',
     offline: 'WORKER HORS LIGNE',
     export: 'Export réussi',
-    destination: 'Profil de destination',
+    destination: 'Plateforme',
+    placement: 'Type de publication',
     save: 'Enregistrer comme valeurs par défaut du projet',
     use: 'Utiliser les valeurs enregistrées',
     clear: 'Effacer les valeurs enregistrées',
@@ -107,6 +111,7 @@ describe('Publish UI language', () => {
     expect(html).toContain(text.offline)
     expect(html).toContain(text.export)
     expect(html).toContain(text.destination)
+    expect(html).toContain(text.placement)
     expect(html).toContain(text.save)
     expect(html).toContain(text.use)
     expect(html).toContain(text.clear)
