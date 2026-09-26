@@ -15,6 +15,10 @@ import { assertSafeManagedPath } from './storage'
 import { managedPublishPathSchema, parsePublishPreflightResult, publishIntegrityResultSchema, publishPackageListSchema, publishPackageRequestSchema, publishPackageResultSchema, publishProjectIdSchema, type PublishIntegrityResult, type PublishPackageEntry, type PublishPackageRequest, type PublishPackageResult, type PublishPreflightResult } from './publishPackage'
 import { exportReceiptSchema, type ExportReceipt } from './exportHistory'
 import {
+  parsePlatformCredentialStatuses,
+  type PlatformCredentialStatus
+} from './platformCredentials'
+import {
   avatarIdentityRuntimeSchema,
   type AvatarIdentityRuntime
 } from './avatarIdentityRuntime'
@@ -181,6 +185,30 @@ export class WorkerClient {
     const result = publishIntegrityResultSchema.parse(payload.result)
     if (result.packagePath !== packagePath) throw new Error('Publish package integrity result does not match the requested package')
     return result
+  }
+
+  async platformCredentialStatuses(): Promise<PlatformCredentialStatus[]> {
+    const payload =
+      await this.request(
+        '/publish/credentials',
+        {
+          method: 'GET'
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'publish-credentials'
+    ) {
+      throw new Error(
+        'Invalid worker publish credential status response'
+      )
+    }
+
+    return parsePlatformCredentialStatuses(
+      payload.statuses
+    )
   }
 
   async hashManagedAssets(
