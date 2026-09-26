@@ -13,6 +13,7 @@ import { uiExportHistoryMessages } from './uiExportHistoryMessages'
 import { uiCourseExportMessages } from './uiCourseExportMessages'
 import { uiShortSelectionMessages } from './uiShortSelectionMessages'
 import { uiShortIntelligenceMessages } from './uiShortIntelligenceMessages'
+import { uiShortFinishingMessages } from './uiShortFinishingMessages'
 import { uiShortPreviewMessages } from './uiShortPreviewMessages'
 import { uiShortArchiveMessages } from './uiShortArchiveMessages'
 import { uiShortBatchMessages } from './uiShortBatchMessages'
@@ -50,6 +51,7 @@ export const uiMessages = {
   ...uiCourseExportMessages,
   ...uiShortSelectionMessages,
   ...uiShortIntelligenceMessages,
+  ...uiShortFinishingMessages,
   ...uiShortPreviewMessages,
   ...uiShortArchiveMessages,
   ...uiShortBatchMessages,
