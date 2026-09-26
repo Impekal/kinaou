@@ -2,6 +2,8 @@
 
 User clarification: 2026-09-20. These are acceptance targets, not a claim that the corresponding engines already exist.
 
+Current acceptance summary (2026-09-27): completion points 1–3 have passed their documented gates: DE/EN/FR UI, comfortable editing and human-accepted natural/authorized-own-voice speech. FLUX.2 Klein still-image identity and Pack 3 multi-reference preservation are accepted, but final generative avatar motion/expression/lip sync remain open. Course outlines, individual exports and per-lesson scripts are implemented; complete course production is not. Later dated evidence below supersedes historical baseline descriptions. See COMPLETION_CHECKLIST.md for the current seven open main points.
+
 ## Photo-driven, video-driven and fully generated avatars
 
 - Three explicit source modes are required: an authorized reference photo, an authorized reference video, or a fully generated fictional identity with no real-person reference. All three target identity-consistent, believable performance, expressions, motion and audio-driven lip sync.
@@ -9,7 +11,7 @@ User clarification: 2026-09-20. These are acceptance targets, not a claim that t
 - For fully generated identities, preserve the approved identity reference and generation settings across scenes so the person does not change between lessons. No reference upload should be required when the installed runtime supports generation without one.
 - Support fictional/generated identities and real people whose likeness the user has permission to use. Preserve reference, runtime, model and generation provenance. Do not erase synthetic provenance or misrepresent generated footage as a real recording.
 - Higgsfield is a visual quality benchmark only; do not connect to its service, spend credits or assume its proprietary models can be reused.
-- Current implementation: a still image paired with existing narration, editable and renderable. It is explicitly NOT animation, voice cloning or lip sync.
+- Accepted image implementation: persistent Avatar Studio identities, reference-preserving FLUX.2 Klein still generation and human-approved three-image Reference Packs. Voiced stills remain available as a composition path, not final animation or lip-sync proof. The LivePortrait preview pilot is not the accepted photorealistic final engine; see AVATAR_RENDER_ARCHITECTURE.md.
 - Additional input path (#183): Video Studio can send individually authorized managed portrait and/or speech assets to declared local ComfyUI LoadImage/LoadAudio bindings, with content hashes retained. An own-voice recording needs no synthetic TTS conversion. This does not install or certify an avatar model; video-driven performance conditioning and own-voice synthesis still remain to implement. See VIDEO-REFERENCES.md for copy retention, supported files and quality-test boundaries.
 - Validate real output at scene cuts and across longer speech: mouth/audio alignment, stable face/teeth/hands, eye motion, identity drift, flicker, resolution and duration. Review cannot be replaced by a green API response or a photorealism label.
 - Keep scene-level regeneration, source preservation, cancellation, deterministic settings where supported and reversible placement. Never promise that synthesis will be indistinguishable from authentic footage in every case.
@@ -17,7 +19,7 @@ User clarification: 2026-09-20. These are acceptance targets, not a claim that t
 ## Natural multilingual speech
 
 - German, English and French need idiomatic pronunciation, natural pauses, emphasis, emotion and consistent voice identity across lessons/scenes.
-- Explicit user request: avatars must also support the user's own voice. Distinguish an imported recording (already usable as audio for the voiced-still composition) from generating new speech in that voice (not yet implemented). Future lip-sync input must accept the actual authorized recording without requiring synthetic TTS first. Any voice-reproduction mode needs a compatible installed local model, reviewed authorized reference samples and honest quality tests; importing audio alone is not voice cloning.
+- Explicit user request: avatars must also support the user's own voice. Imported recordings and generation of new authorized-own-voice speech are distinct supported paths; real local Chatterbox synthesis passed the dated human acceptance recorded below. This does not complete animated-avatar lip sync. Future lip-sync input must also accept actual authorized recordings without requiring synthetic TTS first; importing audio alone is not voice cloning.
 - Piper remains a working baseline. Declared locale matching alone is not a quality assessment or an expressive-voice engine.
 - Expose only controls actually supported by the selected installed model. An emotion prompt is guidance, not a guaranteed acoustic outcome; disable unsupported controls rather than silently ignoring them.
 - Before accepting a voice, audition real speech containing questions, emphasis, numbers, dates, proper names, acronyms and longer paragraphs in the selected language. Listen for robotic cadence, clipping, unstable timbre, missing/repeated words and inconsistent levels.
@@ -26,7 +28,7 @@ User clarification: 2026-09-20. These are acceptance targets, not a claim that t
 
 ## Complete course production
 
-Implemented foundation (#185): one project can persist a revisioned course/module/lesson outline with explicit timeline ranges and export each selected lesson through the actual worker. Receipts preserve submitted course identities. Lesson resources/exercises/solutions, verified demonstrations and instructor review remain future slices; see COURSE-PRODUCTION.md. This is not a complete course generator.
+Implemented foundation (#185, #303): one project can persist a revisioned course/module/lesson outline with explicit timeline ranges and lesson scripts, deliver saved scripts as TXT and export selected lesson videos through the actual worker. Receipts preserve submitted course identities. Scripts do not automatically become narration or verified lesson video. Lesson resources/exercises/solutions, verified demonstrations and instructor review remain future slices; see COURSE-PRODUCTION.md. This is not a complete course generator.
 
 Course workflow target: audience/prerequisites → learning outcomes → modules → lectures → verified examples/demonstrations → scripts and narration → visuals/screen recordings → captions → practice and reviewed solutions → per-lecture media/resource exports → instructor review.
 
@@ -38,7 +40,7 @@ Course workflow target: audience/prerequisites → learning outcomes → modules
 
 ## Application languages and main-video/Short planning
 
-User clarification 2026-09-20: **the application interface itself** must be usable in German, English and French, independently of course/video content language. Translate navigation, controls, validation, progress, help and empty states; preserve project text, identifiers and source metadata. A language selector or content-language field alone does not meet this acceptance criterion. PR #187 provides persisted UI choice, translated navigation/project creation/course forms and translated course error summaries, preserving drafts and content language. Specialist panels remain English, with an explicit coverage notice. Full localization is still open; see UI-LANGUAGES.md.
+User clarification 2026-09-20: **the application interface itself** must be usable in German, English and French, independently of course/video content language. Navigation, controls, validation, progress, help and empty states preserve project text, identifiers and source metadata. PR #187 began this work; PR #261 completed the cross-workflow acceptance and removed the partial-coverage notice. Whole completion point 1 is complete. New slices, including manual TikTok handoff and course scripts, retain DE/EN/FR coverage. Technical diagnostics and authored/model content intentionally stay original.
 
 For YouTube, support a main video plus related Shorts as one production plan. Existing scene-range suggestions, previews and multi-format Short exports are a technical foundation, not a completed editorial/publishing adviser. Propose which excerpts work as self-contained Shorts and when to publish the main video and related Shorts. Timing must identify audience region/timezone and distinguish actual channel/audience observations from generic test hypotheses. Without attributable analytics, never call a suggested slot a measured best time, invent demand/view counts or promise reach. A local schedule/recommendation is not automatic platform publishing; remote scheduling needs a separately implemented, explicitly authorized connection.
 

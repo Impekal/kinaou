@@ -2,7 +2,19 @@
 
 Last updated: 2026-09-27
 
-## Latest merged handoff — private TikTok manual delivery
+## Current completion summary — 2026-09-27
+
+The stable main-point numbers are in [COMPLETION_CHECKLIST.md](COMPLETION_CHECKLIST.md). Points **1–3 are complete** within their documented acceptance scope: DE/EN/FR interface, comfortable manual editing (not complete NLE feature parity), and human-accepted natural/authorized-own-voice speech (including the accepted slight French accent limitation). Points **4–10 remain open**: final animated avatars; attributable live research/trends; complete main-video/Short editorial and timing advice; dedicated cartoon/children/learning/sports production; complete courses; publication planning/analytics and real-account acceptance; whole-product real-hardware acceptance. Older milestone paragraphs below are historical context, not the current queue. Do not count a field, adapter contract or synthetic fixture as a finished whole point.
+
+## Latest merged handoff — course lesson scripts
+
+[PR #303](https://github.com/Impekal/kinaou/pull/303) merged as `0c67a35f1713c45611351b872d491a464e121461` after the full [CI gate 36278830395](https://github.com/Impekal/kinaou/actions/runs/36278830395) passed, including Ubuntu render smoke. Course lessons now have optional bounded scripts (20,000 characters each, 200,000 total). DE/EN/FR editing preserves original content and whitespace; ordinary course save/revision/history/backup persistence applies. An explicit TXT action exports only a saved nonblank lesson script, with a safe ID-derived filename. Editing scripts invalidates existing course-export review through the outline revision; it does not verify agreement between script and video, synthesize narration, edit the timeline or start export.
+
+Local gate: 1,340 application tests, 224 versioned worker tests (known local libass smoke excluded), TypeScript/build, Node syntax and Swift parse green. Isolated browser acceptance passed DE→FR→EN draft retention, save/reload, simulated save failure without false success, save retry and earlier-script restoration. The TXT payload/name contract is tested, but the in-app browser did not report a download event; native-file completion was not established by that browser check. See [COURSE-PRODUCTION.md](COURSE-PRODUCTION.md) and the optional Mac checklist.
+
+Point 8 is still open for script-to-production integration, source/demonstration evidence, exercises/solutions, resources, instructor review and course bundles. This was independent repository work while final avatar-engine acceptance remains outstanding, not a replacement of the avatar quality target. No worker changes, model downloads, real platform operations or SSD/source-media changes. Foreign untracked duplicate files remain untouched; heartbeat remains paused. No user action is needed for continued repository work.
+
+## Previous merged handoff — private TikTok manual delivery
 
 [PR #301](https://github.com/Impekal/kinaou/pull/301) merged as `105e388b97ef0e149e33c831b5523ae3117cc080` after the complete [CI run 36278092877](https://github.com/Impekal/kinaou/actions/runs/36278092877) passed, including Ubuntu FFmpeg render smoke. The user accepted manual TikTok handoff on 2026-09-27: KINAOU remains private, independently of account/post visibility. The new DE/EN/FR panel explicitly loads project-scoped TikTok packages, rechecks the managed MP4's path/size/SHA-256 and provides its storage path, caption and unchanged tag suggestions for manual use in TikTok. No upload, OAuth, retry, polling or publication receipt occurs through this panel. Context/selection changes invalidate old evidence. Earlier branch-only 5.7A–E groundwork is included; isolated FILE_UPLOAD remains unconnected. Planned live 5.7F–I are superseded, not claimed complete. See [TIKTOK-FILE-UPLOAD.md](TIKTOK-FILE-UPLOAD.md).
 
@@ -65,7 +77,7 @@ Safety rule: only paths below the configured KINAOU root may be created/moved/de
 ## Repository
 Repo: `Impekal/kinaou`
 Default branch: `main`
-Latest implementation main SHA after manual TikTok handoff PR #301: `105e388b97ef0e149e33c831b5523ae3117cc080`
+Latest implementation main SHA after course lesson scripts PR #303: `0c67a35f1713c45611351b872d491a464e121461`
 
 ## Merged slices
 - **PR #261** — final DE/EN/FR point-1 acceptance gate. A dedicated cross-workflow regression reuses unchanged drafts and authored data through DE → FR → EN across the real application shell plus representative Settings, Course, Timeline, Assets and Publish surfaces. A second acceptance path exercises active/recovery feedback for Audio, Image, Video, single export and STT while preserving submitted content and technical diagnostics; the existing Short batch multilingual lifecycle/recovery suite remains part of the same full gate. The temporary final-coverage notice was removed only after this acceptance passed. PR CI 35657095575 on `d1c98dd` and main CI 35657251441 on merge `f6b8232` both passed 978/978 application tests across 100 test files, 83/83 worker tests, production build and worker syntax checks. No new dependency, browser automation framework, worker behavior, model, media, persistence, render or deployment behavior was introduced. **Completion point 1 is complete.**
@@ -342,7 +354,7 @@ User can create a project, obtain script/storyboard/scenes, import/generate medi
 ## Working discipline
 For every meaningful slice: verify main → feature branch → implement real behavior → tests → PR → green CI → merge → update this file.
 
-User clarification 2026-09-20: continue sequentially without requesting another “weiter”. Notify only when a WHOLE numbered point is genuinely complete, then continue directly to the next point. Do not send routine internal-substep completion reports; interrupt only for a concrete required user action or blocker. Point 1 is complete on PR #261. Independent repository work now proceeds to point 2, comfortable manual editing. The stable ten-point list and acceptance boundaries live in [COMPLETION_CHECKLIST.md](COMPLETION_CHECKLIST.md).
+User clarification 2026-09-20: continue without requesting another “weiter”; reserve “Punkt x erledigt” for a WHOLE genuinely completed point. Points 1–3 are now complete; points 4–10 remain open. Keep safe independent repository work moving when a final model/hardware quality gate cannot be completed by ordinary code changes. The stable ten-point list and acceptance boundaries live in [COMPLETION_CHECKLIST.md](COMPLETION_CHECKLIST.md). The 2026-09-27 status request was answered with the seven outstanding main points before course-script implementation; no new model download or hardware action was inferred.
 
 ## USER ACTIONS AT END
 No user action blocks independent repository work now.
