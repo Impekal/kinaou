@@ -1,6 +1,10 @@
 # KINAOU — PROJECT STATE & HANDOFF
 
-Last updated: 2026-09-25
+Last updated: 2026-09-27
+
+## Active unmerged handoff — TikTok 5.7E
+
+Branch `build/explicit-tiktok-publishing` continues 5.7A–D from `520d356`, based on main `40527502dd69b0afcb52a98e84733d623443842d` (PR #300). Isolated FILE_UPLOAD now validates explicit review, managed MP4 size/hash before credential access, exact sequential chunks and trusted upload URLs; no retries, polling, source writes or published-success claim. No live publish route/UI is connected. Local tests: 1,311 app, 224 worker excluding only the known libass-dependent render smoke, TypeScript/build, Node syntax and Swift parse green. Three foreign untracked duplicate files remain untouched. See [TIKTOK-FILE-UPLOAD.md](TIKTOK-FILE-UPLOAD.md) for protocol evidence and the product decision: TikTok's current Direct Post guidelines exclude private/internal upload utilities, conflicting with KINAOU's private-use requirement. User choice is pending before live integration; 5.7F–I and GitHub full gate/merge are not complete. No real platform publishing, model downloads or user-media/SSD operations occurred.
 
 ## Purpose
 This is KINAOU's durable project-memory / handoff file. Update it after every meaningful merged slice so a new chat/session can continue without relying on conversation memory.
