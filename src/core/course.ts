@@ -6,8 +6,11 @@ import type { RenderPlan } from './render'
 
 const id = z.string().regex(/^[a-zA-Z0-9-]{1,100}$/)
 const title = z.string().trim().min(1).max(120)
+export const courseScriptLimits = { lesson: 20000, course: 200000 } as const
 export const courseLessonSchema = z.object({
   id, title, objective: z.string().trim().max(2000),
+  // Optional for existing outlines; preserve authored whitespace and language exactly.
+  script: z.string().max(courseScriptLimits.lesson).optional(),
   range: z.object({ inMs: z.number().int().min(0).max(86400000), outMs: z.number().int().positive().max(86400000) }).strict().refine((range) => range.outMs > range.inMs, 'Lesson Out must be later than In')
 }).strict()
 export const courseOutlineSchema = z.object({
@@ -19,6 +22,8 @@ export const courseOutlineSchema = z.object({
   const ids = [course.id, ...course.modules.flatMap((module) => [module.id, ...module.lessons.map((lesson) => lesson.id)])]
   if (new Set(ids).size !== ids.length) ctx.addIssue({ code: 'custom', message: 'Course, module and lesson IDs must be unique' })
   if (course.modules.reduce((count, module) => count + module.lessons.length, 0) > 200) ctx.addIssue({ code: 'custom', message: 'A course can contain at most 200 lessons' })
+  const scriptLength = course.modules.reduce((count, module) => count + module.lessons.reduce((sum, lesson) => sum + (lesson.script?.length ?? 0), 0), 0)
+  if (scriptLength > courseScriptLimits.course) ctx.addIssue({ code: 'custom', path: ['modules'], message: 'Course scripts can contain at most 200000 characters in total' })
 })
 export type CourseOutline = z.infer<typeof courseOutlineSchema>
 export type CourseLesson = z.infer<typeof courseLessonSchema>
@@ -47,6 +52,14 @@ export function saveCourseOutline(project: KinaouProject, value: CourseOutline, 
   if (current && (current.id !== parsed.id || current.revision !== parsed.revision)) throw new Error('The saved course changed. Reload the outline before saving your edits.')
   if (current && JSON.stringify(current) === JSON.stringify(parsed)) return project
   return touchProject({ ...project, metadata: { ...project.metadata, courseOutline: { ...parsed, revision: current ? current.revision + 1 : 1 } } }, now)
+}
+
+/** Exports only the saved lesson text, never an unsaved UI draft or generated narration. */
+export function courseLessonScriptExport(project: KinaouProject, lessonId: string) {
+  const course = projectCourse(project)
+  const lesson = course?.modules.flatMap(module => module.lessons).find(lesson => lesson.id === lessonId)
+  if (!lesson?.script?.trim()) throw new Error('No saved script for this course lesson')
+  return { filename: `lesson-${lesson.id}.txt`, text: lesson.script, mimeType: 'text/plain;charset=utf-8' }
 }
 
 export function courseLessonChoices(project: KinaouProject, timelineDurationMs: number) {

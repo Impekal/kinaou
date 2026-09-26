@@ -135,6 +135,14 @@ export const uiMessages = {
   'course.lesson': ['Lektion', 'Lesson', 'Leçon'],
   'course.lessonTitle': ['Lektionstitel', 'Lesson title', 'Titre de la leçon'],
   'course.objective': ['Ziel dieser Lektion', 'Lesson objective', 'Objectif de la leçon'],
+  'course.script': ['Skript dieser Lektion', 'Lesson script', 'Script de la leçon'],
+  'course.scriptHelp': [
+    'Mit der Kursgliederung speichern; beim Verlassen gehen ungespeicherte Entwürfe verloren. Höchstens {lessonLimit} Zeichen pro Lektion und {courseLimit} im Kurs. Keine automatische Übersetzung, Vertonung oder Timeline-Änderung; ein Skript bestätigt weder Inhaltsqualität noch die Übereinstimmung mit dem Video.',
+    'Save with the course outline; unsaved drafts are lost when leaving. Up to {lessonLimit} characters per lesson and {courseLimit} per course. No automatic translation, narration or timeline change; a script proves neither content quality nor agreement with the video.',
+    'Enregistrez avec le plan du cours ; les brouillons non enregistrés sont perdus en quittant la vue. Maximum {lessonLimit} caractères par leçon et {courseLimit} par cours. Aucune traduction, narration ou modification automatique de la timeline ; un script ne prouve ni la qualité du contenu ni sa concordance avec la vidéo.'
+  ],
+  'course.scriptDownload': ['Gespeichertes Skript als TXT herunterladen', 'Download saved script as TXT', 'Télécharger le script enregistré en TXT'],
+  'course.scriptDownloadFailed': ['Das Skript konnte nicht heruntergeladen werden. Gespeicherter Kurs und Entwurf bleiben unverändert.', 'The script could not be downloaded. The saved course and draft remain unchanged.', 'Le script n’a pas pu être téléchargé. Le cours enregistré et le brouillon restent inchangés.'],
   'course.in': ['Start (Sekunden)', 'In (seconds)', 'Début (secondes)'],
   'course.out': ['Ende (Sekunden)', 'Out (seconds)', 'Fin (secondes)'],
   'course.removeLesson': ['Lektion aus Entwurf entfernen (Medien behalten)', 'Remove lesson from draft (keep media)', 'Retirer la leçon du brouillon (conserver les médias)'],
