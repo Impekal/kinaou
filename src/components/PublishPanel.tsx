@@ -188,7 +188,7 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
   }
 
   async function verifyPackage(entry: PublishPackageEntry) {
-    if (!workerConnected || !integritySupported || integrityBusyPath || entry.document.schemaVersion !== 2) return
+    if (!workerConnected || !integritySupported || integrityBusyPath || entry.document.schemaVersion === 1) return
     setIntegrityBusyPath(entry.path)
     setListError('')
     try {
@@ -291,7 +291,7 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
             : ''
           return <div className="publishPackageRow" key={entry.path}>
             <div><strong>{entry.document.title}</strong><small>{platformLabel(entry.document.platform)} · {formatLabel(entry.document.media.format)} · {date(entry.document.createdAt)}</small><code>{entry.path}</code>{verification && <small>{checkedLabel}</small>}</div>
-            <div className="publishPackageActions"><span className={entry.sourceAvailable ? 'badge' : 'badge offline'}>{t(entry.sourceAvailable ? 'publish.source.available' : 'publish.source.missing')}</span><span className={integrityGood ? 'badge' : 'badge offline'}>{integrityLabel}</span>{entry.document.schemaVersion === 2 && <button className="secondaryButton" disabled={busy || listBusy || !integritySupported || Boolean(integrityBusyPath)} onClick={() => void verifyPackage(entry)}>{t(integrityBusyPath === entry.path ? 'publish.integrity.hashing' : 'publish.integrity.verify')}</button>}<button className="secondaryButton" disabled={busy || listBusy} onClick={() => openPackage(entry)}>{t('publish.library.openMetadata')}</button></div>
+            <div className="publishPackageActions"><span className={entry.sourceAvailable ? 'badge' : 'badge offline'}>{t(entry.sourceAvailable ? 'publish.source.available' : 'publish.source.missing')}</span><span className={integrityGood ? 'badge' : 'badge offline'}>{integrityLabel}</span>{entry.document.schemaVersion !== 1 && <button className="secondaryButton" disabled={busy || listBusy || !integritySupported || Boolean(integrityBusyPath)} onClick={() => void verifyPackage(entry)}>{t(integrityBusyPath === entry.path ? 'publish.integrity.hashing' : 'publish.integrity.verify')}</button>}<button className="secondaryButton" disabled={busy || listBusy} onClick={() => openPackage(entry)}>{t('publish.library.openMetadata')}</button></div>
           </div>
         })}</div>}
         {listError && <div className="errorBox">{listError}</div>}

@@ -50,10 +50,11 @@ test('publish preflight probes real media and packages only a matching export', 
     }
 
     const valid = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       projectId: 'project-1',
       export: { schemaVersion: 1, jobId: 'job-1', label: 'Finished export', outputRelativePath: 'KINAOU/Renders/finished.mp4', format: 'landscape', range: { inMs: 0, outMs: 2000 }, sceneIds: ['scene-1'], durationMs: 2000, sizeBytes: sourceInfo.size, completedAt: '2026-09-13T08:00:00.000Z' },
       platform: 'youtube',
+      placement: 'youtube-video',
       title: 'Reviewed title',
       description: 'Reviewed description',
       tags: ['KINAOU', 'local']
@@ -93,21 +94,60 @@ test('publish preflight probes real media and packages only a matching export', 
     assert.equal(blockedMismatch.status, 400)
     assert.match(blockedMismatch.payload.error.message, /preflight failed: dimensions/)
 
+    const wrongPlacement = await call({
+      ...valid,
+      platform: 'instagram',
+      placement: 'instagram-reel'
+    })
+
+    assert.equal(
+      wrongPlacement.status,
+      400
+    )
+
+    assert.match(
+      wrongPlacement.payload.error.message,
+      /placement review failed: format/i
+    )
+
+    const wrongPlatform = await call({
+      ...valid,
+      platform: 'instagram',
+      placement: 'youtube-video'
+    })
+
+    assert.equal(
+      wrongPlatform.status,
+      400
+    )
+
+    assert.match(
+      wrongPlatform.payload.error.message,
+      /does not belong/i
+    )
+
     const first = await call(valid)
     assert.equal(first.status, 201)
     assert.equal(first.payload.type, 'publish-package')
-    assert.equal(first.payload.result.schemaVersion, 2)
+    assert.equal(first.payload.result.schemaVersion, 3)
+    assert.equal(first.payload.result.placement, 'youtube-video')
     assert.equal(first.payload.result.sourcePath, valid.export.outputRelativePath)
     assert.match(first.payload.result.path, /^KINAOU\/Renders\/finished_youtube_.*\.publish\.json$/)
     const sourceSha256 = createHash('sha256').update(sourceBefore).digest('hex')
     assert.equal(first.payload.result.sourceSha256, sourceSha256)
     const document = JSON.parse(await readFile(path.join(managedRoot, first.payload.result.path.slice('KINAOU/'.length)), 'utf8'))
     assert.deepEqual(document, {
-      schemaVersion: 2,
+      schemaVersion: 3,
       kind: 'kinaou-publish-package',
       createdAt: first.payload.result.createdAt,
       projectId: 'project-1',
       platform: 'youtube',
+      placement: 'youtube-video',
+      delivery: {
+        checkedAt: document.delivery.checkedAt,
+        ready: true,
+        preferredFormat: 'landscape'
+      },
       title: 'Reviewed title',
       description: 'Reviewed description',
       tags: ['KINAOU', 'local'],

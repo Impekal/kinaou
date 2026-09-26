@@ -3,6 +3,13 @@ import { exportReceiptSchema, managedRenderPathSchema, type ExportReceipt } from
 import { touchProject, type KinaouProject } from './project'
 import { formatProfiles, type TargetFormat } from './render'
 import { assertSafeManagedPath } from './storage'
+import {
+  defaultPublishPlacementForPlatform,
+  publishPlacementProfile,
+  publishPlacementSchema,
+  reviewPublishPlacement,
+  type PublishPlacement
+} from './publishProfiles'
 
 export const publishTargetSchema = z.enum(['youtube', 'instagram', 'tiktok', 'generic'])
 export type PublishTarget = z.infer<typeof publishTargetSchema>
@@ -29,7 +36,7 @@ const publishTagsSchema = z.array(z.string().trim().min(1).max(80)).max(30).refi
 const publishTitleSchema = z.string().trim().min(1).max(200)
 const publishDescriptionSchema = z.string().trim().max(5000)
 
-export const publishPackageRequestSchema = z.object({
+const publishPackageRequestV1Schema = z.object({
   schemaVersion: z.literal(1),
   projectId: publishProjectIdSchema,
   export: exportReceiptSchema,
@@ -39,6 +46,50 @@ export const publishPackageRequestSchema = z.object({
   tags: publishTagsSchema
 })
 
+const publishPackageRequestV2Schema = z.object({
+  schemaVersion: z.literal(2),
+  projectId: publishProjectIdSchema,
+  export: exportReceiptSchema,
+  platform: publishTargetSchema,
+  placement: publishPlacementSchema,
+  title: publishTitleSchema,
+  description: publishDescriptionSchema,
+  tags: publishTagsSchema
+}).strict().superRefine((request, context) => {
+  const profile = publishPlacementProfile(request.placement)
+
+  if (profile.platform !== request.platform) {
+    context.addIssue({
+      code: 'custom',
+      path: ['placement'],
+      message: 'Publish placement does not belong to the selected platform'
+    })
+  }
+
+  const review = reviewPublishPlacement(
+    request.export,
+    request.placement,
+    {
+      title: request.title,
+      description: request.description,
+      tags: request.tags
+    }
+  )
+
+  for (const issue of review.issues) {
+    context.addIssue({
+      code: 'custom',
+      path: ['placement'],
+      message: issue.message
+    })
+  }
+})
+
+export const publishPackageRequestSchema = z.union([
+  publishPackageRequestV1Schema,
+  publishPackageRequestV2Schema
+])
+
 export const managedPublishPathSchema = z.string().min(1).max(700).refine((value) => {
   try {
     return assertSafeManagedPath(value) === value && value.startsWith('KINAOU/Renders/') && value.endsWith('.publish.json')
@@ -47,7 +98,7 @@ export const managedPublishPathSchema = z.string().min(1).max(700).refine((value
   }
 }, 'Publish package must be a canonical managed JSON file under KINAOU/Renders')
 
-export const publishPackageResultSchema = z.object({
+const publishPackageResultV2Schema = z.object({
   schemaVersion: z.literal(2),
   path: managedPublishPathSchema,
   sourcePath: managedRenderPathSchema,
@@ -56,6 +107,22 @@ export const publishPackageResultSchema = z.object({
   sizeBytes: z.number().int().positive(),
   sourceSha256: z.string().regex(/^[a-f0-9]{64}$/)
 }).strict()
+
+const publishPackageResultV3Schema = z.object({
+  schemaVersion: z.literal(3),
+  path: managedPublishPathSchema,
+  sourcePath: managedRenderPathSchema,
+  platform: publishTargetSchema,
+  placement: publishPlacementSchema,
+  createdAt: z.string().datetime(),
+  sizeBytes: z.number().int().positive(),
+  sourceSha256: z.string().regex(/^[a-f0-9]{64}$/)
+}).strict()
+
+export const publishPackageResultSchema = z.union([
+  publishPackageResultV2Schema,
+  publishPackageResultV3Schema
+])
 
 const publishActualMediaFactsSchema = z.object({
   sizeBytes: z.number().int().positive(),
@@ -132,7 +199,68 @@ const publishPackageDocumentV2Schema = publishPackageBaseSchema.extend({
   if (document.integrity.actual.sizeBytes !== document.media.sizeBytes) context.addIssue({ code: 'custom', path: ['integrity', 'actual', 'sizeBytes'], message: 'Publish integrity size must match the media receipt' })
 })
 
-export const publishPackageDocumentSchema = z.union([publishPackageDocumentV1Schema, publishPackageDocumentV2Schema])
+const publishDeliveryReviewSchema = z.object({
+  checkedAt: z.string().datetime(),
+  ready: z.literal(true),
+  preferredFormat: z.enum(['landscape', 'vertical', 'square'])
+}).strict()
+
+const publishPackageDocumentV3Schema = publishPackageBaseSchema.extend({
+  schemaVersion: z.literal(3),
+  placement: publishPlacementSchema,
+  delivery: publishDeliveryReviewSchema,
+  integrity: publishPackageIntegrityFactsSchema
+}).strict().superRefine((document, context) => {
+  if (document.integrity.actual.sizeBytes !== document.media.sizeBytes) {
+    context.addIssue({
+      code: 'custom',
+      path: ['integrity', 'actual', 'sizeBytes'],
+      message: 'Publish integrity size must match the media receipt'
+    })
+  }
+
+  const profile = publishPlacementProfile(document.placement)
+
+  if (profile.platform !== document.platform) {
+    context.addIssue({
+      code: 'custom',
+      path: ['placement'],
+      message: 'Publish package placement does not belong to its platform'
+    })
+  }
+
+  const review = reviewPublishPlacement(
+    document.media,
+    document.placement,
+    {
+      title: document.title,
+      description: document.description,
+      tags: document.tags
+    }
+  )
+
+  if (!review.ready) {
+    context.addIssue({
+      code: 'custom',
+      path: ['delivery'],
+      message: 'Publish package delivery review is not ready'
+    })
+  }
+
+  if (document.delivery.preferredFormat !== review.preferredFormat) {
+    context.addIssue({
+      code: 'custom',
+      path: ['delivery', 'preferredFormat'],
+      message: 'Publish package preferred format does not match its placement'
+    })
+  }
+})
+
+export const publishPackageDocumentSchema = z.union([
+  publishPackageDocumentV1Schema,
+  publishPackageDocumentV2Schema,
+  publishPackageDocumentV3Schema
+])
 
 export const publishPackageEntrySchema = z.object({
   path: managedPublishPathSchema,
@@ -198,12 +326,30 @@ export function parsePublishTags(input: string): string[] {
   return publishTagsSchema.parse(tags)
 }
 
-export function buildPublishPackageRequest(project: KinaouProject, receipt: ExportReceipt, input: { platform: PublishTarget; title: string; description: string; tags: string }): PublishPackageRequest {
+export function buildPublishPackageRequest(
+  project: KinaouProject,
+  receipt: ExportReceipt,
+  input: {
+    platform: PublishTarget
+    placement?: PublishPlacement
+    title: string
+    description: string
+    tags: string
+  }
+): PublishPackageRequest {
+  const placement =
+    input.placement
+    ?? defaultPublishPlacementForPlatform(
+      input.platform,
+      receipt.format
+    )
+
   return publishPackageRequestSchema.parse({
-    schemaVersion: 1,
+    schemaVersion: 2,
     projectId: project.id,
     export: receipt,
     platform: input.platform,
+    placement,
     title: input.title,
     description: input.description,
     tags: parsePublishTags(input.tags)

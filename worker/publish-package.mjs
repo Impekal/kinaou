@@ -1,4 +1,9 @@
 import path from 'node:path'
+import {
+  publishPlacementProfiles,
+  reviewPublishPlacement,
+  validatePublishPlacement
+} from './publish-profiles.mjs'
 
 const publishTargets = new Set(['youtube', 'instagram', 'tiktok', 'generic'])
 const exportFormats = new Set(['landscape', 'vertical', 'square'])
@@ -95,19 +100,146 @@ export function validatePublishExportReceipt(value) {
 
 export function validatePublishPackageRequest(value) {
   const input = object(value, 'Publish package request')
-  if (input.schemaVersion !== 1) throw new Error('Publish package schemaVersion must be 1')
-  if (!publishTargets.has(input.platform)) throw new Error('Publish target is not supported')
-  if (!Array.isArray(input.tags) || input.tags.length > 30) throw new Error('Publish tags must be an array of at most 30 items')
-  const tags = input.tags.map((tag) => text(tag, 'Publish tag', 1, 80))
-  if (new Set(tags.map((tag) => tag.toLocaleLowerCase())).size !== tags.length) throw new Error('Publish tags must be unique')
-  return {
-    schemaVersion: 1,
-    projectId: text(input.projectId, 'Project id', 1, 200),
-    export: validatePublishExportReceipt(input.export),
-    platform: input.platform,
-    title: text(input.title, 'Publish title', 1, 200),
-    description: text(input.description, 'Publish description', 0, 5000),
+
+  if (
+    input.schemaVersion !== 1
+    && input.schemaVersion !== 2
+  ) {
+    throw new Error(
+      'Publish package schemaVersion must be 1 or 2'
+    )
+  }
+
+  if (!publishTargets.has(input.platform)) {
+    throw new Error(
+      'Publish target is not supported'
+    )
+  }
+
+  if (
+    !Array.isArray(input.tags)
+    || input.tags.length > 30
+  ) {
+    throw new Error(
+      'Publish tags must be an array of at most 30 items'
+    )
+  }
+
+  const tags =
+    input.tags.map(
+      tag =>
+        text(
+          tag,
+          'Publish tag',
+          1,
+          80
+        )
+    )
+
+  if (
+    new Set(
+      tags.map(
+        tag =>
+          tag.toLocaleLowerCase()
+      )
+    ).size
+    !== tags.length
+  ) {
+    throw new Error(
+      'Publish tags must be unique'
+    )
+  }
+
+  const validated = {
+    schemaVersion:
+      input.schemaVersion,
+
+    projectId:
+      text(
+        input.projectId,
+        'Project id',
+        1,
+        200
+      ),
+
+    export:
+      validatePublishExportReceipt(
+        input.export
+      ),
+
+    platform:
+      input.platform,
+
+    title:
+      text(
+        input.title,
+        'Publish title',
+        1,
+        200
+      ),
+
+    description:
+      text(
+        input.description,
+        'Publish description',
+        0,
+        5000
+      ),
+
     tags
+  }
+
+  if (
+    input.schemaVersion
+    === 1
+  ) {
+    return validated
+  }
+
+  const placement =
+    validatePublishPlacement(
+      input.placement
+    )
+
+  const profile =
+    publishPlacementProfiles[
+      placement
+    ]
+
+  if (
+    profile.platform
+    !== validated.platform
+  ) {
+    throw new Error(
+      'Publish placement does not belong to the selected platform'
+    )
+  }
+
+  const review =
+    reviewPublishPlacement(
+      validated.export,
+      placement,
+      {
+        title:
+          validated.title,
+
+        description:
+          validated.description,
+
+        tags:
+          validated.tags
+      }
+    )
+
+  if (!review.ready) {
+    throw new Error(
+      `Publish placement review failed: ${review.issues.join(', ')}`
+    )
+  }
+
+  return {
+    ...validated,
+    placement
   }
 }
 
@@ -147,42 +279,242 @@ export function validatePublishProjectId(value) {
 }
 
 export function validatePublishPackageDocument(value) {
-  const document = object(value, 'Publish package document')
-  if (document.schemaVersion !== 1 && document.schemaVersion !== 2) throw new Error('Publish package schemaVersion must be 1 or 2')
-  if (document.kind !== 'kinaou-publish-package') throw new Error('Publish package kind is invalid')
-  const createdAt = isoDate(document.createdAt, 'Publish creation time')
-  const media = object(document.media, 'Publish package media')
-  const sourceSizeBytes = integer(media.sizeBytes, 'Source size', 1)
-  const request = validatePublishPackageRequest({
-    schemaVersion: 1,
-    projectId: document.projectId,
-    export: media,
-    platform: document.platform,
-    title: document.title,
-    description: document.description,
-    tags: document.tags
-  })
-  const validated = {
-    schemaVersion: document.schemaVersion,
-    kind: 'kinaou-publish-package',
-    createdAt,
-    projectId: request.projectId,
-    platform: request.platform,
-    title: request.title,
-    description: request.description,
-    tags: request.tags,
-    media: { ...request.export, sizeBytes: sourceSizeBytes }
+  const document =
+    object(
+      value,
+      'Publish package document'
+    )
+
+  if (
+    document.schemaVersion !== 1
+    && document.schemaVersion !== 2
+    && document.schemaVersion !== 3
+  ) {
+    throw new Error(
+      'Publish package schemaVersion must be 1, 2 or 3'
+    )
   }
-  if (document.schemaVersion === 1) return validated
-  const integrity = object(document.integrity, 'Publish package integrity')
-  const actual = validateActualMediaFacts(integrity.actual)
-  if (actual.sizeBytes !== sourceSizeBytes) throw new Error('Publish integrity size must match the media receipt')
-  return {
+
+  if (
+    document.kind
+    !== 'kinaou-publish-package'
+  ) {
+    throw new Error(
+      'Publish package kind is invalid'
+    )
+  }
+
+  const createdAt =
+    isoDate(
+      document.createdAt,
+      'Publish creation time'
+    )
+
+  const media =
+    object(
+      document.media,
+      'Publish package media'
+    )
+
+  const sourceSizeBytes =
+    integer(
+      media.sizeBytes,
+      'Source size',
+      1
+    )
+
+  const request =
+    validatePublishPackageRequest({
+      schemaVersion:
+        document.schemaVersion === 3
+          ? 2
+          : 1,
+
+      projectId:
+        document.projectId,
+
+      export:
+        media,
+
+      platform:
+        document.platform,
+
+      ...(document.schemaVersion === 3
+        ? {
+            placement:
+              document.placement
+          }
+        : {}),
+
+      title:
+        document.title,
+
+      description:
+        document.description,
+
+      tags:
+        document.tags
+    })
+
+  const validated = {
+    schemaVersion:
+      document.schemaVersion,
+
+    kind:
+      'kinaou-publish-package',
+
+    createdAt,
+
+    projectId:
+      request.projectId,
+
+    platform:
+      request.platform,
+
+    title:
+      request.title,
+
+    description:
+      request.description,
+
+    tags:
+      request.tags,
+
+    media: {
+      ...request.export,
+      sizeBytes:
+        sourceSizeBytes
+    }
+  }
+
+  if (
+    document.schemaVersion === 1
+  ) {
+    return validated
+  }
+
+  const integrity =
+    object(
+      document.integrity,
+      'Publish package integrity'
+    )
+
+  const actual =
+    validateActualMediaFacts(
+      integrity.actual
+    )
+
+  if (
+    actual.sizeBytes
+    !== sourceSizeBytes
+  ) {
+    throw new Error(
+      'Publish integrity size must match the media receipt'
+    )
+  }
+
+  const withIntegrity = {
     ...validated,
+
     integrity: {
-      checkedAt: isoDate(integrity.checkedAt, 'Publish integrity check time'),
+      checkedAt:
+        isoDate(
+          integrity.checkedAt,
+          'Publish integrity check time'
+        ),
+
       actual,
-      sha256: sha256(integrity.sha256)
+
+      sha256:
+        sha256(
+          integrity.sha256
+        )
+    }
+  }
+
+  if (
+    document.schemaVersion === 2
+  ) {
+    return withIntegrity
+  }
+
+  const placement =
+    validatePublishPlacement(
+      document.placement
+    )
+
+  const delivery =
+    object(
+      document.delivery,
+      'Publish delivery review'
+    )
+
+  if (
+    delivery.ready
+    !== true
+  ) {
+    throw new Error(
+      'Publish delivery review must be ready'
+    )
+  }
+
+  const review =
+    reviewPublishPlacement(
+      withIntegrity.media,
+      placement,
+      {
+        title:
+          withIntegrity.title,
+
+        description:
+          withIntegrity.description,
+
+        tags:
+          withIntegrity.tags
+      }
+    )
+
+  if (!review.ready) {
+    throw new Error(
+      `Publish package delivery review failed: ${review.issues.join(', ')}`
+    )
+  }
+
+  if (
+    review.platform
+    !== withIntegrity.platform
+  ) {
+    throw new Error(
+      'Publish package placement does not belong to its platform'
+    )
+  }
+
+  if (
+    delivery.preferredFormat
+    !== review.preferredFormat
+  ) {
+    throw new Error(
+      'Publish package preferred format does not match its placement'
+    )
+  }
+
+  return {
+    ...withIntegrity,
+
+    placement,
+
+    delivery: {
+      checkedAt:
+        isoDate(
+          delivery.checkedAt,
+          'Publish delivery review time'
+        ),
+
+      ready:
+        true,
+
+      preferredFormat:
+        review.preferredFormat
     }
   }
 }
@@ -199,25 +531,128 @@ export function publishPackageRelativePath(sourcePath, platform, createdAt, id) 
 }
 
 export function buildPublishPackageDocument(input, options) {
-  const request = validatePublishPackageRequest(input)
-  const createdAt = isoDate(options?.createdAt, 'Publish creation time')
-  const preflight = object(options?.preflight, 'Publish preflight')
-  const actual = validateActualMediaFacts(preflight.actual)
-  const sourceSha256 = sha256(options?.sourceSha256)
-  return validatePublishPackageDocument({
-    schemaVersion: 2,
-    kind: 'kinaou-publish-package',
+  const request =
+    validatePublishPackageRequest(
+      input
+    )
+
+  const createdAt =
+    isoDate(
+      options?.createdAt,
+      'Publish creation time'
+    )
+
+  const preflight =
+    object(
+      options?.preflight,
+      'Publish preflight'
+    )
+
+  const actual =
+    validateActualMediaFacts(
+      preflight.actual
+    )
+
+  const sourceSha256 =
+    sha256(
+      options?.sourceSha256
+    )
+
+  const base = {
+    kind:
+      'kinaou-publish-package',
+
     createdAt,
-    projectId: request.projectId,
-    platform: request.platform,
-    title: request.title,
-    description: request.description,
-    tags: request.tags,
-    media: { ...request.export, sizeBytes: actual.sizeBytes },
+
+    projectId:
+      request.projectId,
+
+    platform:
+      request.platform,
+
+    title:
+      request.title,
+
+    description:
+      request.description,
+
+    tags:
+      request.tags,
+
+    media: {
+      ...request.export,
+      sizeBytes:
+        actual.sizeBytes
+    },
+
     integrity: {
-      checkedAt: isoDate(preflight.checkedAt, 'Publish preflight time'),
+      checkedAt:
+        isoDate(
+          preflight.checkedAt,
+          'Publish preflight time'
+        ),
+
       actual,
-      sha256: sourceSha256
+
+      sha256:
+        sourceSha256
+    }
+  }
+
+  if (
+    request.schemaVersion === 1
+  ) {
+    return validatePublishPackageDocument({
+      schemaVersion:
+        2,
+
+      ...base
+    })
+  }
+
+  const review =
+    reviewPublishPlacement(
+      request.export,
+      request.placement,
+      {
+        title:
+          request.title,
+
+        description:
+          request.description,
+
+        tags:
+          request.tags
+      }
+    )
+
+  if (!review.ready) {
+    throw new Error(
+      `Publish placement review failed: ${review.issues.join(', ')}`
+    )
+  }
+
+  return validatePublishPackageDocument({
+    schemaVersion:
+      3,
+
+    ...base,
+
+    placement:
+      request.placement,
+
+    delivery: {
+      checkedAt:
+        isoDate(
+          preflight.checkedAt,
+          'Publish preflight time'
+        ),
+
+      ready:
+        true,
+
+      preferredFormat:
+        review.preferredFormat
     }
   })
 }
