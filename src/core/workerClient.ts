@@ -15,6 +15,16 @@ import { assertSafeManagedPath } from './storage'
 import { managedPublishPathSchema, parsePublishPreflightResult, publishIntegrityResultSchema, publishPackageListSchema, publishPackageRequestSchema, publishPackageResultSchema, publishProjectIdSchema, type PublishIntegrityResult, type PublishPackageEntry, type PublishPackageRequest, type PublishPackageResult, type PublishPreflightResult } from './publishPackage'
 import { exportReceiptSchema, type ExportReceipt } from './exportHistory'
 import {
+  platformPublishReceiptSchema,
+  platformPublishRequestSchema,
+  type PlatformPublishReceipt,
+  type PlatformPublishRequest
+} from './platformPublishing'
+import {
+  youtubeOAuthSessionSchema,
+  type YouTubeOAuthSession
+} from './youtubePublishing'
+import {
   parsePlatformCredentialStatuses,
   type PlatformCredentialStatus
 } from './platformCredentials'
@@ -186,6 +196,205 @@ export class WorkerClient {
     if (result.packagePath !== packagePath) throw new Error('Publish package integrity result does not match the requested package')
     return result
   }
+
+  async startYouTubeOAuth(): Promise<YouTubeOAuthSession> {
+    const payload =
+      await this.request(
+        '/publish/youtube/oauth/start',
+        {
+          method:
+            'POST'
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'youtube-oauth-session'
+    ) {
+      throw new Error(
+        'Invalid YouTube OAuth start response'
+      )
+    }
+
+    return youtubeOAuthSessionSchema
+      .parse(
+        payload.session
+      )
+  }
+
+
+  async youtubeOAuthStatus(): Promise<YouTubeOAuthSession> {
+    const payload =
+      await this.request(
+        '/publish/youtube/oauth/status',
+        {
+          method:
+            'GET'
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'youtube-oauth-session'
+    ) {
+      throw new Error(
+        'Invalid YouTube OAuth status response'
+      )
+    }
+
+    return youtubeOAuthSessionSchema
+      .parse(
+        payload.session
+      )
+  }
+
+
+  async cancelYouTubeOAuth(): Promise<YouTubeOAuthSession> {
+    const payload =
+      await this.request(
+        '/publish/youtube/oauth/cancel',
+        {
+          method:
+            'POST'
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'youtube-oauth-session'
+    ) {
+      throw new Error(
+        'Invalid YouTube OAuth cancel response'
+      )
+    }
+
+    return youtubeOAuthSessionSchema
+      .parse(
+        payload.session
+      )
+  }
+
+
+  async disconnectYouTube(): Promise<YouTubeOAuthSession> {
+    const payload =
+      await this.request(
+        '/publish/youtube/disconnect',
+        {
+          method:
+            'POST'
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'youtube-oauth-session'
+    ) {
+      throw new Error(
+        'Invalid YouTube disconnect response'
+      )
+    }
+
+    return youtubeOAuthSessionSchema
+      .parse(
+        payload.session
+      )
+  }
+
+
+  async publishYouTube(
+    request:
+      PlatformPublishRequest,
+
+    attemptId:
+      string
+  ): Promise<PlatformPublishReceipt> {
+    const normalized =
+      platformPublishRequestSchema
+        .parse(
+          request
+        )
+
+    if (
+      normalized.platform
+        !== 'youtube'
+      || !normalized.placement
+        .startsWith(
+          'youtube-'
+        )
+    ) {
+      throw new Error(
+        'YouTube worker publishing accepts only YouTube requests'
+      )
+    }
+
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+        .test(
+          attemptId
+        )
+    ) {
+      throw new Error(
+        'YouTube publish attempt id must be a UUID'
+      )
+    }
+
+    const payload =
+      await this.request(
+        '/publish/youtube',
+        {
+          method:
+            'POST',
+
+          body:
+            JSON.stringify({
+              request:
+                normalized,
+
+              attemptId
+            })
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'youtube-publish-receipt'
+    ) {
+      throw new Error(
+        'Invalid YouTube publish response'
+      )
+    }
+
+    const receipt =
+      platformPublishReceiptSchema
+        .parse(
+          payload.receipt
+        )
+
+    if (
+      receipt.requestId
+        !== normalized.requestId
+      || receipt.attemptId
+        !== attemptId
+      || receipt.platform
+        !== 'youtube'
+      || receipt.placement
+        !== normalized.placement
+      || receipt.sourceSha256
+        !== normalized.media.sha256
+    ) {
+      throw new Error(
+        'YouTube publish receipt does not match the submitted request'
+      )
+    }
+
+    return receipt
+  }
+
 
   async platformCredentialStatuses(): Promise<PlatformCredentialStatus[]> {
     const payload =
