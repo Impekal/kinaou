@@ -6,7 +6,19 @@ Last updated: 2026-09-27
 
 The stable main-point numbers are in [COMPLETION_CHECKLIST.md](COMPLETION_CHECKLIST.md). Points **1–3 are complete** within their documented acceptance scope: DE/EN/FR interface, comfortable manual editing (not complete NLE feature parity), and human-accepted natural/authorized-own-voice speech (including the accepted slight French accent limitation). Points **4–10 remain open**: final animated avatars; attributable live research/trends; complete main-video/Short editorial and timing advice; dedicated cartoon/children/learning/sports production; complete courses; publication planning/analytics and real-account acceptance; whole-product real-hardware acceptance. Older milestone paragraphs below are historical context, not the current queue. Do not count a field, adapter contract or synthetic fixture as a finished whole point.
 
-## Latest merged handoff — course lesson scripts
+## Current unattended operation — 2026-09-27
+
+The existing hourly heartbeat `kinaou-autonom-weiterbauen` is ACTIVE again. Continue without another “weiter”, reading the compact current handoff and relevant changes rather than the entire historical log. Notify on meaningful changes, whole-point completion or required user action; keep unchanged/non-actionable checks quiet. The user's latest instruction supersedes the earlier eight-hour limit: LaunchAgent `local.kinaou.keepawake` runs `caffeinate -s` with RunAtLoad/KeepAlive, indefinitely until actual product completion, exclusively effective on AC power. Its system-sleep assertion was verified. Display sleep remains allowed; do not bypass lid sleep. Codex must remain running for local scheduled work. At actual completion, disable/unload this helper (including its automatic restart) and pause the heartbeat. Older paused-heartbeat notes below are historical.
+
+## Latest merged handoff — course sources and demonstration records
+
+[PR #305](https://github.com/Impekal/kinaou/pull/305) merged as `9683cf3ce0dd1110b3cd60ecf27222c0af94e706` after full [CI 36280287570](https://github.com/Impekal/kinaou/actions/runs/36280287570), including Ubuntu render smoke. Optional lesson sources retain HTTP(S) URLs, authored access dates and notes; demonstrations retain procedure, expected/observed results, optional performed dates and explicit existing managed-project asset references. DE/EN/FR editing, course revision/history/persistence and stale-export-review protection apply. Missing, changed and offline asset references remain visible without silently rebinding. This is authoring/provenance metadata, not execution, physical-file verification, source retrieval, factual validation or instructor sign-off.
+
+Local gate: 1,372 app tests (32 new), 224 worker tests (known local libass smoke excluded), build, Node syntax and Swift parse passed. The full remote gate passed without the smoke exclusion. Isolated browser acceptance covered DE→FR→EN draft retention, save/reload, offline/changed references and explicit relinking; no console errors. Synthetic asset metadata was clearly labelled and no real evidence file was claimed. Test server, tab and temporary harness were removed.
+
+The earlier TXT download uncertainty is resolved: the actual downloaded `lesson-lesson-test.txt` was found and read back exactly as `Bonjour\nÜberblick 🌍` (23 UTF-8 bytes). The browser event wait failed, not the file save. Point 8 remains open for production integration, genuinely executed/verified demonstrations, exercises/solutions, resources, instructor review and course bundles. No worker, model, platform, SSD or source-media changes. Foreign untracked duplicates remain untouched. No user action blocks the next independent slice.
+
+## Previous merged handoff — course lesson scripts
 
 [PR #303](https://github.com/Impekal/kinaou/pull/303) merged as `0c67a35f1713c45611351b872d491a464e121461` after the full [CI gate 36278830395](https://github.com/Impekal/kinaou/actions/runs/36278830395) passed, including Ubuntu render smoke. Course lessons now have optional bounded scripts (20,000 characters each, 200,000 total). DE/EN/FR editing preserves original content and whitespace; ordinary course save/revision/history/backup persistence applies. An explicit TXT action exports only a saved nonblank lesson script, with a safe ID-derived filename. Editing scripts invalidates existing course-export review through the outline revision; it does not verify agreement between script and video, synthesize narration, edit the timeline or start export.
 
@@ -77,7 +89,7 @@ Safety rule: only paths below the configured KINAOU root may be created/moved/de
 ## Repository
 Repo: `Impekal/kinaou`
 Default branch: `main`
-Latest implementation main SHA after course lesson scripts PR #303: `0c67a35f1713c45611351b872d491a464e121461`
+Latest implementation main SHA after course evidence PR #305: `9683cf3ce0dd1110b3cd60ecf27222c0af94e706`
 
 ## Merged slices
 - **PR #261** — final DE/EN/FR point-1 acceptance gate. A dedicated cross-workflow regression reuses unchanged drafts and authored data through DE → FR → EN across the real application shell plus representative Settings, Course, Timeline, Assets and Publish surfaces. A second acceptance path exercises active/recovery feedback for Audio, Image, Video, single export and STT while preserving submitted content and technical diagnostics; the existing Short batch multilingual lifecycle/recovery suite remains part of the same full gate. The temporary final-coverage notice was removed only after this acceptance passed. PR CI 35657095575 on `d1c98dd` and main CI 35657251441 on merge `f6b8232` both passed 978/978 application tests across 100 test files, 83/83 worker tests, production build and worker syntax checks. No new dependency, browser automation framework, worker behavior, model, media, persistence, render or deployment behavior was introduced. **Completion point 1 is complete.**
@@ -353,6 +365,8 @@ User can create a project, obtain script/storyboard/scenes, import/generate medi
 
 ## Working discipline
 For every meaningful slice: verify main → feature branch → implement real behavior → tests → PR → green CI → merge → update this file.
+
+User clarification 2026-09-27: investigate failures at their root and consider safe alternative implementations before declaring a blocker. Distinguish an observation-tool failure from an actual product failure by inspecting the concrete outcome. Never weaken tests, safety, rights or quality requirements to manufacture success. If the target truly cannot be achieved, explain the best feasible alternative and its limits. Documentation updates use their own fresh branch/PR and full green gate after the feature merge.
 
 User clarification 2026-09-20: continue without requesting another “weiter”; reserve “Punkt x erledigt” for a WHOLE genuinely completed point. Points 1–3 are now complete; points 4–10 remain open. Keep safe independent repository work moving when a final model/hardware quality gate cannot be completed by ordinary code changes. The stable ten-point list and acceptance boundaries live in [COMPLETION_CHECKLIST.md](COMPLETION_CHECKLIST.md). The 2026-09-27 status request was answered with the seven outstanding main points before course-script implementation; no new model download or hardware action was inferred.
 
