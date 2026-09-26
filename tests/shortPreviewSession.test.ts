@@ -11,6 +11,7 @@ import { UiLanguageProvider } from '../src/components/UiLanguageProvider'
 import { uiLanguages } from '../src/core/uiLanguage'
 import { translateUi } from '../src/core/uiMessages'
 import { defaultAudioDucking } from '../src/core/audioDucking'
+import { defaultLoudnessNormalization } from '../src/core/audioLoudness'
 
 function fixture() {
   return parseProject({ ...createProject('Original'), assets: [{ id: 'v', kind: 'video', uri: 'KINAOU/Assets/video.mp4', managed: true }], tracks: [{ id: 'v', name: 'Original track', type: 'video', clips: [{ id: 'c', assetId: 'v', startMs: 0, durationMs: 2000 }] }] })
@@ -101,7 +102,7 @@ it.each(['identity', 'path'] as const)('rejects mismatched %s without loading a 
 })
 it.each(uiLanguages)('shows translated Short controls and cancellation recovery in %s', language => {
   const project = fixture(), before = JSON.stringify(project)
-  const html = renderToStaticMarkup(createElement(UiLanguageProvider, { initialLanguage: language, children: createElement(ShortPreviewPanel, { project, candidate: { id: 's', titles: ['Original'], sceneIds: ['s'], inMs: 500, outMs: 1500, durationMs: 1000 }, format: 'vertical', onFormatChange: vi.fn(), onBusyChange: vi.fn(), audioDucking: defaultAudioDucking, normalizeLoudness: false, workerUrl: '', workerToken: '', workerConnected: false, workerCapabilities: [], disabled: false }) }))
+  const html = renderToStaticMarkup(createElement(UiLanguageProvider, { initialLanguage: language, children: createElement(ShortPreviewPanel, { project, candidate: { id: 's', titles: ['Original'], sceneIds: ['s'], inMs: 500, outMs: 1500, durationMs: 1000 }, format: 'vertical', onFormatChange: vi.fn(), onBusyChange: vi.fn(), audioDucking: defaultAudioDucking, loudnessNormalization: defaultLoudnessNormalization, workerUrl: '', workerToken: '', workerConnected: false, workerCapabilities: [], disabled: false }) }))
   expect(html).toContain(translateUi(language, 'shortPreview.heading'))
   expect(html).toContain(translateUi(language, 'shortPreview.format'))
   expect(html).toContain(translateUi(language, 'preview.connect'))

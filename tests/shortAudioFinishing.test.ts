@@ -829,3 +829,132 @@ describe(
     )
   }
 )
+
+
+it(
+  'resolves saved Short audio settings as the render authority while ordinary projects keep caller settings',
+  async () => {
+    const {
+      resolveShortRenderAudioSettings
+    } =
+      await import(
+        '../src/core/shortAudioFinishing'
+      )
+
+    const short =
+      shortProject()
+
+    const stored =
+      applyShortAudioFinishing(
+        short,
+        {
+          audioDucking: {
+            enabled:
+              true,
+
+            reductionDb:
+              7,
+
+            attackMs:
+              90,
+
+            releaseMs:
+              250
+          },
+
+          loudnessNormalization: {
+            enabled:
+              true,
+
+            targetLufs:
+              -16,
+
+            truePeakDb:
+              -2,
+
+            loudnessRange:
+              9
+          }
+        }
+      )
+
+    const fallback = {
+      audioDucking: {
+        enabled:
+          false,
+
+        reductionDb:
+          20,
+
+        attackMs:
+          500,
+
+        releaseMs:
+          900
+      },
+
+      loudnessNormalization: {
+        enabled:
+          false,
+
+        targetLufs:
+          -12,
+
+        truePeakDb:
+          -1,
+
+        loudnessRange:
+          15
+      }
+    }
+
+    expect(
+      resolveShortRenderAudioSettings(
+        stored,
+        fallback
+      )
+    ).toEqual({
+      audioDucking: {
+        enabled:
+          true,
+
+        reductionDb:
+          7,
+
+        attackMs:
+          90,
+
+        releaseMs:
+          250
+      },
+
+      loudnessNormalization: {
+        enabled:
+          true,
+
+        targetLufs:
+          -16,
+
+        truePeakDb:
+          -2,
+
+        loudnessRange:
+          9
+      }
+    })
+
+    const ordinary =
+      createProject(
+        'Ordinary'
+      )
+
+    expect(
+      resolveShortRenderAudioSettings(
+        ordinary,
+        fallback
+      )
+    ).toEqual(
+      fallback
+    )
+  }
+)

@@ -479,3 +479,41 @@ export function commitShortAudioFinishingReview(
 
   return next
 }
+
+
+export function projectUsesShortAudioFinishing(
+  project:
+    KinaouProject
+): boolean {
+  return Boolean(
+    projectShortDerivativeLineage(
+      project
+    )
+    && projectShortDerivativeMaterialization(
+      project
+    )
+  )
+}
+
+
+export function resolveShortRenderAudioSettings(
+  project:
+    KinaouProject,
+
+  fallback:
+    ShortAudioFinishingProfile
+): ShortAudioFinishingProfile {
+  if (
+    projectUsesShortAudioFinishing(
+      project
+    )
+  ) {
+    return projectShortAudioFinishing(
+      project
+    )
+  }
+
+  return normalizedProfile(
+    fallback
+  )
+}

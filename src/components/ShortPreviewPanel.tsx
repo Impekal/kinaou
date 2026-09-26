@@ -4,7 +4,7 @@ import { createRenderPlan, formatProfiles, projectFormatPreset, formatReframingR
 import { createRangeRenderPlan } from '../core/renderRange'
 import { shortPreviewOutputPath, type ShortExportCandidate } from '../core/shortExportRanges'
 import type { AudioDuckingSettings } from '../core/audioDucking'
-import { defaultLoudnessNormalization } from '../core/audioLoudness'
+import type { LoudnessNormalizationSettings } from '../core/audioLoudness'
 import { WorkerClient } from '../core/workerClient'
 import { freshPreviewPlan, previewBusy } from '../core/previewSession'
 import { ShortPreviewSession, type ShortPreviewFeedback } from '../core/shortPreviewSession'
@@ -14,7 +14,7 @@ import { useUiLanguage } from './UiLanguageProvider'
 interface Props {
   project: KinaouProject; candidate: ShortExportCandidate; format: TargetFormat
   onFormatChange: (format: TargetFormat) => void; onBusyChange: (busy: boolean) => void
-  audioDucking: AudioDuckingSettings; normalizeLoudness: boolean
+  audioDucking: AudioDuckingSettings; loudnessNormalization: LoudnessNormalizationSettings
   workerUrl: string; workerToken: string; workerConnected: boolean; workerCapabilities: string[]
   disabled: boolean
 }
@@ -24,7 +24,7 @@ export function ShortPreviewPanel(props: Props) {
   let plan: RenderPlan | null = null, error = ''
   try {
     const path = shortPreviewOutputPath(props.project, props.candidate, props.format)
-    const full = createRenderPlan(props.project, projectFormatPreset(props.project, props.format, 'preview'), path, { audioDucking: props.audioDucking, loudnessNormalization: { ...defaultLoudnessNormalization, enabled: props.normalizeLoudness } })
+    const full = createRenderPlan(props.project, projectFormatPreset(props.project, props.format, 'preview'), path, { audioDucking: props.audioDucking, loudnessNormalization: props.loudnessNormalization })
     plan = createRangeRenderPlan(full, props.candidate, path)
   } catch (cause) { error = String(cause) }
   const blocked = formatReframingRequiresWorker(props.project, props.format) && !props.workerCapabilities.includes('format-reframing')
