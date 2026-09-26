@@ -11,10 +11,10 @@ export class InstagramContainerNotReadyError
     this.name =
       'InstagramContainerNotReadyError'
 
+
     /*
-     * Useful for a future explicit resume action, but intentionally not
-     * enumerable so generic durable error serialization does not start
-     * persisting orchestration state by accident.
+     * Safe orchestration identifiers. Keep them non-enumerable so generic
+     * error serialization does not persist remote workflow state.
      */
     Object.defineProperty(
       this,
@@ -22,6 +22,25 @@ export class InstagramContainerNotReadyError
       {
         value:
           containerId,
+
+        enumerable:
+          false,
+
+        configurable:
+          false,
+
+        writable:
+          false
+      }
+    )
+
+
+    Object.defineProperty(
+      this,
+      'statusCode',
+      {
+        value:
+          statusCode,
 
         enumerable:
           false,

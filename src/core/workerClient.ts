@@ -27,8 +27,10 @@ import {
 import {
   instagramOAuthCallbackEnvelopeSchema,
   instagramOAuthSessionSchema,
+  instagramPublishPendingSchema,
   type InstagramOAuthCallbackEnvelope,
-  type InstagramOAuthSession
+  type InstagramOAuthSession,
+  type InstagramPublishPending
 } from './instagramPublishing'
 import {
   parsePlatformCredentialStatuses,
@@ -557,7 +559,10 @@ export class WorkerClient {
 
     attemptId:
       string
-  ): Promise<PlatformPublishReceipt> {
+  ): Promise<
+    PlatformPublishReceipt
+    | InstagramPublishPending
+  > {
     const normalized =
       platformPublishRequestSchema
         .parse(
@@ -586,6 +591,7 @@ export class WorkerClient {
       )
     }
 
+
     const payload =
       await this.request(
         '/publish/instagram',
@@ -603,15 +609,56 @@ export class WorkerClient {
         }
       )
 
+
     if (
       payload?.ok !== true
-      || payload?.type
+    ) {
+      throw new Error(
+        'Invalid Instagram publish response'
+      )
+    }
+
+
+    if (
+      payload.type
+        === 'instagram-publish-pending'
+    ) {
+      const pending =
+        instagramPublishPendingSchema
+          .parse(
+            payload.pending
+          )
+
+      if (
+        pending.requestId
+          !== normalized.requestId
+        || pending.attemptId
+          !== attemptId
+        || pending.media.path
+          !== normalized.media.path
+        || pending.media.sizeBytes
+          !== normalized.media.sizeBytes
+        || pending.media.sha256
+          !== normalized.media.sha256
+      ) {
+        throw new Error(
+          'Instagram pending result does not match the submitted request'
+        )
+      }
+
+      return pending
+    }
+
+
+    if (
+      payload.type
         !== 'instagram-publish-receipt'
     ) {
       throw new Error(
         'Invalid Instagram publish response'
       )
     }
+
 
     const receipt =
       platformPublishReceiptSchema
@@ -633,6 +680,110 @@ export class WorkerClient {
     ) {
       throw new Error(
         'Instagram publish receipt does not match the submitted request'
+      )
+    }
+
+    return receipt
+  }
+
+
+  async resumeInstagramPublish(
+    pendingValue:
+      InstagramPublishPending
+  ): Promise<
+    PlatformPublishReceipt
+    | InstagramPublishPending
+  > {
+    const pending =
+      instagramPublishPendingSchema
+        .parse(
+          pendingValue
+        )
+
+
+    const payload =
+      await this.request(
+        '/publish/instagram/resume',
+        {
+          method:
+            'POST',
+
+          body:
+            JSON.stringify({
+              pending
+            })
+        }
+      )
+
+
+    if (
+      payload?.ok !== true
+    ) {
+      throw new Error(
+        'Invalid Instagram resume response'
+      )
+    }
+
+
+    if (
+      payload.type
+        === 'instagram-publish-pending'
+    ) {
+      const next =
+        instagramPublishPendingSchema
+          .parse(
+            payload.pending
+          )
+
+      if (
+        next.requestId
+          !== pending.requestId
+        || next.attemptId
+          !== pending.attemptId
+        || next.containerId
+          !== pending.containerId
+        || next.media.sha256
+          !== pending.media.sha256
+      ) {
+        throw new Error(
+          'Instagram resumed pending result does not match the original attempt'
+        )
+      }
+
+      return next
+    }
+
+
+    if (
+      payload.type
+        !== 'instagram-publish-receipt'
+    ) {
+      throw new Error(
+        'Invalid Instagram resume response'
+      )
+    }
+
+
+    const receipt =
+      platformPublishReceiptSchema
+        .parse(
+          payload.receipt
+        )
+
+    if (
+      receipt.requestId
+        !== pending.requestId
+      || receipt.attemptId
+        !== pending.attemptId
+      || receipt.platform
+        !== 'instagram'
+      || receipt.placement
+        !== 'instagram-reel'
+      || receipt.sourceSha256
+        !== pending.media.sha256
+    ) {
+      throw new Error(
+        'Instagram resumed receipt does not match the pending attempt'
       )
     }
 

@@ -236,3 +236,90 @@ export type InstagramOAuthCallbackEnvelope =
   z.infer<
     typeof instagramOAuthCallbackEnvelopeSchema
   >
+
+
+export const instagramPublishPendingSchema =
+  z.object({
+    schemaVersion:
+      z.literal(
+        1
+      ),
+
+    kind:
+      z.literal(
+        'instagram-publish-pending'
+      ),
+
+    requestId:
+      z.string()
+        .uuid(),
+
+    attemptId:
+      z.string()
+        .uuid(),
+
+    platform:
+      z.literal(
+        'instagram'
+      ),
+
+    placement:
+      z.literal(
+        'instagram-reel'
+      ),
+
+    media:
+      z.object({
+        path:
+          z.string()
+            .trim()
+            .min(1)
+            .max(700)
+            .refine(
+              value =>
+                value.startsWith(
+                  'KINAOU/Renders/'
+                )
+                && value.endsWith(
+                  '.mp4'
+                ),
+
+              'Pending Instagram source must be a managed render MP4'
+            ),
+
+        sizeBytes:
+          z.number()
+            .int()
+            .positive(),
+
+        sha256:
+          z.string()
+            .regex(
+              /^[a-f0-9]{64}$/
+            )
+      })
+        .strict(),
+
+    containerId:
+      z.string()
+        .trim()
+        .min(1)
+        .max(500),
+
+    issuedAt:
+      z.string()
+        .datetime(),
+
+    signature:
+      z.string()
+        .regex(
+          /^[a-f0-9]{64}$/
+        )
+  })
+    .strict()
+
+
+export type InstagramPublishPending =
+  z.infer<
+    typeof instagramPublishPendingSchema
+  >

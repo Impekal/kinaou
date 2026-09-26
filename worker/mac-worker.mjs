@@ -70,7 +70,14 @@ import { createInstagramOAuthRuntime } from './instagram-oauth-runtime.mjs'
 import { resolveEnvironmentInstagramDeliveryUrl } from './instagram-delivery.mjs'
 import { createInstagramReelsProtocol } from './instagram-meta-reels.mjs'
 import { createInstagramPublisher } from './instagram-publisher.mjs'
-import { createInstagramReelsTransport } from './instagram-reels-transport.mjs'
+import {
+  InstagramContainerNotReadyError,
+  createInstagramReelsTransport
+} from './instagram-reels-transport.mjs'
+import {
+  createInstagramPendingTicket,
+  resumeExplicitInstagramPublish
+} from './instagram-publish-pending.mjs'
 import { executeExplicitInstagramPublish } from './instagram-publish-execution.mjs'
 import {
   avatarReceiptRelativePath,
@@ -255,7 +262,7 @@ async function resolveInstagramPublishingCredential() {
 }
 
 
-function createConfiguredInstagramReelsTransport() {
+function createConfiguredInstagramReelsProtocol() {
   const origin =
     process.env
       .KINAOU_INSTAGRAM_GRAPH_ORIGIN
@@ -277,12 +284,17 @@ function createConfiguredInstagramReelsTransport() {
   }
 
 
+  return createInstagramReelsProtocol({
+    origin,
+    version
+  })
+}
+
+
+function createConfiguredInstagramReelsTransport() {
   return createInstagramReelsTransport({
     protocol:
-      createInstagramReelsProtocol({
-        origin,
-        version
-      })
+      createConfiguredInstagramReelsProtocol()
   })
 }
 
@@ -1420,16 +1432,131 @@ const server = http.createServer(async (request, response) => {
       )
 
       try {
-        const receipt =
-          await executeExplicitInstagramPublish({
-            requestValue:
-              body?.request,
+        try {
+          const receipt =
+            await executeExplicitInstagramPublish({
+              requestValue:
+                body?.request,
 
-            attemptId:
-              body?.attemptId,
+              attemptId:
+                body?.attemptId,
 
-            readPackage:
-              readPublishPackage,
+              readPackage:
+                readPublishPackage,
+
+              rehashSource:
+                async (
+                  relativePath,
+                  expectedSize
+                ) =>
+                  sha256ManagedFile(
+                    requireManagedRelativePath(
+                      relativePath
+                    ),
+                    expectedSize,
+                    'Instagram publish source'
+                  ),
+
+              publisher:
+                instagramPublisher,
+
+              signal:
+                controller.signal
+            })
+
+
+          return send(
+            response,
+            201,
+            {
+              ok: true,
+              type:
+                'instagram-publish-receipt',
+
+              receipt
+            }
+          )
+
+        } catch (
+          error
+        ) {
+          if (
+            error
+              instanceof InstagramContainerNotReadyError
+            && error.statusCode
+              === 'IN_PROGRESS'
+          ) {
+            const pending =
+              createInstagramPendingTicket({
+                requestValue:
+                  body?.request,
+
+                attemptId:
+                  body?.attemptId,
+
+                containerId:
+                  error.containerId,
+
+                secret:
+                  TOKEN
+              })
+
+
+            return send(
+              response,
+              202,
+              {
+                ok: true,
+                type:
+                  'instagram-publish-pending',
+
+                pending
+              }
+            )
+          }
+
+          throw error
+        }
+
+      } finally {
+        request.removeListener(
+          'aborted',
+          abort
+        )
+      }
+    }
+
+
+    if (
+      request.method === 'POST'
+      && request.url
+        === '/publish/instagram/resume'
+    ) {
+      const body =
+        await readJson(
+          request
+        )
+
+      const controller =
+        new AbortController()
+
+      const abort =
+        () =>
+          controller.abort()
+
+      request.once(
+        'aborted',
+        abort
+      )
+
+      try {
+        const result =
+          await resumeExplicitInstagramPublish({
+            pendingValue:
+              body?.pending,
+
+            secret:
+              TOKEN,
 
             rehashSource:
               async (
@@ -1441,15 +1568,37 @@ const server = http.createServer(async (request, response) => {
                     relativePath
                   ),
                   expectedSize,
-                  'Instagram publish source'
+                  'Instagram pending source'
                 ),
 
-            publisher:
-              instagramPublisher,
+            resolveCredential:
+              resolveInstagramPublishingCredential,
+
+            protocol:
+              createConfiguredInstagramReelsProtocol(),
 
             signal:
               controller.signal
           })
+
+
+        if (
+          result.state
+            === 'pending'
+        ) {
+          return send(
+            response,
+            202,
+            {
+              ok: true,
+              type:
+                'instagram-publish-pending',
+
+              pending:
+                result.pending
+            }
+          )
+        }
 
 
         return send(
@@ -1460,7 +1609,8 @@ const server = http.createServer(async (request, response) => {
             type:
               'instagram-publish-receipt',
 
-            receipt
+            receipt:
+              result.receipt
           }
         )
 

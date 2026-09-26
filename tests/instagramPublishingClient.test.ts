@@ -483,7 +483,7 @@ describe(
           })
 
 
-        const receipt =
+        const result =
           await client
             .publishInstagram(
               request,
@@ -492,7 +492,27 @@ describe(
 
 
         expect(
-          receipt.remote.id
+          'remote'
+          in result
+        ).toBe(
+          true
+        )
+
+
+        if (
+          !(
+            'remote'
+            in result
+          )
+        ) {
+          throw new Error(
+            'Expected completed Instagram publish receipt'
+          )
+        }
+
+
+        expect(
+          result.remote.id
         ).toBe(
           'instagram-media-1'
         )
@@ -500,10 +520,258 @@ describe(
 
         expect(
           JSON.stringify(
-            receipt
+            result
           )
         ).not.toMatch(
           /access.?token|delivery.?url|signature=/i
+        )
+      }
+    )
+  }
+)
+
+
+describe(
+  'Instagram pending publication WorkerClient',
+  () => {
+    it(
+      'returns and explicitly resumes the same signed pending container',
+      async () => {
+        const pending = {
+          schemaVersion:
+            1 as const,
+
+          kind:
+            'instagram-publish-pending' as const,
+
+          requestId:
+            '11111111-1111-4111-8111-111111111111',
+
+          attemptId:
+            '22222222-2222-4222-8222-222222222222',
+
+          platform:
+            'instagram' as const,
+
+          placement:
+            'instagram-reel' as const,
+
+          media: {
+            path:
+              'KINAOU/Renders/reel.mp4',
+
+            sizeBytes:
+              4096,
+
+            sha256:
+              'a'.repeat(
+                64
+              )
+          },
+
+          containerId:
+            'container-1',
+
+          issuedAt:
+            '2026-09-26T21:02:00.000Z',
+
+          signature:
+            'b'.repeat(
+              64
+            )
+        }
+
+
+        const request = {
+          schemaVersion:
+            1 as const,
+
+          projectId:
+            'instagram-project',
+
+          packagePath:
+            'KINAOU/Renders/reel_instagram.publish.json',
+
+          platform:
+            'instagram' as const,
+
+          placement:
+            'instagram-reel' as const,
+
+          media:
+            pending.media,
+
+          metadata: {
+            title:
+              'Reviewed Reel',
+
+            description:
+              'Explicit publishing.',
+
+            tags:
+              [
+                'KINAOU'
+              ]
+          },
+
+          verifiedAt:
+            '2026-09-26T21:00:00.000Z',
+
+          requestId:
+            pending.requestId,
+
+          approval: {
+            kind:
+              'explicit-human' as const,
+
+            confirmedAt:
+              '2026-09-26T21:01:00.000Z'
+          }
+        }
+
+
+        let calls =
+          0
+
+
+        const client =
+          new WorkerClient({
+            baseUrl:
+              'http://127.0.0.1:43117',
+
+            token:
+              'worker-token',
+
+            fetchImpl:
+              async (
+                input
+              ) => {
+                calls +=
+                  1
+
+                if (
+                  String(
+                    input
+                  ).endsWith(
+                    '/publish/instagram'
+                  )
+                ) {
+                  return jsonResponse(
+                    {
+                      ok:
+                        true,
+
+                      type:
+                        'instagram-publish-pending',
+
+                      pending
+                    },
+                    202
+                  )
+                }
+
+
+                return jsonResponse(
+                  {
+                    ok:
+                      true,
+
+                    type:
+                      'instagram-publish-receipt',
+
+                    receipt: {
+                      schemaVersion:
+                        1,
+
+                      receiptId:
+                        '33333333-3333-4333-8333-333333333333',
+
+                      requestId:
+                        pending.requestId,
+
+                      attemptId:
+                        pending.attemptId,
+
+                      platform:
+                        'instagram',
+
+                      placement:
+                        'instagram-reel',
+
+                      adapter: {
+                        id:
+                          'instagram-platform-api',
+
+                        version:
+                          '0.1.0'
+                      },
+
+                      sourceSha256:
+                        pending.media
+                          .sha256,
+
+                      remote: {
+                        id:
+                          'instagram-media-1'
+                      },
+
+                      publishedAt:
+                        '2026-09-26T21:05:00.000Z'
+                    }
+                  },
+                  201
+                )
+              }
+          })
+
+
+        const first =
+          await client
+            .publishInstagram(
+              request,
+              pending.attemptId
+            )
+
+
+        expect(
+          'kind'
+          in first
+        ).toBe(
+          true
+        )
+
+
+        if (
+          !(
+            'kind'
+            in first
+          )
+        ) {
+          throw new Error(
+            'Expected pending Instagram publication'
+          )
+        }
+
+
+        const resumed =
+          await client
+            .resumeInstagramPublish(
+              first
+            )
+
+
+        expect(
+          'remote'
+          in resumed
+        ).toBe(
+          true
+        )
+
+
+        expect(
+          calls
+        ).toBe(
+          2
         )
       }
     )
