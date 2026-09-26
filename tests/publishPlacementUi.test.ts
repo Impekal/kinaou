@@ -29,6 +29,10 @@ import {
 } from '../src/core/project'
 
 import {
+  saveProjectPublishDefaults
+} from '../src/core/publishPackage'
+
+import {
   uiLanguages
 } from '../src/core/uiLanguage'
 
@@ -261,5 +265,100 @@ it(
     ).not.toContain(
       'MP4 matches its export receipt'
     )
+  }
+)
+
+
+it(
+  'restores an explicit saved placement instead of inferring it again from a vertical export',
+  () => {
+    const project =
+      saveProjectPublishDefaults(
+        verticalProject(),
+        {
+          platform:
+            'youtube',
+
+          placement:
+            'youtube-video',
+
+          title:
+            'Placement Demo',
+
+          description:
+            '',
+
+          tags:
+            ''
+        },
+        new Date(
+          '2026-09-26T12:02:00.000Z'
+        )
+      )
+
+    const before =
+      JSON.stringify(
+        project
+      )
+
+    const persist =
+      vi.fn()
+
+    const html =
+      renderToStaticMarkup(
+        createElement(
+          UiLanguageProvider,
+          {
+            initialLanguage:
+              'en',
+
+            children:
+              createElement(
+                PublishPanel,
+                {
+                  project,
+                  workerUrl:
+                    '',
+
+                  workerToken:
+                    '',
+
+                  workerConnected:
+                    false,
+
+                  workerCapabilities:
+                    [],
+
+                  onProjectChange:
+                    persist
+                }
+              )
+          }
+        )
+      )
+
+    expect(
+      html
+    ).toContain(
+      '<option value="youtube-video" selected="">YouTube Video</option>'
+    )
+
+    expect(
+      html
+    ).toContain(
+      'Saved for this project · YouTube Video'
+    )
+
+    expect(
+      JSON.stringify(
+        project
+      )
+    ).toBe(
+      before
+    )
+
+    expect(
+      persist
+    ).not.toHaveBeenCalled()
   }
 )

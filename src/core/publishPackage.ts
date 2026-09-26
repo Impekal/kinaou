@@ -295,14 +295,45 @@ export const publishIntegrityResultSchema = z.object({
   }
 })
 
-export const projectPublishDefaultsSchema = z.object({
+const projectPublishDefaultsV1Schema = z.object({
   schemaVersion: z.literal(1),
   platform: publishTargetSchema,
   title: publishTitleSchema,
   description: publishDescriptionSchema,
   tags: publishTagsSchema,
   updatedAt: z.string().datetime()
+}).strict()
+
+const projectPublishDefaultsV2Schema = z.object({
+  schemaVersion: z.literal(2),
+  platform: publishTargetSchema,
+  placement: publishPlacementSchema,
+  title: publishTitleSchema,
+  description: publishDescriptionSchema,
+  tags: publishTagsSchema,
+  updatedAt: z.string().datetime()
+}).strict().superRefine((defaults, context) => {
+  const profile =
+    publishPlacementProfile(
+      defaults.placement
+    )
+
+  if (
+    profile.platform
+    !== defaults.platform
+  ) {
+    context.addIssue({
+      code: 'custom',
+      path: ['placement'],
+      message: 'Saved publish placement does not belong to its platform'
+    })
+  }
 })
+
+export const projectPublishDefaultsSchema = z.union([
+  projectPublishDefaultsV1Schema,
+  projectPublishDefaultsV2Schema
+])
 
 export type PublishPackageRequest = z.infer<typeof publishPackageRequestSchema>
 export type PublishPackageResult = z.infer<typeof publishPackageResultSchema>
@@ -372,17 +403,104 @@ export function projectPublishDefaults(project: KinaouProject): ProjectPublishDe
   return parsed.success ? parsed.data : null
 }
 
-export function saveProjectPublishDefaults(project: KinaouProject, input: { platform: PublishTarget; title: string; description: string; tags: string }, now = new Date()): KinaouProject {
-  const normalized = {
-    platform: publishTargetSchema.parse(input.platform),
-    title: publishTitleSchema.parse(input.title),
-    description: publishDescriptionSchema.parse(input.description),
-    tags: parsePublishTags(input.tags)
+export function saveProjectPublishDefaults(
+  project: KinaouProject,
+  input: {
+    platform: PublishTarget
+    placement?: PublishPlacement
+    title: string
+    description: string
+    tags: string
+  },
+  now = new Date()
+): KinaouProject {
+  const platform =
+    publishTargetSchema.parse(
+      input.platform
+    )
+
+  const placement =
+    publishPlacementSchema.parse(
+      input.placement
+      ?? defaultPublishPlacementForPlatform(
+        platform
+      )
+    )
+
+  const profile =
+    publishPlacementProfile(
+      placement
+    )
+
+  if (
+    profile.platform
+    !== platform
+  ) {
+    throw new Error(
+      'Saved publish placement does not belong to its platform'
+    )
   }
-  const current = projectPublishDefaults(project)
-  if (current && current.platform === normalized.platform && current.title === normalized.title && current.description === normalized.description && current.tags.length === normalized.tags.length && current.tags.every((tag, index) => tag === normalized.tags[index])) return project
-  const publishDefaults = projectPublishDefaultsSchema.parse({ schemaVersion: 1, ...normalized, updatedAt: now.toISOString() })
-  return touchProject({ ...project, metadata: { ...project.metadata, publishDefaults } }, now)
+
+  const normalized = {
+    platform,
+    placement,
+    title:
+      publishTitleSchema.parse(
+        input.title
+      ),
+    description:
+      publishDescriptionSchema.parse(
+        input.description
+      ),
+    tags:
+      parsePublishTags(
+        input.tags
+      )
+  }
+
+  const current =
+    projectPublishDefaults(
+      project
+    )
+
+  if (
+    current
+    && current.schemaVersion === 2
+    && current.platform === normalized.platform
+    && current.placement === normalized.placement
+    && current.title === normalized.title
+    && current.description === normalized.description
+    && current.tags.length === normalized.tags.length
+    && current.tags.every(
+      (tag, index) =>
+        tag === normalized.tags[index]
+    )
+  ) {
+    return project
+  }
+
+  const publishDefaults =
+    projectPublishDefaultsSchema.parse({
+      schemaVersion:
+        2,
+
+      ...normalized,
+
+      updatedAt:
+        now.toISOString()
+    })
+
+  return touchProject(
+    {
+      ...project,
+
+      metadata: {
+        ...project.metadata,
+        publishDefaults
+      }
+    },
+    now
+  )
 }
 
 export function clearProjectPublishDefaults(project: KinaouProject, now = new Date()): KinaouProject {

@@ -187,8 +187,9 @@ describe('local publish packages', () => {
       tags: '#Local AI, Editing\nlocal ai'
     }, new Date('2026-09-13T09:01:00.000Z'))
     expect(projectPublishDefaults(saved)).toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
       platform: 'instagram',
+      placement: 'instagram-feed',
       title: 'Repeatable title',
       description: 'Repeatable description.',
       tags: ['Local AI', 'Editing'],
@@ -198,6 +199,56 @@ describe('local publish packages', () => {
     expect(project.metadata.publishDefaults).toBeUndefined()
     expect(projectPublishDefaults(parseProject(JSON.parse(JSON.stringify(saved))))).toEqual(projectPublishDefaults(saved))
     expect(projectPublishDefaults(createProject('Another project'))).toBeNull()
+
+    const explicit = saveProjectPublishDefaults(
+      saved,
+      {
+        platform: 'youtube',
+        placement: 'youtube-video',
+        title: 'Repeatable title',
+        description: 'Repeatable description.',
+        tags: 'Local AI, Editing'
+      },
+      new Date('2026-09-13T09:30:00.000Z')
+    )
+
+    expect(projectPublishDefaults(explicit)).toMatchObject({
+      schemaVersion: 2,
+      platform: 'youtube',
+      placement: 'youtube-video'
+    })
+
+    const legacy = {
+      ...createProject('Legacy defaults'),
+      metadata: {
+        publishDefaults: {
+          schemaVersion: 1,
+          platform: 'youtube',
+          title: 'Legacy title',
+          description: '',
+          tags: [],
+          updatedAt: '2026-09-13T09:00:00.000Z'
+        }
+      }
+    }
+
+    expect(projectPublishDefaults(legacy)).toMatchObject({
+      schemaVersion: 1,
+      platform: 'youtube'
+    })
+
+    expect(() =>
+      saveProjectPublishDefaults(
+        saved,
+        {
+          platform: 'instagram',
+          placement: 'youtube-video',
+          title: 'Mismatch',
+          description: '',
+          tags: ''
+        }
+      )
+    ).toThrow(/does not belong/)
 
     const unchanged = saveProjectPublishDefaults(saved, { platform: 'instagram', title: 'Repeatable title', description: 'Repeatable description.', tags: 'Local AI, Editing' }, new Date('2026-09-13T10:00:00.000Z'))
     expect(unchanged).toBe(saved)

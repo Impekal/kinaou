@@ -75,10 +75,12 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
   const [selectedJobId, setSelectedJobId] = useState(() => receipts[0]?.jobId ?? '')
   const [platform, setPlatform] = useState<PublishTarget>(() => savedDefaults?.platform ?? 'youtube')
   const [placement, setPlacement] = useState<PublishPlacement>(() =>
-    defaultPublishPlacementForPlatform(
-      savedDefaults?.platform ?? 'youtube',
-      receipts[0]?.format
-    )
+    savedDefaults?.schemaVersion === 2
+      ? savedDefaults.placement
+      : defaultPublishPlacementForPlatform(
+          savedDefaults?.platform ?? 'youtube',
+          receipts[0]?.format
+        )
   )
   const [title, setTitle] = useState(() => savedDefaults?.title ?? project.title)
   const [description, setDescription] = useState(() => savedDefaults?.description ?? '')
@@ -96,6 +98,17 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
   const [integrityBusyPath, setIntegrityBusyPath] = useState('')
   const [defaultsMessage, setDefaultsMessage] = useState('')
   const selected = receipts.find((receipt) => receipt.jobId === selectedJobId) ?? receipts[0]
+
+  const savedPlacement =
+    savedDefaults
+      ? savedDefaults.schemaVersion === 2
+        ? savedDefaults.placement
+        : defaultPublishPlacementForPlatform(
+            savedDefaults.platform,
+            selected?.format
+          )
+      : null
+
   const packageSupported = workerCapabilities.includes('publish-package')
   const preflightSupported = workerCapabilities.includes('publish-preflight')
   const librarySupported = workerCapabilities.includes('publish-package-library')
@@ -170,10 +183,12 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
     )
 
     setPlacement(
-      defaultPublishPlacementForPlatform(
-        defaultPlatform,
-        receipts[0]?.format
-      )
+      defaults?.schemaVersion === 2
+        ? defaults.placement
+        : defaultPublishPlacementForPlatform(
+            defaultPlatform,
+            receipts[0]?.format
+          )
     )
 
     setTitle(defaults?.title ?? project.title)
@@ -202,10 +217,12 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
     setPlatform(savedDefaults.platform)
 
     setPlacement(
-      defaultPublishPlacementForPlatform(
-        savedDefaults.platform,
-        selected?.format
-      )
+      savedDefaults.schemaVersion === 2
+        ? savedDefaults.placement
+        : defaultPublishPlacementForPlatform(
+            savedDefaults.platform,
+            selected?.format
+          )
     )
 
     setTitle(savedDefaults.title)
@@ -218,7 +235,13 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
 
   function saveDefaults() {
     try {
-      const next = saveProjectPublishDefaults(project, { platform, title, description, tags })
+      const next = saveProjectPublishDefaults(project, {
+        platform,
+        placement,
+        title,
+        description,
+        tags
+      })
       onProjectChange(next)
       setError('')
       setDefaultsMessage(t(next === project ? 'publish.defaults.already' : 'publish.defaults.saved'))
@@ -368,7 +391,7 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
           <label>{t('publish.description')}<textarea maxLength={5000} value={description} disabled={operationBusy} onChange={(event) => { setDescription(event.target.value); setResult(null) }} /></label>
           <label>{t('publish.tags')}<input value={tags} disabled={operationBusy} placeholder={t('publish.tags.placeholder')} onChange={(event) => { setTags(event.target.value); setResult(null) }} /></label>
           <div className="publishDefaultActions"><button className="secondaryButton" disabled={operationBusy || !title.trim()} onClick={saveDefaults}>{t('publish.defaults.save')}</button>{savedDefaults && <><button className="secondaryButton" disabled={operationBusy} onClick={useSavedDefaults}>{t('publish.defaults.use')}</button><button className="secondaryButton" disabled={operationBusy} onClick={clearDefaults}>{t('publish.defaults.clear')}</button></>}</div>
-          {savedDefaults && <small>{t('publish.defaults.summary', { platform: platformLabel(savedDefaults.platform), date: date(savedDefaults.updatedAt) })}</small>}
+          {savedDefaults && savedPlacement && <small>{t('publish.defaults.summary', { placement: placementLabel(savedPlacement), date: date(savedDefaults.updatedAt) })}</small>}
           {defaultsMessage && <div className="note">{defaultsMessage}</div>}
           <button className="secondaryButton" disabled={!selected || !workerConnected || !preflightSupported || !workerToken.trim() || operationBusy} onClick={checkPreflight}>{t(preflightBusy ? 'publish.preflight.inspecting' : currentPreflight ? 'publish.preflight.refresh' : 'publish.preflight.check')}</button>
           <button className="primary" disabled={!selected || !placementReviewState.review?.ready || !workerConnected || !packageSupported || !preflightSupported || !integritySupported || !currentPreflight?.ready || !workerToken.trim() || !title.trim() || operationBusy} onClick={createPackage}>{t(busy ? 'publish.package.writing' : 'publish.package.create')}</button>

@@ -149,7 +149,7 @@ export const uiPublishMessages = {
   'publish.defaults.save': ['Als Projektstandard speichern', 'Save as project defaults', 'Enregistrer comme valeurs par défaut du projet'],
   'publish.defaults.use': ['Gespeicherte Standards verwenden', 'Use saved defaults', 'Utiliser les valeurs enregistrées'],
   'publish.defaults.clear': ['Gespeicherte Standards löschen', 'Clear saved defaults', 'Effacer les valeurs enregistrées'],
-  'publish.defaults.summary': ['Für dieses Projekt gespeichert · {platform} · aktualisiert {date}', 'Saved for this project · {platform} · updated {date}', 'Enregistré pour ce projet · {platform} · mis à jour {date}'],
+  'publish.defaults.summary': ['Für dieses Projekt gespeichert · {placement} · aktualisiert {date}', 'Saved for this project · {placement} · updated {date}', 'Enregistré pour ce projet · {placement} · mis à jour {date}'],
   'publish.defaults.loaded': ['Gespeicherte Projektstandards wurden in das Formular geladen.', 'Saved project defaults loaded into the form.', 'Les valeurs enregistrées du projet ont été chargées dans le formulaire.'],
   'publish.defaults.already': ['Diese Werte sind bereits als Projektstandard gespeichert.', 'These values are already the saved project defaults.', 'Ces valeurs sont déjà les valeurs enregistrées du projet.'],
   'publish.defaults.saved': ['Die aktuellen Veröffentlichungsmetadaten wurden mit diesem Projekt gespeichert.', 'Current publish metadata saved with this project.', 'Les métadonnées de publication actuelles ont été enregistrées avec ce projet.'],
