@@ -14,7 +14,133 @@ export const uiPublishMessages = {
 
   'publish.export': ['Erfolgreicher Export', 'Successful export', 'Export réussi'],
   'publish.export.empty': ['Keine erfolgreichen Exporte erfasst', 'No successful exports recorded', 'Aucun export réussi enregistré'],
-  'publish.destination': ['Zielprofil', 'Destination profile', 'Profil de destination'],
+  'publish.destination': ['Plattform', 'Platform', 'Plateforme'],
+
+  'publish.placement': [
+    'Veröffentlichungsformat',
+    'Publishing placement',
+    'Type de publication'
+  ],
+
+  'publish.placement.help': [
+    'Das konkrete Placement wird für den ausgewählten Export geprüft. Projektstandards speichern derzeit Plattform und Metadaten; das Placement wird pro Export neu geprüft.',
+    'The concrete placement is reviewed for the selected export. Project defaults currently store platform and metadata; placement is reviewed again for each export.',
+    'Le type de publication concret est vérifié pour l’export sélectionné. Les valeurs par défaut du projet enregistrent actuellement la plateforme et les métadonnées ; le type est revérifié pour chaque export.'
+  ],
+
+  'publish.placement.review.eyebrow': [
+    'PLATTFORM-READINESS',
+    'PLATFORM READINESS',
+    'COMPATIBILITÉ PLATEFORME'
+  ],
+
+  'publish.placement.review.ready': [
+    'Dieses Exportprofil passt zum gewählten Veröffentlichungsformat.',
+    'This export profile matches the selected publishing placement.',
+    'Ce profil d’export correspond au type de publication sélectionné.'
+  ],
+
+  'publish.placement.review.blocked': [
+    'Dieses Exportprofil passt noch nicht zum gewählten Veröffentlichungsformat.',
+    'This export profile does not yet match the selected publishing placement.',
+    'Ce profil d’export ne correspond pas encore au type de publication sélectionné.'
+  ],
+
+  'publish.placement.review.preferred': [
+    'Bevorzugtes KINAOU-Format: {format}',
+    'Preferred KINAOU format: {format}',
+    'Format KINAOU recommandé : {format}'
+  ],
+
+  'publish.placement.review.metadataInvalid': [
+    'Die Veröffentlichungsmetadaten sind noch nicht gültig: {message}',
+    'Publish metadata is not valid yet: {message}',
+    'Les métadonnées de publication ne sont pas encore valides : {message}'
+  ],
+
+  'publish.placement.issue.format': [
+    'Das ausgewählte KINAOU-Ausgabeformat wird für dieses Placement nicht unterstützt.',
+    'The selected KINAOU output format is not supported for this placement.',
+    'Le format de sortie KINAOU sélectionné n’est pas pris en charge pour ce type de publication.'
+  ],
+
+  'publish.placement.issue.duration-minimum': [
+    'Das Video ist für dieses Placement zu kurz.',
+    'The video is too short for this placement.',
+    'La vidéo est trop courte pour ce type de publication.'
+  ],
+
+  'publish.placement.issue.duration-maximum': [
+    'Das Video überschreitet die konfigurierte Dauer dieses Placements.',
+    'The video exceeds the configured duration for this placement.',
+    'La vidéo dépasse la durée configurée pour ce type de publication.'
+  ],
+
+  'publish.placement.issue.title-required': [
+    'Für dieses Placement fehlt ein Titel.',
+    'This placement requires a title.',
+    'Un titre est requis pour ce type de publication.'
+  ],
+
+  'publish.placement.issue.title-length': [
+    'Der Titel ist für dieses Placement zu lang.',
+    'The title is too long for this placement.',
+    'Le titre est trop long pour ce type de publication.'
+  ],
+
+  'publish.placement.issue.description-length': [
+    'Die Beschreibung ist für dieses Placement zu lang.',
+    'The description is too long for this placement.',
+    'La description est trop longue pour ce type de publication.'
+  ],
+
+  'publish.placement.issue.tag-count': [
+    'Es sind zu viele Tags für dieses Placement angegeben.',
+    'There are too many tags for this placement.',
+    'Il y a trop de tags pour ce type de publication.'
+  ],
+
+  'publish.placement.issue.tag-length': [
+    'Mindestens ein Tag ist für dieses Placement zu lang.',
+    'At least one tag is too long for this placement.',
+    'Au moins un tag est trop long pour ce type de publication.'
+  ],
+
+  'publish.placement.youtube-video': [
+    'YouTube Video',
+    'YouTube Video',
+    'Vidéo YouTube'
+  ],
+
+  'publish.placement.youtube-short': [
+    'YouTube Short',
+    'YouTube Short',
+    'YouTube Short'
+  ],
+
+  'publish.placement.instagram-reel': [
+    'Instagram Reel',
+    'Instagram Reel',
+    'Reel Instagram'
+  ],
+
+  'publish.placement.instagram-feed': [
+    'Instagram Feed-Video',
+    'Instagram Feed Video',
+    'Vidéo du fil Instagram'
+  ],
+
+  'publish.placement.tiktok-video': [
+    'TikTok Video',
+    'TikTok Video',
+    'Vidéo TikTok'
+  ],
+
+  'publish.placement.generic': [
+    'Allgemeine Übergabe',
+    'Generic handoff',
+    'Remise générique'
+  ],
   'publish.title': ['Titel', 'Title', 'Titre'],
   'publish.description': ['Beschreibung', 'Description', 'Description'],
   'publish.tags': ['Tags, durch Komma oder Zeilenumbruch getrennt', 'Tags, comma or line separated', 'Tags, séparés par des virgules ou des retours à la ligne'],
@@ -23,7 +149,7 @@ export const uiPublishMessages = {
   'publish.defaults.save': ['Als Projektstandard speichern', 'Save as project defaults', 'Enregistrer comme valeurs par défaut du projet'],
   'publish.defaults.use': ['Gespeicherte Standards verwenden', 'Use saved defaults', 'Utiliser les valeurs enregistrées'],
   'publish.defaults.clear': ['Gespeicherte Standards löschen', 'Clear saved defaults', 'Effacer les valeurs enregistrées'],
-  'publish.defaults.summary': ['Für dieses Projekt gespeichert · {platform} · aktualisiert {date}', 'Saved for this project · {platform} · updated {date}', 'Enregistré pour ce projet · {platform} · mis à jour {date}'],
+  'publish.defaults.summary': ['Für dieses Projekt gespeichert · {placement} · aktualisiert {date}', 'Saved for this project · {placement} · updated {date}', 'Enregistré pour ce projet · {placement} · mis à jour {date}'],
   'publish.defaults.loaded': ['Gespeicherte Projektstandards wurden in das Formular geladen.', 'Saved project defaults loaded into the form.', 'Les valeurs enregistrées du projet ont été chargées dans le formulaire.'],
   'publish.defaults.already': ['Diese Werte sind bereits als Projektstandard gespeichert.', 'These values are already the saved project defaults.', 'Ces valeurs sont déjà les valeurs enregistrées du projet.'],
   'publish.defaults.saved': ['Die aktuellen Veröffentlichungsmetadaten wurden mit diesem Projekt gespeichert.', 'Current publish metadata saved with this project.', 'Les métadonnées de publication actuelles ont été enregistrées avec ce projet.'],

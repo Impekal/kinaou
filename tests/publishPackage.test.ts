@@ -31,10 +31,11 @@ describe('local publish packages', () => {
       tags: '#Local AI, Editing\nlocal ai, KINAOU'
     })
     expect(request).toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
       projectId: 'project-1',
       export: receipt,
       platform: 'youtube',
+      placement: 'youtube-short',
       title: 'A reviewed title',
       description: 'Ready for handoff.',
       tags: ['Local AI', 'Editing', 'KINAOU']
@@ -51,6 +52,19 @@ describe('local publish packages', () => {
   it('accepts only managed non-empty publish-package results', () => {
     const result = { schemaVersion: 2, path: 'KINAOU/Renders/demo_youtube_1.publish.json', sourcePath: receipt.outputRelativePath, platform: 'youtube', createdAt: '2026-09-13T08:01:00.000Z', sizeBytes: 512, sourceSha256: digest }
     expect(publishPackageResultSchema.parse(result).sizeBytes).toBe(512)
+
+    const placementResult = {
+      schemaVersion: 3,
+      path: 'KINAOU/Renders/demo_youtube_2.publish.json',
+      sourcePath: receipt.outputRelativePath,
+      platform: 'youtube',
+      placement: 'youtube-short',
+      createdAt: '2026-09-13T08:02:00.000Z',
+      sizeBytes: 640,
+      sourceSha256: digest
+    }
+
+    expect(publishPackageResultSchema.parse(placementResult).schemaVersion).toBe(3)
     expect(() => publishPackageResultSchema.parse({ ...result, path: 'KINAOU/Assets/demo.publish.json' })).toThrow()
     expect(() => publishPackageResultSchema.parse({ ...result, sizeBytes: 0 })).toThrow()
     expect(() => publishPackageResultSchema.parse({ ...result, sourceSha256: digest.toUpperCase() })).toThrow()
@@ -117,6 +131,41 @@ describe('local publish packages', () => {
     })
     expect(current.document.schemaVersion).toBe(2)
     expect(() => publishPackageEntrySchema.parse({ ...current, document: { ...current.document, media: { ...current.document.media, sizeBytes: 1200 } } })).toThrow(/integrity size/)
+
+    const placementAware = publishPackageEntrySchema.parse({
+      ...entry,
+      document: {
+        ...entry.document,
+        schemaVersion: 3,
+        platform: 'youtube',
+        placement: 'youtube-short',
+        delivery: {
+          checkedAt: '2026-09-13T08:01:00.000Z',
+          ready: true,
+          preferredFormat: 'vertical'
+        },
+        integrity: {
+          checkedAt: '2026-09-13T08:01:00.000Z',
+          actual: {
+            sizeBytes: 1234,
+            durationMs: 8050,
+            width: 1080,
+            height: 1920,
+            videoCodec: 'h264',
+            audioCodec: 'aac'
+          },
+          sha256: digest
+        }
+      }
+    })
+
+    expect(placementAware.document.schemaVersion).toBe(3)
+
+    if (placementAware.document.schemaVersion === 3) {
+      expect(placementAware.document.placement).toBe('youtube-short')
+      expect(placementAware.document.delivery.ready).toBe(true)
+      expect(placementAware.document.delivery.preferredFormat).toBe('vertical')
+    }
   })
 
   it('strictly validates explicit package integrity outcomes', () => {
@@ -138,8 +187,9 @@ describe('local publish packages', () => {
       tags: '#Local AI, Editing\nlocal ai'
     }, new Date('2026-09-13T09:01:00.000Z'))
     expect(projectPublishDefaults(saved)).toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
       platform: 'instagram',
+      placement: 'instagram-feed',
       title: 'Repeatable title',
       description: 'Repeatable description.',
       tags: ['Local AI', 'Editing'],
@@ -149,6 +199,56 @@ describe('local publish packages', () => {
     expect(project.metadata.publishDefaults).toBeUndefined()
     expect(projectPublishDefaults(parseProject(JSON.parse(JSON.stringify(saved))))).toEqual(projectPublishDefaults(saved))
     expect(projectPublishDefaults(createProject('Another project'))).toBeNull()
+
+    const explicit = saveProjectPublishDefaults(
+      saved,
+      {
+        platform: 'youtube',
+        placement: 'youtube-video',
+        title: 'Repeatable title',
+        description: 'Repeatable description.',
+        tags: 'Local AI, Editing'
+      },
+      new Date('2026-09-13T09:30:00.000Z')
+    )
+
+    expect(projectPublishDefaults(explicit)).toMatchObject({
+      schemaVersion: 2,
+      platform: 'youtube',
+      placement: 'youtube-video'
+    })
+
+    const legacy = {
+      ...createProject('Legacy defaults'),
+      metadata: {
+        publishDefaults: {
+          schemaVersion: 1,
+          platform: 'youtube',
+          title: 'Legacy title',
+          description: '',
+          tags: [],
+          updatedAt: '2026-09-13T09:00:00.000Z'
+        }
+      }
+    }
+
+    expect(projectPublishDefaults(legacy)).toMatchObject({
+      schemaVersion: 1,
+      platform: 'youtube'
+    })
+
+    expect(() =>
+      saveProjectPublishDefaults(
+        saved,
+        {
+          platform: 'instagram',
+          placement: 'youtube-video',
+          title: 'Mismatch',
+          description: '',
+          tags: ''
+        }
+      )
+    ).toThrow(/does not belong/)
 
     const unchanged = saveProjectPublishDefaults(saved, { platform: 'instagram', title: 'Repeatable title', description: 'Repeatable description.', tags: 'Local AI, Editing' }, new Date('2026-09-13T10:00:00.000Z'))
     expect(unchanged).toBe(saved)

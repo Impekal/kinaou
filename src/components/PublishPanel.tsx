@@ -1,8 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { projectExportHistory } from '../core/exportHistory'
-import { buildPublishPackageRequest, clearProjectPublishDefaults, projectPublishDefaults, publishPreflightMatchesReceipt, saveProjectPublishDefaults, type PublishIntegrityResult, type PublishPackageEntry, type PublishPackageResult, type PublishPreflightResult, type PublishTarget } from '../core/publishPackage'
+import { buildPublishPackageRequest, clearProjectPublishDefaults, parsePublishTags, projectPublishDefaults, publishPreflightMatchesReceipt, saveProjectPublishDefaults, type PublishIntegrityResult, type PublishPackageEntry, type PublishPackageResult, type PublishPreflightResult, type PublishTarget } from '../core/publishPackage'
 import type { KinaouProject } from '../core/project'
 import type { TargetFormat } from '../core/render'
+import {
+  defaultPublishPlacementForPlatform,
+  publishPlacementProfiles,
+  reviewPublishPlacement,
+  type PublishPlacement
+} from '../core/publishProfiles'
 import { WorkerClient } from '../core/workerClient'
 import { useUiLanguage } from './UiLanguageProvider'
 import { displayExportReceiptLabel } from '../core/uiSystemLabels'
@@ -21,6 +27,26 @@ export const publishTargetKeys = {
   instagram: 'publish.platform.instagram',
   tiktok: 'publish.platform.tiktok',
   generic: 'publish.platform.generic'
+} as const
+
+export const publishPlacementKeys = {
+  'youtube-video': 'publish.placement.youtube-video',
+  'youtube-short': 'publish.placement.youtube-short',
+  'instagram-reel': 'publish.placement.instagram-reel',
+  'instagram-feed': 'publish.placement.instagram-feed',
+  'tiktok-video': 'publish.placement.tiktok-video',
+  generic: 'publish.placement.generic'
+} as const
+
+export const publishPlacementIssueKeys = {
+  format: 'publish.placement.issue.format',
+  'duration-minimum': 'publish.placement.issue.duration-minimum',
+  'duration-maximum': 'publish.placement.issue.duration-maximum',
+  'title-required': 'publish.placement.issue.title-required',
+  'title-length': 'publish.placement.issue.title-length',
+  'description-length': 'publish.placement.issue.description-length',
+  'tag-count': 'publish.placement.issue.tag-count',
+  'tag-length': 'publish.placement.issue.tag-length'
 } as const
 
 export const publishFormatKeys = {
@@ -48,6 +74,14 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
   const savedDefaults = projectPublishDefaults(project)
   const [selectedJobId, setSelectedJobId] = useState(() => receipts[0]?.jobId ?? '')
   const [platform, setPlatform] = useState<PublishTarget>(() => savedDefaults?.platform ?? 'youtube')
+  const [placement, setPlacement] = useState<PublishPlacement>(() =>
+    savedDefaults?.schemaVersion === 2
+      ? savedDefaults.placement
+      : defaultPublishPlacementForPlatform(
+          savedDefaults?.platform ?? 'youtube',
+          receipts[0]?.format
+        )
+  )
   const [title, setTitle] = useState(() => savedDefaults?.title ?? project.title)
   const [description, setDescription] = useState(() => savedDefaults?.description ?? '')
   const [tags, setTags] = useState(() => savedDefaults?.tags.join(', ') ?? '')
@@ -64,6 +98,17 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
   const [integrityBusyPath, setIntegrityBusyPath] = useState('')
   const [defaultsMessage, setDefaultsMessage] = useState('')
   const selected = receipts.find((receipt) => receipt.jobId === selectedJobId) ?? receipts[0]
+
+  const savedPlacement =
+    savedDefaults
+      ? savedDefaults.schemaVersion === 2
+        ? savedDefaults.placement
+        : defaultPublishPlacementForPlatform(
+            savedDefaults.platform,
+            selected?.format
+          )
+      : null
+
   const packageSupported = workerCapabilities.includes('publish-package')
   const preflightSupported = workerCapabilities.includes('publish-preflight')
   const librarySupported = workerCapabilities.includes('publish-package-library')
@@ -71,14 +116,81 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
   const currentPreflight = publishPreflightMatchesReceipt(preflight, selected) ? preflight : null
   const operationBusy = busy || preflightBusy || Boolean(integrityBusyPath)
 
+  const placementChoices =
+    Object.values(
+      publishPlacementProfiles
+    ).filter(
+      profile =>
+        profile.platform
+        === platform
+    )
+
+  const placementReviewState = (() => {
+    if (!selected) {
+      return {
+        review: null,
+        error: ''
+      }
+    }
+
+    try {
+      return {
+        review:
+          reviewPublishPlacement(
+            selected,
+            placement,
+            {
+              title,
+              description,
+              tags:
+                parsePublishTags(
+                  tags
+                )
+            }
+          ),
+
+        error:
+          ''
+      }
+    } catch (cause) {
+      return {
+        review:
+          null,
+
+        error:
+          cause instanceof Error
+            ? cause.message
+            : String(cause)
+      }
+    }
+  })()
+
   const date = (value: string) => new Date(value).toLocaleString(language)
   const platformLabel = (value: PublishTarget) => t(publishTargetKeys[value])
+  const placementLabel = (value: PublishPlacement) => t(publishPlacementKeys[value])
   const formatLabel = (value: TargetFormat) => t(publishFormatKeys[value])
 
   useEffect(() => {
     const defaults = projectPublishDefaults(project)
     setSelectedJobId(receipts[0]?.jobId ?? '')
-    setPlatform(defaults?.platform ?? 'youtube')
+
+    const defaultPlatform =
+      defaults?.platform
+      ?? 'youtube'
+
+    setPlatform(
+      defaultPlatform
+    )
+
+    setPlacement(
+      defaults?.schemaVersion === 2
+        ? defaults.placement
+        : defaultPublishPlacementForPlatform(
+            defaultPlatform,
+            receipts[0]?.format
+          )
+    )
+
     setTitle(defaults?.title ?? project.title)
     setDescription(defaults?.description ?? '')
     setTags(defaults?.tags.join(', ') ?? '')
@@ -103,6 +215,16 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
   function useSavedDefaults() {
     if (!savedDefaults) return
     setPlatform(savedDefaults.platform)
+
+    setPlacement(
+      savedDefaults.schemaVersion === 2
+        ? savedDefaults.placement
+        : defaultPublishPlacementForPlatform(
+            savedDefaults.platform,
+            selected?.format
+          )
+    )
+
     setTitle(savedDefaults.title)
     setDescription(savedDefaults.description)
     setTags(savedDefaults.tags.join(', '))
@@ -113,7 +235,13 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
 
   function saveDefaults() {
     try {
-      const next = saveProjectPublishDefaults(project, { platform, title, description, tags })
+      const next = saveProjectPublishDefaults(project, {
+        platform,
+        placement,
+        title,
+        description,
+        tags
+      })
       onProjectChange(next)
       setError('')
       setDefaultsMessage(t(next === project ? 'publish.defaults.already' : 'publish.defaults.saved'))
@@ -143,12 +271,18 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
   }
 
   async function createPackage() {
-    if (!selected || !workerConnected || !packageSupported || !preflightSupported || !integritySupported || !currentPreflight?.ready || operationBusy) return
+    if (!selected || !placementReviewState.review?.ready || !workerConnected || !packageSupported || !preflightSupported || !integritySupported || !currentPreflight?.ready || operationBusy) return
     setBusy(true)
     setError('')
     setResult(null)
     try {
-      const request = buildPublishPackageRequest(project, selected, { platform, title, description, tags })
+      const request = buildPublishPackageRequest(project, selected, {
+        platform,
+        placement,
+        title,
+        description,
+        tags
+      })
       const client = new WorkerClient({ baseUrl: workerUrl, token: workerToken })
       setResult(await client.createPublishPackage(request))
       await refreshPackages(client)
@@ -179,6 +313,16 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
     const matchingReceipt = receipts.find((receipt) => receipt.jobId === document.media.jobId && receipt.outputRelativePath === document.media.outputRelativePath)
     if (matchingReceipt) setSelectedJobId(matchingReceipt.jobId)
     setPlatform(document.platform)
+
+    setPlacement(
+      document.schemaVersion === 3
+        ? document.placement
+        : defaultPublishPlacementForPlatform(
+            document.platform,
+            document.media.format
+          )
+    )
+
     setTitle(document.title)
     setDescription(document.description)
     setTags(document.tags.join(', '))
@@ -188,7 +332,7 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
   }
 
   async function verifyPackage(entry: PublishPackageEntry) {
-    if (!workerConnected || !integritySupported || integrityBusyPath || entry.document.schemaVersion !== 2) return
+    if (!workerConnected || !integritySupported || integrityBusyPath || entry.document.schemaVersion === 1) return
     setIntegrityBusyPath(entry.path)
     setListError('')
     try {
@@ -226,22 +370,77 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
             {!receipts.length && <option value="">{t('publish.export.empty')}</option>}
             {receipts.map((receipt) => <option key={receipt.jobId} value={receipt.jobId}>{displayExportReceiptLabel(receipt, t)} · {formatLabel(receipt.format)} · {date(receipt.completedAt)}</option>)}
           </select></label>
-          <label>{t('publish.destination')}<select value={platform} disabled={operationBusy} onChange={(event) => { setPlatform(event.target.value as PublishTarget); setResult(null) }}>
+          <label>{t('publish.destination')}<select value={platform} disabled={operationBusy} onChange={(event) => {
+            const nextPlatform = event.target.value as PublishTarget
+            setPlatform(nextPlatform)
+            setPlacement(defaultPublishPlacementForPlatform(nextPlatform, selected?.format))
+            setResult(null)
+          }}>
             {(Object.keys(publishTargetKeys) as PublishTarget[]).map((target) => <option key={target} value={target}>{platformLabel(target)}</option>)}
           </select></label>
+
+          <label>{t('publish.placement')}<select value={placement} disabled={operationBusy} onChange={(event) => {
+            setPlacement(event.target.value as PublishPlacement)
+            setResult(null)
+          }}>
+            {placementChoices.map((profile) => <option key={profile.id} value={profile.id}>{placementLabel(profile.id)}</option>)}
+          </select></label>
+
+          <small>{t('publish.placement.help')}</small>
           <label>{t('publish.title')}<input maxLength={200} value={title} disabled={operationBusy} onChange={(event) => { setTitle(event.target.value); setResult(null) }} /></label>
           <label>{t('publish.description')}<textarea maxLength={5000} value={description} disabled={operationBusy} onChange={(event) => { setDescription(event.target.value); setResult(null) }} /></label>
           <label>{t('publish.tags')}<input value={tags} disabled={operationBusy} placeholder={t('publish.tags.placeholder')} onChange={(event) => { setTags(event.target.value); setResult(null) }} /></label>
           <div className="publishDefaultActions"><button className="secondaryButton" disabled={operationBusy || !title.trim()} onClick={saveDefaults}>{t('publish.defaults.save')}</button>{savedDefaults && <><button className="secondaryButton" disabled={operationBusy} onClick={useSavedDefaults}>{t('publish.defaults.use')}</button><button className="secondaryButton" disabled={operationBusy} onClick={clearDefaults}>{t('publish.defaults.clear')}</button></>}</div>
-          {savedDefaults && <small>{t('publish.defaults.summary', { platform: platformLabel(savedDefaults.platform), date: date(savedDefaults.updatedAt) })}</small>}
+          {savedDefaults && savedPlacement && <small>{t('publish.defaults.summary', { placement: placementLabel(savedPlacement), date: date(savedDefaults.updatedAt) })}</small>}
           {defaultsMessage && <div className="note">{defaultsMessage}</div>}
           <button className="secondaryButton" disabled={!selected || !workerConnected || !preflightSupported || !workerToken.trim() || operationBusy} onClick={checkPreflight}>{t(preflightBusy ? 'publish.preflight.inspecting' : currentPreflight ? 'publish.preflight.refresh' : 'publish.preflight.check')}</button>
-          <button className="primary" disabled={!selected || !workerConnected || !packageSupported || !preflightSupported || !integritySupported || !currentPreflight?.ready || !workerToken.trim() || !title.trim() || operationBusy} onClick={createPackage}>{t(busy ? 'publish.package.writing' : 'publish.package.create')}</button>
+          <button className="primary" disabled={!selected || !placementReviewState.review?.ready || !workerConnected || !packageSupported || !preflightSupported || !integritySupported || !currentPreflight?.ready || !workerToken.trim() || !title.trim() || operationBusy} onClick={createPackage}>{t(busy ? 'publish.package.writing' : 'publish.package.create')}</button>
           {!workerConnected && <small>{t('publish.connect')}</small>}
           {workerConnected && (!packageSupported || !preflightSupported || !integritySupported) && <small>{t('publish.capability')}</small>}
           {!receipts.length && <small>{t('publish.noExports')}</small>}
         </div>
       </div>
+
+      {selected && <div className="card availabilityPanel">
+        <div className="sectionLead">
+          <div>
+            <div className="eyebrow">{t('publish.placement.review.eyebrow')}</div>
+            <h3>{placementLabel(placement)}</h3>
+          </div>
+
+          <span className={placementReviewState.review?.ready ? 'status online' : 'status missing'}>
+            {t(placementReviewState.review?.ready ? 'publish.preflight.ready' : 'publish.preflight.blocked')}
+          </span>
+        </div>
+
+        <p>
+          {t(
+            placementReviewState.review?.ready
+              ? 'publish.placement.review.ready'
+              : 'publish.placement.review.blocked'
+          )}
+        </p>
+
+        {placementReviewState.review && <small>
+          {t('publish.placement.review.preferred', {
+            format: formatLabel(placementReviewState.review.preferredFormat)
+          })}
+        </small>}
+
+        {placementReviewState.error && <div className="warning">
+          {t('publish.placement.review.metadataInvalid', {
+            message: placementReviewState.error
+          })}
+        </div>}
+
+        {placementReviewState.review && placementReviewState.review.issues.length > 0 && <div className="publishPreflightChecks">
+          {placementReviewState.review.issues.map((issue) =>
+            <span className="badge offline" key={issue.code}>
+              {t(publishPlacementIssueKeys[issue.code])}
+            </span>
+          )}
+        </div>}
+      </div>}
 
       {currentPreflight && <div className="card availabilityPanel">
         <div className="sectionLead"><div><div className="eyebrow">{t('publish.preflight.eyebrow')}</div><h3>{t(currentPreflight.ready ? 'publish.preflight.match' : 'publish.preflight.mismatch')}</h3></div><span className={currentPreflight.ready ? 'status online' : 'status missing'}>{t(currentPreflight.ready ? 'publish.preflight.ready' : 'publish.preflight.blocked')}</span></div>
@@ -265,7 +464,7 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
         <small>{t('publish.preflight.checked', { date: date(currentPreflight.checkedAt), size: (currentPreflight.actual.sizeBytes / 1024 / 1024).toFixed(1) })}</small>
       </div>}
 
-      {result && <div className="card availabilityPanel"><div className="eyebrow">{t('publish.result.eyebrow')}</div><h3>{t('publish.result.heading', { platform: platformLabel(result.platform) })}</h3><p>{t('publish.result.help')}</p><code>{result.path}</code><small>{t('publish.result.meta', { bytes: result.sizeBytes, sha: result.sourceSha256.slice(0, 12), date: date(result.createdAt) })}</small></div>}
+      {result && <div className="card availabilityPanel"><div className="eyebrow">{t('publish.result.eyebrow')}</div><h3>{t('publish.result.heading', { platform: result.schemaVersion === 3 ? placementLabel(result.placement) : platformLabel(result.platform) })}</h3><p>{t('publish.result.help')}</p><code>{result.path}</code><small>{t('publish.result.meta', { bytes: result.sizeBytes, sha: result.sourceSha256.slice(0, 12), date: date(result.createdAt) })}</small></div>}
 
       {error && <div className="card errorBox">{error}</div>}
 
@@ -289,9 +488,14 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
               ? t('publish.integrity.checkedSha', { date: date(verification.checkedAt), sha: verification.actualSha256.slice(0, 12) })
               : t('publish.integrity.checked', { date: date(verification.checkedAt) })
             : ''
+          const destinationLabel =
+            entry.document.schemaVersion === 3
+              ? placementLabel(entry.document.placement)
+              : platformLabel(entry.document.platform)
+
           return <div className="publishPackageRow" key={entry.path}>
-            <div><strong>{entry.document.title}</strong><small>{platformLabel(entry.document.platform)} · {formatLabel(entry.document.media.format)} · {date(entry.document.createdAt)}</small><code>{entry.path}</code>{verification && <small>{checkedLabel}</small>}</div>
-            <div className="publishPackageActions"><span className={entry.sourceAvailable ? 'badge' : 'badge offline'}>{t(entry.sourceAvailable ? 'publish.source.available' : 'publish.source.missing')}</span><span className={integrityGood ? 'badge' : 'badge offline'}>{integrityLabel}</span>{entry.document.schemaVersion === 2 && <button className="secondaryButton" disabled={busy || listBusy || !integritySupported || Boolean(integrityBusyPath)} onClick={() => void verifyPackage(entry)}>{t(integrityBusyPath === entry.path ? 'publish.integrity.hashing' : 'publish.integrity.verify')}</button>}<button className="secondaryButton" disabled={busy || listBusy} onClick={() => openPackage(entry)}>{t('publish.library.openMetadata')}</button></div>
+            <div><strong>{entry.document.title}</strong><small>{destinationLabel} · {formatLabel(entry.document.media.format)} · {date(entry.document.createdAt)}</small><code>{entry.path}</code>{verification && <small>{checkedLabel}</small>}</div>
+            <div className="publishPackageActions"><span className={entry.sourceAvailable ? 'badge' : 'badge offline'}>{t(entry.sourceAvailable ? 'publish.source.available' : 'publish.source.missing')}</span><span className={integrityGood ? 'badge' : 'badge offline'}>{integrityLabel}</span>{entry.document.schemaVersion !== 1 && <button className="secondaryButton" disabled={busy || listBusy || !integritySupported || Boolean(integrityBusyPath)} onClick={() => void verifyPackage(entry)}>{t(integrityBusyPath === entry.path ? 'publish.integrity.hashing' : 'publish.integrity.verify')}</button>}<button className="secondaryButton" disabled={busy || listBusy} onClick={() => openPackage(entry)}>{t('publish.library.openMetadata')}</button></div>
           </div>
         })}</div>}
         {listError && <div className="errorBox">{listError}</div>}

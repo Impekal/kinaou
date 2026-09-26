@@ -805,7 +805,20 @@ const server = http.createServer(async (request, response) => {
       await mkdir(path.dirname(absolutePath), { recursive: true })
       await writeFile(absolutePath, JSON.stringify(document, null, 2), { encoding: 'utf8', flag: 'wx' })
       const packageInfo = await stat(absolutePath)
-      return send(response, 201, { ok: true, type: 'publish-package', result: { schemaVersion: 2, path: relativePath, sourcePath: sourceRelativePath, platform: input.platform, createdAt, sizeBytes: packageInfo.size, sourceSha256 } })
+      return send(response, 201, {
+        ok: true,
+        type: 'publish-package',
+        result: {
+          schemaVersion: document.schemaVersion === 3 ? 3 : 2,
+          path: relativePath,
+          sourcePath: sourceRelativePath,
+          platform: input.platform,
+          ...(document.schemaVersion === 3 ? { placement: document.placement } : {}),
+          createdAt,
+          sizeBytes: packageInfo.size,
+          sourceSha256
+        }
+      })
     }
 
     if (request.method === 'POST' && request.url === '/publish/packages/integrity') {
