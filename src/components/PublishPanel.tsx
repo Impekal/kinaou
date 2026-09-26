@@ -12,6 +12,7 @@ import {
 import { WorkerClient } from '../core/workerClient'
 import { useUiLanguage } from './UiLanguageProvider'
 import { displayExportReceiptLabel } from '../core/uiSystemLabels'
+import { YouTubePublishPanel } from './YouTubePublishPanel'
 
 interface PublishPanelProps {
   project: KinaouProject
@@ -500,6 +501,14 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
         })}</div>}
         {listError && <div className="errorBox">{listError}</div>}
       </div>
+
+      <YouTubePublishPanel
+        projectId={project.id}
+        workerUrl={workerUrl}
+        workerToken={workerToken}
+        workerConnected={workerConnected}
+        workerCapabilities={workerCapabilities}
+      />
     </section>
   )
 }
