@@ -2,9 +2,13 @@
 
 Last updated: 2026-09-27
 
-## Active unmerged handoff — private TikTok manual delivery
+## Latest merged handoff — private TikTok manual delivery
 
-Branch `build/explicit-tiktok-publishing` continues 5.7A–E, based on main `40527502dd69b0afcb52a98e84733d623443842d` (PR #300). The user accepted manual TikTok handoff on 2026-09-27: KINAOU remains private, independently of account/post visibility. The new DE/EN/FR panel explicitly loads project-scoped TikTok packages, rechecks the managed MP4's path/size/SHA-256 and provides its storage path, caption and unchanged tag suggestions for manual use in TikTok. No upload, OAuth, retry, polling or publication receipt occurs through this panel. Context/selection changes invalidate old evidence. The isolated FILE_UPLOAD module remains unconnected; planned live 5.7F–I are superseded, not claimed complete. See [TIKTOK-FILE-UPLOAD.md](TIKTOK-FILE-UPLOAD.md). Local acceptance: 1,328 app tests, 224 worker tests (only known local libass smoke excluded), TypeScript/build, Node syntax and Swift parse green. Isolated browser checks covered all three languages, copying, changed-file rejection and project switching during an in-flight check; no real platform calls. GitHub full gate/merge pending. Three foreign untracked duplicate files remain untouched. No real platform publishing, model downloads or user-media/SSD operations occurred.
+[PR #301](https://github.com/Impekal/kinaou/pull/301) merged as `105e388b97ef0e149e33c831b5523ae3117cc080` after the complete [CI run 36278092877](https://github.com/Impekal/kinaou/actions/runs/36278092877) passed, including Ubuntu FFmpeg render smoke. The user accepted manual TikTok handoff on 2026-09-27: KINAOU remains private, independently of account/post visibility. The new DE/EN/FR panel explicitly loads project-scoped TikTok packages, rechecks the managed MP4's path/size/SHA-256 and provides its storage path, caption and unchanged tag suggestions for manual use in TikTok. No upload, OAuth, retry, polling or publication receipt occurs through this panel. Context/selection changes invalidate old evidence. Earlier branch-only 5.7A–E groundwork is included; isolated FILE_UPLOAD remains unconnected. Planned live 5.7F–I are superseded, not claimed complete. See [TIKTOK-FILE-UPLOAD.md](TIKTOK-FILE-UPLOAD.md).
+
+Acceptance: 1,328 app tests, 224 local worker tests (only known local libass smoke excluded), TypeScript/build, Node syntax and Swift parse green; GitHub subsequently passed its entire worker suite without that exclusion. Isolated browser checks covered all three languages, copying, changed-file rejection and project switching during an in-flight check; no real platform calls. Three foreign untracked duplicate files remain untouched. No real platform publishing, model downloads or user-media/SSD operations occurred.
+
+Continuation: do not resume TikTok Direct Post F–I merely because the protocol groundwork exists. The accepted private-tool delivery is the manual path. No user/SSD action is required for this completed slice; the user will select their actual exported MP4 in TikTok when they choose to publish. The heartbeat remains paused.
 
 ## Purpose
 This is KINAOU's durable project-memory / handoff file. Update it after every meaningful merged slice so a new chat/session can continue without relying on conversation memory.
@@ -39,6 +43,7 @@ Long-term flow: Discover → Research → Understand → Script → Direct → G
 22. Main YouTube videos and related Shorts should be proposed together, with an explicit local publication plan. Label timing suggestions with audience region/timezone and their evidence; absent channel analytics, provide reviewable test hypotheses rather than fabricated best-time/virality claims. No automatic remote publication is authorized by a local recommendation.
 23. Support cartoons, engaging age-appropriate children's videos and educational content, not only realistic presenters or adult courses. Optional trend research must retain dated attributable evidence and never turn local-model guesses into current demand claims. Children's content needs an explicit age/learning target and content/factual review; cartoons are not automatically suitable for children.
 24. The requested production path must not depend on recurring subscriptions, paid inference or cloud APIs. Prefer compatible local/open runtimes and authorized assets; disclose real storage, hardware and electricity requirements. No promise of zero operating costs, silent downloads or license circumvention.
+25. KINAOU is a personal application, not a public download/service. This is independent of whether destination social-media accounts or posts are public/private. TikTok currently uses the explicitly accepted manual MP4/text handoff; do not enable Direct Post without a new, compatible and explicitly approved product decision.
 
 Detailed acceptance criteria and source-backed platform constraints: [CREATIVE_QUALITY.md](CREATIVE_QUALITY.md).
 
@@ -60,7 +65,7 @@ Safety rule: only paths below the configured KINAOU root may be created/moved/de
 ## Repository
 Repo: `Impekal/kinaou`
 Default branch: `main`
-Current main SHA after point-1 acceptance PR #261: `f6b8232423c6949463e539606b57dfd98d13c85e`
+Latest implementation main SHA after manual TikTok handoff PR #301: `105e388b97ef0e149e33c831b5523ae3117cc080`
 
 ## Merged slices
 - **PR #261** — final DE/EN/FR point-1 acceptance gate. A dedicated cross-workflow regression reuses unchanged drafts and authored data through DE → FR → EN across the real application shell plus representative Settings, Course, Timeline, Assets and Publish surfaces. A second acceptance path exercises active/recovery feedback for Audio, Image, Video, single export and STT while preserving submitted content and technical diagnostics; the existing Short batch multilingual lifecycle/recovery suite remains part of the same full gate. The temporary final-coverage notice was removed only after this acceptance passed. PR CI 35657095575 on `d1c98dd` and main CI 35657251441 on merge `f6b8232` both passed 978/978 application tests across 100 test files, 83/83 worker tests, production build and worker syntax checks. No new dependency, browser automation framework, worker behavior, model, media, persistence, render or deployment behavior was introduced. **Completion point 1 is complete.**

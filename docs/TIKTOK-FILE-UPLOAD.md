@@ -1,6 +1,6 @@
 # TikTok FILE_UPLOAD — isolated Phase 5.7E
 
-Status: implemented on `build/explicit-tiktok-publishing`, not wired to live worker publishing endpoints or UI. Earlier 5.7A–D commits remain on the same branch. No real TikTok upload, credential access or account change was performed by these tests.
+Status: merged with manual TikTok handoff in [PR #301](https://github.com/Impekal/kinaou/pull/301), implementation main `105e388b97ef0e149e33c831b5523ae3117cc080`. FILE_UPLOAD is not wired to live worker publishing endpoints or UI. Earlier 5.7A–D groundwork is included. No real TikTok upload, credential access or account change was performed by these tests.
 
 ## Official protocol references checked 2026-09-27
 
@@ -36,4 +36,4 @@ Finishing FILE_UPLOAD starts TikTok processing/posting under Direct Post; it is 
 - Browser acceptance used an isolated synthetic package/worker-response fixture, not a real TikTok account or user video. Explicit load → select → verify → copy succeeded; DE → FR → EN preserved authored text and added no requests. A modified-source response removed handoff controls. Switching project during a delayed verification discarded the late result. The temporary fixture and browser tab were removed afterward.
 - 224 local versioned Worker tests passed with only `worker/render-smoke.node-test.mjs` excluded for the known local missing libass filter. Foreign untracked duplicates were not test inputs.
 - Worker/protocol Node syntax and `swiftc -frontend -parse worker/keychain-helper.swift` passed.
-- GitHub's complete Ubuntu gate, including render smoke, is required before merge.
+- The complete [GitHub Ubuntu CI gate 36278092877](https://github.com/Impekal/kinaou/actions/runs/36278092877) passed before PR #301 merged, including the full worker suite and FFmpeg render smoke.
