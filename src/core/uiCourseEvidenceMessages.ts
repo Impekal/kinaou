@@ -1,0 +1,30 @@
+export const uiCourseEvidenceMessages = {
+  'course.evidence.heading': ['Quellen & Demonstrationen', 'Sources & demonstrations', 'Sources et démonstrations'],
+  'course.evidence.help': [
+    'Mit der Kursgliederung speichern. Hier dokumentierst du Quellen und eigene Beobachtungen; KINAOU ruft URLs nicht ab und führt keine Schritte aus. Dateiverknüpfungen bestätigen weder Durchführung, Echtheit noch fachliche Richtigkeit. Generierte Visuals sind keine Aufnahmen einer ausgeführten Demonstration. Die Dozentenprüfung steht separat aus.',
+    'Save with the course outline. Record sources and your own observations here; KINAOU does not fetch URLs or execute steps. File links prove neither execution, authenticity nor factual correctness. Generated visuals are not recordings of an executed demonstration. Instructor review remains separate.',
+    'Enregistrez avec le plan du cours. Documentez ici les sources et vos observations ; KINAOU ne consulte pas les URL et n’exécute aucune étape. Les liens ne prouvent ni exécution, ni authenticité, ni exactitude. Les visuels générés ne sont pas des enregistrements d’une démonstration exécutée. La validation du formateur reste distincte.'
+  ],
+  'course.evidence.sources': ['Quellen dieser Lektion', 'Lesson sources', 'Sources de la leçon'],
+  'course.evidence.source': ['Quelle', 'Source', 'Source'],
+  'course.evidence.title': ['Bezeichnung', 'Label', 'Intitulé'],
+  'course.evidence.url': ['Quellen-URL (HTTP/HTTPS, ohne Zugangsdaten)', 'Source URL (HTTP/HTTPS, no credentials)', 'URL de la source (HTTP/HTTPS, sans identifiants)'],
+  'course.evidence.accessed': ['Von dir abgerufen am (optional)', 'Date you accessed it (optional)', 'Date de votre consultation (facultative)'],
+  'course.evidence.notes': ['Welche Aussage belegt die Quelle? / Notizen', 'Which claim does the source support? / Notes', 'Quelle affirmation la source étaye-t-elle ? / Notes'],
+  'course.evidence.addSource': ['Quelle hinzufügen', 'Add source', 'Ajouter une source'],
+  'course.evidence.removeSource': ['Quellenverweis aus Entwurf entfernen', 'Remove source reference from draft', 'Retirer la référence du brouillon'],
+  'course.evidence.demos': ['Demonstrationen dieser Lektion', 'Lesson demonstrations', 'Démonstrations de la leçon'],
+  'course.evidence.demo': ['Demonstration', 'Demonstration', 'Démonstration'],
+  'course.evidence.steps': ['Ablauf / Voraussetzungen', 'Procedure / prerequisites', 'Procédure / prérequis'],
+  'course.evidence.expected': ['Erwartetes Ergebnis', 'Expected result', 'Résultat attendu'],
+  'course.evidence.observed': ['Deine tatsächliche Beobachtung (leer lassen, wenn nicht durchgeführt)', 'Your actual observation (leave blank if not performed)', 'Votre observation réelle (laisser vide si non exécutée)'],
+  'course.evidence.performed': ['Von dir durchgeführt am (optional)', 'Date you performed it (optional)', 'Date de votre exécution (facultative)'],
+  'course.evidence.asset': ['Vorhandene Projektdatei verknüpfen', 'Link existing project asset', 'Lier un fichier existant du projet'],
+  'course.evidence.none': ['Kein Dateibeleg verknüpft', 'No file evidence linked', 'Aucun fichier justificatif lié'],
+  'course.evidence.linked': ['Projektdatei verknüpft – Inhalt und Dateiverfügbarkeit nicht geprüft', 'Project asset linked – content and file presence not checked', 'Fichier du projet lié – contenu et présence non vérifiés'],
+  'course.evidence.missing': ['Verknüpfte Datei fehlt im Projekt; ursprünglicher Verweis bleibt erhalten', 'Linked asset missing from project; original reference retained', 'Fichier lié absent du projet ; référence originale conservée'],
+  'course.evidence.changed': ['Dateizuordnung geändert – Auswahl leeren, dann Datei erneut wählen', 'Asset mapping changed – clear selection, then select the file again', 'Correspondance du fichier modifiée – effacez la sélection, puis choisissez à nouveau le fichier'],
+  'course.evidence.offline': ['Verknüpfte Datei ist als offline markiert', 'Linked asset is marked offline', 'Le fichier lié est signalé hors ligne'],
+  'course.evidence.addDemo': ['Demonstration hinzufügen', 'Add demonstration', 'Ajouter une démonstration'],
+  'course.evidence.removeDemo': ['Demonstration aus Entwurf entfernen (Datei behalten)', 'Remove demonstration from draft (keep file)', 'Retirer la démonstration du brouillon (conserver le fichier)']
+} as const

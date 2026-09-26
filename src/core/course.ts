@@ -3,6 +3,7 @@ import { touchProject, type KinaouProject } from './project'
 import { contentLanguageSchema, projectContentProfile } from './contentProfile'
 import { createRangeRenderPlan, validateRenderRange } from './renderRange'
 import type { RenderPlan } from './render'
+import { courseDemonstrationSchema, courseDemoEvidenceState, courseEvidenceLimits, courseSourceSchema } from './courseEvidence'
 
 const id = z.string().regex(/^[a-zA-Z0-9-]{1,100}$/)
 const title = z.string().trim().min(1).max(120)
@@ -11,6 +12,8 @@ export const courseLessonSchema = z.object({
   id, title, objective: z.string().trim().max(2000),
   // Optional for existing outlines; preserve authored whitespace and language exactly.
   script: z.string().max(courseScriptLimits.lesson).optional(),
+  sources: z.array(courseSourceSchema).max(courseEvidenceLimits.sourcesPerLesson).optional(),
+  demonstrations: z.array(courseDemonstrationSchema).max(courseEvidenceLimits.demosPerLesson).optional(),
   range: z.object({ inMs: z.number().int().min(0).max(86400000), outMs: z.number().int().positive().max(86400000) }).strict().refine((range) => range.outMs > range.inMs, 'Lesson Out must be later than In')
 }).strict()
 export const courseOutlineSchema = z.object({
@@ -24,6 +27,13 @@ export const courseOutlineSchema = z.object({
   if (course.modules.reduce((count, module) => count + module.lessons.length, 0) > 200) ctx.addIssue({ code: 'custom', message: 'A course can contain at most 200 lessons' })
   const scriptLength = course.modules.reduce((count, module) => count + module.lessons.reduce((sum, lesson) => sum + (lesson.script?.length ?? 0), 0), 0)
   if (scriptLength > courseScriptLimits.course) ctx.addIssue({ code: 'custom', path: ['modules'], message: 'Course scripts can contain at most 200000 characters in total' })
+  let evidenceLength = 0
+  for (const module of course.modules) for (const lesson of module.lessons) {
+    const evidenceIds = [...(lesson.sources ?? []), ...(lesson.demonstrations ?? [])].map(entry => entry.id)
+    if (new Set(evidenceIds).size !== evidenceIds.length) ctx.addIssue({ code: 'custom', message: 'Source and demonstration IDs must be unique within each lesson' })
+    evidenceLength += JSON.stringify(lesson.sources ?? []).length + JSON.stringify(lesson.demonstrations ?? []).length
+  }
+  if (evidenceLength > courseEvidenceLimits.courseCharacters) ctx.addIssue({ code: 'custom', path: ['modules'], message: 'Course evidence exceeds the total size limit' })
 })
 export type CourseOutline = z.infer<typeof courseOutlineSchema>
 export type CourseLesson = z.infer<typeof courseLessonSchema>
@@ -50,6 +60,13 @@ export function saveCourseOutline(project: KinaouProject, value: CourseOutline, 
   const current = projectCourse(project)
   const parsed = courseOutlineSchema.parse(value)
   if (current && (current.id !== parsed.id || current.revision !== parsed.revision)) throw new Error('The saved course changed. Reload the outline before saving your edits.')
+  for (const module of parsed.modules) for (const lesson of module.lessons) for (const demo of lesson.demonstrations ?? []) {
+    if (!demo.evidence) continue
+    const previous = current?.modules.flatMap(module => module.lessons).find(entry => entry.id === lesson.id)?.demonstrations?.find(entry => entry.id === demo.id)
+    // Retain old references when media becomes offline/missing; never silently rebind them.
+    if (JSON.stringify(previous?.evidence) === JSON.stringify(demo.evidence)) continue
+    if (courseDemoEvidenceState(project, demo) !== 'linked') throw new Error('A new demonstration reference must match an available managed asset in this project')
+  }
   if (current && JSON.stringify(current) === JSON.stringify(parsed)) return project
   return touchProject({ ...project, metadata: { ...project.metadata, courseOutline: { ...parsed, revision: current ? current.revision + 1 : 1 } } }, now)
 }
