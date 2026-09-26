@@ -65,6 +65,20 @@ import { refreshYouTubeAccessToken } from './youtube-oauth.mjs'
 import { createYouTubePublisher } from './youtube-publisher.mjs'
 import { createYouTubeResumableTransport } from './youtube-resumable.mjs'
 import { executeExplicitYouTubePublish } from './youtube-publish-execution.mjs'
+import { createInstagramMacCredentialStore } from './instagram-keychain.mjs'
+import { createInstagramOAuthRuntime } from './instagram-oauth-runtime.mjs'
+import { resolveEnvironmentInstagramDeliveryUrl } from './instagram-delivery.mjs'
+import { createInstagramReelsProtocol } from './instagram-meta-reels.mjs'
+import { createInstagramPublisher } from './instagram-publisher.mjs'
+import {
+  InstagramContainerNotReadyError,
+  createInstagramReelsTransport
+} from './instagram-reels-transport.mjs'
+import {
+  createInstagramPendingTicket,
+  resumeExplicitInstagramPublish
+} from './instagram-publish-pending.mjs'
+import { executeExplicitInstagramPublish } from './instagram-publish-execution.mjs'
 import {
   avatarReceiptRelativePath,
   existingAvatarReceiptMatches,
@@ -175,6 +189,139 @@ const youtubeOAuthRuntime =
 
     keychain:
       createMacKeychainStore()
+  })
+
+
+const instagramOAuthRuntime =
+  createInstagramOAuthRuntime({
+    clientId:
+      process.env
+        .KINAOU_INSTAGRAM_CLIENT_ID
+      ?? '',
+
+    clientSecret:
+      process.env
+        .KINAOU_INSTAGRAM_CLIENT_SECRET
+      ?? '',
+
+    redirectUri:
+      process.env
+        .KINAOU_INSTAGRAM_REDIRECT_URI
+      ?? '',
+
+    apiVersion:
+      process.env
+        .KINAOU_INSTAGRAM_API_VERSION
+      ?? '',
+
+    credentialStore:
+      createInstagramMacCredentialStore()
+  })
+
+
+async function resolveInstagramPublishingCredential() {
+  const environment =
+    resolvePlatformCredentialSecrets(
+      'instagram',
+      process.env
+    )
+
+
+  if (
+    environment
+      ?.accessToken
+  ) {
+    const accountId =
+      process.env
+        .KINAOU_INSTAGRAM_ACCOUNT_ID
+        ?.trim()
+
+
+    if (!accountId) {
+      throw new Error(
+        'Environment Instagram publishing requires KINAOU_INSTAGRAM_ACCOUNT_ID'
+      )
+    }
+
+
+    return {
+      platform:
+        'instagram',
+
+      accessToken:
+        environment
+          .accessToken,
+
+      accountId
+    }
+  }
+
+
+  return instagramOAuthRuntime
+    .resolveCredential()
+}
+
+
+function createConfiguredInstagramReelsProtocol() {
+  const origin =
+    process.env
+      .KINAOU_INSTAGRAM_GRAPH_ORIGIN
+      ?.trim()
+
+  const version =
+    process.env
+      .KINAOU_INSTAGRAM_API_VERSION
+      ?.trim()
+
+
+  if (
+    !origin
+    || !version
+  ) {
+    throw new Error(
+      'Instagram Meta publishing protocol is not configured'
+    )
+  }
+
+
+  return createInstagramReelsProtocol({
+    origin,
+    version
+  })
+}
+
+
+function createConfiguredInstagramReelsTransport() {
+  return createInstagramReelsTransport({
+    protocol:
+      createConfiguredInstagramReelsProtocol()
+  })
+}
+
+
+const instagramPublisher =
+  createInstagramPublisher({
+    resolveCredential:
+      resolveInstagramPublishingCredential,
+
+    resolveDeliveryUrl:
+      evidence =>
+        resolveEnvironmentInstagramDeliveryUrl(
+          evidence,
+          process.env
+        ),
+
+    /*
+     * Do not construct the Meta protocol at worker startup.
+     * An unconfigured worker must remain fully usable for every other
+     * KINAOU feature. Meta configuration is validated only after an
+     * explicit Instagram publish action reaches this boundary.
+     */
+    transport:
+      async value =>
+        createConfiguredInstagramReelsTransport()(
+          value
+        )
   })
 
 
@@ -326,7 +473,7 @@ const server = http.createServer(async (request, response) => {
           name: 'KINAOU Mac Worker',
           platform: process.platform,
           version: VERSION,
-          capabilities: ['filesystem', 'asset-upload', 'managed-sha256', 'avatar-creation-receipt', 'avatar-identity-runtime', 'publish-package-library', 'publish-package-integrity', 'publish-credentials', ...(process.platform === 'darwin' && process.env.KINAOU_YOUTUBE_CLIENT_ID?.trim() ? ['youtube-oauth'] : []), ...((process.env.KINAOU_YOUTUBE_ACCESS_TOKEN?.trim() || (process.env.KINAOU_YOUTUBE_REFRESH_TOKEN?.trim() && process.env.KINAOU_YOUTUBE_CLIENT_ID?.trim()) || (process.platform === 'darwin' && process.env.KINAOU_YOUTUBE_CLIENT_ID?.trim())) ? ['youtube-publish'] : []), 'format-reframing', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe', 'publish-preflight', 'publish-package'] : []), ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(((PIPER_CLI && piperVoices.length) || chatterboxRuntime?.available) && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : []), ...(avatarEditAvailable ? ['avatar-identity-edit'] : []), 'avatar-render-runtime', ...(avatarRenderRuntime.localGenerative.available ? ['avatar-final-local'] : [])],
+          capabilities: ['filesystem', 'asset-upload', 'managed-sha256', 'avatar-creation-receipt', 'avatar-identity-runtime', 'publish-package-library', 'publish-package-integrity', 'publish-credentials', ...(process.platform === 'darwin' && process.env.KINAOU_YOUTUBE_CLIENT_ID?.trim() ? ['youtube-oauth'] : []), ...((process.env.KINAOU_YOUTUBE_ACCESS_TOKEN?.trim() || (process.env.KINAOU_YOUTUBE_REFRESH_TOKEN?.trim() && process.env.KINAOU_YOUTUBE_CLIENT_ID?.trim()) || (process.platform === 'darwin' && process.env.KINAOU_YOUTUBE_CLIENT_ID?.trim())) ? ['youtube-publish'] : []), ...((process.platform === 'darwin' && process.env.KINAOU_INSTAGRAM_CLIENT_ID?.trim() && process.env.KINAOU_INSTAGRAM_CLIENT_SECRET?.trim() && process.env.KINAOU_INSTAGRAM_REDIRECT_URI?.trim() && process.env.KINAOU_INSTAGRAM_API_VERSION?.trim()) ? ['instagram-oauth'] : []), ...((((process.env.KINAOU_INSTAGRAM_ACCESS_TOKEN?.trim() && process.env.KINAOU_INSTAGRAM_ACCOUNT_ID?.trim()) || (process.platform === 'darwin' && process.env.KINAOU_INSTAGRAM_CLIENT_ID?.trim() && process.env.KINAOU_INSTAGRAM_CLIENT_SECRET?.trim() && process.env.KINAOU_INSTAGRAM_REDIRECT_URI?.trim() && process.env.KINAOU_INSTAGRAM_API_VERSION?.trim())) && process.env.KINAOU_INSTAGRAM_GRAPH_ORIGIN?.trim() && process.env.KINAOU_INSTAGRAM_DELIVERY_URL?.trim() && process.env.KINAOU_INSTAGRAM_DELIVERY_PATH?.trim() && process.env.KINAOU_INSTAGRAM_DELIVERY_SHA256?.trim() && process.env.KINAOU_INSTAGRAM_DELIVERY_SIZE_BYTES?.trim()) ? ['instagram-publish'] : []), 'format-reframing', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe', 'publish-preflight', 'publish-package'] : []), ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(((PIPER_CLI && piperVoices.length) || chatterboxRuntime?.available) && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : []), ...(avatarEditAvailable ? ['avatar-identity-edit'] : []), 'avatar-render-runtime', ...(avatarRenderRuntime.localGenerative.available ? ['avatar-final-local'] : [])],
           managedRoots: [MANAGED_ROOT],
           ffmpegVersion: versions.ffmpeg,
           ffprobeVersion: versions.ffprobe
@@ -395,6 +542,66 @@ const server = http.createServer(async (request, response) => {
             youtubeIndex
           ] =
             youtubeStatus
+        }
+      }
+
+      const instagramIndex =
+        statuses.findIndex(
+          status =>
+            status.platform
+            === 'instagram'
+        )
+
+      const instagramEnvironmentAvailable =
+        instagramIndex >= 0
+        && statuses[
+          instagramIndex
+        ].state
+          === 'available'
+
+      const instagramOAuthConfigured =
+        Boolean(
+          process.env
+            .KINAOU_INSTAGRAM_CLIENT_ID
+            ?.trim()
+          && process.env
+            .KINAOU_INSTAGRAM_CLIENT_SECRET
+            ?.trim()
+          && process.env
+            .KINAOU_INSTAGRAM_REDIRECT_URI
+            ?.trim()
+          && process.env
+            .KINAOU_INSTAGRAM_API_VERSION
+            ?.trim()
+        )
+
+      /*
+       * Environment credentials keep precedence here too.
+       * Keychain is queried only when Instagram OAuth is configured and
+       * there is no explicitly configured environment credential.
+       */
+      if (
+        process.platform
+          === 'darwin'
+        && instagramOAuthConfigured
+        && !instagramEnvironmentAvailable
+      ) {
+        const instagramStatus =
+          await instagramOAuthRuntime
+            .credentialStatus()
+            .catch(
+              () =>
+                null
+            )
+
+        if (
+          instagramStatus
+          && instagramIndex >= 0
+        ) {
+          statuses[
+            instagramIndex
+          ] =
+            instagramStatus
         }
       }
 
@@ -1089,6 +1296,332 @@ const server = http.createServer(async (request, response) => {
         }
       })
     }
+
+    if (
+      request.method === 'POST'
+      && request.url
+        === '/publish/instagram/oauth/start'
+    ) {
+      return send(
+        response,
+        201,
+        {
+          ok: true,
+          type:
+            'instagram-oauth-session',
+
+          session:
+            await instagramOAuthRuntime
+              .start()
+        }
+      )
+    }
+
+
+    if (
+      request.method === 'GET'
+      && request.url
+        === '/publish/instagram/oauth/status'
+    ) {
+      return send(
+        response,
+        200,
+        {
+          ok: true,
+          type:
+            'instagram-oauth-session',
+
+          session:
+            await instagramOAuthRuntime
+              .status()
+        }
+      )
+    }
+
+
+    if (
+      request.method === 'POST'
+      && request.url
+        === '/publish/instagram/oauth/complete'
+    ) {
+      const body =
+        await readJson(
+          request
+        )
+
+      return send(
+        response,
+        200,
+        {
+          ok: true,
+          type:
+            'instagram-oauth-session',
+
+          session:
+            await instagramOAuthRuntime
+              .complete(
+                body
+              )
+        }
+      )
+    }
+
+
+    if (
+      request.method === 'POST'
+      && request.url
+        === '/publish/instagram/oauth/cancel'
+    ) {
+      return send(
+        response,
+        200,
+        {
+          ok: true,
+          type:
+            'instagram-oauth-session',
+
+          session:
+            await instagramOAuthRuntime
+              .cancel()
+        }
+      )
+    }
+
+
+    if (
+      request.method === 'POST'
+      && request.url
+        === '/publish/instagram/disconnect'
+    ) {
+      return send(
+        response,
+        200,
+        {
+          ok: true,
+          type:
+            'instagram-oauth-session',
+
+          session:
+            await instagramOAuthRuntime
+              .disconnect()
+        }
+      )
+    }
+
+
+    if (
+      request.method === 'POST'
+      && request.url
+        === '/publish/instagram'
+    ) {
+      const body =
+        await readJson(
+          request
+        )
+
+      const controller =
+        new AbortController()
+
+      const abort =
+        () =>
+          controller.abort()
+
+      request.once(
+        'aborted',
+        abort
+      )
+
+      try {
+        try {
+          const receipt =
+            await executeExplicitInstagramPublish({
+              requestValue:
+                body?.request,
+
+              attemptId:
+                body?.attemptId,
+
+              readPackage:
+                readPublishPackage,
+
+              rehashSource:
+                async (
+                  relativePath,
+                  expectedSize
+                ) =>
+                  sha256ManagedFile(
+                    requireManagedRelativePath(
+                      relativePath
+                    ),
+                    expectedSize,
+                    'Instagram publish source'
+                  ),
+
+              publisher:
+                instagramPublisher,
+
+              signal:
+                controller.signal
+            })
+
+
+          return send(
+            response,
+            201,
+            {
+              ok: true,
+              type:
+                'instagram-publish-receipt',
+
+              receipt
+            }
+          )
+
+        } catch (
+          error
+        ) {
+          if (
+            error
+              instanceof InstagramContainerNotReadyError
+            && error.statusCode
+              === 'IN_PROGRESS'
+          ) {
+            const pending =
+              createInstagramPendingTicket({
+                requestValue:
+                  body?.request,
+
+                attemptId:
+                  body?.attemptId,
+
+                containerId:
+                  error.containerId,
+
+                secret:
+                  TOKEN
+              })
+
+
+            return send(
+              response,
+              202,
+              {
+                ok: true,
+                type:
+                  'instagram-publish-pending',
+
+                pending
+              }
+            )
+          }
+
+          throw error
+        }
+
+      } finally {
+        request.removeListener(
+          'aborted',
+          abort
+        )
+      }
+    }
+
+
+    if (
+      request.method === 'POST'
+      && request.url
+        === '/publish/instagram/resume'
+    ) {
+      const body =
+        await readJson(
+          request
+        )
+
+      const controller =
+        new AbortController()
+
+      const abort =
+        () =>
+          controller.abort()
+
+      request.once(
+        'aborted',
+        abort
+      )
+
+      try {
+        const result =
+          await resumeExplicitInstagramPublish({
+            pendingValue:
+              body?.pending,
+
+            secret:
+              TOKEN,
+
+            rehashSource:
+              async (
+                relativePath,
+                expectedSize
+              ) =>
+                sha256ManagedFile(
+                  requireManagedRelativePath(
+                    relativePath
+                  ),
+                  expectedSize,
+                  'Instagram pending source'
+                ),
+
+            resolveCredential:
+              resolveInstagramPublishingCredential,
+
+            protocol:
+              createConfiguredInstagramReelsProtocol(),
+
+            signal:
+              controller.signal
+          })
+
+
+        if (
+          result.state
+            === 'pending'
+        ) {
+          return send(
+            response,
+            202,
+            {
+              ok: true,
+              type:
+                'instagram-publish-pending',
+
+              pending:
+                result.pending
+            }
+          )
+        }
+
+
+        return send(
+          response,
+          201,
+          {
+            ok: true,
+            type:
+              'instagram-publish-receipt',
+
+            receipt:
+              result.receipt
+          }
+        )
+
+      } finally {
+        request.removeListener(
+          'aborted',
+          abort
+        )
+      }
+    }
+
 
     if (
       request.method === 'POST'

@@ -25,6 +25,14 @@ import {
   type YouTubeOAuthSession
 } from './youtubePublishing'
 import {
+  instagramOAuthCallbackEnvelopeSchema,
+  instagramOAuthSessionSchema,
+  instagramPublishPendingSchema,
+  type InstagramOAuthCallbackEnvelope,
+  type InstagramOAuthSession,
+  type InstagramPublishPending
+} from './instagramPublishing'
+import {
   parsePlatformCredentialStatuses,
   type PlatformCredentialStatus
 } from './platformCredentials'
@@ -389,6 +397,393 @@ export class WorkerClient {
     ) {
       throw new Error(
         'YouTube publish receipt does not match the submitted request'
+      )
+    }
+
+    return receipt
+  }
+
+
+  async startInstagramOAuth(): Promise<InstagramOAuthSession> {
+    const payload =
+      await this.request(
+        '/publish/instagram/oauth/start',
+        {
+          method:
+            'POST'
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'instagram-oauth-session'
+    ) {
+      throw new Error(
+        'Invalid Instagram OAuth start response'
+      )
+    }
+
+    return instagramOAuthSessionSchema
+      .parse(
+        payload.session
+      )
+  }
+
+
+  async instagramOAuthStatus(): Promise<InstagramOAuthSession> {
+    const payload =
+      await this.request(
+        '/publish/instagram/oauth/status',
+        {
+          method:
+            'GET'
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'instagram-oauth-session'
+    ) {
+      throw new Error(
+        'Invalid Instagram OAuth status response'
+      )
+    }
+
+    return instagramOAuthSessionSchema
+      .parse(
+        payload.session
+      )
+  }
+
+
+  async completeInstagramOAuth(
+    envelope:
+      InstagramOAuthCallbackEnvelope
+  ): Promise<InstagramOAuthSession> {
+    const normalized =
+      instagramOAuthCallbackEnvelopeSchema
+        .parse(
+          envelope
+        )
+
+    const payload =
+      await this.request(
+        '/publish/instagram/oauth/complete',
+        {
+          method:
+            'POST',
+
+          body:
+            JSON.stringify(
+              normalized
+            )
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'instagram-oauth-session'
+    ) {
+      throw new Error(
+        'Invalid Instagram OAuth completion response'
+      )
+    }
+
+    return instagramOAuthSessionSchema
+      .parse(
+        payload.session
+      )
+  }
+
+
+  async cancelInstagramOAuth(): Promise<InstagramOAuthSession> {
+    const payload =
+      await this.request(
+        '/publish/instagram/oauth/cancel',
+        {
+          method:
+            'POST'
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'instagram-oauth-session'
+    ) {
+      throw new Error(
+        'Invalid Instagram OAuth cancel response'
+      )
+    }
+
+    return instagramOAuthSessionSchema
+      .parse(
+        payload.session
+      )
+  }
+
+
+  async disconnectInstagram(): Promise<InstagramOAuthSession> {
+    const payload =
+      await this.request(
+        '/publish/instagram/disconnect',
+        {
+          method:
+            'POST'
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'instagram-oauth-session'
+    ) {
+      throw new Error(
+        'Invalid Instagram disconnect response'
+      )
+    }
+
+    return instagramOAuthSessionSchema
+      .parse(
+        payload.session
+      )
+  }
+
+
+  async publishInstagram(
+    request:
+      PlatformPublishRequest,
+
+    attemptId:
+      string
+  ): Promise<
+    PlatformPublishReceipt
+    | InstagramPublishPending
+  > {
+    const normalized =
+      platformPublishRequestSchema
+        .parse(
+          request
+        )
+
+    if (
+      normalized.platform
+        !== 'instagram'
+      || normalized.placement
+        !== 'instagram-reel'
+    ) {
+      throw new Error(
+        'Instagram worker publishing accepts only Instagram Reels'
+      )
+    }
+
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+        .test(
+          attemptId
+        )
+    ) {
+      throw new Error(
+        'Instagram publish attempt id must be a UUID'
+      )
+    }
+
+
+    const payload =
+      await this.request(
+        '/publish/instagram',
+        {
+          method:
+            'POST',
+
+          body:
+            JSON.stringify({
+              request:
+                normalized,
+
+              attemptId
+            })
+        }
+      )
+
+
+    if (
+      payload?.ok !== true
+    ) {
+      throw new Error(
+        'Invalid Instagram publish response'
+      )
+    }
+
+
+    if (
+      payload.type
+        === 'instagram-publish-pending'
+    ) {
+      const pending =
+        instagramPublishPendingSchema
+          .parse(
+            payload.pending
+          )
+
+      if (
+        pending.requestId
+          !== normalized.requestId
+        || pending.attemptId
+          !== attemptId
+        || pending.media.path
+          !== normalized.media.path
+        || pending.media.sizeBytes
+          !== normalized.media.sizeBytes
+        || pending.media.sha256
+          !== normalized.media.sha256
+      ) {
+        throw new Error(
+          'Instagram pending result does not match the submitted request'
+        )
+      }
+
+      return pending
+    }
+
+
+    if (
+      payload.type
+        !== 'instagram-publish-receipt'
+    ) {
+      throw new Error(
+        'Invalid Instagram publish response'
+      )
+    }
+
+
+    const receipt =
+      platformPublishReceiptSchema
+        .parse(
+          payload.receipt
+        )
+
+    if (
+      receipt.requestId
+        !== normalized.requestId
+      || receipt.attemptId
+        !== attemptId
+      || receipt.platform
+        !== 'instagram'
+      || receipt.placement
+        !== 'instagram-reel'
+      || receipt.sourceSha256
+        !== normalized.media.sha256
+    ) {
+      throw new Error(
+        'Instagram publish receipt does not match the submitted request'
+      )
+    }
+
+    return receipt
+  }
+
+
+  async resumeInstagramPublish(
+    pendingValue:
+      InstagramPublishPending
+  ): Promise<
+    PlatformPublishReceipt
+    | InstagramPublishPending
+  > {
+    const pending =
+      instagramPublishPendingSchema
+        .parse(
+          pendingValue
+        )
+
+
+    const payload =
+      await this.request(
+        '/publish/instagram/resume',
+        {
+          method:
+            'POST',
+
+          body:
+            JSON.stringify({
+              pending
+            })
+        }
+      )
+
+
+    if (
+      payload?.ok !== true
+    ) {
+      throw new Error(
+        'Invalid Instagram resume response'
+      )
+    }
+
+
+    if (
+      payload.type
+        === 'instagram-publish-pending'
+    ) {
+      const next =
+        instagramPublishPendingSchema
+          .parse(
+            payload.pending
+          )
+
+      if (
+        next.requestId
+          !== pending.requestId
+        || next.attemptId
+          !== pending.attemptId
+        || next.containerId
+          !== pending.containerId
+        || next.media.sha256
+          !== pending.media.sha256
+      ) {
+        throw new Error(
+          'Instagram resumed pending result does not match the original attempt'
+        )
+      }
+
+      return next
+    }
+
+
+    if (
+      payload.type
+        !== 'instagram-publish-receipt'
+    ) {
+      throw new Error(
+        'Invalid Instagram resume response'
+      )
+    }
+
+
+    const receipt =
+      platformPublishReceiptSchema
+        .parse(
+          payload.receipt
+        )
+
+    if (
+      receipt.requestId
+        !== pending.requestId
+      || receipt.attemptId
+        !== pending.attemptId
+      || receipt.platform
+        !== 'instagram'
+      || receipt.placement
+        !== 'instagram-reel'
+      || receipt.sourceSha256
+        !== pending.media.sha256
+    ) {
+      throw new Error(
+        'Instagram resumed receipt does not match the pending attempt'
       )
     }
 
