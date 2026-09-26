@@ -25,6 +25,12 @@ import {
   type YouTubeOAuthSession
 } from './youtubePublishing'
 import {
+  instagramOAuthCallbackEnvelopeSchema,
+  instagramOAuthSessionSchema,
+  type InstagramOAuthCallbackEnvelope,
+  type InstagramOAuthSession
+} from './instagramPublishing'
+import {
   parsePlatformCredentialStatuses,
   type PlatformCredentialStatus
 } from './platformCredentials'
@@ -393,6 +399,155 @@ export class WorkerClient {
     }
 
     return receipt
+  }
+
+
+  async startInstagramOAuth(): Promise<InstagramOAuthSession> {
+    const payload =
+      await this.request(
+        '/publish/instagram/oauth/start',
+        {
+          method:
+            'POST'
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'instagram-oauth-session'
+    ) {
+      throw new Error(
+        'Invalid Instagram OAuth start response'
+      )
+    }
+
+    return instagramOAuthSessionSchema
+      .parse(
+        payload.session
+      )
+  }
+
+
+  async instagramOAuthStatus(): Promise<InstagramOAuthSession> {
+    const payload =
+      await this.request(
+        '/publish/instagram/oauth/status',
+        {
+          method:
+            'GET'
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'instagram-oauth-session'
+    ) {
+      throw new Error(
+        'Invalid Instagram OAuth status response'
+      )
+    }
+
+    return instagramOAuthSessionSchema
+      .parse(
+        payload.session
+      )
+  }
+
+
+  async completeInstagramOAuth(
+    envelope:
+      InstagramOAuthCallbackEnvelope
+  ): Promise<InstagramOAuthSession> {
+    const normalized =
+      instagramOAuthCallbackEnvelopeSchema
+        .parse(
+          envelope
+        )
+
+    const payload =
+      await this.request(
+        '/publish/instagram/oauth/complete',
+        {
+          method:
+            'POST',
+
+          body:
+            JSON.stringify(
+              normalized
+            )
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'instagram-oauth-session'
+    ) {
+      throw new Error(
+        'Invalid Instagram OAuth completion response'
+      )
+    }
+
+    return instagramOAuthSessionSchema
+      .parse(
+        payload.session
+      )
+  }
+
+
+  async cancelInstagramOAuth(): Promise<InstagramOAuthSession> {
+    const payload =
+      await this.request(
+        '/publish/instagram/oauth/cancel',
+        {
+          method:
+            'POST'
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'instagram-oauth-session'
+    ) {
+      throw new Error(
+        'Invalid Instagram OAuth cancel response'
+      )
+    }
+
+    return instagramOAuthSessionSchema
+      .parse(
+        payload.session
+      )
+  }
+
+
+  async disconnectInstagram(): Promise<InstagramOAuthSession> {
+    const payload =
+      await this.request(
+        '/publish/instagram/disconnect',
+        {
+          method:
+            'POST'
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'instagram-oauth-session'
+    ) {
+      throw new Error(
+        'Invalid Instagram disconnect response'
+      )
+    }
+
+    return instagramOAuthSessionSchema
+      .parse(
+        payload.session
+      )
   }
 
 

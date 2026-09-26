@@ -65,6 +65,8 @@ import { refreshYouTubeAccessToken } from './youtube-oauth.mjs'
 import { createYouTubePublisher } from './youtube-publisher.mjs'
 import { createYouTubeResumableTransport } from './youtube-resumable.mjs'
 import { executeExplicitYouTubePublish } from './youtube-publish-execution.mjs'
+import { createInstagramMacCredentialStore } from './instagram-keychain.mjs'
+import { createInstagramOAuthRuntime } from './instagram-oauth-runtime.mjs'
 import {
   avatarReceiptRelativePath,
   existingAvatarReceiptMatches,
@@ -175,6 +177,33 @@ const youtubeOAuthRuntime =
 
     keychain:
       createMacKeychainStore()
+  })
+
+
+const instagramOAuthRuntime =
+  createInstagramOAuthRuntime({
+    clientId:
+      process.env
+        .KINAOU_INSTAGRAM_CLIENT_ID
+      ?? '',
+
+    clientSecret:
+      process.env
+        .KINAOU_INSTAGRAM_CLIENT_SECRET
+      ?? '',
+
+    redirectUri:
+      process.env
+        .KINAOU_INSTAGRAM_REDIRECT_URI
+      ?? '',
+
+    apiVersion:
+      process.env
+        .KINAOU_INSTAGRAM_API_VERSION
+      ?? '',
+
+    credentialStore:
+      createInstagramMacCredentialStore()
   })
 
 
@@ -326,7 +355,7 @@ const server = http.createServer(async (request, response) => {
           name: 'KINAOU Mac Worker',
           platform: process.platform,
           version: VERSION,
-          capabilities: ['filesystem', 'asset-upload', 'managed-sha256', 'avatar-creation-receipt', 'avatar-identity-runtime', 'publish-package-library', 'publish-package-integrity', 'publish-credentials', ...(process.platform === 'darwin' && process.env.KINAOU_YOUTUBE_CLIENT_ID?.trim() ? ['youtube-oauth'] : []), ...((process.env.KINAOU_YOUTUBE_ACCESS_TOKEN?.trim() || (process.env.KINAOU_YOUTUBE_REFRESH_TOKEN?.trim() && process.env.KINAOU_YOUTUBE_CLIENT_ID?.trim()) || (process.platform === 'darwin' && process.env.KINAOU_YOUTUBE_CLIENT_ID?.trim())) ? ['youtube-publish'] : []), 'format-reframing', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe', 'publish-preflight', 'publish-package'] : []), ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(((PIPER_CLI && piperVoices.length) || chatterboxRuntime?.available) && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : []), ...(avatarEditAvailable ? ['avatar-identity-edit'] : []), 'avatar-render-runtime', ...(avatarRenderRuntime.localGenerative.available ? ['avatar-final-local'] : [])],
+          capabilities: ['filesystem', 'asset-upload', 'managed-sha256', 'avatar-creation-receipt', 'avatar-identity-runtime', 'publish-package-library', 'publish-package-integrity', 'publish-credentials', ...(process.platform === 'darwin' && process.env.KINAOU_YOUTUBE_CLIENT_ID?.trim() ? ['youtube-oauth'] : []), ...((process.env.KINAOU_YOUTUBE_ACCESS_TOKEN?.trim() || (process.env.KINAOU_YOUTUBE_REFRESH_TOKEN?.trim() && process.env.KINAOU_YOUTUBE_CLIENT_ID?.trim()) || (process.platform === 'darwin' && process.env.KINAOU_YOUTUBE_CLIENT_ID?.trim())) ? ['youtube-publish'] : []), ...((process.platform === 'darwin' && process.env.KINAOU_INSTAGRAM_CLIENT_ID?.trim() && process.env.KINAOU_INSTAGRAM_CLIENT_SECRET?.trim() && process.env.KINAOU_INSTAGRAM_REDIRECT_URI?.trim() && process.env.KINAOU_INSTAGRAM_API_VERSION?.trim()) ? ['instagram-oauth'] : []), 'format-reframing', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe', 'publish-preflight', 'publish-package'] : []), ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(((PIPER_CLI && piperVoices.length) || chatterboxRuntime?.available) && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : []), ...(avatarEditAvailable ? ['avatar-identity-edit'] : []), 'avatar-render-runtime', ...(avatarRenderRuntime.localGenerative.available ? ['avatar-final-local'] : [])],
           managedRoots: [MANAGED_ROOT],
           ffmpegVersion: versions.ffmpeg,
           ffprobeVersion: versions.ffprobe
@@ -395,6 +424,66 @@ const server = http.createServer(async (request, response) => {
             youtubeIndex
           ] =
             youtubeStatus
+        }
+      }
+
+      const instagramIndex =
+        statuses.findIndex(
+          status =>
+            status.platform
+            === 'instagram'
+        )
+
+      const instagramEnvironmentAvailable =
+        instagramIndex >= 0
+        && statuses[
+          instagramIndex
+        ].state
+          === 'available'
+
+      const instagramOAuthConfigured =
+        Boolean(
+          process.env
+            .KINAOU_INSTAGRAM_CLIENT_ID
+            ?.trim()
+          && process.env
+            .KINAOU_INSTAGRAM_CLIENT_SECRET
+            ?.trim()
+          && process.env
+            .KINAOU_INSTAGRAM_REDIRECT_URI
+            ?.trim()
+          && process.env
+            .KINAOU_INSTAGRAM_API_VERSION
+            ?.trim()
+        )
+
+      /*
+       * Environment credentials keep precedence here too.
+       * Keychain is queried only when Instagram OAuth is configured and
+       * there is no explicitly configured environment credential.
+       */
+      if (
+        process.platform
+          === 'darwin'
+        && instagramOAuthConfigured
+        && !instagramEnvironmentAvailable
+      ) {
+        const instagramStatus =
+          await instagramOAuthRuntime
+            .credentialStatus()
+            .catch(
+              () =>
+                null
+            )
+
+        if (
+          instagramStatus
+          && instagramIndex >= 0
+        ) {
+          statuses[
+            instagramIndex
+          ] =
+            instagramStatus
         }
       }
 
@@ -1089,6 +1178,118 @@ const server = http.createServer(async (request, response) => {
         }
       })
     }
+
+    if (
+      request.method === 'POST'
+      && request.url
+        === '/publish/instagram/oauth/start'
+    ) {
+      return send(
+        response,
+        201,
+        {
+          ok: true,
+          type:
+            'instagram-oauth-session',
+
+          session:
+            await instagramOAuthRuntime
+              .start()
+        }
+      )
+    }
+
+
+    if (
+      request.method === 'GET'
+      && request.url
+        === '/publish/instagram/oauth/status'
+    ) {
+      return send(
+        response,
+        200,
+        {
+          ok: true,
+          type:
+            'instagram-oauth-session',
+
+          session:
+            await instagramOAuthRuntime
+              .status()
+        }
+      )
+    }
+
+
+    if (
+      request.method === 'POST'
+      && request.url
+        === '/publish/instagram/oauth/complete'
+    ) {
+      const body =
+        await readJson(
+          request
+        )
+
+      return send(
+        response,
+        200,
+        {
+          ok: true,
+          type:
+            'instagram-oauth-session',
+
+          session:
+            await instagramOAuthRuntime
+              .complete(
+                body
+              )
+        }
+      )
+    }
+
+
+    if (
+      request.method === 'POST'
+      && request.url
+        === '/publish/instagram/oauth/cancel'
+    ) {
+      return send(
+        response,
+        200,
+        {
+          ok: true,
+          type:
+            'instagram-oauth-session',
+
+          session:
+            await instagramOAuthRuntime
+              .cancel()
+        }
+      )
+    }
+
+
+    if (
+      request.method === 'POST'
+      && request.url
+        === '/publish/instagram/disconnect'
+    ) {
+      return send(
+        response,
+        200,
+        {
+          ok: true,
+          type:
+            'instagram-oauth-session',
+
+          session:
+            await instagramOAuthRuntime
+              .disconnect()
+        }
+      )
+    }
+
 
     if (
       request.method === 'POST'
