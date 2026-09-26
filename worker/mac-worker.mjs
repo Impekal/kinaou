@@ -58,6 +58,13 @@ import { DEFAULT_OSASCRIPT_PATH, DEFAULT_SCREENCAPTURE_PATH, buildAppActivateCom
 import os from 'node:os'
 import { buildWebCaptureCommand, buildWebCaptureProvenance, validateWebCaptureRequest, webCaptureBrowserCandidates, webCaptureProfileDirectory, webCapturePaths } from './webcapture.mjs'
 import { buildPublishPackageDocument, buildPublishPreflightResult, publishPackageRelativePath, validatePublishExportReceipt, validatePublishPackageDocument, validatePublishPackagePath, validatePublishPackageRequest, validatePublishProjectId } from './publish-package.mjs'
+import { listPublicPlatformCredentialStatuses, resolvePlatformCredentialSecrets } from './platform-credentials.mjs'
+import { createMacKeychainStore } from './platform-keychain.mjs'
+import { createYouTubeOAuthRuntime } from './youtube-oauth-runtime.mjs'
+import { refreshYouTubeAccessToken } from './youtube-oauth.mjs'
+import { createYouTubePublisher } from './youtube-publisher.mjs'
+import { createYouTubeResumableTransport } from './youtube-resumable.mjs'
+import { executeExplicitYouTubePublish } from './youtube-publish-execution.mjs'
 import {
   avatarReceiptRelativePath,
   existingAvatarReceiptMatches,
@@ -160,6 +167,115 @@ const chatterboxRuntime = await detectChatterboxRuntime()
 let avatarIdentityRuntime = await detectAvatarIdentityRuntime()
 let avatarRenderRuntime = await detectAvatarRenderRuntime()
 
+const youtubeOAuthRuntime =
+  createYouTubeOAuthRuntime({
+    clientId:
+      process.env.KINAOU_YOUTUBE_CLIENT_ID
+      ?? '',
+
+    keychain:
+      createMacKeychainStore()
+  })
+
+
+async function resolveYouTubePublishingCredential() {
+  const environment =
+    resolvePlatformCredentialSecrets(
+      'youtube',
+      process.env
+    )
+
+  if (
+    environment
+      ?.accessToken
+  ) {
+    return {
+      platform:
+        'youtube',
+
+      accessToken:
+        environment
+          .accessToken
+    }
+  }
+
+  if (
+    environment
+      ?.refreshToken
+  ) {
+    const clientId =
+      process.env
+        .KINAOU_YOUTUBE_CLIENT_ID
+        ?.trim()
+
+    if (!clientId) {
+      throw new Error(
+        'YouTube refresh token requires KINAOU_YOUTUBE_CLIENT_ID'
+      )
+    }
+
+    const refreshed =
+      await refreshYouTubeAccessToken({
+        clientId,
+
+        refreshToken:
+          environment
+            .refreshToken
+      })
+
+    return {
+      platform:
+        'youtube',
+
+      accessToken:
+        refreshed
+          .accessToken
+    }
+  }
+
+  return youtubeOAuthRuntime
+    .resolveCredential()
+}
+
+
+const youtubeResumableTransport =
+  createYouTubeResumableTransport({
+    resolveAbsolutePath:
+      async relativePath => {
+        const normalized =
+          requireManagedRelativePath(
+            relativePath
+          )
+
+        if (
+          !normalized.startsWith(
+            'KINAOU/Renders/'
+          )
+          || !normalized.endsWith(
+            '.mp4'
+          )
+        ) {
+          throw unauthorizedPath(
+            'YouTube publishing requires a managed render MP4'
+          )
+        }
+
+        return resolveManaged(
+          normalized
+        )
+      }
+  })
+
+
+const youtubePublisher =
+  createYouTubePublisher({
+    resolveCredential:
+      resolveYouTubePublishingCredential,
+
+    transport:
+      youtubeResumableTransport
+  })
+
 const server = http.createServer(async (request, response) => {
   setCorsHeaders(request, response)
   if (request.method === 'OPTIONS') {
@@ -210,13 +326,166 @@ const server = http.createServer(async (request, response) => {
           name: 'KINAOU Mac Worker',
           platform: process.platform,
           version: VERSION,
-          capabilities: ['filesystem', 'asset-upload', 'managed-sha256', 'avatar-creation-receipt', 'avatar-identity-runtime', 'publish-package-library', 'publish-package-integrity', 'format-reframing', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe', 'publish-preflight', 'publish-package'] : []), ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(((PIPER_CLI && piperVoices.length) || chatterboxRuntime?.available) && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : []), ...(avatarEditAvailable ? ['avatar-identity-edit'] : []), 'avatar-render-runtime', ...(avatarRenderRuntime.localGenerative.available ? ['avatar-final-local'] : [])],
+          capabilities: ['filesystem', 'asset-upload', 'managed-sha256', 'avatar-creation-receipt', 'avatar-identity-runtime', 'publish-package-library', 'publish-package-integrity', 'publish-credentials', ...(process.platform === 'darwin' && process.env.KINAOU_YOUTUBE_CLIENT_ID?.trim() ? ['youtube-oauth'] : []), ...((process.env.KINAOU_YOUTUBE_ACCESS_TOKEN?.trim() || (process.env.KINAOU_YOUTUBE_REFRESH_TOKEN?.trim() && process.env.KINAOU_YOUTUBE_CLIENT_ID?.trim()) || (process.platform === 'darwin' && process.env.KINAOU_YOUTUBE_CLIENT_ID?.trim())) ? ['youtube-publish'] : []), 'format-reframing', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe', 'publish-preflight', 'publish-package'] : []), ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(((PIPER_CLI && piperVoices.length) || chatterboxRuntime?.available) && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : []), ...(avatarEditAvailable ? ['avatar-identity-edit'] : []), 'avatar-render-runtime', ...(avatarRenderRuntime.localGenerative.available ? ['avatar-final-local'] : [])],
           managedRoots: [MANAGED_ROOT],
           ffmpegVersion: versions.ffmpeg,
           ffprobeVersion: versions.ffprobe
         }
       })
     }
+
+    if (
+      request.method === 'GET'
+      && request.url
+        === '/publish/credentials'
+    ) {
+      const statuses =
+        listPublicPlatformCredentialStatuses(
+          process.env
+        )
+
+      const youtubeIndex =
+        statuses.findIndex(
+          status =>
+            status.platform
+            === 'youtube'
+        )
+
+      const youtubeEnvironmentAvailable =
+        youtubeIndex >= 0
+        && statuses[
+          youtubeIndex
+        ].state
+          === 'available'
+
+      const youtubeOAuthConfigured =
+        Boolean(
+          process.env
+            .KINAOU_YOUTUBE_CLIENT_ID
+            ?.trim()
+        )
+
+      /*
+       * Environment credentials take precedence.
+       *
+       * Do not invoke macOS Keychain merely to render public status when
+       * usable environment credentials already exist. Also skip Keychain
+       * access when OAuth has no configured client ID, because a stored
+       * refresh token would not be usable.
+       */
+      if (
+        process.platform
+          === 'darwin'
+        && youtubeOAuthConfigured
+        && !youtubeEnvironmentAvailable
+      ) {
+        const youtubeStatus =
+          await youtubeOAuthRuntime
+            .credentialStatus()
+            .catch(
+              () =>
+                null
+            )
+
+        if (
+          youtubeStatus
+          && youtubeIndex >= 0
+        ) {
+          statuses[
+            youtubeIndex
+          ] =
+            youtubeStatus
+        }
+      }
+
+      return send(
+        response,
+        200,
+        {
+          ok: true,
+          type:
+            'publish-credentials',
+          statuses
+        }
+      )
+    }
+
+    if (
+      request.method === 'POST'
+      && request.url
+        === '/publish/youtube/oauth/start'
+    ) {
+      return send(
+        response,
+        201,
+        {
+          ok: true,
+          type:
+            'youtube-oauth-session',
+          session:
+            await youtubeOAuthRuntime
+              .start()
+        }
+      )
+    }
+
+    if (
+      request.method === 'GET'
+      && request.url
+        === '/publish/youtube/oauth/status'
+    ) {
+      return send(
+        response,
+        200,
+        {
+          ok: true,
+          type:
+            'youtube-oauth-session',
+          session:
+            await youtubeOAuthRuntime
+              .status()
+        }
+      )
+    }
+
+    if (
+      request.method === 'POST'
+      && request.url
+        === '/publish/youtube/oauth/cancel'
+    ) {
+      return send(
+        response,
+        200,
+        {
+          ok: true,
+          type:
+            'youtube-oauth-session',
+          session:
+            await youtubeOAuthRuntime
+              .cancel()
+        }
+      )
+    }
+
+    if (
+      request.method === 'POST'
+      && request.url
+        === '/publish/youtube/disconnect'
+    ) {
+      return send(
+        response,
+        200,
+        {
+          ok: true,
+          type:
+            'youtube-oauth-session',
+          session:
+            await youtubeOAuthRuntime
+              .disconnect()
+        }
+      )
+    }
+
 
     if (
       request.method === 'GET'
@@ -819,6 +1088,79 @@ const server = http.createServer(async (request, response) => {
           sourceSha256
         }
       })
+    }
+
+    if (
+      request.method === 'POST'
+      && request.url
+        === '/publish/youtube'
+    ) {
+      const body =
+        await readJson(
+          request
+        )
+
+      const controller =
+        new AbortController()
+
+      const abort =
+        () =>
+          controller.abort()
+
+      request.once(
+        'aborted',
+        abort
+      )
+
+      try {
+        const receipt =
+          await executeExplicitYouTubePublish({
+            requestValue:
+              body?.request,
+
+            attemptId:
+              body?.attemptId,
+
+            readPackage:
+              readPublishPackage,
+
+            rehashSource:
+              async (
+                relativePath,
+                expectedSize
+              ) =>
+                sha256ManagedFile(
+                  requireManagedRelativePath(
+                    relativePath
+                  ),
+                  expectedSize,
+                  'YouTube publish source'
+                ),
+
+            publisher:
+              youtubePublisher,
+
+            signal:
+              controller.signal
+          })
+
+        return send(
+          response,
+          201,
+          {
+            ok: true,
+            type:
+              'youtube-publish-receipt',
+            receipt
+          }
+        )
+
+      } finally {
+        request.removeListener(
+          'aborted',
+          abort
+        )
+      }
     }
 
     if (request.method === 'POST' && request.url === '/publish/packages/integrity') {
