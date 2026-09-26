@@ -1,6 +1,6 @@
 # Course production — current vertical slice
 
-PR #185 adds persistent course outlines and independent lesson MP4 exports; PR #303 adds persistent per-lesson script authoring and explicit saved-script TXT export. This is **not a complete course generator, an academic-review system or a platform approval claim**.
+PR #185 adds persistent course outlines and independent lesson MP4 exports; PR #303 adds persistent per-lesson script authoring and explicit saved-script TXT export; PR #305 adds lesson sources and demonstration records. This is **not a complete course generator, an academic-review system or a platform approval claim**.
 
 ## What works
 
@@ -14,6 +14,14 @@ PR #185 adds persistent course outlines and independent lesson MP4 exports; PR #
 Saved outlines travel with ordinary project serialization, drive backups and Version History. Restoring a version restores the outline with the rest of that project. Course revisions protect against saving an outdated in-memory draft over a newer saved outline.
 
 ## Boundaries to review
+
+### Lesson sources and demonstrations (#305)
+
+Expand **Sources & demonstrations** inside a lesson. Sources hold a label, HTTP(S) URL without embedded credentials, optional date you accessed it, and notes identifying the supported claim. Demonstrations hold a procedure, expected result, your actual observation and optional date performed. Leave observations/dates blank when not performed: KINAOU invents neither timestamps nor execution results. Save with the outline before leaving; DE/EN/FR switches preserve original content.
+
+Optionally link an existing available managed project asset. The saved reference freezes its ID, URI and kind. Registration changes, missing entries and offline flags produce distinct warnings and preserve the old reference for repair; changed mappings require clearing the selection and explicitly selecting again. Removing a record removes metadata only. “Linked” checks project metadata, not bytes, physical presence, authenticity or instructional correctness. A generated illustration is never proof that a demonstration actually ran. No URL is fetched, no command executed and no instructor approval recorded by this feature.
+
+Limits: 20 sources and 10 demonstrations per lesson, 4,000 characters per notes/procedure/result field, and 250,000 serialized evidence characters per course. Fields are optional for old courses. New/changed references must match a unique available managed project asset; retained references remain editable if the asset later goes missing/offline. Normal course revision/history and export-review invalidation apply. This does not detect file-byte changes at an unchanged URI.
 
 - Lesson-export UI is localized in DE/EN/FR (#211). App language does not rewrite course/module/lesson names or the course language. Selection is only an in-session review, not a render or a persisted approval.
 - A selected lesson is bound to its project, saved range and outline context/revision. Changed/missing/out-of-bounds selections block single export until explicitly reviewed again or cleared. Manual In/Out edits, Whole timeline or choosing a Short deliberately remove course attribution. Reload/leaving Studio clears the in-session selection; select the lesson again. This does not detect every semantic timeline change or verify academic quality: absolute boundaries still need human review.
@@ -37,9 +45,13 @@ The local browser displayed the new Course entry/form and language options on a 
 
 PR #211 verification: full 498 application + 82 native tests and build/syntax gate passed. Sixteen regressions cover stale revision/range/project identity, removed/ineligible lessons, DE/EN/FR controls and stable range diagnostic codes. Isolated localhost:5192 with a synthetic video and temporary worker verified language-switch selection retention, disabled future bounds, stale blocking after a 4→3s trim, explicit re-review, a real 2s Full-HD MP4 and exact 1–3s receipt with unchanged names/revision/course language, custom-range deselection and receipt persistence after reload. Browser console clean; test processes stopped. Existing real-worker retiming/audio/independent-lesson execution tests remain green.
 
-Build lesson-level scripts/source references, actual demonstration evidence, exercises with solutions, downloadable resources, review status invalidation after edits, and a durable per-lesson output/resource manifest. Preserve instructor expertise and human verification rather than making an unattended-generation approval claim.
+Next: connect reviewed scripts to production, support genuinely executed/verified demonstration evidence, exercises with solutions, downloadable resources, instructor review with invalidation after edits, and a durable per-lesson output/resource manifest. Source/demo record authoring is implemented, not human verification. Preserve instructor expertise rather than making an unattended-generation approval claim.
 
-Update after PR #303: manual lesson-script authoring/persistence/TXT delivery is implemented; connecting reviewed scripts to narration/captions/lesson production remains open. Next independent course work is source and demonstration evidence, followed by exercises/solutions and instructor review. Do not treat script storage as a complete production pipeline.
+Update after PR #305: script and source/demo record authoring/persistence are implemented; connecting reviewed scripts to narration/captions/lesson production remains open. Next independent course work includes exercises/solutions and instructor review. Do not treat metadata storage as a complete production pipeline.
+
+PR #305 acceptance: 1,372 app tests including 32 evidence regressions, 224 local worker tests (known local libass smoke excluded), build, Node syntax and Swift parse passed. Full CI 36280287570 passed including render smoke. Coverage includes bounded/invalid data, exact persistence/history, forged references, offline/missing/changed references, explicit relinking, stale export review, generated-image non-verification and non-fetching localized rendering. An isolated synthetic browser fixture verified DE/FR/EN draft preservation, save/reload and offline/changed/explicitly relinked assets with no console errors. No actual source or demonstration was verified.
+
+Follow-up to the earlier PR #303 download-event timeout: direct readback found the actual 23-byte downloaded `lesson-lesson-test.txt` with exact text `Bonjour\nÜberblick 🌍`. Native download completion is therefore verified for that fixture; the event observer timed out despite successful output. Other browsers remain optional acceptance checks, not a blocking claim that this download failed.
 
 PR #303 acceptance: 1,340 app tests including 12 new script regressions, 224 local worker tests (only known local libass smoke excluded), production build, Node syntax and Swift parse passed. The full GitHub CI gate 36278830395 subsequently passed without excluding render smoke. Tests cover legacy outlines, exact Unicode/whitespace persistence, per-lesson/total bounds, stale edits/reviews, safe saved-text export, corrupt data, history restoration and localized non-mutating rendering. An isolated browser fixture verified DE→FR→EN retention, explicit save/reload, simulated persistence failure, recovery and history restoration. TXT download was invoked, but the in-app browser download-event wait timed out without an application error: native-file save completion was not verified. The exact payload/filename contract is tested; the optional browser-save check is in MAC-TEST. No AI model, worker change or real teaching material was used.
 
