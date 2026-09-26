@@ -323,3 +323,120 @@ export type InstagramPublishPending =
   z.infer<
     typeof instagramPublishPendingSchema
   >
+
+
+export function parseInstagramBrokerCallbackUrl(
+  value:
+    string
+): {
+  state:
+    string
+
+  code:
+    string
+} {
+  const raw =
+    value.trim()
+
+  if (
+    !raw
+    || raw.length > 20_000
+  ) {
+    throw new Error(
+      'Instagram callback URL is invalid'
+    )
+  }
+
+
+  let url:
+    URL
+
+  try {
+    url =
+      new URL(
+        raw
+      )
+  } catch {
+    throw new Error(
+      'Instagram callback must be a valid URL'
+    )
+  }
+
+
+  if (
+    url.protocol !== 'https:'
+    || url.username
+    || url.password
+  ) {
+    throw new Error(
+      'Instagram callback must use HTTPS'
+    )
+  }
+
+
+  const remoteError =
+    url.searchParams
+      .get(
+        'error_description'
+      )
+    ?? url.searchParams
+      .get(
+        'error'
+      )
+
+
+  if (
+    remoteError
+  ) {
+    throw new Error(
+      `Instagram authorization was not completed: ${
+        remoteError
+          .slice(
+            0,
+            500
+          )
+      }`
+    )
+  }
+
+
+  const state =
+    url.searchParams
+      .get(
+        'state'
+      )
+      ?.trim()
+
+  const code =
+    url.searchParams
+      .get(
+        'code'
+      )
+      ?.trim()
+
+
+  if (
+    !state
+    || state.length > 500
+  ) {
+    throw new Error(
+      'Instagram callback does not contain a valid state'
+    )
+  }
+
+
+  if (
+    !code
+    || code.length > 20_000
+  ) {
+    throw new Error(
+      'Instagram callback does not contain an authorization code'
+    )
+  }
+
+
+  return {
+    state,
+    code
+  }
+}
