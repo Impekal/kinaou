@@ -14,6 +14,7 @@ import { useUiLanguage } from './UiLanguageProvider'
 import { displayExportReceiptLabel } from '../core/uiSystemLabels'
 import { YouTubePublishPanel } from './YouTubePublishPanel'
 import { InstagramPublishPanel } from './InstagramPublishPanel'
+import { TikTokHandoffPanel } from './TikTokHandoffPanel'
 
 interface PublishPanelProps {
   project: KinaouProject
@@ -502,6 +503,14 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
         })}</div>}
         {listError && <div className="errorBox">{listError}</div>}
       </div>
+
+      <TikTokHandoffPanel
+        projectId={project.id}
+        workerUrl={workerUrl}
+        workerToken={workerToken}
+        workerConnected={workerConnected}
+        workerCapabilities={workerCapabilities}
+      />
 
       <YouTubePublishPanel
         projectId={project.id}
