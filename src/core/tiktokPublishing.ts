@@ -578,3 +578,53 @@ export type TikTokOAuthSession =
   z.infer<
     typeof tiktokOAuthSessionSchema
   >
+
+
+export const tiktokCreatorInfoSnapshotSchema =
+  z.object({
+    schemaVersion:
+      z.literal(
+        1
+      ),
+
+    checkedAt:
+      z.string()
+        .datetime(),
+
+    creatorInfo:
+      tiktokCreatorInfoSchema
+  })
+    .strict()
+
+
+export type TikTokCreatorInfoSnapshot =
+  z.infer<
+    typeof tiktokCreatorInfoSnapshotSchema
+  >
+
+
+export function createTikTokPostReviewFromSnapshot(
+  snapshot:
+    TikTokCreatorInfoSnapshot,
+
+  videoDurationMs:
+    number,
+
+  settings:
+    TikTokPostSettings
+): TikTokPostReview {
+  const normalized =
+    tiktokCreatorInfoSnapshotSchema
+      .parse(
+        snapshot
+      )
+
+  return createTikTokPostReview(
+    normalized.creatorInfo,
+    videoDurationMs,
+    settings,
+    new Date(
+      normalized.checkedAt
+    )
+  )
+}

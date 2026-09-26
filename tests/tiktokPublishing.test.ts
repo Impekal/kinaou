@@ -376,3 +376,111 @@ it(
     ).toThrow()
   }
 )
+
+
+it(
+  'binds a TikTok post review to the exact fresh creator-info snapshot',
+  async () => {
+    const {
+      createTikTokPostReviewFromSnapshot,
+      tiktokCreatorInfoSnapshotSchema
+    } =
+      await import(
+        '../src/core/tiktokPublishing'
+      )
+
+
+    const snapshot =
+      tiktokCreatorInfoSnapshotSchema
+        .parse({
+          schemaVersion:
+            1,
+
+          checkedAt:
+            '2026-09-27T00:40:00.000Z',
+
+          creatorInfo: {
+            creatorUsername:
+              'creator-id',
+
+            creatorNickname:
+              'KINAOU Creator',
+
+            privacyLevelOptions: [
+              'PUBLIC_TO_EVERYONE',
+              'SELF_ONLY'
+            ],
+
+            commentDisabled:
+              false,
+
+            duetDisabled:
+              true,
+
+            stitchDisabled:
+              true,
+
+            maxVideoPostDurationSec:
+              180
+          }
+        })
+
+
+    const review =
+      createTikTokPostReviewFromSnapshot(
+        snapshot,
+        60_000,
+        {
+          title:
+            'Reviewed clip',
+
+          privacyLevel:
+            'SELF_ONLY',
+
+          allowComment:
+            false,
+
+          allowDuet:
+            false,
+
+          allowStitch:
+            false,
+
+          commercialContent: {
+            enabled:
+              false,
+
+            yourBrand:
+              false,
+
+            brandedContent:
+              false
+          },
+
+          isAigc:
+            false,
+
+          musicUsageConsent:
+            true,
+
+          brandedContentPolicyConsent:
+            false
+        }
+      )
+
+
+    expect(
+      review.creatorInfoCheckedAt
+    ).toBe(
+      snapshot.checkedAt
+    )
+
+
+    expect(
+      review.creatorInfo
+        .creatorNickname
+    ).toBe(
+      'KINAOU Creator'
+    )
+  }
+)

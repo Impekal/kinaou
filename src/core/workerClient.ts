@@ -33,7 +33,9 @@ import {
   type InstagramPublishPending
 } from './instagramPublishing'
 import {
+  tiktokCreatorInfoSnapshotSchema,
   tiktokOAuthSessionSchema,
+  type TikTokCreatorInfoSnapshot,
   type TikTokOAuthSession
 } from './tiktokPublishing'
 import {
@@ -899,6 +901,34 @@ export class WorkerClient {
     return tiktokOAuthSessionSchema
       .parse(
         payload.session
+      )
+  }
+
+
+  async queryTikTokCreatorInfo():
+    Promise<TikTokCreatorInfoSnapshot> {
+    const payload =
+      await this.request(
+        '/publish/tiktok/creator-info',
+        {
+          method:
+            'POST'
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'tiktok-creator-info'
+    ) {
+      throw new Error(
+        'Invalid TikTok creator info response'
+      )
+    }
+
+    return tiktokCreatorInfoSnapshotSchema
+      .parse(
+        payload.snapshot
       )
   }
 

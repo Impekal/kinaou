@@ -81,6 +81,7 @@ import {
 import { executeExplicitInstagramPublish } from './instagram-publish-execution.mjs'
 import { createTikTokMacCredentialStore } from './tiktok-keychain.mjs'
 import { createTikTokOAuthRuntime } from './tiktok-oauth-runtime.mjs'
+import { createTikTokCreatorInfoProtocol } from './tiktok-creator-info.mjs'
 import {
   avatarReceiptRelativePath,
   existingAvatarReceiptMatches,
@@ -236,6 +237,42 @@ const tiktokOAuthRuntime =
     credentialStore:
       createTikTokMacCredentialStore()
   })
+
+
+async function resolveTikTokPublishingCredential() {
+  const environment =
+    resolvePlatformCredentialSecrets(
+      'tiktok',
+      process.env
+    )
+
+
+  if (
+    environment
+      ?.accessToken
+  ) {
+    return {
+      platform:
+        'tiktok',
+
+      accessToken:
+        environment
+          .accessToken,
+
+      scopes:
+        environment
+          .scopes
+    }
+  }
+
+
+  return tiktokOAuthRuntime
+    .resolveCredential()
+}
+
+
+const tiktokCreatorInfoProtocol =
+  createTikTokCreatorInfoProtocol()
 
 
 async function resolveInstagramPublishingCredential() {
@@ -492,7 +529,7 @@ const server = http.createServer(async (request, response) => {
           name: 'KINAOU Mac Worker',
           platform: process.platform,
           version: VERSION,
-          capabilities: ['filesystem', 'asset-upload', 'managed-sha256', 'avatar-creation-receipt', 'avatar-identity-runtime', 'publish-package-library', 'publish-package-integrity', 'publish-credentials', ...(process.platform === 'darwin' && process.env.KINAOU_YOUTUBE_CLIENT_ID?.trim() ? ['youtube-oauth'] : []), ...((process.env.KINAOU_YOUTUBE_ACCESS_TOKEN?.trim() || (process.env.KINAOU_YOUTUBE_REFRESH_TOKEN?.trim() && process.env.KINAOU_YOUTUBE_CLIENT_ID?.trim()) || (process.platform === 'darwin' && process.env.KINAOU_YOUTUBE_CLIENT_ID?.trim())) ? ['youtube-publish'] : []), ...((process.platform === 'darwin' && process.env.KINAOU_INSTAGRAM_CLIENT_ID?.trim() && process.env.KINAOU_INSTAGRAM_CLIENT_SECRET?.trim() && process.env.KINAOU_INSTAGRAM_REDIRECT_URI?.trim() && process.env.KINAOU_INSTAGRAM_API_VERSION?.trim()) ? ['instagram-oauth'] : []), ...((((process.env.KINAOU_INSTAGRAM_ACCESS_TOKEN?.trim() && process.env.KINAOU_INSTAGRAM_ACCOUNT_ID?.trim()) || (process.platform === 'darwin' && process.env.KINAOU_INSTAGRAM_CLIENT_ID?.trim() && process.env.KINAOU_INSTAGRAM_CLIENT_SECRET?.trim() && process.env.KINAOU_INSTAGRAM_REDIRECT_URI?.trim() && process.env.KINAOU_INSTAGRAM_API_VERSION?.trim())) && process.env.KINAOU_INSTAGRAM_GRAPH_ORIGIN?.trim() && process.env.KINAOU_INSTAGRAM_DELIVERY_URL?.trim() && process.env.KINAOU_INSTAGRAM_DELIVERY_PATH?.trim() && process.env.KINAOU_INSTAGRAM_DELIVERY_SHA256?.trim() && process.env.KINAOU_INSTAGRAM_DELIVERY_SIZE_BYTES?.trim()) ? ['instagram-publish'] : []), ...((process.platform === 'darwin' && process.env.KINAOU_TIKTOK_CLIENT_KEY?.trim() && process.env.KINAOU_TIKTOK_CLIENT_SECRET?.trim()) ? ['tiktok-oauth'] : []), 'format-reframing', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe', 'publish-preflight', 'publish-package'] : []), ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(((PIPER_CLI && piperVoices.length) || chatterboxRuntime?.available) && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : []), ...(avatarEditAvailable ? ['avatar-identity-edit'] : []), 'avatar-render-runtime', ...(avatarRenderRuntime.localGenerative.available ? ['avatar-final-local'] : [])],
+          capabilities: ['filesystem', 'asset-upload', 'managed-sha256', 'avatar-creation-receipt', 'avatar-identity-runtime', 'publish-package-library', 'publish-package-integrity', 'publish-credentials', ...(process.platform === 'darwin' && process.env.KINAOU_YOUTUBE_CLIENT_ID?.trim() ? ['youtube-oauth'] : []), ...((process.env.KINAOU_YOUTUBE_ACCESS_TOKEN?.trim() || (process.env.KINAOU_YOUTUBE_REFRESH_TOKEN?.trim() && process.env.KINAOU_YOUTUBE_CLIENT_ID?.trim()) || (process.platform === 'darwin' && process.env.KINAOU_YOUTUBE_CLIENT_ID?.trim())) ? ['youtube-publish'] : []), ...((process.platform === 'darwin' && process.env.KINAOU_INSTAGRAM_CLIENT_ID?.trim() && process.env.KINAOU_INSTAGRAM_CLIENT_SECRET?.trim() && process.env.KINAOU_INSTAGRAM_REDIRECT_URI?.trim() && process.env.KINAOU_INSTAGRAM_API_VERSION?.trim()) ? ['instagram-oauth'] : []), ...((((process.env.KINAOU_INSTAGRAM_ACCESS_TOKEN?.trim() && process.env.KINAOU_INSTAGRAM_ACCOUNT_ID?.trim()) || (process.platform === 'darwin' && process.env.KINAOU_INSTAGRAM_CLIENT_ID?.trim() && process.env.KINAOU_INSTAGRAM_CLIENT_SECRET?.trim() && process.env.KINAOU_INSTAGRAM_REDIRECT_URI?.trim() && process.env.KINAOU_INSTAGRAM_API_VERSION?.trim())) && process.env.KINAOU_INSTAGRAM_GRAPH_ORIGIN?.trim() && process.env.KINAOU_INSTAGRAM_DELIVERY_URL?.trim() && process.env.KINAOU_INSTAGRAM_DELIVERY_PATH?.trim() && process.env.KINAOU_INSTAGRAM_DELIVERY_SHA256?.trim() && process.env.KINAOU_INSTAGRAM_DELIVERY_SIZE_BYTES?.trim()) ? ['instagram-publish'] : []), ...((process.platform === 'darwin' && process.env.KINAOU_TIKTOK_CLIENT_KEY?.trim() && process.env.KINAOU_TIKTOK_CLIENT_SECRET?.trim()) ? ['tiktok-oauth'] : []), ...((process.env.KINAOU_TIKTOK_ACCESS_TOKEN?.trim() || (process.platform === 'darwin' && process.env.KINAOU_TIKTOK_CLIENT_KEY?.trim() && process.env.KINAOU_TIKTOK_CLIENT_SECRET?.trim())) ? ['tiktok-creator-info'] : []), 'format-reframing', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe', 'publish-preflight', 'publish-package'] : []), ...(localModels.length ? ['local-llm', 'director-plan'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(((PIPER_CLI && piperVoices.length) || chatterboxRuntime?.available) && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : []), ...(avatarEditAvailable ? ['avatar-identity-edit'] : []), 'avatar-render-runtime', ...(avatarRenderRuntime.localGenerative.available ? ['avatar-final-local'] : [])],
           managedRoots: [MANAGED_ROOT],
           ffmpegVersion: versions.ffmpeg,
           ffprobeVersion: versions.ffprobe
@@ -1372,6 +1409,75 @@ const server = http.createServer(async (request, response) => {
         }
       })
     }
+
+    if (
+      request.method === 'POST'
+      && request.url
+        === '/publish/tiktok/creator-info'
+    ) {
+      const controller =
+        new AbortController()
+
+      const abort =
+        () =>
+          controller.abort()
+
+      request.once(
+        'aborted',
+        abort
+      )
+
+
+      try {
+        /*
+         * This endpoint is intentionally uncached. Every explicit invocation
+         * obtains current TikTok publishing permissions for the account.
+         */
+        const credential =
+          await resolveTikTokPublishingCredential()
+
+
+        const creatorInfo =
+          await tiktokCreatorInfoProtocol
+            .query({
+              accessToken:
+                credential.accessToken,
+
+              signal:
+                controller.signal
+            })
+
+
+        return send(
+          response,
+          200,
+          {
+            ok: true,
+
+            type:
+              'tiktok-creator-info',
+
+            snapshot: {
+              schemaVersion:
+                1,
+
+              checkedAt:
+                new Date()
+                  .toISOString(),
+
+              creatorInfo
+            }
+          }
+        )
+
+      } finally {
+        request.removeListener(
+          'aborted',
+          abort
+        )
+      }
+    }
+
 
     if (
       request.method === 'POST'

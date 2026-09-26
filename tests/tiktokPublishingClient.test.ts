@@ -331,3 +331,150 @@ describe(
     )
   }
 )
+
+
+describe(
+  'TikTok creator info WorkerClient',
+  () => {
+    it(
+      'requests one fresh creator snapshot without exposing credentials',
+      async () => {
+        let calls =
+          0
+
+
+        const client =
+          new WorkerClient({
+            baseUrl:
+              'http://127.0.0.1:43117',
+
+            token:
+              'local-worker-token',
+
+            fetchImpl:
+              async (
+                input,
+                init
+              ) => {
+                calls +=
+                  1
+
+
+                expect(
+                  String(
+                    input
+                  ).endsWith(
+                    '/publish/tiktok/creator-info'
+                  )
+                ).toBe(
+                  true
+                )
+
+
+                expect(
+                  init?.method
+                ).toBe(
+                  'POST'
+                )
+
+
+                expect(
+                  new Headers(
+                    init?.headers
+                  ).get(
+                    'authorization'
+                  )
+                ).toBe(
+                  'Bearer local-worker-token'
+                )
+
+
+                return jsonResponse({
+                  ok:
+                    true,
+
+                  type:
+                    'tiktok-creator-info',
+
+                  snapshot: {
+                    schemaVersion:
+                      1,
+
+                    checkedAt:
+                      '2026-09-27T00:40:00.000Z',
+
+                    creatorInfo: {
+                      creatorUsername:
+                        'creator-id',
+
+                      creatorNickname:
+                        'KINAOU Creator',
+
+                      creatorAvatarUrl:
+                        'https://cdn.example/avatar.jpg',
+
+                      privacyLevelOptions: [
+                        'PUBLIC_TO_EVERYONE',
+                        'MUTUAL_FOLLOW_FRIENDS',
+                        'SELF_ONLY'
+                      ],
+
+                      commentDisabled:
+                        false,
+
+                      duetDisabled:
+                        true,
+
+                      stitchDisabled:
+                        false,
+
+                      maxVideoPostDurationSec:
+                        300
+                    }
+                  }
+                })
+              }
+          })
+
+
+        const snapshot =
+          await client
+            .queryTikTokCreatorInfo()
+
+
+        expect(
+          calls
+        ).toBe(
+          1
+        )
+
+
+        expect(
+          snapshot.creatorInfo
+            .creatorNickname
+        ).toBe(
+          'KINAOU Creator'
+        )
+
+
+        expect(
+          snapshot.creatorInfo
+            .privacyLevelOptions
+        ).toEqual([
+          'PUBLIC_TO_EVERYONE',
+          'MUTUAL_FOLLOW_FRIENDS',
+          'SELF_ONLY'
+        ])
+
+
+        expect(
+          JSON.stringify(
+            snapshot
+          )
+        ).not.toMatch(
+          /access.?token|refresh.?token|client.?secret/
+        )
+      }
+    )
+  }
+)
