@@ -11,6 +11,7 @@ import { uiNarrationMessages } from './uiNarrationMessages'
 import { uiExportMessages } from './uiExportMessages'
 import { uiExportHistoryMessages } from './uiExportHistoryMessages'
 import { uiCourseExportMessages } from './uiCourseExportMessages'
+import { uiCourseEvidenceMessages } from './uiCourseEvidenceMessages'
 import { uiShortSelectionMessages } from './uiShortSelectionMessages'
 import { uiShortIntelligenceMessages } from './uiShortIntelligenceMessages'
 import { uiShortFinishingMessages } from './uiShortFinishingMessages'
@@ -51,6 +52,7 @@ export const uiMessages = {
   ...uiExportMessages,
   ...uiExportHistoryMessages,
   ...uiCourseExportMessages,
+  ...uiCourseEvidenceMessages,
   ...uiShortSelectionMessages,
   ...uiShortIntelligenceMessages,
   ...uiShortFinishingMessages,
@@ -157,7 +159,7 @@ export const uiMessages = {
   'course.restoreHelp': ['Über die Versionshistorie kannst du eine frühere Gliederung wiederherstellen. Das Entfernen einer Lektion löscht keine Medien oder exportierten Videos.', 'Version History can restore a previous saved outline; removing a lesson never deletes its media or exported videos.', 'L’historique des versions permet de restaurer un ancien plan ; retirer une leçon ne supprime jamais ses médias ni les vidéos exportées.'],
   'course.saved': ['Kursgliederung gespeichert. Wähle im Studio unter Rendern eine Lektion und starte ihren Export ausdrücklich. Durch das Speichern wurden keine Dateien erstellt oder gelöscht.', 'Course outline saved. In Studio → Render, choose one saved lesson and explicitly start its export. No files have been generated or deleted by saving this outline.', 'Plan du cours enregistré. Dans Studio → Rendu, choisissez une leçon puis lancez explicitement son export. L’enregistrement du plan n’a créé ni supprimé aucun fichier.'],
   'course.discarded': ['Entwurfsänderungen verworfen; gespeicherter Kurs und Medien unverändert.', 'Draft changes discarded; saved course and media unchanged.', 'Modifications du brouillon abandonnées ; le cours enregistré et les médias restent inchangés.'],
-  'course.invalid': ['Prüfe Titel und Zeitbereiche: Titel dürfen nicht leer sein und das Ende muss nach dem Start liegen. Der Entwurf wurde nicht gespeichert.', 'Check titles and ranges: titles must not be empty and Out must be later than In. The draft was not saved.', 'Vérifiez les titres et les plages : les titres ne doivent pas être vides et la fin doit suivre le début. Le brouillon n’a pas été enregistré.'],
+  'course.invalid': ['Prüfe Titel, Zeitbereiche, Textgrenzen sowie Quellen-URLs und Datumsangaben. Der Entwurf wurde nicht gespeichert; Details zeigen die betroffenen Felder.', 'Check titles, time ranges, text limits, source URLs and dates. The draft was not saved; details identify the affected fields.', 'Vérifiez les titres, plages temporelles, limites de texte, URL et dates. Le brouillon n’a pas été enregistré ; les détails indiquent les champs concernés.'],
   'course.failed': ['Die Kursgliederung konnte nicht gespeichert werden. Deine Änderungen bleiben im Entwurf.', 'The course outline could not be saved. Your edits remain in the draft.', 'Le plan du cours n’a pas pu être enregistré. Vos modifications restent dans le brouillon.'],
   'course.corrupt': ['Die gespeicherte Gliederung ist ungültig und wurde nicht ersetzt. Stelle eine gültige Version wieder her.', 'The saved outline is invalid and was not replaced. Restore a valid version.', 'Le plan enregistré est invalide et n’a pas été remplacé. Restaurez une version valide.'],
   'course.boundary': ['Dies ist die Grundlage für Kursgliederung und einzelne Videoexporte, kein vollständiger Kursgenerator und keine Plattformfreigabe. Skripte, Demonstrationen, Übungen, Lösungen und Materialien müssen noch vorbereitet und fachlich geprüft werden. Für Udemy bleiben die fachliche Beteiligung des Dozenten und die KI-Offenlegung erforderlich. Hier wird nichts veröffentlicht.', 'This is the outline and individual-video-export foundation, not a complete course generator or platform approval check. Scripts, demonstrations, exercises, solutions and materials still need preparation and expert review. Meaningful instructor involvement and AI-use disclosure remain required for Udemy preparation; nothing is published here.', 'Il s’agit de la base du plan de cours et des exports vidéo individuels, pas d’un générateur de cours complet ni d’une validation par une plateforme. Scripts, démonstrations, exercices, solutions et ressources nécessitent encore préparation et examen expert. Pour Udemy, l’implication réelle du formateur et la déclaration de l’usage de l’IA restent nécessaires. Rien n’est publié ici.'],
