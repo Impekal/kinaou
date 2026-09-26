@@ -447,3 +447,134 @@ export function createTikTokPostReview(
       settings
     })
 }
+
+
+const tiktokOAuthActiveSessionSchema =
+  z.object({
+    sessionId:
+      z.string()
+        .uuid(),
+
+    state:
+      z.enum([
+        'awaiting-user',
+        'connected',
+        'failed',
+        'expired',
+        'cancelled'
+      ]),
+
+    createdAt:
+      z.string()
+        .datetime(),
+
+    expiresAt:
+      z.string()
+        .datetime(),
+
+    authorizationUrl:
+      z.string()
+        .url()
+        .optional(),
+
+    connectedAt:
+      z.string()
+        .datetime()
+        .optional(),
+
+    openId:
+      z.string()
+        .trim()
+        .min(1)
+        .max(500)
+        .optional(),
+
+    error:
+      z.string()
+        .trim()
+        .min(1)
+        .max(500)
+        .optional()
+  })
+    .strict()
+    .superRefine(
+      (
+        session,
+        context
+      ) => {
+        if (
+          session.state
+            === 'awaiting-user'
+          && !session.authorizationUrl
+        ) {
+          context.addIssue({
+            code:
+              'custom',
+
+            path: [
+              'authorizationUrl'
+            ],
+
+            message:
+              'Active TikTok OAuth session requires an authorization URL'
+          })
+        }
+
+
+        if (
+          session.state
+            === 'connected'
+          && (
+            !session.connectedAt
+            || !session.openId
+          )
+        ) {
+          context.addIssue({
+            code:
+              'custom',
+
+            message:
+              'Connected TikTok OAuth session requires connectedAt and openId'
+          })
+        }
+
+
+        if (
+          session.state
+            === 'failed'
+          && !session.error
+        ) {
+          context.addIssue({
+            code:
+              'custom',
+
+            path: [
+              'error'
+            ],
+
+            message:
+              'Failed TikTok OAuth session requires a public error'
+          })
+        }
+      }
+    )
+
+
+export const tiktokOAuthSessionSchema =
+  z.union([
+    z.object({
+      state:
+        z.literal(
+          'idle'
+        )
+    })
+      .strict(),
+
+    tiktokOAuthActiveSessionSchema
+  ])
+
+
+export type TikTokOAuthSession =
+  z.infer<
+    typeof tiktokOAuthSessionSchema
+  >

@@ -305,3 +305,74 @@ describe(
     )
   }
 )
+
+
+it(
+  'accepts only secret-free public TikTok OAuth session state',
+  async () => {
+    const {
+      tiktokOAuthSessionSchema
+    } =
+      await import(
+        '../src/core/tiktokPublishing'
+      )
+
+
+    const connected =
+      tiktokOAuthSessionSchema
+        .parse({
+          sessionId:
+            '11111111-1111-4111-8111-111111111111',
+
+          state:
+            'connected',
+
+          createdAt:
+            '2026-09-27T00:30:00.000Z',
+
+          expiresAt:
+            '2026-09-27T00:40:00.000Z',
+
+          connectedAt:
+            '2026-09-27T00:31:00.000Z',
+
+          openId:
+            'open-id-1'
+        })
+
+
+    expect(
+      connected.state
+    ).toBe(
+      'connected'
+    )
+
+
+    expect(
+      JSON.stringify(
+        connected
+      )
+    ).not.toMatch(
+      /access.?token|refresh.?token|client.?secret/
+    )
+
+
+    expect(
+      () =>
+        tiktokOAuthSessionSchema
+          .parse({
+            sessionId:
+              '11111111-1111-4111-8111-111111111111',
+
+            state:
+              'connected',
+
+            createdAt:
+              '2026-09-27T00:30:00.000Z',
+
+            expiresAt:
+              '2026-09-27T00:40:00.000Z'
+          })
+    ).toThrow()
+  }
+)
