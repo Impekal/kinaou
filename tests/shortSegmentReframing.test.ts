@@ -18,6 +18,10 @@ import {
   applyTimelineOperation
 } from '../src/core/timeline'
 
+import {
+  buildCompositeFilter
+} from '../src/core/localWorker'
+
 
 function fixture() {
   return parseProject({
@@ -211,6 +215,36 @@ describe(
           plan.requiredCapabilities
         ).toContain(
           'format-reframing'
+        )
+      }
+    )
+
+    it(
+      'builds distinct per-clip cover crops in the local compositor contract',
+      () => {
+        const plan =
+          createRenderPlan(
+            fixture(),
+            formatProfiles.vertical
+              .preview,
+            'KINAOU/Cache/Previews/local-segment-reframe.mp4'
+          )
+
+        const graph =
+          buildCompositeFilter(
+            plan
+          ).graph
+
+        expect(
+          graph
+        ).toContain(
+          'crop=540:960:(iw-540)*0:(ih-960)*0.5'
+        )
+
+        expect(
+          graph
+        ).toContain(
+          'crop=540:960:(iw-540)*1:(ih-960)*0.5'
         )
       }
     )

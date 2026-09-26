@@ -12,17 +12,58 @@ const TOKEN = 'render-fit-test-token'
 const PORT = 43916
 
 function extractFitLogic(source) {
-  const fit = source.match(/const fitFilter = [\s\S]*?force_original_aspect_ratio=decrease`/)
-  assert.ok(fit, 'fit filter derivation not found')
+  const fit = source.match(
+    /const fitFilterFor = \(clip(?:: RenderClipStep)?\) => \{[\s\S]*?force_original_aspect_ratio=decrease`\n  \}/
+  )
+  assert.ok(fit, 'clip-aware fit filter derivation not found')
+
+  const fitUse = source.match(
+    /const framePrefix = \(clip(?:: RenderClipStep)?\) => \{\n    const fitFilter = fitFilterFor\(clip\)/
+  )
+  assert.ok(fitUse, 'clip-aware fit filter use not found')
+
   const visual = source.match(/parts\.push\(`\[\$\{index\}:v\]\$\{framePrefix\(clip\)\}[^\n]*\)/)
   assert.ok(visual, 'visual filter line not found')
+
   const zoom = source.match(/const zoom = clip\.motion === 'zoom-in'[\s\S]*?,1\)`/)
   assert.ok(zoom, 'motion zoom expression not found')
+
   const zoompan = source.match(/return `\$\{fitted\},zoompan=[^\n]*`/)
   assert.ok(zoompan, 'zoompan filter not found')
+
   const letterbox = source.match(/const factor = Math\.min\(width \/ sourceWidth[\s\S]*?\* factor\)\) \}/)
   assert.ok(letterbox, 'letterboxed size maths not found')
-  return { fit: fit[0], visual: visual[0], zoom: zoom[0], zoompan: zoompan[0], letterbox: letterbox[0] }
+
+  const normalize = (value) =>
+    value
+      .replace(
+        /\(clip: RenderClipStep\)/g,
+        '(clip)'
+      )
+
+  return {
+    fit:
+      normalize(
+        fit[0]
+      ),
+
+    fitUse:
+      normalize(
+        fitUse[0]
+      ),
+
+    visual:
+      visual[0],
+
+    zoom:
+      zoom[0],
+
+    zoompan:
+      zoompan[0],
+
+    letterbox:
+      letterbox[0]
+  }
 }
 
 function extractDuckingLogic(source) {
