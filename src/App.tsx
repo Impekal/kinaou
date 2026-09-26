@@ -22,6 +22,8 @@ import { SceneVoiceoverPanel } from './components/SceneVoiceoverPanel'
 import { ScriptCaptionsPanel } from './components/ScriptCaptionsPanel'
 import { StoryboardAssemblyPanel } from './components/StoryboardAssemblyPanel'
 import { AiEditorPanel } from './components/AiEditorPanel'
+import { ShortFinishingPanel } from './components/ShortFinishingPanel'
+import { ShortAudioFinishingPanel } from './components/ShortAudioFinishingPanel'
 import { PublishPanel } from './components/PublishPanel'
 import { CoursePanel } from './components/CoursePanel'
 import { SettingsPanel } from './components/SettingsPanel'
@@ -198,6 +200,8 @@ export function App() {
             <TimelinePreview project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} playheadMs={studioPlayheadMs} onPlayheadChange={setStudioPlayheadMs} />
             <VersionHistoryPanel key={project.id} project={project} history={versionHistory} onProjectChange={persistProject} />
             <AiEditorPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
+            <ShortFinishingPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
+            <ShortAudioFinishingPanel project={project} history={versionHistory} onProjectChange={persistProject} />
             <StoryboardAssemblyPanel key={`assembly-${project.id}`} project={project} history={versionHistory} onProjectChange={persistProject} />
             <ScriptCaptionsPanel key={`script-captions-${project.id}`} project={project} history={versionHistory} onProjectChange={persistProject} />
             <SceneVoiceoverPanel key={`narration-${project.id}`} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />

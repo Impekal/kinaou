@@ -9,9 +9,9 @@ import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { managedUploadPaths } from './asset-upload.mjs'
 import { validateReferenceBindings, validateReferences, uploadComfyReferences } from './comfy-inputs.mjs'
-import { buildAssDocument, captionTempPaths, escapeSubtitleFilterPath } from './captions.mjs'
+import { buildAssDocument, captionTempPaths, escapeSubtitleFilterPath, normalizeCaptionStyle } from './captions.mjs'
 import { buildProxyArgs, buildThumbnailArgs, buildWaveformArgs, previewMediaType, proxyRelativePath, thumbnailRelativePath, waveformRelativePath } from './proxies.mjs'
-import { generateAiEditorProposal, generateDirectorPlan, generateMediaAcquisitionPlan, generateShortHighlightProposal, listOllamaModels, normalizeOllamaUrl } from './ollama.mjs'
+import { generateAiEditorProposal, generateDirectorPlan, generateMediaAcquisitionPlan, generateShortHighlightProposal, generateShortReframeProposal, listOllamaModels, normalizeOllamaUrl } from './ollama.mjs'
 import { MAX_GENERATED_IMAGE_BYTES, MAX_GENERATED_VIDEO_BYTES, MAX_WORKFLOW_FILE_BYTES, buildComfyPromptRequest, comfyHistoryStatus, comfyOutputQuery, comfyQueuePhase, comfyTempImageRelativePath, comfyTempVideoRelativePath, comfyWorkflowRelativePaths, detectComfyUi, generatedMediaExtensionFor, generatedImageRelativePath, generatedVideoRelativePath, normalizeComfyUrl, parseComfyPromptResponse, pickComfyOutputForMediaType, templateMediaType, validateComfyTemplate } from './comfyui.mjs'
 import { buildSttCommands, normalizeWhisperTranscript, sttPaths, whisperModelRelativePaths } from './whisper.mjs'
 import { buildPiperCommand, piperVoiceDetails, piperVoiceRelativePaths, ttsPaths, validateTtsText } from './piper.mjs'
@@ -384,6 +384,22 @@ const server = http.createServer(async (request, response) => {
       const localModels = await listOllamaModels(OLLAMA_URL).catch(() => [])
       if (!localModels.some((item) => item.id === body.model)) throw capabilityError('Requested local model is not installed')
       return send(response, 200, { ok: true, type: 'short-highlight-proposal', proposal: await generateShortHighlightProposal(OLLAMA_URL, body.model, body.context) })
+    }
+
+    if (request.method === 'POST' && request.url === '/short-finishing/reframe/generate') {
+      const body = await readJson(request)
+      const localModels = await listOllamaModels(OLLAMA_URL).catch(() => [])
+      if (!localModels.some((item) => item.id === body.model)) throw capabilityError('Requested local model is not installed')
+      return send(response, 200, {
+        ok: true,
+        type: 'short-reframe-proposal',
+        proposal: await generateShortReframeProposal(
+          OLLAMA_URL,
+          body.model,
+          body.instruction,
+          body.context
+        )
+      })
     }
 
     if (request.method === 'POST' && request.url === '/media-plan/generate') {
@@ -1393,6 +1409,14 @@ function validateRenderPlan(plan) {
     if (!Number.isFinite(clip.durationMs) || clip.durationMs <= 0) throw new Error('Invalid clip duration')
     if (!Number.isFinite(clip.sourceOffsetMs) || clip.sourceOffsetMs < 0) throw new Error('Invalid source offset')
     if (!Number.isFinite(clip.speed) || clip.speed < 0.25 || clip.speed > 4) throw new Error('Invalid clip speed')
+    if (clip.reframe !== undefined) {
+      if (!clip.reframe || typeof clip.reframe !== 'object' || Array.isArray(clip.reframe)) throw new Error('Invalid clip reframe')
+      if ([clip.reframe.focusX, clip.reframe.focusY].some((value) => !Number.isFinite(value) || value < 0 || value > 1)) throw new Error('Invalid clip reframe focus')
+    }
+    if (clip.captionStyle !== undefined) {
+      if (clip.asset?.kind !== 'caption') throw new Error('Caption style requires a caption clip')
+      normalizeCaptionStyle(clip.captionStyle)
+    }
     if (clip.motion !== undefined && clip.motion !== 'zoom-in' && clip.motion !== 'zoom-out') throw new Error('Invalid clip motion')
     if ((clip.asset?.kind === 'image' || clip.asset?.kind === 'caption') && clip.speed !== 1) throw new Error('Speed retiming only supports video and audio')
     const transform = clip.transform
@@ -1564,17 +1588,22 @@ function buildCompositeArgs(plan, mediaClips, inputPaths, outputPath, subtitlePa
 
   const width = plan.preset.width
   const height = plan.preset.height
-  const focusX = plan.preset.focusX ?? 0.5
-  const focusY = plan.preset.focusY ?? 0.5
   // contain letterboxes the whole frame; cover fills the canvas and crops the
-  // overflow at the selected format-specific normalized focus point.
-  const fitFilter = plan.preset.fit === 'cover'
-    ? `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}:(iw-${width})*${focusX}:(ih-${height})*${focusY}`
-    : `scale=${width}:${height}:force_original_aspect_ratio=decrease`
+  // overflow at either the clip-local focus or the project-format focus.
+  const fitFilterFor = (clip) => {
+    const focusX = clip.reframe?.focusX ?? plan.preset.focusX ?? 0.5
+    const focusY = clip.reframe?.focusY ?? plan.preset.focusY ?? 0.5
+
+    return plan.preset.fit === 'cover'
+      ? `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}:(iw-${width})*${focusX}:(ih-${height})*${focusY}`
+      : `scale=${width}:${height}:force_original_aspect_ratio=decrease`
+  }
   // A still scene can drift slowly instead of sitting perfectly still. zoompan needs a
   // fixed output size: cover already fills the canvas, while contain must render into
   // the letterboxed size computed from the source pixels — stretching it would distort.
   const framePrefix = (clip) => {
+    const fitFilter = fitFilterFor(clip)
+
     const target = clip.motion && clip.asset.kind === 'image'
       ? (plan.preset.fit === 'cover' ? { w: width, h: height } : letterboxedSize(clip.asset, width, height))
       : null

@@ -23,6 +23,7 @@ export type TimelineOperation =
   | { type: 'trim-clip'; trackId: string; clipId: string; startMs: number; durationMs: number; sourceOffsetMs: number }
   | { type: 'set-clip-gain'; trackId: string; clipId: string; gain: number }
   | { type: 'set-clip-transform'; trackId: string; clipId: string; transform: NonNullable<TimelineClip['transform']> }
+  | { type: 'set-clip-reframe'; trackId: string; clipId: string; reframe?: NonNullable<TimelineClip['reframe']> }
   | { type: 'set-clip-transform-keyframes'; trackId: string; clipId: string; keyframes?: NonNullable<TimelineClip['transformKeyframes']> }
   | { type: 'set-clip-transition'; trackId: string; clipId: string; transitionIn?: NonNullable<TimelineClip['transitionIn']> }
   | { type: 'set-clip-fades'; trackId: string; clipId: string; fades: NonNullable<TimelineClip['fades']> }
@@ -239,6 +240,49 @@ export function applyTimelineOperation(project: KinaouProject, operation: Timeli
       if (![parsed.cropLeft, parsed.cropTop, parsed.cropRight, parsed.cropBottom].every((value) => Number.isInteger(value) && value >= 0)) throw new Error('Clip crop must use non-negative integer pixels')
       return updateUnlockedTrack(project, operation.trackId, (track) => updateExistingClip(track, operation.clipId, (clip) => ({ ...clip, transform: { ...parsed } })))
     }
+    case 'set-clip-reframe':
+      return updateUnlockedTrack(project, operation.trackId, (track) => updateExistingClip(track, operation.clipId, (clip) => {
+        if (!operation.reframe) {
+          const { reframe: _removed, ...rest } = clip
+          return rest
+        }
+
+        const {
+          focusX,
+          focusY
+        } =
+          operation.reframe
+
+        if (
+          ![focusX, focusY].every(
+            (value) =>
+              Number.isFinite(value)
+              && value >= 0
+              && value <= 1
+          )
+        ) {
+          throw new Error(
+            'Clip reframe focus must be between 0 and 1'
+          )
+        }
+
+        return {
+          ...clip,
+
+          reframe: {
+            focusX:
+              Number(
+                focusX.toFixed(3)
+              ),
+
+            focusY:
+              Number(
+                focusY.toFixed(3)
+              )
+          }
+        }
+      }))
+
     case 'set-clip-transform-keyframes':
       return updateUnlockedTrack(project, operation.trackId, (track) => updateExistingClip(track, operation.clipId, (clip) => {
         if (!operation.keyframes) {

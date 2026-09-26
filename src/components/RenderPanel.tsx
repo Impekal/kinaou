@@ -6,6 +6,7 @@ import { WorkerClient } from '../core/workerClient'
 import { createRangeRenderPlan, validateRenderRange } from '../core/renderRange'
 import { defaultAudioDucking, validateAudioDucking } from '../core/audioDucking'
 import { defaultLoudnessNormalization } from '../core/audioLoudness'
+import { projectUsesShortAudioFinishing, resolveShortRenderAudioSettings } from '../core/shortAudioFinishing'
 import { planShortExportBatch, planShortExportRanges, projectShortExportMaximum, setProjectShortExportMaximum, shortExportMaximumError, shortExportVariant } from '../core/shortExportRanges'
 import { archiveProjectShortBatch, requestPersistedShortBatchCancellation, clearProjectShortBatch, createPersistedShortBatch, nextShortBatchItem, planSelectiveShortBatchRetry, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, retryableShortBatchItems, reviewArchivedShortBatchSelection, shortBatchBusy, storeProjectShortBatch, type PersistedShortBatch, type PersistedShortBatchItem } from '../core/shortExportBatch'
 import { forgetProjectShortExportRecipe, projectShortExportRecipes, reviewShortExportRecipe, saveProjectShortExportRecipe, shortExportRecipeLimit } from '../core/shortExportRecipes'
@@ -70,7 +71,40 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
   const [duckingAttackMs, setDuckingAttackMs] = useState(String(defaultAudioDucking.attackMs))
   const [duckingReleaseMs, setDuckingReleaseMs] = useState(String(defaultAudioDucking.releaseMs))
   const [normalizeLoudness, setNormalizeLoudness] = useState(defaultLoudnessNormalization.enabled)
-  const duckingSettings = { enabled: duckingEnabled, reductionDb: Number(duckingReductionDb), attackMs: Number(duckingAttackMs), releaseMs: Number(duckingReleaseMs) }
+
+  const sessionAudioDucking = {
+    enabled: duckingEnabled,
+    reductionDb: Number(duckingReductionDb),
+    attackMs: Number(duckingAttackMs),
+    releaseMs: Number(duckingReleaseMs)
+  }
+
+  const shortAudioControlled =
+    projectUsesShortAudioFinishing(
+      project
+    )
+
+  const resolvedAudio =
+    resolveShortRenderAudioSettings(
+      project,
+      {
+        audioDucking:
+          sessionAudioDucking,
+
+        loudnessNormalization: {
+          ...defaultLoudnessNormalization,
+          enabled:
+            normalizeLoudness
+        }
+      }
+    )
+
+  const duckingSettings =
+    resolvedAudio.audioDucking
+
+  const loudnessSettings =
+    resolvedAudio.loudnessNormalization
+
   const duckingCheck = (() => { try { validateAudioDucking(duckingSettings); return { valid: true, reason: '' } } catch (value) { return { valid: false, reason: value instanceof Error ? value.message : uiMessageReference('recovery.duckingSettings') } } })()
   const range = { inMs: Math.round(Number(inSeconds) * 1000), outMs: Math.round(Number(outSeconds) * 1000) }
   const rangeCheck = Number.isFinite(range.inMs) && Number.isFinite(range.outMs) ? validateRenderRange(range, timelineDurationMs) : { valid: false, reason: uiMessageReference('recovery.rangeNumbers') }
@@ -351,7 +385,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     try {
       const wholeTimeline = range.inMs === 0 && range.outMs === timelineDurationMs
       const path = renderOutputPath(project, new Date(), `${format}-${crypto.randomUUID()}`)
-      const fullPlan = createRenderPlan(project, projectFormatPreset(project, format, 'export'), path, { audioDucking: duckingSettings, loudnessNormalization: { ...defaultLoudnessNormalization, enabled: normalizeLoudness } })
+      const fullPlan = createRenderPlan(project, projectFormatPreset(project, format, 'export'), path, { audioDucking: duckingSettings, loudnessNormalization: loudnessSettings })
       const lessonExport = selectedLesson ? planCourseLessonExport(project, selectedLesson.id, fullPlan, path) : null
       const plan = lessonExport?.plan ?? (wholeTimeline ? fullPlan : createRangeRenderPlan(fullPlan, range, path))
       singleSession.current?.detach()
@@ -390,7 +424,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       const planned = planShortExportBatch(project, shortExports.candidates, batchSelectedIds, batchFormats, now)
       const plans = new Map<string, RenderPlan>()
       for (const item of planned) {
-        const fullPlan = createRenderPlan(project, projectFormatPreset(project, item.format, 'export'), item.outputPath, { audioDucking: duckingSettings, loudnessNormalization: { ...defaultLoudnessNormalization, enabled: normalizeLoudness } })
+        const fullPlan = createRenderPlan(project, projectFormatPreset(project, item.format, 'export'), item.outputPath, { audioDucking: duckingSettings, loudnessNormalization: loudnessSettings })
         plans.set(item.id, createRangeRenderPlan(fullPlan, { inMs: item.inMs, outMs: item.outMs }, item.outputPath))
       }
       const durable = createPersistedShortBatch(planned.map((item) => ({ ...item, state: 'queued', progress: 0 })), plans, now)
@@ -419,7 +453,7 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
     try {
       const result = planSelectiveShortBatchRetry(project, { ...current, items: batchItems }, shortExports.candidates, retrySelectedIds, {
         audioDucking: duckingSettings,
-        loudnessNormalization: { ...defaultLoudnessNormalization, enabled: normalizeLoudness }
+        loudnessNormalization: loudnessSettings
       }, new Date())
       commitShortBatchChange(storeProjectShortBatch(project, result.batch), onProjectChange, () => {
         batchPlans.current = result.plans
@@ -588,18 +622,23 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
         </div>
       </div>}
 
-      <label className="checkRow"><input type="checkbox" checked={duckingEnabled} disabled={busy} onChange={(event) => setDuckingEnabled(event.target.checked)} />{t('export.duck')}</label>
-      {duckingEnabled && <div className="fieldGrid">
-        <label>{t('export.reduction')}<input type="number" min="0" max="40" step="1" value={duckingReductionDb} disabled={busy} onChange={(event) => setDuckingReductionDb(event.target.value)} /></label>
-        <label>{t('export.attack')}<input type="number" min="0" max="5000" step="10" value={duckingAttackMs} disabled={busy} onChange={(event) => setDuckingAttackMs(event.target.value)} /></label>
-        <label>{t('export.release')}<input type="number" min="0" max="5000" step="10" value={duckingReleaseMs} disabled={busy} onChange={(event) => setDuckingReleaseMs(event.target.value)} /></label>
-      </div>}
+      {shortAudioControlled
+        ? <div className="note">{t('shortAudio.renderManaged')}</div>
+        : <>
+          <label className="checkRow"><input type="checkbox" checked={duckingEnabled} disabled={busy} onChange={(event) => setDuckingEnabled(event.target.checked)} />{t('export.duck')}</label>
+          {duckingEnabled && <div className="fieldGrid">
+            <label>{t('export.reduction')}<input type="number" min="0" max="40" step="1" value={duckingReductionDb} disabled={busy} onChange={(event) => setDuckingReductionDb(event.target.value)} /></label>
+            <label>{t('export.attack')}<input type="number" min="0" max="5000" step="10" value={duckingAttackMs} disabled={busy} onChange={(event) => setDuckingAttackMs(event.target.value)} /></label>
+            <label>{t('export.release')}<input type="number" min="0" max="5000" step="10" value={duckingReleaseMs} disabled={busy} onChange={(event) => setDuckingReleaseMs(event.target.value)} /></label>
+          </div>}
+
+          <label className="checkRow"><input type="checkbox" checked={normalizeLoudness} disabled={busy} onChange={(event) => setNormalizeLoudness(event.target.checked)} />{t('export.normalize')}</label>
+          <p className="cardBody">{t('export.normalizeHelp')}</p>
+        </>}
+
       {!duckingCheck.valid && <div className="warning">{t('export.invalidAudio')}<details><summary>{t('common.details')}</summary>{resolveUiMessage(language, duckingCheck.reason)}</details></div>}
 
-      <label className="checkRow"><input type="checkbox" checked={normalizeLoudness} disabled={busy} onChange={(event) => setNormalizeLoudness(event.target.checked)} />{t('export.normalize')}</label>
-      <p className="cardBody">{t('export.normalizeHelp')}</p>
-
-      {selectedShort && <ShortPreviewPanel project={project} candidate={selectedShort} format={shortPreviewFormat} onFormatChange={setShortPreviewFormat} onBusyChange={setShortPreviewBusy} audioDucking={duckingSettings} normalizeLoudness={normalizeLoudness} workerUrl={workerUrl} workerToken={workerToken} workerConnected={workerConnected} workerCapabilities={workerCapabilities} disabled={!readiness.ready || !duckingCheck.valid || singleBusy || batchBusy} />}
+      {selectedShort && <ShortPreviewPanel project={project} candidate={selectedShort} format={shortPreviewFormat} onFormatChange={setShortPreviewFormat} onBusyChange={setShortPreviewBusy} audioDucking={duckingSettings} loudnessNormalization={loudnessSettings} workerUrl={workerUrl} workerToken={workerToken} workerConnected={workerConnected} workerCapabilities={workerCapabilities} disabled={!readiness.ready || !duckingCheck.valid || singleBusy || batchBusy} />}
 
       {!readiness.ready && <div className="warning">{readiness.code ? t(`preview.reason.${readiness.code}`, { track: readiness.track ?? '', speed: readiness.speed ?? 1 }) : readiness.reason}</div>}
       {!workerConnected && readiness.ready && <div className="warning">{t('preview.connect')}</div>}

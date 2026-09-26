@@ -22,5 +22,131 @@ export const uiCaptionMessages = {
   'caption.importOne': ['1 geprüften Abschnitt hinzufügen', 'Add 1 reviewed segment', 'Ajouter 1 segment vérifié'],
   'caption.importMany': ['{count} geprüfte Abschnitte hinzufügen', 'Add {count} reviewed segments', 'Ajouter {count} segments vérifiés'],
   'caption.imported': ['Ausgewählte Transkriptabschnitte gespeichert.', 'Selected transcript segments saved.', 'Segments sélectionnés de la transcription enregistrés.'],
-  'caption.range': ['{start}–{end} s', '{start}–{end} s', '{start}–{end} s']
+  'caption.range': ['{start}–{end} s', '{start}–{end} s', '{start}–{end} s'],
+
+  'caption.styleHeading': [
+    'Darstellung',
+    'Appearance',
+    'Apparence'
+  ],
+
+  'caption.styleHelp': [
+    'Stiländerungen bleiben zunächst Entwurf. Erst „Stil anwenden“ speichert sie und legt vorher eine Sicherheitsversion an.',
+    'Style changes remain a draft until you explicitly apply them. Applying saves a safety version first.',
+    'Les changements de style restent un brouillon jusqu’à leur application explicite. Une version de sécurité est enregistrée auparavant.'
+  ],
+
+  'caption.stylePreset': [
+    'Stil',
+    'Style',
+    'Style'
+  ],
+
+  'caption.stylePosition': [
+    'Position',
+    'Position',
+    'Position'
+  ],
+
+  'caption.styleSize': [
+    'Größe',
+    'Size',
+    'Taille'
+  ],
+
+  'caption.style.clean': [
+    'Clean',
+    'Clean',
+    'Épuré'
+  ],
+
+  'caption.style.strong': [
+    'Kräftig',
+    'Strong',
+    'Renforcé'
+  ],
+
+  'caption.style.boxed': [
+    'Box',
+    'Boxed',
+    'Encadré'
+  ],
+
+  'caption.position.top': [
+    'Oben',
+    'Top',
+    'Haut'
+  ],
+
+  'caption.position.center': [
+    'Mitte',
+    'Center',
+    'Centre'
+  ],
+
+  'caption.position.bottom': [
+    'Unten',
+    'Bottom',
+    'Bas'
+  ],
+
+  'caption.size.small': [
+    'Klein',
+    'Small',
+    'Petit'
+  ],
+
+  'caption.size.medium': [
+    'Mittel',
+    'Medium',
+    'Moyen'
+  ],
+
+  'caption.size.large': [
+    'Groß',
+    'Large',
+    'Grand'
+  ],
+
+  'caption.styleDraft': [
+    'Ungespeicherter Stilentwurf',
+    'Unsaved style draft',
+    'Brouillon de style non enregistré'
+  ],
+
+  'caption.styleConflict': [
+    'Der gespeicherte Stil hat sich geändert. Verwirf den lokalen Entwurf oder prüfe die neue Projektversion, bevor du speicherst.',
+    'The saved style changed. Discard the local draft or review the new project version before saving.',
+    'Le style enregistré a changé. Abandonnez le brouillon local ou vérifiez la nouvelle version du projet avant d’enregistrer.'
+  ],
+
+  'caption.styleApply': [
+    'Stil anwenden',
+    'Apply style',
+    'Appliquer le style'
+  ],
+
+  'caption.styleDiscard': [
+    'Entwurf verwerfen',
+    'Discard draft',
+    'Abandonner le brouillon'
+  ],
+
+  'caption.styleReset': [
+    'Auf Standard zurücksetzen',
+    'Reset to default',
+    'Rétablir le style par défaut'
+  ],
+
+  'caption.styleSaved': [
+    'Caption-Stil gespeichert.',
+    'Caption style saved.',
+    'Style du sous-titre enregistré.'
+  ],
+
+  'caption.styleDefault': [
+    'Standard: Clean · unten · mittel',
+    'Default: Clean · bottom · medium',
+    'Par défaut : épuré · bas · moyen'
+  ]
 } satisfies Record<string, readonly [string, string, string]>

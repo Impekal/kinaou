@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { generateAiEditorProposal, generateDirectorPlan, generateShortHighlightProposal, listOllamaModels, normalizeOllamaUrl } from './ollama.mjs'
+import { generateAiEditorProposal, generateDirectorPlan, generateShortHighlightProposal, generateShortReframeProposal, listOllamaModels, normalizeOllamaUrl } from './ollama.mjs'
 
 test('permits only loopback Ollama endpoints', () => {
   assert.equal(normalizeOllamaUrl('http://localhost:11434/'), 'http://localhost:11434')
@@ -228,3 +228,143 @@ test('generates evidence-grounded Short highlight proposals without trend or vir
     }
   )
 })
+
+test(
+  'generates instruction-grounded Short reframing proposals without claiming pixel access',
+  async () => {
+    let body
+
+    const context = {
+      schemaVersion:
+        1,
+
+      project: {
+        id:
+          'short'
+      },
+
+      visualClips: [
+        {
+          trackId:
+            'video',
+
+          clipId:
+            'clip',
+
+          sceneId:
+            'scene',
+
+          scene: {
+            title:
+              'Speaker left',
+
+            description:
+              'Speaker is on the left.'
+          }
+        }
+      ]
+    }
+
+    const proposal =
+      await generateShortReframeProposal(
+        'http://localhost:11434',
+        'qwen:7b',
+        'Keep the speaker on the left.',
+        context,
+        async (
+          _url,
+          init
+        ) => {
+          body =
+            JSON.parse(
+              init.body
+            )
+
+          return new Response(
+            JSON.stringify({
+              response:
+                JSON.stringify({
+                  schemaVersion:
+                    1,
+
+                  title:
+                    'Reframe',
+
+                  objective:
+                    'Keep subject visible',
+
+                  operations: [
+                    {
+                      id:
+                        'left',
+
+                      trackId:
+                        'video',
+
+                      clipId:
+                        'clip',
+
+                      sceneId:
+                        'scene',
+
+                      focusX:
+                        0.2,
+
+                      focusY:
+                        0.5,
+
+                      reason:
+                        'Instruction explicitly places the speaker left.'
+                    }
+                  ]
+                })
+            }),
+            {
+              status:
+                200
+            }
+          )
+        }
+      )
+
+    assert.equal(
+      body.stream,
+      false
+    )
+
+    assert.equal(
+      body.options.temperature,
+      0
+    )
+
+    assert.ok(
+      body.format
+        .properties
+        .operations
+    )
+
+    assert.match(
+      body.prompt,
+      /DO NOT see the video pixels/i
+    )
+
+    assert.match(
+      body.prompt,
+      /Never invent IDs/i
+    )
+
+    assert.deepEqual(
+      proposal.provenance,
+      {
+        kind:
+          'local-model',
+
+        adapterId:
+          'ollama',
+
+        modelId:
+          'qwen:7b'
+      }
+    )
+  }
+)

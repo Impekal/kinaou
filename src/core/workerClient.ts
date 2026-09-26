@@ -387,6 +387,40 @@ export class WorkerClient {
     return payload.proposal
   }
 
+  async generateShortReframeProposal(
+    model: string,
+    instruction: string,
+    context: unknown
+  ): Promise<unknown> {
+    const payload =
+      await this.request(
+        '/short-finishing/reframe/generate',
+        {
+          method:
+            'POST',
+
+          body:
+            JSON.stringify({
+              model,
+              instruction,
+              context
+            })
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'short-reframe-proposal'
+    ) {
+      throw new Error(
+        'Invalid Short reframing response'
+      )
+    }
+
+    return payload.proposal
+  }
+
   async generateMediaAcquisitionPlan(model: string, context: unknown): Promise<unknown> {
     const payload = await this.request('/media-plan/generate', { method: 'POST', body: JSON.stringify({ model, context }) })
     if (payload?.ok !== true || payload?.type !== 'media-plan') throw new Error('Invalid media plan response')

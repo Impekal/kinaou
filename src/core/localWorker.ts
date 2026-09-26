@@ -164,17 +164,22 @@ function transformAnimation(clip: RenderClipStep): { scale: string; x: string; y
 export function buildCompositeFilter(plan: RenderPlan, subtitleAbsolutePath?: string): CompositeFilter {
   const width = plan.preset.width
   const height = plan.preset.height
-  const focusX = plan.preset.focusX ?? 0.5
-  const focusY = plan.preset.focusY ?? 0.5
   // contain letterboxes the whole frame; cover fills the canvas and crops the
-  // overflow at the selected format-specific normalized focus point.
-  const fitFilter = plan.preset.fit === 'cover'
-    ? `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}:(iw-${width})*${focusX}:(ih-${height})*${focusY}`
-    : `scale=${width}:${height}:force_original_aspect_ratio=decrease`
+  // overflow at either the clip-local focus or the project-format focus.
+  const fitFilterFor = (clip: RenderClipStep) => {
+    const focusX = clip.reframe?.focusX ?? plan.preset.focusX ?? 0.5
+    const focusY = clip.reframe?.focusY ?? plan.preset.focusY ?? 0.5
+
+    return plan.preset.fit === 'cover'
+      ? `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}:(iw-${width})*${focusX}:(ih-${height})*${focusY}`
+      : `scale=${width}:${height}:force_original_aspect_ratio=decrease`
+  }
   // A still scene can drift slowly instead of sitting perfectly still. zoompan needs a
   // fixed output size: cover already fills the canvas, while contain must render into
   // the letterboxed size computed from the source pixels — stretching it would distort.
   const framePrefix = (clip: RenderClipStep) => {
+    const fitFilter = fitFilterFor(clip)
+
     const target = clip.motion && clip.asset.kind === 'image'
       ? (plan.preset.fit === 'cover' ? { w: width, h: height } : letterboxedSize(clip.asset, width, height))
       : null

@@ -22,7 +22,7 @@ it.each(uiLanguages)('renders caption authoring in %s without rewriting saved te
   saved.assets.push({ id: 'transcript', kind: 'document', uri: 'KINAOU/Projects/Transcripts/t.json', managed: true, offline: false, metadata: { name: 'Original transcript', transcript: { schemaVersion: 1, adapterId: 'whisper.cpp', language: 'fr', text: 'Bonjour', segments: [{ startMs: 0, endMs: 1000, text: 'Bonjour' }] } } })
   const before = JSON.stringify(saved), persist = vi.fn()
   const html = renderToStaticMarkup(createElement(UiLanguageProvider, { initialLanguage: language, children: createElement(CaptionEditor, { project: saved, history: history(), onProjectChange: persist }) }))
-  for (const key of ['caption.heading', 'caption.add', 'caption.save', 'caption.discard', 'caption.select'] as const) expect(html).toContain(translateUi(language, key))
+  for (const key of ['caption.heading', 'caption.add', 'caption.save', 'caption.discard', 'caption.select', 'caption.styleHeading', 'caption.styleApply'] as const) expect(html).toContain(translateUi(language, key))
   expect(html).toContain('Grüße &amp; bonjour &lt;script&gt;')
   expect(html).toContain('Original transcript')
   expect(JSON.stringify(saved)).toBe(before)
