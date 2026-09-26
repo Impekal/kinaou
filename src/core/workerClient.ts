@@ -551,6 +551,95 @@ export class WorkerClient {
   }
 
 
+  async publishInstagram(
+    request:
+      PlatformPublishRequest,
+
+    attemptId:
+      string
+  ): Promise<PlatformPublishReceipt> {
+    const normalized =
+      platformPublishRequestSchema
+        .parse(
+          request
+        )
+
+    if (
+      normalized.platform
+        !== 'instagram'
+      || normalized.placement
+        !== 'instagram-reel'
+    ) {
+      throw new Error(
+        'Instagram worker publishing accepts only Instagram Reels'
+      )
+    }
+
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+        .test(
+          attemptId
+        )
+    ) {
+      throw new Error(
+        'Instagram publish attempt id must be a UUID'
+      )
+    }
+
+    const payload =
+      await this.request(
+        '/publish/instagram',
+        {
+          method:
+            'POST',
+
+          body:
+            JSON.stringify({
+              request:
+                normalized,
+
+              attemptId
+            })
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'instagram-publish-receipt'
+    ) {
+      throw new Error(
+        'Invalid Instagram publish response'
+      )
+    }
+
+    const receipt =
+      platformPublishReceiptSchema
+        .parse(
+          payload.receipt
+        )
+
+    if (
+      receipt.requestId
+        !== normalized.requestId
+      || receipt.attemptId
+        !== attemptId
+      || receipt.platform
+        !== 'instagram'
+      || receipt.placement
+        !== 'instagram-reel'
+      || receipt.sourceSha256
+        !== normalized.media.sha256
+    ) {
+      throw new Error(
+        'Instagram publish receipt does not match the submitted request'
+      )
+    }
+
+    return receipt
+  }
+
+
   async platformCredentialStatuses(): Promise<PlatformCredentialStatus[]> {
     const payload =
       await this.request(

@@ -336,3 +336,176 @@ describe(
     )
   }
 )
+
+
+describe(
+  'Instagram publish WorkerClient',
+  () => {
+    it(
+      'submits one explicit Reel request and validates the receipt',
+      async () => {
+        const request = {
+          schemaVersion:
+            1 as const,
+
+          projectId:
+            'instagram-project',
+
+          packagePath:
+            'KINAOU/Renders/reel_instagram.publish.json',
+
+          platform:
+            'instagram' as const,
+
+          placement:
+            'instagram-reel' as const,
+
+          media: {
+            path:
+              'KINAOU/Renders/reel.mp4',
+
+            sizeBytes:
+              4096,
+
+            sha256:
+              'a'.repeat(
+                64
+              )
+          },
+
+          metadata: {
+            title:
+              'Reviewed Reel',
+
+            description:
+              'Explicit publishing.',
+
+            tags: [
+              'KINAOU'
+            ]
+          },
+
+          verifiedAt:
+            '2026-09-26T21:00:00.000Z',
+
+          requestId:
+            '11111111-1111-4111-8111-111111111111',
+
+          approval: {
+            kind:
+              'explicit-human' as const,
+
+            confirmedAt:
+              '2026-09-26T21:01:00.000Z'
+          }
+        }
+
+
+        const attemptId =
+          '22222222-2222-4222-8222-222222222222'
+
+
+        const client =
+          new WorkerClient({
+            baseUrl:
+              'http://127.0.0.1:43117',
+
+            token:
+              'worker-token',
+
+            fetchImpl:
+              async (
+                _input,
+                init
+              ) => {
+                expect(
+                  JSON.parse(
+                    String(
+                      init?.body
+                    )
+                  )
+                ).toEqual({
+                  request,
+                  attemptId
+                })
+
+
+                return jsonResponse(
+                  {
+                    ok:
+                      true,
+
+                    type:
+                      'instagram-publish-receipt',
+
+                    receipt: {
+                      schemaVersion:
+                        1,
+
+                      receiptId:
+                        '33333333-3333-4333-8333-333333333333',
+
+                      requestId:
+                        request.requestId,
+
+                      attemptId,
+
+                      platform:
+                        'instagram',
+
+                      placement:
+                        'instagram-reel',
+
+                      adapter: {
+                        id:
+                          'instagram-platform-api',
+
+                        version:
+                          '0.1.0'
+                      },
+
+                      sourceSha256:
+                        request.media
+                          .sha256,
+
+                      remote: {
+                        id:
+                          'instagram-media-1'
+                      },
+
+                      publishedAt:
+                        '2026-09-26T21:05:00.000Z'
+                    }
+                  },
+                  201
+                )
+              }
+          })
+
+
+        const receipt =
+          await client
+            .publishInstagram(
+              request,
+              attemptId
+            )
+
+
+        expect(
+          receipt.remote.id
+        ).toBe(
+          'instagram-media-1'
+        )
+
+
+        expect(
+          JSON.stringify(
+            receipt
+          )
+        ).not.toMatch(
+          /access.?token|delivery.?url|signature=/i
+        )
+      }
+    )
+  }
+)
