@@ -34,6 +34,7 @@ import { uiMediaCacheMessages } from './uiMediaCacheMessages'
 import { uiAssetListMessages } from './uiAssetListMessages'
 import { uiCaptureMessages } from './uiCaptureMessages'
 import { uiPublishMessages } from './uiPublishMessages'
+import { uiTikTokHandoffMessages } from './uiTikTokHandoffMessages'
 import { uiRecoveryMessages } from './uiRecoveryMessages'
 
 // Ordered de/en/fr tuples make missing language entries a compile-time error.
@@ -73,6 +74,7 @@ export const uiMessages = {
   ...uiAssetListMessages,
   ...uiCaptureMessages,
   ...uiPublishMessages,
+  ...uiTikTokHandoffMessages,
   ...uiRecoveryMessages,
   'nav.Projects': ['Projekte', 'Projects', 'Projets'],
   'nav.Create': ['Erstellen', 'Create', 'Créer'],

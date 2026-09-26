@@ -1,6 +1,10 @@
 # KINAOU — PROJECT STATE & HANDOFF
 
-Last updated: 2026-09-25
+Last updated: 2026-09-27
+
+## Active unmerged handoff — private TikTok manual delivery
+
+Branch `build/explicit-tiktok-publishing` continues 5.7A–E, based on main `40527502dd69b0afcb52a98e84733d623443842d` (PR #300). The user accepted manual TikTok handoff on 2026-09-27: KINAOU remains private, independently of account/post visibility. The new DE/EN/FR panel explicitly loads project-scoped TikTok packages, rechecks the managed MP4's path/size/SHA-256 and provides its storage path, caption and unchanged tag suggestions for manual use in TikTok. No upload, OAuth, retry, polling or publication receipt occurs through this panel. Context/selection changes invalidate old evidence. The isolated FILE_UPLOAD module remains unconnected; planned live 5.7F–I are superseded, not claimed complete. See [TIKTOK-FILE-UPLOAD.md](TIKTOK-FILE-UPLOAD.md). Local acceptance: 1,328 app tests, 224 worker tests (only known local libass smoke excluded), TypeScript/build, Node syntax and Swift parse green. Isolated browser checks covered all three languages, copying, changed-file rejection and project switching during an in-flight check; no real platform calls. GitHub full gate/merge pending. Three foreign untracked duplicate files remain untouched. No real platform publishing, model downloads or user-media/SSD operations occurred.
 
 ## Purpose
 This is KINAOU's durable project-memory / handoff file. Update it after every meaningful merged slice so a new chat/session can continue without relying on conversation memory.

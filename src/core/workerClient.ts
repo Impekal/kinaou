@@ -33,6 +33,12 @@ import {
   type InstagramPublishPending
 } from './instagramPublishing'
 import {
+  tiktokCreatorInfoSnapshotSchema,
+  tiktokOAuthSessionSchema,
+  type TikTokCreatorInfoSnapshot,
+  type TikTokOAuthSession
+} from './tiktokPublishing'
+import {
   parsePlatformCredentialStatuses,
   type PlatformCredentialStatus
 } from './platformCredentials'
@@ -788,6 +794,142 @@ export class WorkerClient {
     }
 
     return receipt
+  }
+
+
+  async startTikTokOAuth(): Promise<TikTokOAuthSession> {
+    const payload =
+      await this.request(
+        '/publish/tiktok/oauth/start',
+        {
+          method:
+            'POST'
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'tiktok-oauth-session'
+    ) {
+      throw new Error(
+        'Invalid TikTok OAuth start response'
+      )
+    }
+
+    return tiktokOAuthSessionSchema
+      .parse(
+        payload.session
+      )
+  }
+
+
+  async tiktokOAuthStatus(): Promise<TikTokOAuthSession> {
+    const payload =
+      await this.request(
+        '/publish/tiktok/oauth/status',
+        {
+          method:
+            'GET'
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'tiktok-oauth-session'
+    ) {
+      throw new Error(
+        'Invalid TikTok OAuth status response'
+      )
+    }
+
+    return tiktokOAuthSessionSchema
+      .parse(
+        payload.session
+      )
+  }
+
+
+  async cancelTikTokOAuth(): Promise<TikTokOAuthSession> {
+    const payload =
+      await this.request(
+        '/publish/tiktok/oauth/cancel',
+        {
+          method:
+            'POST'
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'tiktok-oauth-session'
+    ) {
+      throw new Error(
+        'Invalid TikTok OAuth cancel response'
+      )
+    }
+
+    return tiktokOAuthSessionSchema
+      .parse(
+        payload.session
+      )
+  }
+
+
+  async disconnectTikTok(): Promise<TikTokOAuthSession> {
+    const payload =
+      await this.request(
+        '/publish/tiktok/disconnect',
+        {
+          method:
+            'POST'
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'tiktok-oauth-session'
+    ) {
+      throw new Error(
+        'Invalid TikTok disconnect response'
+      )
+    }
+
+    return tiktokOAuthSessionSchema
+      .parse(
+        payload.session
+      )
+  }
+
+
+  async queryTikTokCreatorInfo():
+    Promise<TikTokCreatorInfoSnapshot> {
+    const payload =
+      await this.request(
+        '/publish/tiktok/creator-info',
+        {
+          method:
+            'POST'
+        }
+      )
+
+    if (
+      payload?.ok !== true
+      || payload?.type
+        !== 'tiktok-creator-info'
+    ) {
+      throw new Error(
+        'Invalid TikTok creator info response'
+      )
+    }
+
+    return tiktokCreatorInfoSnapshotSchema
+      .parse(
+        payload.snapshot
+      )
   }
 
 
