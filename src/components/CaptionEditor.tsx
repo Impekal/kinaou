@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { addCaption, addTranscriptCaptions, updateCaptionText } from '../core/captions'
 import { captionDraftInput, commitCaptionChange } from '../core/captionEditing'
-import type { KinaouProject } from '../core/project'
+import { captionStyleForClip, clearCaptionClipStyle, setCaptionClipStyle } from '../core/captionStyle'
+import type { CaptionStyle, KinaouProject } from '../core/project'
 import { parseSttTranscript } from '../core/sttJobs'
 import type { PersistentVersionHistory } from '../core/versioning'
 import { useUiLanguage } from './UiLanguageProvider'
@@ -35,6 +36,463 @@ function CaptionTextDraft({ saved, locked, range, save }: { saved: string; locke
     {error !== null && <CaptionError detail={error} />}
   </div>
 }
+
+
+export function CaptionStyleDraft({
+  saved,
+  explicit,
+  locked,
+  save,
+  reset
+}: {
+  saved: CaptionStyle
+  explicit: boolean
+  locked: boolean
+  save: (style: CaptionStyle) => void
+  reset: () => void
+}) {
+  const { t } =
+    useUiLanguage()
+
+  const savedKey =
+    JSON.stringify(
+      saved
+    )
+
+  const [
+    draft,
+    setDraft
+  ] =
+    useState<{
+      base:
+        string
+
+      value:
+        CaptionStyle
+    }>({
+      base:
+        savedKey,
+
+      value:
+        saved
+    })
+
+  const [
+    error,
+    setError
+  ] =
+    useState<
+      string
+      | null
+    >(
+      null
+    )
+
+  const [
+    success,
+    setSuccess
+  ] =
+    useState(
+      false
+    )
+
+  const draftKey =
+    JSON.stringify(
+      draft.value
+    )
+
+  const dirty =
+    draftKey
+    !== draft.base
+
+  const conflict =
+    dirty
+    && draft.base
+      !== savedKey
+
+  const value =
+    dirty
+      ? draft.value
+      : saved
+
+  function update(
+    next:
+      Partial<
+        CaptionStyle
+      >
+  ) {
+    setDraft({
+      base:
+        dirty
+          ? draft.base
+          : savedKey,
+
+      value: {
+        ...value,
+        ...next
+      }
+    })
+
+    setSuccess(
+      false
+    )
+
+    setError(
+      null
+    )
+  }
+
+  function apply() {
+    if (
+      !dirty
+      || locked
+      || conflict
+    ) {
+      return
+    }
+
+    setError(
+      null
+    )
+
+    setSuccess(
+      false
+    )
+
+    try {
+      save(
+        value
+      )
+
+      setDraft({
+        base:
+          JSON.stringify(
+            value
+          ),
+
+        value: {
+          ...value
+        }
+      })
+
+      setSuccess(
+        true
+      )
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : String(cause)
+      )
+    }
+  }
+
+  function discard() {
+    setDraft({
+      base:
+        savedKey,
+
+      value: {
+        ...saved
+      }
+    })
+
+    setSuccess(
+      false
+    )
+
+    setError(
+      null
+    )
+  }
+
+  function restoreDefault() {
+    if (
+      locked
+      || !explicit
+      || conflict
+    ) {
+      return
+    }
+
+    setError(
+      null
+    )
+
+    setSuccess(
+      false
+    )
+
+    try {
+      reset()
+
+      const defaults:
+        CaptionStyle = {
+          preset:
+            'clean',
+
+          position:
+            'bottom',
+
+          size:
+            'medium'
+        }
+
+      setDraft({
+        base:
+          JSON.stringify(
+            defaults
+          ),
+
+        value:
+          defaults
+      })
+
+      setSuccess(
+        true
+      )
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : String(cause)
+      )
+    }
+  }
+
+  return (
+    <div className="renderJob">
+      <div className="renderJobHead">
+        <strong>
+          {t(
+            'caption.styleHeading'
+          )}
+        </strong>
+
+        <span>
+          {t(
+            'caption.styleDefault'
+          )}
+        </span>
+      </div>
+
+      <p className="cardBody">
+        {t(
+          'caption.styleHelp'
+        )}
+      </p>
+
+      <div className="fieldGrid">
+        <label>
+          {t(
+            'caption.stylePreset'
+          )}
+
+          <select
+            value={
+              value.preset
+            }
+            disabled={
+              locked
+            }
+            onChange={
+              event =>
+                update({
+                  preset:
+                    event.target
+                      .value as CaptionStyle['preset']
+                })
+            }
+          >
+            <option value="clean">
+              {t(
+                'caption.style.clean'
+              )}
+            </option>
+
+            <option value="strong">
+              {t(
+                'caption.style.strong'
+              )}
+            </option>
+
+            <option value="boxed">
+              {t(
+                'caption.style.boxed'
+              )}
+            </option>
+          </select>
+        </label>
+
+        <label>
+          {t(
+            'caption.stylePosition'
+          )}
+
+          <select
+            value={
+              value.position
+            }
+            disabled={
+              locked
+            }
+            onChange={
+              event =>
+                update({
+                  position:
+                    event.target
+                      .value as CaptionStyle['position']
+                })
+            }
+          >
+            <option value="top">
+              {t(
+                'caption.position.top'
+              )}
+            </option>
+
+            <option value="center">
+              {t(
+                'caption.position.center'
+              )}
+            </option>
+
+            <option value="bottom">
+              {t(
+                'caption.position.bottom'
+              )}
+            </option>
+          </select>
+        </label>
+
+        <label>
+          {t(
+            'caption.styleSize'
+          )}
+
+          <select
+            value={
+              value.size
+            }
+            disabled={
+              locked
+            }
+            onChange={
+              event =>
+                update({
+                  size:
+                    event.target
+                      .value as CaptionStyle['size']
+                })
+            }
+          >
+            <option value="small">
+              {t(
+                'caption.size.small'
+              )}
+            </option>
+
+            <option value="medium">
+              {t(
+                'caption.size.medium'
+              )}
+            </option>
+
+            <option value="large">
+              {t(
+                'caption.size.large'
+              )}
+            </option>
+          </select>
+        </label>
+      </div>
+
+      {dirty && (
+        <small>
+          {t(
+            'caption.styleDraft'
+          )}
+        </small>
+      )}
+
+      {conflict && (
+        <p role="alert">
+          {t(
+            'caption.styleConflict'
+          )}
+        </p>
+      )}
+
+      <div className="directorActions">
+        <button
+          className="primary"
+          disabled={
+            !dirty
+            || locked
+            || conflict
+          }
+          onClick={
+            apply
+          }
+        >
+          {t(
+            'caption.styleApply'
+          )}
+        </button>
+
+        <button
+          className="secondaryButton"
+          disabled={
+            !dirty
+          }
+          onClick={
+            discard
+          }
+        >
+          {t(
+            'caption.styleDiscard'
+          )}
+        </button>
+
+        <button
+          className="secondaryButton"
+          disabled={
+            locked
+            || !explicit
+            || conflict
+          }
+          onClick={
+            restoreDefault
+          }
+        >
+          {t(
+            'caption.styleReset'
+          )}
+        </button>
+      </div>
+
+      {success && (
+        <div
+          className="successBox"
+          role="status"
+        >
+          {t(
+            'caption.styleSaved'
+          )}
+        </div>
+      )}
+
+      {error !== null && (
+        <CaptionError
+          detail={
+            error
+          }
+        />
+      )}
+    </div>
+  )
+}
+
 
 function CaptionError({ detail }: { detail: string }) {
   const { t } = useUiLanguage()
@@ -112,10 +570,38 @@ export function CaptionEditor({ project, history, onProjectChange }: Props) {
         <button className="primary" disabled={!selectedSegments.length || Boolean(blocked)} onClick={importSegments}>{t(selectedSegments.length === 1 ? 'caption.importOne' : 'caption.importMany', { count: selectedSegments.length })}</button>
       </>}
     </div>}
-    {captions.length > 0 && <div className="captionList">{captions.map(({ clip, asset }) => <CaptionTextDraft
-      key={clip.id} saved={String(asset?.metadata.text ?? '')} range={range(clip.startMs, clip.startMs + clip.durationMs)}
-      locked={project.tracks.some((track) => track.locked && track.clips.some((item) => item.assetId === clip.assetId))}
-      save={(value) => { clearFeedback(); commit(() => updateCaptionText(project, clip.assetId, value), 'Before editing caption text') }}
-    />)}</div>}
+    {captions.length > 0 && <div className="captionList">{captions.map(({ clip, asset }) => {
+      const locked = project.tracks.some((track) => track.locked && track.clips.some((item) => item.assetId === clip.assetId))
+      const style = captionStyleForClip(clip)
+
+      return <div key={clip.id}>
+        <CaptionTextDraft
+          saved={String(asset?.metadata.text ?? '')}
+          range={range(clip.startMs, clip.startMs + clip.durationMs)}
+          locked={locked}
+          save={(value) => { clearFeedback(); commit(() => updateCaptionText(project, clip.assetId, value), 'Before editing caption text') }}
+        />
+
+        <CaptionStyleDraft
+          saved={style}
+          explicit={Boolean(clip.captionStyle)}
+          locked={locked}
+          save={(value) => {
+            clearFeedback()
+            commit(
+              () => setCaptionClipStyle(project, captionTrack!.id, clip.id, value),
+              'Before editing caption style'
+            )
+          }}
+          reset={() => {
+            clearFeedback()
+            commit(
+              () => clearCaptionClipStyle(project, captionTrack!.id, clip.id),
+              'Before resetting caption style'
+            )
+          }}
+        />
+      </div>
+    })}</div>}
   </div>
 }
