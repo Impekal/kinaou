@@ -267,7 +267,7 @@ describe(
             true,
 
           captionLayoutStyling:
-            false,
+            true,
 
           audioDucking:
             true,

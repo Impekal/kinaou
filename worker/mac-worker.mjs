@@ -9,7 +9,7 @@ import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { managedUploadPaths } from './asset-upload.mjs'
 import { validateReferenceBindings, validateReferences, uploadComfyReferences } from './comfy-inputs.mjs'
-import { buildAssDocument, captionTempPaths, escapeSubtitleFilterPath } from './captions.mjs'
+import { buildAssDocument, captionTempPaths, escapeSubtitleFilterPath, normalizeCaptionStyle } from './captions.mjs'
 import { buildProxyArgs, buildThumbnailArgs, buildWaveformArgs, previewMediaType, proxyRelativePath, thumbnailRelativePath, waveformRelativePath } from './proxies.mjs'
 import { generateAiEditorProposal, generateDirectorPlan, generateMediaAcquisitionPlan, generateShortHighlightProposal, generateShortReframeProposal, listOllamaModels, normalizeOllamaUrl } from './ollama.mjs'
 import { MAX_GENERATED_IMAGE_BYTES, MAX_GENERATED_VIDEO_BYTES, MAX_WORKFLOW_FILE_BYTES, buildComfyPromptRequest, comfyHistoryStatus, comfyOutputQuery, comfyQueuePhase, comfyTempImageRelativePath, comfyTempVideoRelativePath, comfyWorkflowRelativePaths, detectComfyUi, generatedMediaExtensionFor, generatedImageRelativePath, generatedVideoRelativePath, normalizeComfyUrl, parseComfyPromptResponse, pickComfyOutputForMediaType, templateMediaType, validateComfyTemplate } from './comfyui.mjs'
@@ -1412,6 +1412,10 @@ function validateRenderPlan(plan) {
     if (clip.reframe !== undefined) {
       if (!clip.reframe || typeof clip.reframe !== 'object' || Array.isArray(clip.reframe)) throw new Error('Invalid clip reframe')
       if ([clip.reframe.focusX, clip.reframe.focusY].some((value) => !Number.isFinite(value) || value < 0 || value > 1)) throw new Error('Invalid clip reframe focus')
+    }
+    if (clip.captionStyle !== undefined) {
+      if (clip.asset?.kind !== 'caption') throw new Error('Caption style requires a caption clip')
+      normalizeCaptionStyle(clip.captionStyle)
     }
     if (clip.motion !== undefined && clip.motion !== 'zoom-in' && clip.motion !== 'zoom-out') throw new Error('Invalid clip motion')
     if ((clip.asset?.kind === 'image' || clip.asset?.kind === 'caption') && clip.speed !== 1) throw new Error('Speed retiming only supports video and audio')

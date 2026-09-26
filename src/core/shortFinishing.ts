@@ -129,7 +129,7 @@ export interface ShortFinishingContext {
       true
 
     captionLayoutStyling:
-      false
+      true
 
     audioDucking:
       true
@@ -475,7 +475,7 @@ export function buildShortFinishingContext(
        * but no persisted visual caption-style contract yet.
        */
       captionLayoutStyling:
-        false,
+        true,
 
       audioDucking:
         true,

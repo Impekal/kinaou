@@ -1,4 +1,4 @@
-import { touchProject, type KinaouAsset, type KinaouProject } from './project'
+import { touchProject, type CaptionStyle, type KinaouAsset, type KinaouProject } from './project'
 import { assertSafeManagedPath } from './storage'
 import type { WorkerCapability } from './workers'
 import { defaultAudioDucking, validateAudioDucking, type AudioDuckingSettings } from './audioDucking'
@@ -35,6 +35,7 @@ export interface RenderClipStep {
   gain: number
   speed: number
   reframe?: { focusX: number; focusY: number }
+  captionStyle?: CaptionStyle
   transform: { x: number; y: number; scale: number; cropLeft: number; cropTop: number; cropRight: number; cropBottom: number }
   transformKeyframes?: {
     start: { x: number; y: number; scale: number }
@@ -221,6 +222,7 @@ export function createRenderPlan(project: KinaouProject, preset: RenderPreset, o
             || value > 1
         )
       ) throw new Error(`Clip reframe focus must be between 0 and 1: ${clip.id}`)
+      if (clip.captionStyle && asset.kind !== 'caption') throw new Error(`Caption style is supported only on caption clips: ${clip.id}`)
       if ((asset.kind === 'image' || asset.kind === 'caption') && clip.speed !== 1) throw new Error(`Speed retiming is only supported for video and audio clips: ${clip.id}`)
       if (clip.motion && asset.kind !== 'image') throw new Error(`Scene motion is only supported for still images: ${clip.id}`)
       const sourceDuration = clip.durationMs * clip.speed
@@ -241,6 +243,11 @@ export function createRenderPlan(project: KinaouProject, preset: RenderPreset, o
           reframe: {
             focusX: clip.reframe.focusX,
             focusY: clip.reframe.focusY
+          }
+        } : {}),
+        ...(clip.captionStyle ? {
+          captionStyle: {
+            ...clip.captionStyle
           }
         } : {}),
         transform: { x: 0, y: 0, scale: 1, cropLeft: 0, cropTop: 0, cropRight: 0, cropBottom: 0, ...clip.transform },

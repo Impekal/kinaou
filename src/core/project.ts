@@ -15,6 +15,26 @@ export const transformKeyframeSchema = z.object({
   scale: z.number().min(0.1).max(4)
 })
 
+export const captionStyleSchema = z.object({
+  preset: z.enum([
+    'clean',
+    'strong',
+    'boxed'
+  ]).default('clean'),
+
+  position: z.enum([
+    'top',
+    'center',
+    'bottom'
+  ]).default('bottom'),
+
+  size: z.enum([
+    'small',
+    'medium',
+    'large'
+  ]).default('medium')
+}).strict()
+
 export const clipSchema = z.object({
   id: z.string().min(1),
   assetId: z.string().min(1),
@@ -24,6 +44,10 @@ export const clipSchema = z.object({
   gain: z.number().default(1),
   speed: z.number().min(0.25).max(4).default(1),
   motion: z.enum(['zoom-in', 'zoom-out']).optional(),
+
+  captionStyle:
+    captionStyleSchema
+      .optional(),
   /** Which storyboard scene put this clip here, so a replaced visual can find its own clip again. */
   sceneId: z.string().min(1).optional(),
 
@@ -283,6 +307,7 @@ export type KinaouProject = z.infer<typeof projectSchema>
 export type KinaouAsset = z.infer<typeof assetSchema>
 export type TimelineTrack = z.infer<typeof trackSchema>
 export type TimelineClip = z.infer<typeof clipSchema>
+export type CaptionStyle = z.infer<typeof captionStyleSchema>
 export type AvatarSource = z.infer<typeof avatarSourceSchema>
 export type AvatarVersion = z.infer<typeof avatarVersionSchema>
 export type AvatarReferencePack = z.infer<typeof avatarReferencePackSchema>
