@@ -1,0 +1,10 @@
+.publicationPlanPanel { padding: 24px; margin-bottom: 24px; min-width: 0; overflow-wrap: anywhere; }
+.publicationPlanFields { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+.publicationPlanPanel fieldset { display: grid; gap: 12px; border: 1px solid #343b4d; border-radius: 10px; min-width: 0; }
+.publicationPlanPanel button { justify-self: start; white-space: normal; }
+.publicationPlanReview { border-top: 1px solid #343b4d; padding-top: 14px; }
+.publicationPlanReview li { padding: 10px 0; }
+.publicationPlanAck { display: flex; align-items: flex-start; margin: 16px 0; }
+.publicationPlanAck input { width: auto; flex: 0 0 auto; }
+.publicationPlanPanel :is(button, summary):focus-visible { outline: 3px solid #b9aaff; outline-offset: 3px; }
+@media (max-width: 600px) { .publicationPlanPanel { padding: 16px; } .publicationPlanFields { grid-template-columns: 1fr; } .publicationPlanPanel button { width: 100%; } }
