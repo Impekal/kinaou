@@ -78,6 +78,16 @@ async function writeOwned(folder, name, data, owned) {
 /** One explicit private media copy; durable request IDs prevent automatic duplicate work. */
 export function createLessonDeliveryRuntime({ root, probe }) {
   const active = new Map()
+  async function snapshot(entry) {
+    await entry.started
+    if (['ready', 'failed'].includes(entry.job.state)) {
+      // The terminal state can become visible before final status persistence/close.
+      // Never serve cached success in that window: a status read must rehash disk.
+      await entry.finished
+      if (entry.job.state === 'ready') return diskStatus(entry.input)
+    }
+    return structuredClone(entry.job)
+  }
   async function diskStatus(input) {
     let folder
     try { folder = await directory(root, input) } catch (error) { if (error.code === 'ENOENT') return { schemaVersion: 1, request: input, state: 'unknown' }; throw error }
@@ -161,7 +171,7 @@ export function createLessonDeliveryRuntime({ root, probe }) {
   return {
     async start(value) {
       const input = validateLessonDeliveryRequest(value), previous = active.get(input.requestId)
-      if (previous) { if (!equal(previous.input, input)) throw Error('Delivery request ID conflicts'); await previous.started; return structuredClone(previous.job) }
+      if (previous) { if (!equal(previous.input, input)) throw Error('Delivery request ID conflicts'); return snapshot(previous) }
       if (active.size >= 2) throw Error('At most two lesson deliveries may run at once')
       const entry = { input, job: { schemaVersion: 1, request: input, state: 'queued' } }; active.set(input.requestId, entry)
       entry.started = (async () => {
@@ -169,13 +179,13 @@ export function createLessonDeliveryRuntime({ root, probe }) {
         try { await mkdir(folder, { mode: 0o700 }) } catch (error) { if (error.code !== 'EEXIST') throw error; entry.job = await diskStatus(input); active.delete(input.requestId); return }
         await writeFile(path.join(folder, 'request.json'), JSON.stringify(input), { flag: 'wx', mode: 0o600 })
         await writeStatus(folder, entry.job)
-        void execute(entry, folder)
+        entry.finished = execute(entry, folder)
       })()
-      try { await entry.started; return structuredClone(entry.job) } catch (error) { active.delete(input.requestId); throw error }
+      try { return await snapshot(entry) } catch (error) { active.delete(input.requestId); throw error }
     },
     async status(value) {
       const input = validateLessonDeliveryRequest(value), entry = active.get(input.requestId)
-      if (entry) { if (!equal(entry.input, input)) throw Error('Delivery request ID conflicts'); await entry.started; return structuredClone(entry.job) }
+      if (entry) { if (!equal(entry.input, input)) throw Error('Delivery request ID conflicts'); return snapshot(entry) }
       return diskStatus(input)
     }
   }
