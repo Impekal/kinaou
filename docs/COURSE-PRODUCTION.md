@@ -15,6 +15,16 @@ Saved outlines travel with ordinary project serialization, drive backups and Ver
 
 ## Boundaries to review
 
+### Exercises and learning handouts (#307)
+
+Expand **Exercises & model answers** per lesson. Author a title, task, optional learner hint, model answer and instructor-only assessment criteria. Save with the outline; unsaved drafts are not exported. **Download saved worksheet as TXT** includes tasks and hints only. **Download saved answer key as TXT** additionally includes solutions and criteria. Human-authored hints/titles can themselves reveal an answer, so review the worksheet before sharing. These plain-text files contain no rendered HTML or executable content.
+
+Headers use the saved course language (DE/EN/FR), independent of app language; authored text is not translated. Names derive from safe lesson IDs and course revision. Every exercise needs a nonblank task for a worksheet and additionally a nonblank solution for an answer key; the tool never silently drops incomplete items. Incomplete drafts can still be saved. Both exports are marked drafts, not factually approved lessons or automatic grading.
+
+Limits: 20 exercises per lesson, 4,000 characters per task/hint/answer/criteria field, 200,000 serialized exercise characters per course. Existing courses without exercises remain compatible. Removal deletes metadata only; Version History restores earlier exercises. Changes invalidate prior lesson-export review.
+
+Acceptance: 14 new regressions; full app total 1,386, 224 local worker tests, build/syntax green. Full CI 36282919257 includes render smoke. Isolated browser verified DE/FR/EN, save failure/retry, reload and actual downloaded files: original Unicode/newlines preserved, course-language headers, no solutions/rubrics in the learner worksheet. No real course quality or instructor approval is inferred.
+
 ### Lesson sources and demonstrations (#305)
 
 Expand **Sources & demonstrations** inside a lesson. Sources hold a label, HTTP(S) URL without embedded credentials, optional date you accessed it, and notes identifying the supported claim. Demonstrations hold a procedure, expected result, your actual observation and optional date performed. Leave observations/dates blank when not performed: KINAOU invents neither timestamps nor execution results. Save with the outline before leaving; DE/EN/FR switches preserve original content.
