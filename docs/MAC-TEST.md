@@ -12,6 +12,10 @@ Already executed on isolated development data for #347; no SSD/model action is r
 
 This sends the chosen market and network request/IP to Google's public RSS endpoint, not project text or credentials. Offline/unavailable feeds must fail honestly; no fabricated fallback. It is not a weekly/monthly statistics, competition, fact-checking or teaching-quality test. See RESEARCH-TRENDS.md for the exact scope.
 
+## Optional research-brief acceptance — 2026-09-27
+
+#349 was exercised with disposable, clearly synthetic observations. Select a retained observation, fill working title/question/angle/outstanding checks and save. A deliberately failed test save must preserve the draft without success. Switching DE/EN/FR must preserve authored text. Reload the saved project, open Director, and verify the existing creative draft is unchanged until the explicit replace checkbox and action. The loaded draft must include historical source/market/timestamps and unverified-data limits. Project script/timeline must stay unchanged, with zero model/network calls. The Director output-language profile is independent of source country. A changed retained ledger while editing must block stale save rather than retarget selected indices. This is workflow verification, not model-output/fact-check quality acceptance.
+
 ## Stage 0 — Prerequisites
 
 Check Node.js (22+ required) and git:
