@@ -42,6 +42,8 @@ Subtitle-file update (#321): reviewed lesson-relative WebVTT text sidecars now d
 
 Output-file update (#323): explicit authenticated local preflight checks retained lesson MP4 technical facts, with receipt matching, stale-result detachment and missing-size/audio warnings. Real temporary files exercise success, mismatch, missing and malformed outputs. These facts do not prove unchanged bytes, agreement with current edit, spoken content, synchronization or teaching quality. Results are not persisted; watch/listen and recheck before delivery.
 
+Playback update (#325): Course explicitly loads selected original MP4s, not proxies, through the authenticated local worker (256 MiB cap). Scope changes/close release the player; no automatic quality assertion. Actual original-byte round-trip and browser decoding/muted playback are tested. Audible listening on real speakers/headphones remains to be checked; a blue/tone fixture is not instructional, avatar or natural-voice quality evidence. Large-file streaming and complete media delivery remain open.
+
 - Retain course/module/lecture relationships and individual project/source/export references; one lecture must be replaceable without rebuilding the entire course.
 - Technical demonstrations must actually run or be recorded; generated UI images must not masquerade as evidence of working software.
 - Track instructional accuracy, source dates, prerequisite coverage, duplicate content, exercise-answer consistency and pedagogical progression. Avoid fabricated expertise, certificates, learning outcomes or approval guarantees.

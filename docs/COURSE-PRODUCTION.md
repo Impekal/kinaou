@@ -15,6 +15,14 @@ Saved outlines travel with ordinary project serialization, drive backups and Ver
 
 ## Boundaries to review
 
+### Original lesson playback (#325)
+
+Select an output in **Inspect retained lesson video**, then explicitly **Load selected video**. A connected updated local worker with `course-output-playback` sends the original MP4, not a proxy. Native controls start playback; there is no autoplay, new render, file/project/history write or upload. Browser load is capped at 256 MiB; larger files require your local player, not a hidden transcode or unbounded memory read. Browser codec support still applies. Successful loading does not certify current-edit agreement, file immutability or teaching quality.
+
+The authenticated endpoint rejects unsafe/nonregular/symlink paths and invalid file-type headers; it streams a pinned read-only descriptor with a bounded size. The client validates media type, declared/actual size and historical size when known. Project, draft, selection or connection changes abort pending browser reads and release ephemeral URLs; closing, leaving the panel and browser decode failure also release them. Late responses cannot restore discarded playback. Reload/retry is explicit; no result is persisted.
+
+Acceptance: 26 new app tests / 1,633 total, 12 new worker tests / 236 local total, build/syntax and full CI 36291181526. Actual worker round-trip verifies exact MP4 bytes and video/audio streams, authentication, missing/malformed failure and worker availability after an abort. Real browser DE/FR/EN checks decoded a 640×360, four-second fixture, native no-autoplay controls, retry and invalidation; clean console. Unmuted playback stalled in the hidden test browser; muting let it reach the end. Audible speaker/headphone review remains a real-Mac acceptance item, not a new quality claim. Temporary fixture media were removed.
+
 ### Explicit retained lesson file check (#323)
 
 In Course, save drafts, connect the local worker with `publish-preflight`, choose one **Retained lesson export**, then explicitly inspect its file. Selection alone reads nothing. The existing authenticated worker checks a nonempty regular MP4, video stream, expected output dimensions, duration ±250 ms and historical size when recorded. Technical mismatch is not repaired automatically. Missing historical size means only a nonempty-file check; absent audio is expressly not confirmed narrated material. Audio presence does not establish intelligibility or synchronization.
@@ -135,7 +143,7 @@ The local browser displayed the new Course entry/form and language options on a 
 
 ## Next course slices
 
-Current after #323: authored scripts, sources/demo records, exercises/solutions, explicit instructor records, text-resource ZIP delivery, retained output references, source-bound local narration, reviewed lesson-aligned placement, STT captions, reviewed WebVTT sidecars and explicit real-file technical checks are implemented. Next: actual retained-video playback in Course, complete delivery/media integration and actual course-quality acceptance. Text bundles, subtitle sidecars, references and point-in-time checks are not complete media archives or integrity guarantees. Older next-step paragraphs below are dated history.
+Current after #325: authored scripts, sources/demo records, exercises/solutions, explicit instructor records, text-resource ZIP delivery, retained output references, source-bound local narration, reviewed lesson-aligned placement, STT captions, reviewed WebVTT sidecars, explicit real-file technical checks and bounded original-MP4 playback are implemented. Next: actual local delivery copies with hashes/recovery, complete delivery/media integration and actual course-quality acceptance. Text bundles, sidecars, playback, references and point-in-time checks are not complete media archives or integrity guarantees. Older next-step paragraphs below are dated history.
 
 PR #211 verification: full 498 application + 82 native tests and build/syntax gate passed. Sixteen regressions cover stale revision/range/project identity, removed/ineligible lessons, DE/EN/FR controls and stable range diagnostic codes. Isolated localhost:5192 with a synthetic video and temporary worker verified language-switch selection retention, disabled future bounds, stale blocking after a 4→3s trim, explicit re-review, a real 2s Full-HD MP4 and exact 1–3s receipt with unchanged names/revision/course language, custom-range deselection and receipt persistence after reload. Browser console clean; test processes stopped. Existing real-worker retiming/audio/independent-lesson execution tests remain green.
 
