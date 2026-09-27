@@ -48,6 +48,8 @@ Delivery update (#327): a private single-lesson folder now contains an actual or
 
 Material-delivery update (#329): the private video copy can include explicitly reviewed saved scripts, learner/instructor materials, worksheets, answer keys and a private lesson snapshot. Exact UTF-8 hashes are checked before/after writing and during recovery; stale reviews are discarded. Video/text revisions are retained separately, and matching IDs/range/language never prove content agreement. Root records also contain private answers/notes/paths: never share the whole package unchanged with learners. No subtitle sidecar/full-project archive or automated instructional approval yet. Real byte/browser/tamper checks are integration evidence only.
 
+Packaged-subtitle update (#331): explicitly reviewed current-edit WebVTT can accompany the actual lesson video/materials, with visible clipped-interval counts, version/capability guards and exact byte/hash recovery. Actual ffprobe timing and browser/file tests pass. This does not authenticate agreement with older MP4s, spoken-word correctness, accessibility or teaching quality; no automatic synchronization, translation or styles. Whole packages remain private and are not complete source-project backups.
+
 - Retain course/module/lecture relationships and individual project/source/export references; one lecture must be replaceable without rebuilding the entire course.
 - Technical demonstrations must actually run or be recorded; generated UI images must not masquerade as evidence of working software.
 - Track instructional accuracy, source dates, prerequisite coverage, duplicate content, exercise-answer consistency and pedagogical progression. Avoid fabricated expertise, certificates, learning outcomes or approval guarantees.
