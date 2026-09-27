@@ -15,6 +15,14 @@ Saved outlines travel with ordinary project serialization, drive backups and Ver
 
 ## Boundaries to review
 
+### Explicit retained lesson file check (#323)
+
+In Course, save drafts, connect the local worker with `publish-preflight`, choose one **Retained lesson export**, then explicitly inspect its file. Selection alone reads nothing. The existing authenticated worker checks a nonempty regular MP4, video stream, expected output dimensions, duration ±250 ms and historical size when recorded. Technical mismatch is not repaired automatically. Missing historical size means only a nonempty-file check; absent audio is expressly not confirmed narrated material. Audio presence does not establish intelligibility or synchronization.
+
+Project/draft/selection/connection changes discard results and detach pending reads, even if context later returns. They do not abort a worker file read already started. Failed reads require explicit retry. No project/history/media write, upload, model or hash occurs; results are not persisted. Outline status and technical facts do not prove current-edit agreement, unchanged bytes, course quality or approval. Files may subsequently change; recheck and watch/listen before delivery.
+
+Acceptance: 25 new tests, 1,607 app tests, 224 local worker tests, build/syntax and full CI 36290353067. Real temporary lesson MP4s cover matching full-HD, wrong dimensions, missing and malformed files, retaining original media/project bytes. Synthetic DE/FR/EN browser gates cover explicit-only reading, warnings, mismatch, failure/retry, late response after change, dirty/disconnected state and reload. No worker source changes or actual course-quality claim.
+
 ### Reviewed per-lesson WebVTT download (#321)
 
 In Course, save all drafts, then use **Subtitle file per lesson**. Select a saved lesson and review visible timeline caption text and lesson-relative timestamps. Time zero corresponds to lesson In. Intervals crossing a lesson edge are bounded exactly like the range-render plan; the review reports their count and keeps complete text. Check against the intended lesson video, acknowledge, then download. File names retain lesson ID, declared course language and outline revision. This is current-edit data, not a verified match to any earlier MP4; rerender matching video when appropriate.
@@ -127,7 +135,7 @@ The local browser displayed the new Course entry/form and language options on a 
 
 ## Next course slices
 
-Current after #321: authored scripts, sources/demo records, exercises/solutions, explicit instructor records, text-resource ZIP delivery, retained output references, source-bound local narration, reviewed lesson-aligned placement, STT captions and reviewed WebVTT sidecars are implemented. Next: real-file lesson-output checks, complete delivery/media integration and actual course-quality acceptance. Text bundles, subtitle sidecars and retained references are not complete media archives. Older next-step paragraphs below are dated history.
+Current after #323: authored scripts, sources/demo records, exercises/solutions, explicit instructor records, text-resource ZIP delivery, retained output references, source-bound local narration, reviewed lesson-aligned placement, STT captions, reviewed WebVTT sidecars and explicit real-file technical checks are implemented. Next: actual retained-video playback in Course, complete delivery/media integration and actual course-quality acceptance. Text bundles, subtitle sidecars, references and point-in-time checks are not complete media archives or integrity guarantees. Older next-step paragraphs below are dated history.
 
 PR #211 verification: full 498 application + 82 native tests and build/syntax gate passed. Sixteen regressions cover stale revision/range/project identity, removed/ineligible lessons, DE/EN/FR controls and stable range diagnostic codes. Isolated localhost:5192 with a synthetic video and temporary worker verified language-switch selection retention, disabled future bounds, stale blocking after a 4→3s trim, explicit re-review, a real 2s Full-HD MP4 and exact 1–3s receipt with unchanged names/revision/course language, custom-range deselection and receipt persistence after reload. Browser console clean; test processes stopped. Existing real-worker retiming/audio/independent-lesson execution tests remain green.
 

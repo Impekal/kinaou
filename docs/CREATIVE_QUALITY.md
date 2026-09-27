@@ -40,6 +40,8 @@ Caption update (#319): source-bound local STT transcripts now become explicitly 
 
 Subtitle-file update (#321): reviewed lesson-relative WebVTT text sidecars now download from current saved caption clips. Boundary-limited intervals are disclosed; complete text remains. Native browser parsing, actual downloaded bytes and ffprobe verify syntax/times, not linguistic or accessibility quality. Styling is not carried over and agreement with an earlier MP4 is not inferred. This is neither a media archive nor platform approval.
 
+Output-file update (#323): explicit authenticated local preflight checks retained lesson MP4 technical facts, with receipt matching, stale-result detachment and missing-size/audio warnings. Real temporary files exercise success, mismatch, missing and malformed outputs. These facts do not prove unchanged bytes, agreement with current edit, spoken content, synchronization or teaching quality. Results are not persisted; watch/listen and recheck before delivery.
+
 - Retain course/module/lecture relationships and individual project/source/export references; one lecture must be replaceable without rebuilding the entire course.
 - Technical demonstrations must actually run or be recorded; generated UI images must not masquerade as evidence of working software.
 - Track instructional accuracy, source dates, prerequisite coverage, duplicate content, exercise-answer consistency and pedagogical progression. Avoid fabricated expertise, certificates, learning outcomes or approval guarantees.
