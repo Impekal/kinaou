@@ -15,6 +15,7 @@ import { createHash } from 'node:crypto'
 import { reviewCourseDeliveryMaterials, useReviewedCourseDeliveryMaterials } from '../src/core/courseDeliveryMaterials'
 import { addCaption } from '../src/core/captions'
 import { reviewCourseCollection, useCollectionReview } from '../src/core/courseDeliveryCollection'
+import { createCourseProductionHandoff, resolveCourseProductionHandoff } from '../src/core/courseProductionHandoff'
 
 const exec = promisify(execFile)
 const run = async (program: string, args: string[]) => (await exec(program, args, { encoding: 'buffer', maxBuffer: 4 * 1024 * 1024 })).stdout
@@ -52,7 +53,8 @@ it('exports separate lessons through the real worker with correct retimed frames
     for (const [id, colorChannel] of [['red', 0], ['blue', 2]] as const) {
       const outputPath = `KINAOU/Renders/lesson-${id}.mp4`
       const full = createRenderPlan(project, id === 'red' ? preview1080pPreset : { ...preview1080pPreset, width: 320, height: 180 }, 'KINAOU/Renders/whole.mp4')
-      const result = planCourseLessonExport(project, id, full, outputPath)
+      const handoff = createCourseProductionHandoff(project, id, 'export')
+      const result = planCourseLessonExport(project, resolveCourseProductionHandoff(project, handoff, 'export').id, full, outputPath)
       let job = await client.startRender(result.plan)
       for (let i = 0; i < 200 && ['queued', 'running'].includes(job.state); i++) {
         await new Promise((resolve) => setTimeout(resolve, 50)); job = await client.renderStatus(job.id)

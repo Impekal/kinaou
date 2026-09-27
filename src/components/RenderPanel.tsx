@@ -15,6 +15,8 @@ import type { PersistentVersionHistory } from '../core/versioning'
 import { CourseOutputIndexPanel } from './CourseOutputIndexPanel'
 import { courseLessonChoices, planCourseLessonExport } from '../core/course'
 import { CourseLessonSelector } from './CourseLessonSelector'
+import { CourseProductionHandoffControl } from './CourseProductionHandoffControl'
+import type { CourseProductionHandoff } from '../core/courseProductionHandoff'
 import { reviewCourseExport, resolveCourseExportReview, type CourseExportReview } from '../core/courseExportReview'
 import { SingleExportSession, type ExportFeedback } from '../core/singleExportSession'
 import { useUiLanguage } from './UiLanguageProvider'
@@ -32,6 +34,7 @@ import { markShortBatchSubmission, ShortBatchSubmission } from '../core/shortBat
 import { commitShortBatchChange, type ShortBatchNotice } from '../core/shortBatchCommit'
 
 interface RenderPanelProps {
+  courseHandoff?: CourseProductionHandoff
   history?: PersistentVersionHistory
   project: KinaouProject
   workerUrl: string
@@ -47,7 +50,7 @@ const targetFormats = Object.keys(formatProfiles) as TargetFormat[]
 interface ArchivedBatchSelectionReview { batchId: string; unavailable: Array<{ candidateId: string; title: string }> }
 interface ShortRecipeReview { recipeId: string; unavailableCandidateIds: string[] }
 
-export function RenderPanel({ project, history, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange, onCreateDerivative }: RenderPanelProps) {
+export function RenderPanel({ project, history, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange, onCreateDerivative, courseHandoff }: RenderPanelProps) {
   const readiness = useMemo(() => renderReadiness(project), [project])
   const format = projectTargetFormat(project)
   const profile = formatProfiles[format]
@@ -521,8 +524,19 @@ export function RenderPanel({ project, history, workerUrl, workerToken, workerCo
   const visibleBatchResumeError = resolveUiMessage(language, batchResumeError)
   const visibleBatchReceiptError = resolveUiMessage(language, batchReceiptError)
 
+  function applyCourseLesson(id: string) {
+    if (busy || submitting) throw new Error('Video export is busy')
+    const lesson = lessonChoices.find(entry => entry.id === id)
+    if (!id) { setLessonReview(null); return }
+    if (!lesson?.check.valid) throw new Error('Course lesson range is unavailable')
+    setLessonReview(reviewCourseExport(project.id, lesson))
+    setSelectedShortId('')
+    setInSeconds(String(lesson.range.inMs / 1000))
+    setOutSeconds(String(lesson.range.outMs / 1000))
+  }
   return (
     <section className="card renderPanel">
+      {courseHandoff && <CourseProductionHandoffControl project={project} handoff={courseHandoff} target="export" disabled={busy || submitting} onApply={applyCourseLesson} />}
       <div className="sectionLead">
         <div>
           <div className="eyebrow">{t('export.eyebrow')}</div>
@@ -544,15 +558,7 @@ export function RenderPanel({ project, history, workerUrl, workerToken, workerCo
 
       <FormatFramingPanel project={project} busy={busy} workerBlocked={workerConnected && anyReframingBlocked} onProjectChange={onProjectChange} />
 
-      <CourseLessonSelector lessons={lessonChoices} selectedId={lessonReview?.lessonId ?? ''} stale={lessonReviewStale} disabled={busy || submitting} onSelect={(id) => {
-        const lesson = lessonChoices.find(entry => entry.id === id)
-        if (!id) { setLessonReview(null); return }
-        if (!lesson?.check.valid) return
-        setLessonReview(reviewCourseExport(project.id, lesson))
-        setSelectedShortId('')
-        setInSeconds(String(lesson.range.inMs / 1000))
-        setOutSeconds(String(lesson.range.outMs / 1000))
-      }} />
+      <CourseLessonSelector lessons={lessonChoices} selectedId={lessonReview?.lessonId ?? ''} stale={lessonReviewStale} disabled={busy || submitting} onSelect={id => { try { applyCourseLesson(id) } catch (cause) { setError(String(cause)) } }} />
       {courseError && <div className="warning" role="alert">{t('lessonExport.error')}<details><summary>{t('common.details')}</summary>{courseError}</details></div>}
       <div className="fieldGrid">
         <label>{t('export.in')}<input type="number" min="0" step="0.001" value={inSeconds} disabled={busy} onChange={(event) => { setInSeconds(event.target.value); setSelectedShortId(''); setLessonReview(null) }} /></label>
