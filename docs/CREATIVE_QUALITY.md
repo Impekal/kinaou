@@ -38,6 +38,8 @@ Retained output update (#313): successful lesson exports now retain up to 1,000 
 
 Caption update (#319): source-bound local STT transcripts now become explicitly reviewed editable captions at the placed full narration's timeline offset, with matching source/language, bounds, duplicate/overlap guards and safety history. Actual CI-rendered pixels confirm timing. A fixed-output recognizer fixture validates process contracts, not real recognition accuracy; the user still reviews words and synchronization. No forced alignment, automatic translation, trimmed/retimed narration mapping, course approval or new model installation is claimed. Final course delivery/quality acceptance remains open.
 
+Subtitle-file update (#321): reviewed lesson-relative WebVTT text sidecars now download from current saved caption clips. Boundary-limited intervals are disclosed; complete text remains. Native browser parsing, actual downloaded bytes and ffprobe verify syntax/times, not linguistic or accessibility quality. Styling is not carried over and agreement with an earlier MP4 is not inferred. This is neither a media archive nor platform approval.
+
 - Retain course/module/lecture relationships and individual project/source/export references; one lecture must be replaceable without rebuilding the entire course.
 - Technical demonstrations must actually run or be recorded; generated UI images must not masquerade as evidence of working software.
 - Track instructional accuracy, source dates, prerequisite coverage, duplicate content, exercise-answer consistency and pedagogical progression. Avoid fabricated expertise, certificates, learning outcomes or approval guarantees.
