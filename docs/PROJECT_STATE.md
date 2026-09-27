@@ -14,7 +14,17 @@ The existing hourly heartbeat `kinaou-autonom-weiterbauen` is PAUSED at the user
 
 Check the available Codex usage windows at safe slice boundaries. At **85% used / 15% remaining** in any available Codex window, start no new slice; finish the already-started bounded slice, tests, PR/merge and separate documentation as far as the remaining allowance permits, then provide a short copyable prompt for continuing in normal ChatGPT with the Mac terminal and actual repository evidence. Do not promise immunity from a hard limit. Normal ChatGPT chat limits are not visible through the Codex usage tool. Last checked during instructor-review work: Codex weekly 17% used, 83% remaining. Never redeem a reset credit without explicit confirmation. Heartbeat stays paused.
 
-## Latest merged handoff — learner and private instructor material packages
+## Latest merged handoff — retained lesson output references
+
+[PR #313](https://github.com/Impekal/kinaou/pull/313) merged as `0bb4a5874f1ea746e0aa9774ac920a7971f508e5` after full [CI 36285553982](https://github.com/Impekal/kinaou/actions/runs/36285553982), including render smoke. Successful course renders now retain project-scoped output references independently of the newest 50 generic export receipts. Limits are 1,000 entries / 4 MiB, with no silent eviction. Explicit legacy import can retain only still-present recent receipts. Course UI has paginated historical context, metadata-only removal and confirmed reset with safety history; private material ZIP includes retained references. No MP4 copies, file checks, byte hashes or course-quality claims are implied.
+
+Invalid/full indices fail closed without partially saving the course receipt. A completed-render save failure exposes reference management directly inside Studio, preserving the same session for save-only retry; do not navigate away or rerender. Other storage failures are not solved automatically by reference removal. Ordinary non-course export behavior remains unchanged. Generic receipt removal does not remove the separately retained reference.
+
+Acceptance: 1,448 app tests (21 new), 224 local worker tests, build and JS/Swift syntax passed. Full CI passed the Ubuntu libass smoke too. Real-worker two-lesson FFmpeg test retains references and verifies earlier output bytes unchanged. Synthetic browser fixture passed DE/FR/EN, pagination, failed-save retry, reload, confirmed reset, history restoration and full-index save recovery with exactly one simulated job start. No real video was claimed from that UI simulation; final console clean, fixtures/server removed. No worker/model/SSD/platform/deployment changes; foreign duplicates untouched.
+
+Usage checkpoint: Codex weekly 25% used / 75% remaining. Continue active work without a new “weiter”; heartbeat paused. Next safe slice: load saved lesson scripts into actual local Audio Studio synthesis with explicit course-language/source binding and stale-source protection. This must produce real registered narration through existing installed adapters, not a placeholder voice or a claim of full course completion. Point 8 remains open for full production integration, verified teaching quality/demonstrations and media-inclusive packages.
+
+## Previous merged handoff — learner and private instructor material packages
 
 [PR #311](https://github.com/Impekal/kinaou/pull/311) merged as `03da808fd1a810c4983276d73f2168d4d1e97ddd` after full [CI 36284693332](https://github.com/Impekal/kinaou/actions/runs/36284693332), including render smoke. Lessons now persist bounded authored text materials, private to the instructor by default. Saved-only ZIP downloads separate learner materials/worksheets from private scripts, solutions, internal materials and review/source notes. Instructor download requires an unchecked-by-default acknowledgement that resets on edits. Both packages disclose draft status, no media/file fetching, no encryption, no complete backup and no platform approval. Course language controls generated headers; original Unicode and whitespace remain exact.
 
@@ -119,7 +129,7 @@ Safety rule: only paths below the configured KINAOU root may be created/moved/de
 ## Repository
 Repo: `Impekal/kinaou`
 Default branch: `main`
-Latest implementation main SHA after material packages PR #311: `03da808fd1a810c4983276d73f2168d4d1e97ddd`
+Latest implementation main SHA after retained lesson outputs PR #313: `0bb4a5874f1ea746e0aa9774ac920a7971f508e5`
 
 ## Merged slices
 - **PR #261** — final DE/EN/FR point-1 acceptance gate. A dedicated cross-workflow regression reuses unchanged drafts and authored data through DE → FR → EN across the real application shell plus representative Settings, Course, Timeline, Assets and Publish surfaces. A second acceptance path exercises active/recovery feedback for Audio, Image, Video, single export and STT while preserving submitted content and technical diagnostics; the existing Short batch multilingual lifecycle/recovery suite remains part of the same full gate. The temporary final-coverage notice was removed only after this acceptance passed. PR CI 35657095575 on `d1c98dd` and main CI 35657251441 on merge `f6b8232` both passed 978/978 application tests across 100 test files, 83/83 worker tests, production build and worker syntax checks. No new dependency, browser automation framework, worker behavior, model, media, persistence, render or deployment behavior was introduced. **Completion point 1 is complete.**

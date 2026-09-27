@@ -15,6 +15,18 @@ Saved outlines travel with ordinary project serialization, drive backups and Ver
 
 ## Boundaries to review
 
+### Retained lesson output references (#313)
+
+New successful course exports automatically retain their submitted context and managed MP4 path in a separate project-scoped index, beyond the recent export list's 50-entry window. Maximum 1,000 references and 4 MiB, with no silent eviction. This is metadata, not a media archive: presence, bytes, timeline agreement and quality are not checked. The outline-match status compares only saved names/IDs/language/revision/range; changed timeline content at identical lesson bounds is outside that check. Removed lessons and earlier courses keep their historical references.
+
+Under **Retained lesson outputs**, explicitly import legacy references still present in the recent list, page through entries, remove one reference or confirm reset of the whole index. Safety history precedes UI changes; no videos or generic receipts are removed. Reset can recover corrupt metadata after backup. Import does not scan disk or recover entries already evicted from the old list; a deliberately removed index entry can return on explicit import if still present in recent history. Existing browser storage/history retention limits apply; make independent backups.
+
+Index conflicts/corruption/capacity failures never partially save a course receipt. If rendering finished but its receipt cannot be saved, the actual Studio error area exposes this same reference manager. Stay in that view, resolve the index problem and use **Check same job / save receipt**; no second render starts. Leaving Studio loses in-session recovery. Other persistence failures need their own resolution. Ordinary non-course exports remain usable with a damaged course index.
+
+Private ZIP now includes `private/retained-lesson-outputs.json` for the current course, separate from bounded recent-video references, with explicit no-media/no-integrity flags. Learner packages never include these private paths. A corrupted index blocks private packaging rather than presenting a misleading empty archive.
+
+Acceptance: 1,448 app tests (21 new), 224 local worker tests, build/syntax and full CI 36285553982 passed. Real FFmpeg lesson renders verify retained context and unchanged earlier MP4 bytes. Synthetic browser checks cover DE/FR/EN, pagination, save failure/retry/reload, reset/restore and full-index recovery in Studio with exactly one simulated job. No real-course quality claim is inferred.
+
 ### Lesson materials and separate ZIP packages (#311)
 
 Author text resources under **Lesson materials**, save with the outline, and explicitly select **Learners** for shareable resources. New resources default to **Instructor only**. Limits: 10 per lesson, 20,000 body characters each, 400,000 serialized material characters per course. Existing projects remain compatible; revisions/history and stale-review detection apply. Removing a material changes metadata only.
@@ -61,7 +73,7 @@ Limits: 20 sources and 10 demonstrations per lesson, 4,000 characters per notes/
 - The existing range renderer determines clipping, source offsets, retiming, captions, transitions and fades. This slice does not introduce a new compositor or promise sample-identical full-timeline motion/fade continuation across arbitrary range cuts. Existing managed-media readiness applies to the full source project.
 - Course language is metadata, not a translator or a change to the Director/voice language profile. Keep scripts, recordings and the project content profile consistent yourself until explicit language reconciliation exists.
 - Scripts preserve authored whitespace and language. The optional field is backward-compatible with existing outlines; limits are 20,000 characters per lesson and 200,000 for all course scripts. Script edits increment the outline revision and make prior course-export review stale. This is not pedagogical sign-off or proof that the selected MP4 contains that script. Existing exports are not overwritten or relabelled.
-- Course outline limits: 50 modules, 100 lessons per module and 200 lessons total. The existing project export history remains bounded to its newest **50 receipts**; older MP4s are not deleted, but a permanent per-lesson archive is still needed for very large courses.
+- Course outline limits: 50 modules, 100 lessons per module and 200 lessons total. Generic export history retains its newest **50 receipts**. New course exports additionally retain up to 1,000 references / 4 MiB without silent eviction (#313); older MP4s are never deleted by either list. This does not provide a media-inclusive archive or unlimited retention.
 - Course identities are retained in the **project export receipt**. Generic Publish can handle the MP4, but its current sidecar is not a dedicated course/material bundle and does not preserve the new structured course context. Do not claim a ready-to-upload course package.
 - Lesson objectives are authored planning text. They do not become narration, automatically verified learning outcomes or proof that a demonstration works. Exercise/solution authoring, text-only material bundles and self-reported instructor records now exist; actual expert verification, media-inclusive course bundles and automatic publication are not provided by these features.
 
@@ -73,7 +85,7 @@ The local browser displayed the new Course entry/form and language options on a 
 
 ## Next course slices
 
-Current after #311: authored scripts, sources/demo records, exercises/solutions, explicit instructor records and text-resource ZIP delivery are implemented. Next: retained per-lesson output references beyond the generic receipt window, then reviewed script-to-production integration and actual course-quality acceptance. A text bundle is not a complete media archive. Older next-step paragraphs below are dated history.
+Current after #313: authored scripts, sources/demo records, exercises/solutions, explicit instructor records, text-resource ZIP delivery and separately retained lesson output references are implemented. Next: saved lesson scripts through actual local narration, reviewed production integration and actual course-quality acceptance. Text bundles and retained references are not complete media archives. Older next-step paragraphs below are dated history.
 
 PR #211 verification: full 498 application + 82 native tests and build/syntax gate passed. Sixteen regressions cover stale revision/range/project identity, removed/ineligible lessons, DE/EN/FR controls and stable range diagnostic codes. Isolated localhost:5192 with a synthetic video and temporary worker verified language-switch selection retention, disabled future bounds, stale blocking after a 4→3s trim, explicit re-review, a real 2s Full-HD MP4 and exact 1–3s receipt with unchanged names/revision/course language, custom-range deselection and receipt persistence after reload. Browser console clean; test processes stopped. Existing real-worker retiming/audio/independent-lesson execution tests remain green.
 
