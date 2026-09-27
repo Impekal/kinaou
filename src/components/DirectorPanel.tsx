@@ -9,6 +9,7 @@ import type { KinaouProject } from '../core/project'
 import type { PersistentVersionHistory } from '../core/versioning'
 import { WorkerClient } from '../core/workerClient'
 import { useUiLanguage } from './UiLanguageProvider'
+import { ResearchBriefDirectorControl } from './ResearchBriefDirectorControl'
 
 interface Props { project: KinaouProject; history: PersistentVersionHistory; workerUrl: string; workerToken: string; workerConnected: boolean; workerCapabilities: string[]; onProjectChange: (project: KinaouProject) => void }
 
@@ -88,6 +89,7 @@ export function DirectorPanel({ project, history, workerUrl, workerToken, worker
     <div className="sectionLead"><div><h2>{t('director.heading')}</h2><p>{t('director.help')}</p></div></div>
     <ContentProfilePanel project={project} onProjectChange={onProjectChange} />
     <div className="card directorPanel">
+      <ResearchBriefDirectorControl project={project} busy={busy} onApply={text => { scope.current.invalidate(); setPending(null); setReviewed(null); setMessage(null); setError(''); setBrief(text) }} />
       <p>{t('editor.scopeHelp')}</p>
       <div className="localDirector"><label>{t('director.brief')}<textarea disabled={busy} value={brief} onChange={event => setBrief(event.target.value)} /></label><label>{t('editor.model')}<select disabled={busy} value={installed.some(item => item.id === model) ? model : ''} onChange={event => setModel(event.target.value)}><option value="">{t('editor.chooseModel')}</option>{installed.map(item => <option key={item.id} value={item.id}>{item.id}</option>)}</select></label><div className="directorActions"><button className="secondaryButton" disabled={busy || !canGenerate} onClick={() => void request('models')}>{t('editor.detect')}</button><button className="primary" disabled={busy || !canGenerate || !installed.some(item => item.id === model) || !brief.trim()} onClick={() => void request('plan')}>{t(busy ? 'editor.busy' : 'editor.generate')}</button></div></div>
       <label>{t('director.source')}<textarea value={source} onChange={event => { scope.current.invalidate(); setPending(null); setSource(event.target.value); setReviewed(null); setMessage(null); setError('') }} placeholder='{"schemaVersion":1,"title":"…","objective":"…","script":"…","scenes":[…],"provenance":{"kind":"manual"}}' /></label>

@@ -8,4 +8,7 @@
 .searchTrendsPanel a { color: #c5bcff; overflow-wrap: anywhere; }
 .searchTrendsPanel :is(button, a, summary):focus-visible { outline: 3px solid #b9aaff; outline-offset: 3px; }
 .searchTrendsPanel button { justify-self: start; white-space: normal; }
+.researchBriefSources { display: grid; gap: 12px; border: 1px solid #343b4d; border-radius: 10px; min-width: 0; }
+.researchBriefSources label, .researchBriefAck { display: flex; align-items: flex-start; gap: 10px; overflow-wrap: anywhere; }
+.researchBriefSources input, .researchBriefAck input { width: auto; flex: 0 0 auto; }
 @media (max-width: 600px) { .searchTrendsPanel > .card { padding: 16px; } .searchTrendsPanel button { width: 100%; } }

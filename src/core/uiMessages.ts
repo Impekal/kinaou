@@ -29,6 +29,7 @@ import { uiCourseWorkspaceMessages } from './uiCourseWorkspaceMessages'
 import { uiCourseHandoffMessages } from './uiCourseHandoffMessages'
 import { uiSourceArchiveMessages } from './uiSourceArchiveMessages'
 import { uiSearchTrendMessages } from './uiSearchTrendMessages'
+import { uiResearchBriefMessages } from './uiResearchBriefMessages'
 import { uiShortSelectionMessages } from './uiShortSelectionMessages'
 import { uiShortIntelligenceMessages } from './uiShortIntelligenceMessages'
 import { uiShortFinishingMessages } from './uiShortFinishingMessages'
@@ -87,6 +88,7 @@ export const uiMessages = {
   ...uiCourseHandoffMessages,
   ...uiSourceArchiveMessages,
   ...uiSearchTrendMessages,
+  ...uiResearchBriefMessages,
   ...uiShortSelectionMessages,
   ...uiShortIntelligenceMessages,
   ...uiShortFinishingMessages,
