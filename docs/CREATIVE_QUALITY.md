@@ -56,6 +56,8 @@ Collection update (#335): explicitly verified historical lesson packages can be 
 
 Collection-library update (#337): prior collections can be rediscovered and explicitly rehashed without browser reminders or FFprobe. Historical completion-record presence is not file verification; completed/interrupted/tampered states stay distinct, and late replies cannot restore stale UI results. No creation, repair, automatic restart or teaching approval. Actual file/browser checks establish safe read-only recovery, not instructional correctness.
 
+Course-order update (#339): curriculum order and module membership can change without changing stable lesson IDs, authored content, time ranges or video timelines. Explicit save/history makes changes reversible. Historical export/module attribution remains untouched; moved lessons produce changed-outline status and prior instructor metadata reviews become stale. Ordering tests prove preservation, not curriculum quality or approval.
+
 - Retain course/module/lecture relationships and individual project/source/export references; one lecture must be replaceable without rebuilding the entire course.
 - Technical demonstrations must actually run or be recorded; generated UI images must not masquerade as evidence of working software.
 - Track instructional accuracy, source dates, prerequisite coverage, duplicate content, exercise-answer consistency and pedagogical progression. Avoid fabricated expertise, certificates, learning outcomes or approval guarantees.
