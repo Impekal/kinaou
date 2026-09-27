@@ -16,6 +16,7 @@ import { CourseDeliveryWorkspace } from './CourseDeliveryWorkspace'
 import type { CourseExerciseDocument } from '../core/courseExercises'
 import { moveCourseLesson, reorderCourseModule } from '../core/courseOrdering'
 import { CourseModuleOrderControls, CourseLessonOrderControls } from './CourseOrderControls'
+import { CourseWorkspaceNavigation, type CourseWorkspaceStage } from './CourseWorkspaceNavigation'
 
 interface Props extends CourseOutputWorkerProps { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void; onOpenStudio: () => void; onOpenAudio?: () => void }
 
@@ -28,6 +29,7 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio, o
   const [error, setError] = useState('')
   const [errorKind, setErrorKind] = useState<'course.invalid' | 'course.failed' | 'course.scriptDownloadFailed' | 'course.exercises.downloadFailed' | 'course.order.failed'>('course.failed')
   const [message, setMessage] = useState<'course.saved' | 'course.discarded' | null>(null)
+  const [stage, setStage] = useState<CourseWorkspaceStage>('outline')
   const dirty = JSON.stringify(saved) !== JSON.stringify(draft)
   const count = draft.modules.reduce((sum, module) => sum + module.lessons.length, 0)
   function change(next: CourseOutline) { setDraft(next); setMessage(null) }
@@ -65,6 +67,11 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio, o
   if (loadError) return <section className="card"><div className="errorBox" role="alert">{t('course.corrupt')}<details><summary>{t('common.details')}</summary>{loadError}</details></div><button onClick={onOpenStudio}>{t('course.history')}</button></section>
   return <section className="stack">
     <div className="sectionLead"><div><div className="eyebrow">{t('course.eyebrow')}</div><h2>{t('course.heading')}</h2><p>{t('course.help')}</p></div><span className="status">{dirty ? t('course.unsaved') : t('course.revision', { revision: saved?.revision ?? 0 })}</span></div>
+    <CourseWorkspaceNavigation stage={stage} onSelect={setStage} />
+    <div className="courseWorkspaceIntro"><div><h3 id="course-workspace-title">{t(`course.workspace.${stage}.title`)}</h3><p>{t(`course.workspace.${stage}.help`)}</p></div><span className="status">{t('course.workspace.counts', { modules: draft.modules.length, lessons: count })}</span></div>
+    {dirty && stage !== 'outline' && <div className="card note courseWorkspaceDraft" role="status"><p>{t('course.workspace.draft')}</p><button className="secondaryButton" onClick={() => setStage('outline')}>{t('course.workspace.return')}</button></div>}
+    <div id="course-workspace-content" className="stack" role="region" aria-labelledby="course-workspace-title">
+    {stage === 'outline' && <>
     <div className="card stack">
       <label>{t('course.title')}<input maxLength={120} value={draft.title} onChange={(event) => change({ ...draft, title: event.target.value })} /></label>
       <label>{t('course.language')}<select value={draft.language} onChange={(event) => change({ ...draft, language: event.target.value as ContentLanguage })}>{Object.entries(contentLanguageLabels).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
@@ -102,13 +109,19 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio, o
       <small>{t('course.restoreHelp')}</small>
       {error && <div className="errorBox" role="alert">{t(errorKind)}<details><summary>{t('common.details')}</summary>{error}</details></div>}{message && <div className="successBox" role="status">{t(message)}</div>}
     </div>
-    {onOpenAudio && <button disabled={dirty} onClick={onOpenAudio}>{t('course.narration.open')}</button>}
-    <CourseInstructorReviewPanel key={project.id} project={project} dirty={dirty} history={history} onProjectChange={onProjectChange} />
-    <CourseMaterialPackagePanel key={`materials-${project.id}`} project={project} dirty={dirty} />
+    </>}
+    {stage === 'production' && <>
+    <div className="directorActions"><button className="primary" disabled={dirty} onClick={onOpenStudio}>{t('course.studio')}</button>{onOpenAudio && <button className="secondaryButton" disabled={dirty} onClick={onOpenAudio}>{t('course.narration.open')}</button>}</div>
     <CourseOutputIndexPanel key={`outputs-${project.id}`} project={project} dirty={dirty} history={history} onProjectChange={onProjectChange} />
     <CourseOutputFileCheckPanel key={`file-check-${project.id}`} project={project} dirty={dirty} {...worker} />
-    <CourseDeliveryWorkspace key={`delivery-library-${project.id}`} project={project} dirty={dirty} {...worker} />
     <CourseSubtitleExportPanel key={`subtitles-${project.id}`} project={project} dirty={dirty} />
-    <div className="card note">{t('course.boundary')}</div>
+    </>}
+    {stage === 'review' && <CourseInstructorReviewPanel key={project.id} project={project} dirty={dirty} history={history} onProjectChange={onProjectChange} />}
+    {stage === 'delivery' && <>
+    <CourseMaterialPackagePanel key={`materials-${project.id}`} project={project} dirty={dirty} />
+    <CourseDeliveryWorkspace key={`delivery-library-${project.id}`} project={project} dirty={dirty} {...worker} />
+    </>}
+    </div>
+    <details className="card note courseWorkspaceLimits"><summary>{t('course.workspace.boundaries')}</summary><p>{t('course.workspace.detach')}</p><p>{t('course.boundary')}</p></details>
   </section>
 }
