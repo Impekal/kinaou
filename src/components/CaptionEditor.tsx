@@ -6,6 +6,8 @@ import type { CaptionStyle, KinaouProject } from '../core/project'
 import { parseSttTranscript } from '../core/sttJobs'
 import type { PersistentVersionHistory } from '../core/versioning'
 import { useUiLanguage } from './UiLanguageProvider'
+import { isCourseTranscript } from '../core/transcripts'
+import { CourseTranscriptCaptionsPanel } from './CourseTranscriptCaptionsPanel'
 
 interface Props { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void }
 
@@ -509,7 +511,7 @@ export function CaptionEditor({ project, history, onProjectChange }: Props) {
   const [message, setMessage] = useState<'caption.saved' | 'caption.imported' | null>(null)
   const captionTrack = project.tracks.find((track) => track.type === 'caption')
   const captions = captionTrack?.clips.map((clip) => ({ clip, asset: project.assets.find((asset) => asset.id === clip.assetId) })).filter((item) => item.asset?.kind === 'caption') ?? []
-  const transcripts = project.assets.flatMap((asset) => { try { return asset.kind === 'document' ? [{ asset, transcript: parseSttTranscript(asset.metadata.transcript) }] : [] } catch { return [] } })
+  const transcripts = project.assets.flatMap((asset) => { try { return asset.kind === 'document' && !isCourseTranscript(project, asset) ? [{ asset, transcript: parseSttTranscript(asset.metadata.transcript) }] : [] } catch { return [] } })
   const [transcriptId, setTranscriptId] = useState('')
   const [selectedSegments, setSelectedSegments] = useState<number[]>([])
   const selectedTranscript = transcripts.find((item) => item.asset.id === transcriptId)
@@ -546,6 +548,7 @@ export function CaptionEditor({ project, history, onProjectChange }: Props) {
 
   return <div className="card captionEditor">
     <div><div className="eyebrow">{t('caption.eyebrow')}</div><h3>{t('caption.heading')}</h3><p>{t('caption.help')}</p></div>
+    {(project.metadata.courseOutline !== undefined || project.assets.some(asset => isCourseTranscript(project, asset))) && <CourseTranscriptCaptionsPanel project={project} history={history} onProjectChange={onProjectChange} />}
     {blocked && <p role="status">{t(blocked)}</p>}
     <div className="captionCreate">
       <label>{t('caption.text')}<textarea value={text} onChange={(event) => { setText(event.target.value); setTouched(true); clearFeedback() }} placeholder={t('caption.placeholder')} /></label>

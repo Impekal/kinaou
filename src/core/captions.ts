@@ -1,6 +1,7 @@
 import { touchProject, type KinaouAsset, type KinaouProject, type TimelineTrack } from './project'
 import { applyTimelineOperation } from './timeline'
 import { parseSttTranscript } from './sttJobs'
+import { isCourseTranscript } from './transcripts'
 
 export interface CaptionInput { text: string; startMs: number; durationMs: number }
 
@@ -41,6 +42,7 @@ export function updateCaptionText(project: KinaouProject, assetId: string, text:
 export function addTranscriptCaptions(project: KinaouProject, transcriptAssetId: string, segmentIndexes: number[]): KinaouProject {
   const transcriptAsset = project.assets.find((asset) => asset.id === transcriptAssetId)
   if (!transcriptAsset || transcriptAsset.kind !== 'document') throw new Error('Transcript asset not found')
+  if (isCourseTranscript(project, transcriptAsset)) throw new Error('Use reviewed course transcript captions to align this recording to its lesson')
   const transcript = parseSttTranscript(transcriptAsset.metadata.transcript)
   const indexes = [...new Set(segmentIndexes)].sort((a, b) => a - b)
   if (!indexes.length || indexes.some((index) => !Number.isInteger(index) || index < 0 || index >= transcript.segments.length)) throw new Error('Select valid transcript segments')
