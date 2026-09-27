@@ -36,6 +36,8 @@ Narration updates (#315, #317): saved lesson scripts run through existing actual
 
 Retained output update (#313): successful lesson exports now retain up to 1,000 project-scoped references / 4 MiB independently of the generic recent list. Historic outline context, safety-backed removal/reset and same-session save-only recovery are implemented. Reference retention and outline agreement are not media existence/integrity checks, complete backups or instructional-quality evidence. The private text package includes these references, not videos.
 
+Caption update (#319): source-bound local STT transcripts now become explicitly reviewed editable captions at the placed full narration's timeline offset, with matching source/language, bounds, duplicate/overlap guards and safety history. Actual CI-rendered pixels confirm timing. A fixed-output recognizer fixture validates process contracts, not real recognition accuracy; the user still reviews words and synchronization. No forced alignment, automatic translation, trimmed/retimed narration mapping, course approval or new model installation is claimed. Final course delivery/quality acceptance remains open.
+
 - Retain course/module/lecture relationships and individual project/source/export references; one lecture must be replaceable without rebuilding the entire course.
 - Technical demonstrations must actually run or be recorded; generated UI images must not masquerade as evidence of working software.
 - Track instructional accuracy, source dates, prerequisite coverage, duplicate content, exercise-answer consistency and pedagogical progression. Avoid fabricated expertise, certificates, learning outcomes or approval guarantees.
