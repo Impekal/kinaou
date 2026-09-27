@@ -9,6 +9,8 @@ import { SceneNarrationSession, type NarrationFeedback } from '../src/core/scene
 import { AudioStudioSession, type AudioFeedback } from '../src/core/audioStudioSession'
 import { PersistentVersionHistory } from '../src/core/versioning'
 import { ProjectRepository } from '../src/core/persistence'
+import { newCourseOutline, saveCourseOutline } from '../src/core/course'
+import { assertCourseNarrationVoice, bindCourseNarration, registerCourseNarration } from '../src/core/courseNarration'
 
 it('executes the narration session through the authenticated real worker using a clearly synthetic tone CLI fixture', async () => {
   // Contract/execution evidence only: this is not Piper inference or a speech-quality test.
@@ -85,6 +87,35 @@ execFileSync('ffmpeg',['-v','error','-f','lavfi','-i','sine=frequency=440:durati
     expect(history.list(standalone.id)).toHaveLength(1)
     expect(history.restoreReversibly(standalone, history.list(standalone.id)[0].id).project.assets).toHaveLength(0)
     expect(await readFile(generatedPath)).toEqual(generatedBytes); expect(await readFile(absolute)).toEqual(original)
+
+    // Saved course script through the generic real worker API, not a fake success-only adapter.
+    // The explicitly synthetic CLI emits a measured tone; no real speech quality is inferred.
+    let courseProject = createProject('Course narration contract')
+    courseProject.script = 'Unchanged main script'
+    courseProject = repository.save(saveCourseOutline(courseProject, { ...newCourseOutline(courseProject), language: 'de', modules: [{ id: 'module', title: 'Module', lessons: [{ id: 'lesson', title: 'Lesson', objective: '', script: '  Guten Tag.\nÜberblick 🌍  ', range: { inMs: 1000, outMs: 4000 } }] }] }))
+    const binding = bindCourseNarration(courseProject, 'lesson')
+    const courseVoice = (await client.listSpeechVoices()).find(voice => voice.id === 'KINAOU/Models/fixture.onnx')!
+    assertCourseNarrationVoice(binding, courseVoice, {})
+    let courseStarts = 0, courseFailSave = true
+    const courseStates: AudioFeedback[] = []
+    const courseSession = new AudioStudioSession(courseProject, 'course-test', binding.script, courseVoice, {
+      client: { startSpeech: async request => { courseStarts++; return client.startSpeech(request) }, speechStatus: id => client.speechStatus(id), cancelSpeech: id => client.cancelSpeech(id) },
+      environment: () => ({ project: courseProject, connection: 'course-test' }),
+      snapshot: value => { history.snapshot(value, 'Before saving generated voice', 'system') },
+      saveResult: (value, result, text, retake) => registerCourseNarration(value, result, text, binding, retake),
+      persist: value => { if (courseFailSave) throw Error('TEST course save failure'); courseProject = repository.save(value) },
+      publish: value => courseStates.push(value), wait: () => new Promise(resolve => setTimeout(resolve, 30))
+    })
+    await courseSession.run(); expect(courseStates.at(-1)?.phase).toBe('saveFailed')
+    const coursePath = path.join(temporary, courseStates.at(-1)!.job!.audioPath!), courseBytes = await readFile(coursePath)
+    expect(await readFile(coursePath + '.text', 'utf8')).toBe('Guten Tag.\nÜberblick 🌍')
+    courseFailSave = false; await courseSession.run(); await courseSession.run()
+    expect(courseStarts).toBe(1); expect(courseStates.at(-1)?.phase).toBe('succeeded')
+    expect(repository.load(courseProject.id)?.assets[0].metadata).toMatchObject({ durationMs: 2000, sourceText: binding.script, courseNarrationSource: { projectId: courseProject.id, course: binding.course } })
+    expect(courseProject.script).toBe('Unchanged main script'); expect(courseProject.tracks).toHaveLength(0)
+    expect(await readFile(coursePath)).toEqual(courseBytes)
+    expect(await readFile(generatedPath)).toEqual(generatedBytes)
+    expect(await readFile(absolute)).toEqual(original)
   } finally {
     worker.kill('SIGTERM')
     await new Promise<void>(resolve => { if (worker.exitCode !== null) resolve(); else worker.once('close', () => resolve()) })

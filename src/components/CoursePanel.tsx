@@ -12,9 +12,9 @@ import { CourseMaterialPackagePanel } from './CourseMaterialPackagePanel'
 import { CourseOutputIndexPanel } from './CourseOutputIndexPanel'
 import type { CourseExerciseDocument } from '../core/courseExercises'
 
-interface Props { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void; onOpenStudio: () => void }
+interface Props { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void; onOpenStudio: () => void; onOpenAudio?: () => void }
 
-export function CoursePanel({ project, history, onProjectChange, onOpenStudio }: Props) {
+export function CoursePanel({ project, history, onProjectChange, onOpenStudio, onOpenAudio }: Props) {
   const { t } = useUiLanguage()
   let saved: CourseOutline | null = null
   let loadError = ''
@@ -90,6 +90,7 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio }:
       <small>{t('course.restoreHelp')}</small>
       {error && <div className="errorBox" role="alert">{t(errorKind)}<details><summary>{t('common.details')}</summary>{error}</details></div>}{message && <div className="successBox" role="status">{t(message)}</div>}
     </div>
+    {onOpenAudio && <button disabled={dirty} onClick={onOpenAudio}>{t('course.narration.open')}</button>}
     <CourseInstructorReviewPanel key={project.id} project={project} dirty={dirty} history={history} onProjectChange={onProjectChange} />
     <CourseMaterialPackagePanel key={`materials-${project.id}`} project={project} dirty={dirty} />
     <CourseOutputIndexPanel key={`outputs-${project.id}`} project={project} dirty={dirty} history={history} onProjectChange={onProjectChange} />

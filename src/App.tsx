@@ -191,7 +191,7 @@ export function App() {
         {section === 'Capture' && (project ? <CapturePanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
         {section === 'Publish' && (project ? <PublishPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
 
-        {section === 'Course' && (project ? <CoursePanel key={project.id} project={project} history={versionHistory} onProjectChange={persistProject} onOpenStudio={() => setSection('Studio')} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
+        {section === 'Course' && (project ? <CoursePanel key={project.id} project={project} history={versionHistory} onProjectChange={persistProject} onOpenStudio={() => setSection('Studio')} onOpenAudio={() => setSection('Audio')} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
 
         {section === 'Studio' && <section className="stack">
           {!project ? <div className="card emptyState">{t('shell.openProject')}</div> : <>

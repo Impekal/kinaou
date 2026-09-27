@@ -4,6 +4,8 @@ import type { KinaouProject } from '../core/project'
 import type { PersistentVersionHistory } from '../core/versioning'
 import { WorkerClient } from '../core/workerClient'
 import { projectContentProfile } from '../core/contentProfile'
+import { projectCourse } from '../core/course'
+import { assertCourseNarrationBinding, assertCourseNarrationRetake, assertCourseNarrationVoice, bindCourseNarration, courseNarrationSourceSchema, registerCourseNarration, type CourseNarrationBinding } from '../core/courseNarration'
 import type { SpeechVoiceDescriptor } from '../core/speech'
 import { SpeechVoiceSelect } from './SpeechVoiceSelect'
 import { useUiLanguage } from './UiLanguageProvider'
@@ -22,9 +24,12 @@ interface Props { project: KinaouProject; history: PersistentVersionHistory; wor
 export function AudioStudioPanel({ project, history, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange }: Props) {
   const { language, t } = useUiLanguage()
   const [text, setText] = useState(project.script)
+  const [lessonId, setLessonId] = useState('')
+  const [courseBinding, setCourseBinding] = useState<CourseNarrationBinding | undefined>()
   const [voices, setVoices] = useState<SpeechVoiceDescriptor[]>([])
   const [voice, setVoice] = useState('')
   const outputLanguage = projectContentProfile(project).outputLanguage
+  const narrationLanguage = courseBinding?.course.language ?? outputLanguage
   const [delivery, setDelivery] = useState<SpeechDeliveryDraft>(
     () => defaultSpeechDeliveryDraft(outputLanguage)
   )
@@ -51,6 +56,7 @@ export function AudioStudioPanel({ project, history, workerUrl, workerToken, wor
   }, [])
   useEffect(() => {
     setText(project.script)
+    setLessonId(''); setCourseBinding(undefined)
     setDelivery(defaultSpeechDeliveryDraft(outputLanguage))
     setFeedback(null)
     setSubmittedText('')
@@ -64,6 +70,23 @@ export function AudioStudioPanel({ project, history, workerUrl, workerToken, wor
   const detecting = discovering && discoveryScope === discoveryKey
   const currentFeedback: AudioFeedback | null = session.current?.wasDetached ? { phase: 'detached' } : feedback
   const client = () => new WorkerClient({ baseUrl: workerUrl, token: workerToken })
+  let courseSourceError = '', courseBindingError = ''
+  let lessons: Array<{ id: string; label: string }> = []
+  try { lessons = projectCourse(project)?.modules.flatMap(module => module.lessons.filter(lesson => lesson.script?.trim()).map(lesson => ({ id: lesson.id, label: `${module.title} / ${lesson.title}` }))) ?? [] }
+  catch (cause) { courseSourceError = String(cause) }
+  if (courseBinding) {
+    try {
+      assertCourseNarrationBinding(project, courseBinding, text)
+      if (selectedVoice) assertCourseNarrationVoice(courseBinding, selectedVoice, speechDeliveryOptionsFromDraft(project, selectedVoice, delivery))
+    } catch (cause) { courseBindingError = String(cause) }
+  }
+  function loadLesson() {
+    if (locked || detecting) return
+    try {
+      const binding = bindCourseNarration(project, lessonId)
+      setCourseBinding(binding); setText(binding.script); setDelivery(defaultSpeechDeliveryDraft(binding.course.language)); setError('')
+    } catch (cause) { setError(String(cause)) }
+  }
 
   async function detect() {
     if (!available || locked || detecting) return
@@ -79,7 +102,7 @@ export function AudioStudioPanel({ project, history, workerUrl, workerToken, wor
   async function generate(
     retakeAssetId?: string
   ) {
-    if (!available || !selectedVoice || !text.trim() || session.current?.unresolved || detecting) return
+    if (!available || !selectedVoice || !text.trim() || session.current?.unresolved || detecting || courseBindingError) return
     setError('')
     setSubmittedText(text.trim())
 
@@ -89,6 +112,8 @@ export function AudioStudioPanel({ project, history, workerUrl, workerToken, wor
         selectedVoice,
         delivery
       )
+      const submittedCourseBinding = courseBinding ? assertCourseNarrationBinding(project, courseBinding, text) : undefined
+      if (submittedCourseBinding) assertCourseNarrationVoice(submittedCourseBinding, selectedVoice, speechOptions)
 
       const retakeSource =
         retakeAssetId
@@ -109,6 +134,7 @@ export function AudioStudioPanel({ project, history, workerUrl, workerToken, wor
       }
 
       if (retakeSource) {
+        assertCourseNarrationRetake(retakeSource, submittedCourseBinding)
         assertSpeechRetakeRequest(
           retakeSource,
           text,
@@ -124,6 +150,7 @@ export function AudioStudioPanel({ project, history, workerUrl, workerToken, wor
         persist: value => { onProjectChange(value); environment.current = { project: value, connection } },
         publish: value => { if (mounted.current && session.current === task) setFeedback(value) },
         speechOptions,
+        ...(submittedCourseBinding ? { saveResult: (value, job, submitted, retake) => registerCourseNarration(value, job, submitted, submittedCourseBinding, retake) } : {}),
         ...(retakeSource
           ? {
               retakeContext:
@@ -149,24 +176,42 @@ export function AudioStudioPanel({ project, history, workerUrl, workerToken, wor
       || typeof asset.metadata.ttsJobId === 'string'
     )
   )
+  function courseSourceLabel(asset: KinaouProject['assets'][number]) {
+    if (asset.metadata.courseNarrationSource === undefined) return null
+    const source = courseNarrationSourceSchema.safeParse(asset.metadata.courseNarrationSource)
+    return <small>{source.success ? t('course.narration.asset', { lesson: source.data.course.lessonTitle, revision: source.data.course.outlineRevision, language: source.data.course.language }) : t('course.narration.invalidAsset')}</small>
+  }
+  function courseRetakeAllowed(asset: KinaouProject['assets'][number]) {
+    try { assertCourseNarrationRetake(asset, courseBinding); return !courseBindingError }
+    catch { return false }
+  }
   const seconds = (ms: number) => new Intl.NumberFormat(language, { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(ms / 1000)
   return <section className="stack"><div className="sectionLead"><div><div className="eyebrow">{t('audio.eyebrow')}</div><h2>{t('audio.heading')}</h2><p>{t('audio.help')}</p></div><span className={available ? 'status online' : 'status'}>{t(available ? 'audio.available' : 'audio.unavailable')}</span></div>
     <div className="card audioStudio">
       <p>{t('audio.scope')}</p>
+      <details><summary>{t('course.narration.heading')}</summary><p>{t('course.narration.help')}</p>
+        {courseSourceError ? <div role="alert">{t('course.narration.invalid')}<details><summary>{t('common.details')}</summary>{courseSourceError}</details></div> : <>
+          {!lessons.length && <p>{t('course.narration.empty')}</p>}
+          <label>{t('course.narration.lesson')}<select value={lessonId} disabled={locked || detecting} onChange={event => setLessonId(event.target.value)}><option value="">{t('course.narration.choose')}</option>{lessons.map(lesson => <option key={lesson.id} value={lesson.id}>{lesson.label}</option>)}</select></label>
+          <button disabled={locked || detecting || !lessons.some(lesson => lesson.id === lessonId)} onClick={loadLesson}>{t('course.narration.load')}</button>
+        </>}
+      </details>
+      {courseBinding && <div><p>{t('course.narration.bound', { lesson: courseBinding.course.lessonTitle, revision: courseBinding.course.outlineRevision, language: courseBinding.course.language })}</p><button disabled={locked || detecting} onClick={() => setCourseBinding(undefined)}>{t('course.narration.clear')}</button></div>}
+      {courseBindingError && <div role="alert">{t('course.narration.blocked')}<details><summary>{t('common.details')}</summary>{courseBindingError}</details></div>}
       <label>{t('audio.text')}<textarea value={text} onChange={event => setText(event.target.value)} placeholder={t('audio.placeholder')} /></label>
-      <SpeechVoiceSelect voices={installed} value={selectedVoice?.id ?? ''} language={outputLanguage} uiLanguage={language} disabled={!available || locked || detecting} onChange={(value) => {
+      <SpeechVoiceSelect voices={installed} value={selectedVoice?.id ?? ''} language={narrationLanguage} uiLanguage={language} disabled={!available || locked || detecting} onChange={(value) => {
         setVoice(value)
-        setDelivery(defaultSpeechDeliveryDraft(outputLanguage))
+        setDelivery(defaultSpeechDeliveryDraft(narrationLanguage))
       }} />
       <SpeechDeliveryControls project={project} voice={selectedVoice} draft={delivery} disabled={!available || locked || detecting} onChange={setDelivery} />
       <div className="directorActions">
         <button className="secondaryButton" disabled={!available || locked || detecting} onClick={detect}>{t(detecting ? 'audio.detecting' : 'audio.detect')}</button>
-        <button className="primary" disabled={!available || !selectedVoice || !text.trim() || locked || detecting} onClick={() => void generate()}>{t('audio.generate')}</button>
+        <button className="primary" disabled={!available || !selectedVoice || !text.trim() || locked || detecting || !!courseBindingError} onClick={() => void generate()}>{t('audio.generate')}</button>
       </div>
       {currentFeedback && <AudioJobStatus feedback={currentFeedback} submittedText={submittedText} onRetry={() => void session.current?.run()} onCancel={() => void session.current?.cancel()} onDetach={() => { session.current?.detach(); setFeedback({ phase: 'detached' }) }} />}
       {empty && <div className="note" role="status">{t('audio.empty')}</div>}
       {error && <div className="errorBox" role="alert">{t('audio.error')}<details><summary>{t('common.details')}</summary>{error}</details></div>}
     </div>
-    {generated.length > 0 && <div className="card generatedVoices"><div className="eyebrow">{t('audio.assets')}</div>{generated.map(asset => <div key={asset.id}><span><strong>{String(asset.metadata.name)}</strong><small>{seconds(Number(asset.metadata.durationMs))}s · {String(asset.metadata.voiceId ?? asset.metadata.voicePath ?? asset.metadata.adapterId)} · {t('audio.take', { index: Number(asset.metadata.speechRetakeIndex ?? 1) })}</small></span><div className="directorActions"><button className="secondaryButton" disabled={!available || locked || detecting || !selectedVoice || text.trim() !== String(asset.metadata.sourceText ?? '')} onClick={() => void generate(asset.id)}>{t('audio.retake')}</button><AssetPlacementControl project={project} asset={asset} onProjectChange={onProjectChange} /></div></div>)}</div>}
+    {generated.length > 0 && <div className="card generatedVoices"><div className="eyebrow">{t('audio.assets')}</div>{generated.map(asset => <div key={asset.id}><span><strong>{String(asset.metadata.name)}</strong><small>{seconds(Number(asset.metadata.durationMs))}s · {String(asset.metadata.voiceId ?? asset.metadata.voicePath ?? asset.metadata.adapterId)} · {t('audio.take', { index: Number(asset.metadata.speechRetakeIndex ?? 1) })}</small>{courseSourceLabel(asset)}</span><div className="directorActions"><button className="secondaryButton" disabled={!available || locked || detecting || !selectedVoice || text.trim() !== String(asset.metadata.sourceText ?? '') || !courseRetakeAllowed(asset)} onClick={() => void generate(asset.id)}>{t('audio.retake')}</button><AssetPlacementControl project={project} asset={asset} onProjectChange={onProjectChange} /></div></div>)}</div>}
   </section>
 }
