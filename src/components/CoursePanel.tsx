@@ -14,6 +14,8 @@ import { CourseSubtitleExportPanel } from './CourseSubtitleExportPanel'
 import { CourseOutputFileCheckPanel, type CourseOutputWorkerProps } from './CourseOutputFileCheckPanel'
 import { CourseDeliveryWorkspace } from './CourseDeliveryWorkspace'
 import type { CourseExerciseDocument } from '../core/courseExercises'
+import { moveCourseLesson, reorderCourseModule } from '../core/courseOrdering'
+import { CourseModuleOrderControls, CourseLessonOrderControls } from './CourseOrderControls'
 
 interface Props extends CourseOutputWorkerProps { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void; onOpenStudio: () => void; onOpenAudio?: () => void }
 
@@ -24,11 +26,15 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio, o
   try { saved = projectCourse(project) } catch (cause) { loadError = (cause as Error).message }
   const [draft, setDraft] = useState(() => saved ?? newCourseOutline(project))
   const [error, setError] = useState('')
-  const [errorKind, setErrorKind] = useState<'course.invalid' | 'course.failed' | 'course.scriptDownloadFailed' | 'course.exercises.downloadFailed'>('course.failed')
+  const [errorKind, setErrorKind] = useState<'course.invalid' | 'course.failed' | 'course.scriptDownloadFailed' | 'course.exercises.downloadFailed' | 'course.order.failed'>('course.failed')
   const [message, setMessage] = useState<'course.saved' | 'course.discarded' | null>(null)
   const dirty = JSON.stringify(saved) !== JSON.stringify(draft)
   const count = draft.modules.reduce((sum, module) => sum + module.lessons.length, 0)
   function change(next: CourseOutline) { setDraft(next); setMessage(null) }
+  function reorder(action: () => CourseOutline) {
+    setError('')
+    try { change(action()) } catch (cause) { setErrorKind('course.order.failed'); setError(String(cause)) }
+  }
   function downloadLesson(lessonId: string, kind: 'script' | CourseExerciseDocument) {
     if (dirty) return
     setError(''); setMessage(null)
@@ -69,11 +75,14 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio, o
     </div>
     <div className="card stack">
       <p>{t('course.rangeHelp')}</p>
+      <p>{t('course.order.help')}</p>
       {draft.modules.map((module, moduleIndex) => <fieldset key={module.id} className="stack">
         <legend>{t('course.module')} {moduleIndex + 1}</legend>
+        <CourseModuleOrderControls index={moduleIndex} count={draft.modules.length} onMove={index => reorder(() => reorderCourseModule(draft, module.id, index))} />
         <label>{t('course.moduleTitle')}<input maxLength={120} value={module.title} onChange={(event) => change({ ...draft, modules: draft.modules.map((entry) => entry.id === module.id ? { ...entry, title: event.target.value } : entry) })} /></label>
-        {module.lessons.map((lesson, lessonIndex) => <div key={lesson.id} className="card stack">
-          <strong>{t('course.lesson')} {moduleIndex + 1}.{lessonIndex + 1}</strong>
+        {module.lessons.map((lesson, lessonIndex) => <fieldset key={lesson.id} className="card stack">
+          <legend>{t('course.lesson')} {moduleIndex + 1}.{lessonIndex + 1} · {lesson.title}</legend>
+          <CourseLessonOrderControls draft={draft} moduleId={module.id} lessonId={lesson.id} onMove={(target, index) => reorder(() => moveCourseLesson(draft, module.id, lesson.id, target, index))} />
           <label>{t('course.lessonTitle')}<input maxLength={120} value={lesson.title} onChange={(event) => change({ ...draft, modules: draft.modules.map((entry) => entry.id === module.id ? { ...entry, lessons: entry.lessons.map((item) => item.id === lesson.id ? { ...item, title: event.target.value } : item) } : entry) })} /></label>
           <label>{t('course.objective')}<textarea maxLength={2000} value={lesson.objective} onChange={(event) => change({ ...draft, modules: draft.modules.map((entry) => entry.id === module.id ? { ...entry, lessons: entry.lessons.map((item) => item.id === lesson.id ? { ...item, objective: event.target.value } : item) } : entry) })} /></label>
           <label>{t('course.script')}<textarea maxLength={courseScriptLimits.lesson} rows={8} value={lesson.script ?? ''} onChange={(event) => change({ ...draft, modules: draft.modules.map((entry) => entry.id === module.id ? { ...entry, lessons: entry.lessons.map((item) => item.id === lesson.id ? { ...item, script: event.target.value } : item) } : entry) })} /></label>
@@ -84,7 +93,7 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio, o
           <CourseLessonMaterialsEditor lesson={lesson} onChange={next => change({ ...draft, modules: draft.modules.map(entry => entry.id === module.id ? { ...entry, lessons: entry.lessons.map(item => item.id === lesson.id ? next : item) } : entry) })} />
           <div className="formRow">{(['inMs', 'outMs'] as const).map((edge) => <label key={edge}>{t(edge === 'inMs' ? 'course.in' : 'course.out')}<input type="number" min="0" step="0.001" value={Number.isFinite(lesson.range[edge]) ? lesson.range[edge] / 1000 : ''} onChange={(event) => change({ ...draft, modules: draft.modules.map((entry) => entry.id === module.id ? { ...entry, lessons: entry.lessons.map((item) => item.id === lesson.id ? { ...item, range: { ...item.range, [edge]: event.target.value === '' ? NaN : Math.round(Number(event.target.value) * 1000) } } : item) } : entry) })} /></label>)}</div>
           <button className="secondaryButton" onClick={() => change({ ...draft, modules: draft.modules.map((entry) => entry.id === module.id ? { ...entry, lessons: entry.lessons.filter((item) => item.id !== lesson.id) } : entry) })}>{t('course.removeLesson')}</button>
-        </div>)}
+        </fieldset>)}
         <div className="directorActions"><button disabled={count >= 200 || module.lessons.length >= 100} onClick={() => change({ ...draft, modules: draft.modules.map((entry) => entry.id === module.id ? { ...entry, lessons: [...entry.lessons, { id: crypto.randomUUID(), title: `${t('course.lesson')} ${entry.lessons.length + 1}`, objective: '', range: { inMs: entry.lessons.at(-1)?.range.outMs ?? 0, outMs: (entry.lessons.at(-1)?.range.outMs ?? 0) + 60000 } }] } : entry) })}>{t('course.addLesson')}</button><button className="secondaryButton" onClick={() => change({ ...draft, modules: draft.modules.filter((entry) => entry.id !== module.id) })}>{t('course.removeModule')}</button></div>
       </fieldset>)}
       <button disabled={draft.modules.length >= 50} onClick={() => change({ ...draft, modules: [...draft.modules, { id: crypto.randomUUID(), title: `${t('course.module')} ${draft.modules.length + 1}`, lessons: [] }] })}>{t('course.addModule')}</button>
