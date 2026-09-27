@@ -5,6 +5,7 @@ import { createRangeRenderPlan, validateRenderRange } from './renderRange'
 import type { RenderPlan } from './render'
 import { courseDemonstrationSchema, courseDemoEvidenceState, courseEvidenceLimits, courseSourceSchema } from './courseEvidence'
 import { courseExerciseLimits, courseExerciseSchema, formatCourseExercises, type CourseExerciseDocument } from './courseExercises'
+import { courseMaterialLimits, courseMaterialSchema } from './courseMaterials'
 
 const id = z.string().regex(/^[a-zA-Z0-9-]{1,100}$/)
 const title = z.string().trim().min(1).max(120)
@@ -16,6 +17,7 @@ export const courseLessonSchema = z.object({
   sources: z.array(courseSourceSchema).max(courseEvidenceLimits.sourcesPerLesson).optional(),
   demonstrations: z.array(courseDemonstrationSchema).max(courseEvidenceLimits.demosPerLesson).optional(),
   exercises: z.array(courseExerciseSchema).max(courseExerciseLimits.perLesson).optional(),
+  materials: z.array(courseMaterialSchema).max(courseMaterialLimits.perLesson).optional(),
   range: z.object({ inMs: z.number().int().min(0).max(86400000), outMs: z.number().int().positive().max(86400000) }).strict().refine((range) => range.outMs > range.inMs, 'Lesson Out must be later than In')
 }).strict()
 export const courseOutlineSchema = z.object({
@@ -43,6 +45,13 @@ export const courseOutlineSchema = z.object({
     exerciseLength += JSON.stringify(exercises).length
   }
   if (exerciseLength > courseExerciseLimits.courseCharacters) ctx.addIssue({ code: 'custom', path: ['modules'], message: 'Course exercises exceed the total size limit' })
+  let materialLength = 0
+  for (const module of course.modules) for (const lesson of module.lessons) {
+    const materials = lesson.materials ?? []
+    if (new Set(materials.map(material => material.id)).size !== materials.length) ctx.addIssue({ code: 'custom', message: 'Material IDs must be unique within each lesson' })
+    materialLength += JSON.stringify(materials).length
+  }
+  if (materialLength > courseMaterialLimits.courseCharacters) ctx.addIssue({ code: 'custom', path: ['modules'], message: 'Course materials exceed the total size limit' })
 })
 export type CourseOutline = z.infer<typeof courseOutlineSchema>
 export type CourseLesson = z.infer<typeof courseLessonSchema>

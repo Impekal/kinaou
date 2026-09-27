@@ -14,6 +14,7 @@ import { uiCourseExportMessages } from './uiCourseExportMessages'
 import { uiCourseEvidenceMessages } from './uiCourseEvidenceMessages'
 import { uiCourseExerciseMessages } from './uiCourseExerciseMessages'
 import { uiCourseReviewMessages } from './uiCourseReviewMessages'
+import { uiCourseMaterialMessages } from './uiCourseMaterialMessages'
 import { uiShortSelectionMessages } from './uiShortSelectionMessages'
 import { uiShortIntelligenceMessages } from './uiShortIntelligenceMessages'
 import { uiShortFinishingMessages } from './uiShortFinishingMessages'
@@ -57,6 +58,7 @@ export const uiMessages = {
   ...uiCourseEvidenceMessages,
   ...uiCourseExerciseMessages,
   ...uiCourseReviewMessages,
+  ...uiCourseMaterialMessages,
   ...uiShortSelectionMessages,
   ...uiShortIntelligenceMessages,
   ...uiShortFinishingMessages,
