@@ -15,6 +15,16 @@ Saved outlines travel with ordinary project serialization, drive backups and Ver
 
 ## Boundaries to review
 
+### Explicit instructor review records (#309)
+
+After saving the outline, select a lesson under **Instructor review**. Enter the actual reviewer's name and concrete scope/limitations, and explicitly confirm the content/source, demonstration and exercise/material checks. Only record work genuinely performed. No boxes are preselected. This stores a self-reported assertion with a timestamp, not identity authentication, tamper-proof certification, automatic expert approval or platform eligibility.
+
+Records bind to a canonical SHA-256 of the entire project's content/metadata, excluding bookkeeping timestamps and the review ledger itself. Course edits (including another lesson), production scripts/storyboard, assets, tracks and metadata changes conservatively make records stale. Adding another review does not itself stale an earlier one. File contents/external URLs are not read or hashed; a replaced file at an unchanged path is outside this check. There is no automatic rendering, grading or publication.
+
+Unsaved course drafts block record writes. Project/draft changes or detach discard late async results before persistence. Safety history precedes every successful change. Explicit two-step withdrawal removes all project review records while retaining a recoverable safety version, not media. Corrupt records fail closed and require valid history recovery. Maximum 200 records, latest per course/lesson; removed-lesson records are retained until explicit withdrawal. Browser storage and existing history retention still apply.
+
+Acceptance: 19 new regressions, 1,405 app tests, 224 local worker tests, build/syntax green; full CI 36283699093 includes render smoke. Synthetic browser checks cover DE/FR/EN, save failure/retry, reload, changed-script invalidation and inline cancel/confirm withdrawal. Final clean-tab console was empty. No actual expert course review was performed in these fixture tests. Worksheet/answer downloads remain marked drafts even if a record exists.
+
 ### Exercises and learning handouts (#307)
 
 Expand **Exercises & model answers** per lesson. Author a title, task, optional learner hint, model answer and instructor-only assessment criteria. Save with the outline; unsaved drafts are not exported. **Download saved worksheet as TXT** includes tasks and hints only. **Download saved answer key as TXT** additionally includes solutions and criteria. Human-authored hints/titles can themselves reveal an answer, so review the worksheet before sharing. These plain-text files contain no rendered HTML or executable content.
