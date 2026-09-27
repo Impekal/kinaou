@@ -18,6 +18,7 @@ import { moveCourseLesson, reorderCourseModule } from '../core/courseOrdering'
 import { CourseModuleOrderControls, CourseLessonOrderControls } from './CourseOrderControls'
 import { CourseWorkspaceNavigation, type CourseWorkspaceStage } from './CourseWorkspaceNavigation'
 import { CourseProductionLauncher } from './CourseProductionLauncher'
+import { ProjectSourceArchivePanel } from './ProjectSourceArchivePanel'
 import type { CourseProductionHandoff } from '../core/courseProductionHandoff'
 
 interface Props extends CourseOutputWorkerProps { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void; onOpenStudio: () => void; onOpenAudio?: () => void; onOpenProduction?: (handoff: CourseProductionHandoff) => void }
@@ -123,6 +124,7 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio, o
     {stage === 'delivery' && <>
     <CourseMaterialPackagePanel key={`materials-${project.id}`} project={project} dirty={dirty} />
     <CourseDeliveryWorkspace key={`delivery-library-${project.id}`} project={project} dirty={dirty} {...worker} />
+    <ProjectSourceArchivePanel key={`source-archive-${project.id}`} project={project} dirty={dirty} {...worker} />
     </>}
     </div>
     <details className="card note courseWorkspaceLimits"><summary>{t('course.workspace.boundaries')}</summary><p>{t('course.workspace.detach')}</p><p>{t('course.boundary')}</p></details>

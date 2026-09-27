@@ -17,6 +17,7 @@ import { exportReceiptSchema, type ExportReceipt } from './exportHistory'
 import { maxCoursePlaybackBytes } from './courseOutputPlayback'
 import { lessonDeliveryRequestSchema, parseLessonDeliveryJob, type LessonDeliveryRequest } from './courseLessonDelivery'
 import { validateCourseCollectionRequest, validateCourseCollectionJob, type CourseCollectionRequest } from '../../worker/course-collection-protocol.mjs'
+import { validateSourceArchiveRequest, validateSourceArchiveQuery, validateSourceArchiveJob, type SourceArchiveRequest, type SourceArchiveQuery } from '../../worker/project-source-protocol.mjs'
 import { validateCollectionLibraryQuery, validateCollectionLibraryLookup, validateCollectionLibraryPage, validateCollectionLibraryInspection, type CollectionLibraryQuery, type CollectionLibraryLookup } from '../../worker/course-collection-library-protocol.mjs'
 import { deliveryLibraryQuerySchema, deliveryLibraryLookupSchema, parseDeliveryLibraryPage, parseDeliveryLibraryInspection, type DeliveryLibraryQuery, type DeliveryLibraryLookup } from './courseDeliveryLibrary'
 import {
@@ -238,6 +239,18 @@ export class WorkerClient {
     const payload = await this.request('/course/collection/start', { method: 'POST', body: JSON.stringify(input) })
     if (payload.type !== 'course-collection') throw Error('Invalid collection response')
     return validateCourseCollectionJob(payload.job, input)
+  }
+  async startProjectSourceArchive(request: SourceArchiveRequest) {
+    const input = validateSourceArchiveRequest(request)
+    const payload = await this.request('/projects/source-archive/start', { method: 'POST', body: JSON.stringify(input) })
+    if (payload?.type !== 'project-source-archive') throw Error('Invalid project archive response')
+    return validateSourceArchiveJob(payload.job, input)
+  }
+  async projectSourceArchiveStatus(query: SourceArchiveQuery) {
+    const input = validateSourceArchiveQuery(query)
+    const payload = await this.request('/projects/source-archive/status', { method: 'POST', body: JSON.stringify(input) })
+    if (payload?.type !== 'project-source-archive') throw Error('Invalid project archive response')
+    return validateSourceArchiveJob(payload.job, input)
   }
   async listCourseCollections(query: CollectionLibraryQuery) {
     const input = validateCollectionLibraryQuery(query)
