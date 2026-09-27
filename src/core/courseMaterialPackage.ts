@@ -1,7 +1,7 @@
 import { projectCourse } from './course'
 import { formatCourseExercises } from './courseExercises'
 import { courseInstructorReviewState, courseInstructorSignature, projectCourseInstructorReviews } from './courseInstructorReview'
-import { projectExportHistory } from './exportHistory'
+import { courseOutputIndexLimits, projectCourseOutputIndex, projectExportHistory } from './exportHistory'
 import { parseProject, type KinaouProject } from './project'
 import { createTextZip, type TextZipEntry } from './textZip'
 
@@ -62,6 +62,11 @@ export async function createCourseMaterialPackage(value: KinaouProject, audience
     entries.push({ path: 'private/video-references.json', text: JSON.stringify({
       mediaIncluded: false, filePresenceChecked: false, fullArchive: false, retainedReceiptLimit: 50,
       receipts: projectExportHistory(project).filter(receipt => receipt.courseLesson?.courseId === course.id)
+    }, null, 2) })
+    entries.push({ path: 'private/retained-lesson-outputs.json', text: JSON.stringify({
+      mediaIncluded: false, filePresenceChecked: false, integrityChecked: false, fullArchive: false,
+      referenceLimit: courseOutputIndexLimits.entries,
+      references: projectCourseOutputIndex(project).filter(receipt => receipt.courseLesson?.courseId === course.id)
     }, null, 2) })
   }
   const manifest = {

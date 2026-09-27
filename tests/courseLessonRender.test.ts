@@ -8,7 +8,7 @@ import { createProject, parseProject } from '../src/core/project'
 import { newCourseOutline, planCourseLessonExport, saveCourseOutline } from '../src/core/course'
 import { createRenderPlan, preview1080pPreset } from '../src/core/render'
 import { WorkerClient } from '../src/core/workerClient'
-import { projectExportHistory, recordSuccessfulExport } from '../src/core/exportHistory'
+import { forgetExportReceipt, projectCourseOutputIndex, projectExportHistory, recordSuccessfulExport } from '../src/core/exportHistory'
 
 const exec = promisify(execFile)
 const run = async (program: string, args: string[]) => (await exec(program, args, { encoding: 'buffer', maxBuffer: 4 * 1024 * 1024 })).stdout
@@ -67,6 +67,11 @@ it('exports separate lessons through the real worker with correct retimed frames
     }
     expect(await readFile(path.join(root, 'KINAOU/Renders/lesson-red.mp4'))).toEqual(firstOutput)
     expect(projectExportHistory(project).map((receipt) => receipt.courseLesson?.lessonId)).toEqual(['blue', 'red'])
+    const retained = projectCourseOutputIndex(project)
+    expect(retained.map(receipt => receipt.courseLesson?.lessonId)).toEqual(['blue', 'red'])
+    project = forgetExportReceipt(project, retained[1].jobId)
+    expect(projectCourseOutputIndex(parseProject(JSON.parse(JSON.stringify(project))))).toEqual(retained)
+    expect(await readFile(path.join(root, 'KINAOU/Renders/lesson-red.mp4'))).toEqual(firstOutput)
     expect(project.tracks).toEqual(original.tracks)
   } finally {
     child.kill('SIGKILL')
