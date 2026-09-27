@@ -50,6 +50,8 @@ Material-delivery update (#329): the private video copy can include explicitly r
 
 Packaged-subtitle update (#331): explicitly reviewed current-edit WebVTT can accompany the actual lesson video/materials, with visible clipped-interval counts, version/capability guards and exact byte/hash recovery. Actual ffprobe timing and browser/file tests pass. This does not authenticate agreement with older MP4s, spoken-word correctness, accessibility or teaching quality; no automatic synchronization, translation or styles. Whole packages remain private and are not complete source-project backups.
 
+Delivery-library update (#333): old lesson packages can be rediscovered and explicitly rehashed without browser tickets. Listing is metadata-only and does not establish file availability/integrity; targeted inspection rechecks actual payload hashes with project/ID binding and stale-result isolation. No new copy, repair, automatic resume, upload or approval. Real byte/browser tests establish safe discovery/recovery behavior only, not teaching expertise or content correctness.
+
 - Retain course/module/lecture relationships and individual project/source/export references; one lecture must be replaceable without rebuilding the entire course.
 - Technical demonstrations must actually run or be recorded; generated UI images must not masquerade as evidence of working software.
 - Track instructional accuracy, source dates, prerequisite coverage, duplicate content, exercise-answer consistency and pedagogical progression. Avoid fabricated expertise, certificates, learning outcomes or approval guarantees.
