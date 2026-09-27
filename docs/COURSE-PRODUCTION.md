@@ -15,6 +15,18 @@ Saved outlines travel with ordinary project serialization, drive backups and Ver
 
 ## Boundaries to review
 
+### Saved lesson scripts through local speech (#315)
+
+Save the course, use **Open Audio Studio for lesson narration**, expand **Narrate a saved lesson**, choose a saved nonblank lesson and explicitly **Load lesson script into text draft**. Loading replaces only the current Audio text draft; it does not synthesize, translate or edit the project's main script, storyboard or timeline. Leading/trailing whitespace is trimmed by the existing speech path; internal Unicode/newlines are preserved. Course language is independent of the app and project content language.
+
+Detect installed voices and choose one with a matching known locale, or an adapter with explicit language control set to the saved course language. Unknown/mismatched fixed locales and changed output language block course-bound synthesis. Existing authorized-reference/own-voice and delivery controls remain capability-based; no new models are downloaded. Start explicitly, listen to the real result and use existing job cancellation/status/save-only recovery. A successful recorded audio asset includes the submitted course/module/lesson names, IDs, revision and expected language, not a claim that its spoken words or quality were verified.
+
+Changing the draft or saved source blocks another course-bound start until explicitly reloading the lesson or clearing the source binding for generic free-text use. Changing project/connection while a job runs detaches late results without cancelling an accepted worker job. Saved source attribution survives reload, but unfinished jobs/drafts do not. Retakes require the same current lesson source and existing voice continuity; a changed revision or different lesson needs a new take, not relabelled old provenance. Earlier recordings remain untouched.
+
+Acceptance: 16 new regressions, 1,464 app tests, 224 local worker tests, build/syntax and full CI 36286447988 passed. Real authenticated worker + explicit synthetic tone CLI verifies exact submitted course text, measured WAV, persistence/history and same-job save retry with unchanged earlier files. Browser synthetic fixture verifies DE/FR/EN, source/language guards, save failure/retry, stale late-result rejection and retained historical attribution; clean console. Neither tone nor browser simulation is natural-speech evidence. Existing separately accepted real speech engines remain the quality basis.
+
+Course-aware timeline placement, caption timing and final media integration remain open after this slice. Generic Audio placement still appends to a selected compatible track; it does not automatically know lesson start/range. No automatic instructional approval or publication occurs.
+
 ### Retained lesson output references (#313)
 
 New successful course exports automatically retain their submitted context and managed MP4 path in a separate project-scoped index, beyond the recent export list's 50-entry window. Maximum 1,000 references and 4 MiB, with no silent eviction. This is metadata, not a media archive: presence, bytes, timeline agreement and quality are not checked. The outline-match status compares only saved names/IDs/language/revision/range; changed timeline content at identical lesson bounds is outside that check. Removed lessons and earlier courses keep their historical references.
@@ -85,7 +97,7 @@ The local browser displayed the new Course entry/form and language options on a 
 
 ## Next course slices
 
-Current after #313: authored scripts, sources/demo records, exercises/solutions, explicit instructor records, text-resource ZIP delivery and separately retained lesson output references are implemented. Next: saved lesson scripts through actual local narration, reviewed production integration and actual course-quality acceptance. Text bundles and retained references are not complete media archives. Older next-step paragraphs below are dated history.
+Current after #315: authored scripts, sources/demo records, exercises/solutions, explicit instructor records, text-resource ZIP delivery, retained lesson output references and source-bound local script narration are implemented. Next: explicit lesson-aligned narration placement, caption/production integration and actual course-quality acceptance. Text bundles and retained references are not complete media archives. Older next-step paragraphs below are dated history.
 
 PR #211 verification: full 498 application + 82 native tests and build/syntax gate passed. Sixteen regressions cover stale revision/range/project identity, removed/ineligible lessons, DE/EN/FR controls and stable range diagnostic codes. Isolated localhost:5192 with a synthetic video and temporary worker verified language-switch selection retention, disabled future bounds, stale blocking after a 4→3s trim, explicit re-review, a real 2s Full-HD MP4 and exact 1–3s receipt with unchanged names/revision/course language, custom-range deselection and receipt persistence after reload. Browser console clean; test processes stopped. Existing real-worker retiming/audio/independent-lesson execution tests remain green.
 
