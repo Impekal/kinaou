@@ -13,6 +13,7 @@ const exactHistoryLabels: Record<string, UiMessageKey> = {
   'Before adding a caption': 'history.system.addCaption',
   'Before editing caption text': 'history.system.editCaption',
   'Before saving course outline': 'history.system.courseOutline',
+  'Before changing course instructor review': 'history.system.courseInstructorReview',
   'Before saving generated image': 'history.system.generatedImage',
   'Before registering existing media': 'history.system.registerMedia',
   'Before media acquisition run': 'history.system.mediaAcquisition',

@@ -29,6 +29,7 @@ export const uiHistoryMessages = {
   'history.system.addCaption': ['Vor dem Hinzufügen eines Untertitels', 'Before adding a caption', 'Avant l’ajout d’un sous-titre'],
   'history.system.editCaption': ['Vor der Bearbeitung des Untertiteltexts', 'Before editing caption text', 'Avant la modification du texte du sous-titre'],
   'history.system.courseOutline': ['Vor dem Speichern der Kursgliederung', 'Before saving course outline', 'Avant l’enregistrement du plan du cours'],
+  'history.system.courseInstructorReview': ['Vor dem Ändern der Dozentenprüfung', 'Before changing course instructor review', 'Avant la modification de la vérification du formateur'],
   'history.system.generatedImage': ['Vor dem Speichern des erzeugten Bildes', 'Before saving generated image', 'Avant l’enregistrement de l’image générée'],
   'history.system.registerMedia': ['Vor der Registrierung vorhandener Medien', 'Before registering existing media', 'Avant l’enregistrement du média existant'],
   'history.system.mediaAcquisition': ['Vor der Medienbeschaffung', 'Before media acquisition run', 'Avant l’acquisition des médias'],
