@@ -10,7 +10,21 @@ The stable main-point numbers are in [COMPLETION_CHECKLIST.md](COMPLETION_CHECKL
 
 The existing hourly heartbeat `kinaou-autonom-weiterbauen` is PAUSED at the user's latest explicit request (2026-09-27); do not re-enable it without permission. Continue successive safe slices within active work without requesting another “weiter” and without an artificial hourly delay. A paused heartbeat does not restart finished turns; do not promise otherwise. Read the compact current handoff and relevant changes rather than the entire historical log. Notify on meaningful changes, whole-point completion or required user action. The separate user-approved LaunchAgent `local.kinaou.keepawake` still runs `caffeinate -s` with RunAtLoad/KeepAlive, indefinitely until actual product completion, exclusively effective on AC power. Display sleep remains allowed; do not bypass lid sleep. At actual completion, disable/unload this helper including automatic restart. This supersedes earlier active-heartbeat and eight-hour-limit notes.
 
-## Latest merged handoff — lesson exercises and separate downloads
+### Usage handoff boundary — latest user instruction
+
+Check the available Codex usage windows at safe slice boundaries. At **85% used / 15% remaining** in any available Codex window, start no new slice; finish the already-started bounded slice, tests, PR/merge and separate documentation as far as the remaining allowance permits, then provide a short copyable prompt for continuing in normal ChatGPT with the Mac terminal and actual repository evidence. Do not promise immunity from a hard limit. Normal ChatGPT chat limits are not visible through the Codex usage tool. Last checked during instructor-review work: Codex weekly 17% used, 83% remaining. Never redeem a reset credit without explicit confirmation. Heartbeat stays paused.
+
+## Latest merged handoff — explicit instructor review records
+
+[PR #309](https://github.com/Impekal/kinaou/pull/309) merged as `a6b9b792ee9d417c75b0103f125dd2df94f0e8c4` after full [CI 36283699093](https://github.com/Impekal/kinaou/actions/runs/36283699093), including render smoke. Saved lessons now support explicit self-reported expert checks, reviewer name, scope/limitations and timestamp. A canonical SHA-256 snapshot binds these records to course/project content and metadata (excluding the review ledger and bookkeeping timestamps). Changes conservatively require another review; late digests cannot overwrite changed projects or unsaved drafts. Save/withdrawal uses safety history; withdrawal requires an inline two-step confirmation. UI and history labels are DE/EN/FR.
+
+This records user assertions, not authenticated reviewer identity, actual expert verification, tamper-proof certification, platform approval or hashes of source/output file bytes. Changes at an unchanged filesystem path may remain undetected. Up to 200 current/retained lesson records are stored; full historical versions remain subject to existing Version History retention and browser-storage limits.
+
+Acceptance: 1,405 app tests (19 new), 224 local worker tests (known local libass smoke excluded), build, Node syntax and Swift parse passed. Full remote gate passed. Browser verified DE/FR/EN retention, failed save without false success, retry, reload, stale detection after production-script change and cancel/confirm withdrawal. Final clean-tab run had no console errors; earlier temporary-harness hot-reload errors were isolated and rechecked. Synthetic test assertions are not course-quality evidence. No worker, model, SSD/media, platform or deployment changes. Foreign duplicate files untouched.
+
+Next safe slice: authored lesson resources and bounded local text/material packages, with clear learner/instructor separation and no claim that a text ZIP includes videos. Point 8 remains open for actual course production/quality acceptance, resource/archive integration, demonstrations, script-to-media flow and complete lesson packages.
+
+## Previous merged handoff — lesson exercises and separate downloads
 
 [PR #307](https://github.com/Impekal/kinaou/pull/307) merged as `647ee9400da81dddc10d84d71c112bc63ab36109` after full [CI 36282919257](https://github.com/Impekal/kinaou/actions/runs/36282919257), including Ubuntu render smoke. Lessons now persist exercises, learner hints, model answers and assessment criteria with ordinary course revision/history and stale-export-review protection. Separate explicit saved-only TXT downloads produce a learner worksheet (no solution/rubric fields) and an answer key. Headers follow saved course language; authored text stays unchanged. Incomplete exercises are never silently omitted. Both documents disclose draft status, not instructor/platform approval.
 
@@ -97,7 +111,7 @@ Safety rule: only paths below the configured KINAOU root may be created/moved/de
 ## Repository
 Repo: `Impekal/kinaou`
 Default branch: `main`
-Latest implementation main SHA after course exercises PR #307: `647ee9400da81dddc10d84d71c112bc63ab36109`
+Latest implementation main SHA after instructor review PR #309: `a6b9b792ee9d417c75b0103f125dd2df94f0e8c4`
 
 ## Merged slices
 - **PR #261** — final DE/EN/FR point-1 acceptance gate. A dedicated cross-workflow regression reuses unchanged drafts and authored data through DE → FR → EN across the real application shell plus representative Settings, Course, Timeline, Assets and Publish surfaces. A second acceptance path exercises active/recovery feedback for Audio, Image, Video, single export and STT while preserving submitted content and technical diagnostics; the existing Short batch multilingual lifecycle/recovery suite remains part of the same full gate. The temporary final-coverage notice was removed only after this acceptance passed. PR CI 35657095575 on `d1c98dd` and main CI 35657251441 on merge `f6b8232` both passed 978/978 application tests across 100 test files, 83/83 worker tests, production build and worker syntax checks. No new dependency, browser automation framework, worker behavior, model, media, persistence, render or deployment behavior was introduced. **Completion point 1 is complete.**
