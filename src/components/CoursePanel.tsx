@@ -11,11 +11,12 @@ import { CourseLessonMaterialsEditor } from './CourseLessonMaterialsEditor'
 import { CourseMaterialPackagePanel } from './CourseMaterialPackagePanel'
 import { CourseOutputIndexPanel } from './CourseOutputIndexPanel'
 import { CourseSubtitleExportPanel } from './CourseSubtitleExportPanel'
+import { CourseOutputFileCheckPanel, type CourseOutputWorkerProps } from './CourseOutputFileCheckPanel'
 import type { CourseExerciseDocument } from '../core/courseExercises'
 
-interface Props { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void; onOpenStudio: () => void; onOpenAudio?: () => void }
+interface Props extends CourseOutputWorkerProps { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void; onOpenStudio: () => void; onOpenAudio?: () => void }
 
-export function CoursePanel({ project, history, onProjectChange, onOpenStudio, onOpenAudio }: Props) {
+export function CoursePanel({ project, history, onProjectChange, onOpenStudio, onOpenAudio, ...worker }: Props) {
   const { t } = useUiLanguage()
   let saved: CourseOutline | null = null
   let loadError = ''
@@ -95,6 +96,7 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio, o
     <CourseInstructorReviewPanel key={project.id} project={project} dirty={dirty} history={history} onProjectChange={onProjectChange} />
     <CourseMaterialPackagePanel key={`materials-${project.id}`} project={project} dirty={dirty} />
     <CourseOutputIndexPanel key={`outputs-${project.id}`} project={project} dirty={dirty} history={history} onProjectChange={onProjectChange} />
+    <CourseOutputFileCheckPanel key={`file-check-${project.id}`} project={project} dirty={dirty} {...worker} />
     <CourseSubtitleExportPanel key={`subtitles-${project.id}`} project={project} dirty={dirty} />
     <div className="card note">{t('course.boundary')}</div>
   </section>

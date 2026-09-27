@@ -1,7 +1,7 @@
 import { it, expect } from 'vitest'
 import { execFile, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
-import { mkdir, mkdtemp, rm, readFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, readFile, rename, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { createProject, parseProject } from '../src/core/project'
@@ -9,6 +9,7 @@ import { newCourseOutline, planCourseLessonExport, saveCourseOutline } from '../
 import { createRenderPlan, preview1080pPreset } from '../src/core/render'
 import { WorkerClient } from '../src/core/workerClient'
 import { forgetExportReceipt, projectCourseOutputIndex, projectExportHistory, recordSuccessfulExport } from '../src/core/exportHistory'
+import { CourseOutputPreflight, type CourseOutputCheckFeedback } from '../src/core/courseOutputPreflight'
 
 const exec = promisify(execFile)
 const run = async (program: string, args: string[]) => (await exec(program, args, { encoding: 'buffer', maxBuffer: 4 * 1024 * 1024 })).stdout
@@ -45,7 +46,7 @@ it('exports separate lessons through the real worker with correct retimed frames
     let firstOutput: Buffer | undefined
     for (const [id, colorChannel] of [['red', 0], ['blue', 2]] as const) {
       const outputPath = `KINAOU/Renders/lesson-${id}.mp4`
-      const full = createRenderPlan(project, { ...preview1080pPreset, width: 320, height: 180 }, 'KINAOU/Renders/whole.mp4')
+      const full = createRenderPlan(project, id === 'red' ? preview1080pPreset : { ...preview1080pPreset, width: 320, height: 180 }, 'KINAOU/Renders/whole.mp4')
       const result = planCourseLessonExport(project, id, full, outputPath)
       let job = await client.startRender(result.plan)
       for (let i = 0; i < 200 && ['queued', 'running'].includes(job.state); i++) {
@@ -73,6 +74,28 @@ it('exports separate lessons through the real worker with correct retimed frames
     expect(projectCourseOutputIndex(parseProject(JSON.parse(JSON.stringify(project))))).toEqual(retained)
     expect(await readFile(path.join(root, 'KINAOU/Renders/lesson-red.mp4'))).toEqual(firstOutput)
     expect(project.tracks).toEqual(original.tracks)
+
+    // Actual read-only course file preflight: the full-HD lesson matches, the
+    // deliberately small fixture is a dimension mismatch, neither is course approval.
+    const check = async (jobId: string) => {
+      const scope = { project, jobId, connection: 'real-test-worker', dirty: false }, states: CourseOutputCheckFeedback[] = []
+      await new CourseOutputPreflight(scope, { environment: () => scope, client, publish: value => states.push(value) }).check()
+      return states.at(-1)!
+    }
+    const beforeCheck = JSON.stringify(project)
+    expect((await check(retained[1].jobId)).phase).toBe('matched')
+    expect(await check(retained[0].jobId)).toMatchObject({ phase: 'mismatch', result: { checks: { videoStream: true, dimensions: false, duration: true } } })
+    const bluePath = path.join(root, 'KINAOU/Renders/lesson-blue.mp4'), blueBytes = await readFile(bluePath)
+    await rename(bluePath, bluePath + '.test-held')
+    expect((await check(retained[0].jobId)).phase).toBe('failed')
+    await rename(bluePath + '.test-held', bluePath)
+    await writeFile(bluePath, 'Explicit test-only malformed MP4')
+    expect((await check(retained[0].jobId)).phase).toBe('failed')
+    await writeFile(bluePath, blueBytes)
+    expect((await check(retained[0].jobId)).phase).toBe('mismatch')
+    expect(await readFile(bluePath)).toEqual(blueBytes)
+    expect(await readFile(path.join(root, 'KINAOU/Renders/lesson-red.mp4'))).toEqual(firstOutput)
+    expect(JSON.stringify(project)).toBe(beforeCheck)
   } finally {
     child.kill('SIGKILL')
     await new Promise<void>((resolve) => { child.on('close', () => resolve()); setTimeout(resolve, 3000).unref() })
