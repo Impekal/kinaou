@@ -26,6 +26,7 @@ import { ShortFinishingPanel } from './components/ShortFinishingPanel'
 import { ShortAudioFinishingPanel } from './components/ShortAudioFinishingPanel'
 import { PublishPanel } from './components/PublishPanel'
 import { CoursePanel } from './components/CoursePanel'
+import type { CourseProductionHandoff } from './core/courseProductionHandoff'
 import { SettingsPanel } from './components/SettingsPanel'
 import { UiLanguageSelector, useUiLanguage } from './components/UiLanguageProvider'
 import { resolveUiMessage, uiMessageReference } from './core/uiMessages'
@@ -48,7 +49,10 @@ export function App() {
   const [projects, setProjects] = useState<KinaouProject[]>(() => projectRepo.list())
   const [project, setProject] = useState<KinaouProject | null>(() => projectRepo.list()[0] ?? null)
   const [studioPlayheads, setStudioPlayheads] = useState<Record<string, number>>({})
-  const [section, setSection] = useState<typeof nav[number]>(projects.length ? 'Projects' : 'Create')
+  const [section, setSectionState] = useState<typeof nav[number]>(projects.length ? 'Projects' : 'Create')
+  const [courseHandoff, setCourseHandoff] = useState<CourseProductionHandoff | undefined>()
+  function setSection(next: typeof nav[number]) { setCourseHandoff(undefined); setSectionState(next) }
+  function openCourseProduction(handoff: CourseProductionHandoff) { setCourseHandoff(handoff); setSectionState(handoff.target === 'narration' ? 'Audio' : 'Studio') }
   const [newTitle, setNewTitle] = useState('')
   const [inputKind, setInputKind] = useState<CreationInputKind>('idea')
   const [inputContent, setInputContent] = useState('')
@@ -184,14 +188,14 @@ export function App() {
         </section>}
 
         {section === 'Director' && (project ? <section className="stack"><DirectorPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /><MediaPlanPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /></section> : <section className="card emptyState">{t('shell.openProject')}</section>)}
-        {section === 'Audio' && (project ? <AudioStudioPanel key={project.id} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
+        {section === 'Audio' && (project ? <AudioStudioPanel key={project.id} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} courseHandoff={courseHandoff} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
         {section === 'Avatar' && (project ? <AvatarStudioPanel key={project.id} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
         {section === 'Images' && (project ? <ImageStudioPanel key={project.id} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
         {section === 'Video' && (project ? <VideoStudioPanel key={`${project.id}:${workerUrl}:${workerToken}`} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
         {section === 'Capture' && (project ? <CapturePanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
         {section === 'Publish' && (project ? <PublishPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
 
-        {section === 'Course' && (project ? <CoursePanel key={project.id} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} onOpenStudio={() => setSection('Studio')} onOpenAudio={() => setSection('Audio')} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
+        {section === 'Course' && (project ? <CoursePanel key={project.id} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} onOpenStudio={() => setSection('Studio')} onOpenAudio={() => setSection('Audio')} onOpenProduction={openCourseProduction} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
 
         {section === 'Studio' && <section className="stack">
           {!project ? <div className="card emptyState">{t('shell.openProject')}</div> : <>
@@ -207,7 +211,7 @@ export function App() {
             <SceneVoiceoverPanel key={`narration-${project.id}`} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
             <TimelineEditor key={`timeline-${project.id}`} project={project} history={versionHistory} onProjectChange={persistProject} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} playheadMs={studioPlayheadMs} onPlayheadChange={setStudioPlayheadMs} />
             <CaptionEditor key={`captions-${project.id}`} project={project} history={versionHistory} onProjectChange={persistProject} />
-            <RenderPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} onCreateDerivative={createDerivativeProject} />
+            <RenderPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} onCreateDerivative={createDerivativeProject} courseHandoff={courseHandoff} />
             <div className="card note">{t('timeline.boundary')}</div>
           </>}
         </section>}

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { AssetPlacementControl } from './AssetPlacementControl'
 import { CourseNarrationPlacementControl } from './CourseNarrationPlacementControl'
+import { CourseProductionHandoffControl } from './CourseProductionHandoffControl'
+import type { CourseProductionHandoff } from '../core/courseProductionHandoff'
 import type { KinaouProject } from '../core/project'
 import type { PersistentVersionHistory } from '../core/versioning'
 import { WorkerClient } from '../core/workerClient'
@@ -20,9 +22,9 @@ import {
   speechRetakeContextForAsset
 } from '../core/speechRetakes'
 
-interface Props { project: KinaouProject; history: PersistentVersionHistory; workerUrl: string; workerToken: string; workerConnected: boolean; workerCapabilities: string[]; onProjectChange: (project: KinaouProject) => void }
+interface Props { project: KinaouProject; history: PersistentVersionHistory; workerUrl: string; workerToken: string; workerConnected: boolean; workerCapabilities: string[]; onProjectChange: (project: KinaouProject) => void; courseHandoff?: CourseProductionHandoff }
 
-export function AudioStudioPanel({ project, history, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange }: Props) {
+export function AudioStudioPanel({ project, history, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange, courseHandoff }: Props) {
   const { language, t } = useUiLanguage()
   const [text, setText] = useState(project.script)
   const [lessonId, setLessonId] = useState('')
@@ -81,11 +83,15 @@ export function AudioStudioPanel({ project, history, workerUrl, workerToken, wor
       if (selectedVoice) assertCourseNarrationVoice(courseBinding, selectedVoice, speechDeliveryOptionsFromDraft(project, selectedVoice, delivery))
     } catch (cause) { courseBindingError = String(cause) }
   }
+  function applyLesson(id: string) {
+    if (locked || detecting) throw new Error('Audio production is busy')
+    const binding = bindCourseNarration(project, id)
+    setLessonId(id); setCourseBinding(binding); setText(binding.script); setDelivery(defaultSpeechDeliveryDraft(binding.course.language)); setError('')
+  }
   function loadLesson() {
     if (locked || detecting) return
     try {
-      const binding = bindCourseNarration(project, lessonId)
-      setCourseBinding(binding); setText(binding.script); setDelivery(defaultSpeechDeliveryDraft(binding.course.language)); setError('')
+      applyLesson(lessonId)
     } catch (cause) { setError(String(cause)) }
   }
 
@@ -188,6 +194,7 @@ export function AudioStudioPanel({ project, history, workerUrl, workerToken, wor
   }
   const seconds = (ms: number) => new Intl.NumberFormat(language, { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(ms / 1000)
   return <section className="stack"><div className="sectionLead"><div><div className="eyebrow">{t('audio.eyebrow')}</div><h2>{t('audio.heading')}</h2><p>{t('audio.help')}</p></div><span className={available ? 'status online' : 'status'}>{t(available ? 'audio.available' : 'audio.unavailable')}</span></div>
+    {courseHandoff && <CourseProductionHandoffControl project={project} handoff={courseHandoff} target="narration" disabled={locked || detecting} onApply={applyLesson} />}
     <div className="card audioStudio">
       <p>{t('audio.scope')}</p>
       <details><summary>{t('course.narration.heading')}</summary><p>{t('course.narration.help')}</p>

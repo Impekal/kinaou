@@ -17,10 +17,12 @@ import type { CourseExerciseDocument } from '../core/courseExercises'
 import { moveCourseLesson, reorderCourseModule } from '../core/courseOrdering'
 import { CourseModuleOrderControls, CourseLessonOrderControls } from './CourseOrderControls'
 import { CourseWorkspaceNavigation, type CourseWorkspaceStage } from './CourseWorkspaceNavigation'
+import { CourseProductionLauncher } from './CourseProductionLauncher'
+import type { CourseProductionHandoff } from '../core/courseProductionHandoff'
 
-interface Props extends CourseOutputWorkerProps { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void; onOpenStudio: () => void; onOpenAudio?: () => void }
+interface Props extends CourseOutputWorkerProps { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void; onOpenStudio: () => void; onOpenAudio?: () => void; onOpenProduction?: (handoff: CourseProductionHandoff) => void }
 
-export function CoursePanel({ project, history, onProjectChange, onOpenStudio, onOpenAudio, ...worker }: Props) {
+export function CoursePanel({ project, history, onProjectChange, onOpenStudio, onOpenAudio, onOpenProduction, ...worker }: Props) {
   const { t } = useUiLanguage()
   let saved: CourseOutline | null = null
   let loadError = ''
@@ -111,6 +113,7 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio, o
     </div>
     </>}
     {stage === 'production' && <>
+    {onOpenProduction && <CourseProductionLauncher project={project} dirty={dirty} onOpen={onOpenProduction} />}
     <div className="directorActions"><button className="primary" disabled={dirty} onClick={onOpenStudio}>{t('course.studio')}</button>{onOpenAudio && <button className="secondaryButton" disabled={dirty} onClick={onOpenAudio}>{t('course.narration.open')}</button>}</div>
     <CourseOutputIndexPanel key={`outputs-${project.id}`} project={project} dirty={dirty} history={history} onProjectChange={onProjectChange} />
     <CourseOutputFileCheckPanel key={`file-check-${project.id}`} project={project} dirty={dirty} {...worker} />
