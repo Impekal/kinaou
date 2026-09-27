@@ -44,6 +44,8 @@ Output-file update (#323): explicit authenticated local preflight checks retaine
 
 Playback update (#325): Course explicitly loads selected original MP4s, not proxies, through the authenticated local worker (256 MiB cap). Scope changes/close release the player; no automatic quality assertion. Actual original-byte round-trip and browser decoding/muted playback are tested. Audible listening on real speakers/headphones remains to be checked; a blue/tone fixture is not instructional, avatar or natural-voice quality evidence. Large-file streaming and complete media delivery remain open.
 
+Delivery update (#327): a private single-lesson folder now contains an actual original MP4 copy, historical receipt and measured/readback SHA-256, with durable request recovery and no automatic duplicate/resume/overwrite. Completed status rehashes media and refuses missing/modified copies. Technical checks are point-in-time, not signatures, course expertise or current-edit approval. No scripts/subtitle sidecars/exercises/materials/source-project files are bundled yet. Real media/byte/browser recovery tests are integration evidence, not a reviewed teaching course.
+
 - Retain course/module/lecture relationships and individual project/source/export references; one lecture must be replaceable without rebuilding the entire course.
 - Technical demonstrations must actually run or be recorded; generated UI images must not masquerade as evidence of working software.
 - Track instructional accuracy, source dates, prerequisite coverage, duplicate content, exercise-answer consistency and pedagogical progression. Avoid fabricated expertise, certificates, learning outcomes or approval guarantees.
