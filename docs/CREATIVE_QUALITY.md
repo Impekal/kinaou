@@ -28,7 +28,7 @@ Current acceptance summary (2026-09-27): completion points 1–3 have passed the
 
 ## Complete course production
 
-Implemented foundation (#185, #303): one project can persist a revisioned course/module/lesson outline with explicit timeline ranges and lesson scripts, deliver saved scripts as TXT and export selected lesson videos through the actual worker. Receipts preserve submitted course identities. Scripts do not automatically become narration or verified lesson video. Lesson resources/exercises/solutions, verified demonstrations and instructor review remain future slices; see COURSE-PRODUCTION.md. This is not a complete course generator.
+Implemented foundation (#185, #303, #305, #307): one project persists a revisioned course/module/lesson outline, explicit timeline ranges, scripts, source/demo records and exercises/model answers. Saved scripts and separate learner/answer-key handouts export as TXT; selected lesson videos export through the actual worker. Receipts preserve submitted identities. Scripts do not automatically become narration or verified video, and authored sources/demo records/answers are not expert approval. Resources, actually verified demonstrations/solutions, instructor review and full packaging/production integration remain open; see COURSE-PRODUCTION.md. This is not a complete course generator.
 
 Course workflow target: audience/prerequisites → learning outcomes → modules → lectures → verified examples/demonstrations → scripts and narration → visuals/screen recordings → captions → practice and reviewed solutions → per-lecture media/resource exports → instructor review.
 
