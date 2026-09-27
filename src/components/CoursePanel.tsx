@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { courseLessonScriptExport, courseOutlineSchema, courseScriptLimits, newCourseOutline, projectCourse, saveCourseOutline, type CourseOutline } from '../core/course'
+import { courseLessonExercisesExport, courseLessonScriptExport, courseOutlineSchema, courseScriptLimits, newCourseOutline, projectCourse, saveCourseOutline, type CourseOutline } from '../core/course'
 import { contentLanguageLabels, type ContentLanguage } from '../core/contentProfile'
 import type { KinaouProject } from '../core/project'
 import type { PersistentVersionHistory } from '../core/versioning'
 import { useUiLanguage } from './UiLanguageProvider'
 import { CourseLessonEvidenceEditor } from './CourseLessonEvidenceEditor'
+import { CourseLessonExercisesEditor } from './CourseLessonExercisesEditor'
+import type { CourseExerciseDocument } from '../core/courseExercises'
 
 interface Props { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void; onOpenStudio: () => void }
 
@@ -15,16 +17,16 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio }:
   try { saved = projectCourse(project) } catch (cause) { loadError = (cause as Error).message }
   const [draft, setDraft] = useState(() => saved ?? newCourseOutline(project))
   const [error, setError] = useState('')
-  const [errorKind, setErrorKind] = useState<'course.invalid' | 'course.failed' | 'course.scriptDownloadFailed'>('course.failed')
+  const [errorKind, setErrorKind] = useState<'course.invalid' | 'course.failed' | 'course.scriptDownloadFailed' | 'course.exercises.downloadFailed'>('course.failed')
   const [message, setMessage] = useState<'course.saved' | 'course.discarded' | null>(null)
   const dirty = JSON.stringify(saved) !== JSON.stringify(draft)
   const count = draft.modules.reduce((sum, module) => sum + module.lessons.length, 0)
   function change(next: CourseOutline) { setDraft(next); setMessage(null) }
-  function downloadScript(lessonId: string) {
+  function downloadLesson(lessonId: string, kind: 'script' | CourseExerciseDocument) {
     if (dirty) return
     setError(''); setMessage(null)
     try {
-      const script = courseLessonScriptExport(project, lessonId)
+      const script = kind === 'script' ? courseLessonScriptExport(project, lessonId) : courseLessonExercisesExport(project, lessonId, kind)
       const url = URL.createObjectURL(new Blob([script.text], { type: script.mimeType }))
       const link = document.createElement('a')
       try {
@@ -34,7 +36,7 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio }:
         link.remove()
         window.setTimeout(() => URL.revokeObjectURL(url), 1000)
       }
-    } catch (cause) { setErrorKind('course.scriptDownloadFailed'); setError(cause instanceof Error ? cause.message : String(cause)) }
+    } catch (cause) { setErrorKind(kind === 'script' ? 'course.scriptDownloadFailed' : 'course.exercises.downloadFailed'); setError(cause instanceof Error ? cause.message : String(cause)) }
   }
   function save() {
     setError(''); setMessage(null)
@@ -69,8 +71,9 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio }:
           <label>{t('course.objective')}<textarea maxLength={2000} value={lesson.objective} onChange={(event) => change({ ...draft, modules: draft.modules.map((entry) => entry.id === module.id ? { ...entry, lessons: entry.lessons.map((item) => item.id === lesson.id ? { ...item, objective: event.target.value } : item) } : entry) })} /></label>
           <label>{t('course.script')}<textarea maxLength={courseScriptLimits.lesson} rows={8} value={lesson.script ?? ''} onChange={(event) => change({ ...draft, modules: draft.modules.map((entry) => entry.id === module.id ? { ...entry, lessons: entry.lessons.map((item) => item.id === lesson.id ? { ...item, script: event.target.value } : item) } : entry) })} /></label>
           <small>{t('course.scriptHelp', { lessonLimit: courseScriptLimits.lesson, courseLimit: courseScriptLimits.course })}</small>
-          <button className="secondaryButton" disabled={dirty || !lesson.script?.trim()} onClick={() => downloadScript(lesson.id)}>{t('course.scriptDownload')}</button>
+          <button className="secondaryButton" disabled={dirty || !lesson.script?.trim()} onClick={() => downloadLesson(lesson.id, 'script')}>{t('course.scriptDownload')}</button>
           <CourseLessonEvidenceEditor project={project} lesson={lesson} onChange={next => change({ ...draft, modules: draft.modules.map(entry => entry.id === module.id ? { ...entry, lessons: entry.lessons.map(item => item.id === lesson.id ? next : item) } : entry) })} />
+          <CourseLessonExercisesEditor lesson={lesson} dirty={dirty} onDownload={kind => downloadLesson(lesson.id, kind)} onChange={next => change({ ...draft, modules: draft.modules.map(entry => entry.id === module.id ? { ...entry, lessons: entry.lessons.map(item => item.id === lesson.id ? next : item) } : entry) })} />
           <div className="formRow">{(['inMs', 'outMs'] as const).map((edge) => <label key={edge}>{t(edge === 'inMs' ? 'course.in' : 'course.out')}<input type="number" min="0" step="0.001" value={Number.isFinite(lesson.range[edge]) ? lesson.range[edge] / 1000 : ''} onChange={(event) => change({ ...draft, modules: draft.modules.map((entry) => entry.id === module.id ? { ...entry, lessons: entry.lessons.map((item) => item.id === lesson.id ? { ...item, range: { ...item.range, [edge]: event.target.value === '' ? NaN : Math.round(Number(event.target.value) * 1000) } } : item) } : entry) })} /></label>)}</div>
           <button className="secondaryButton" onClick={() => change({ ...draft, modules: draft.modules.map((entry) => entry.id === module.id ? { ...entry, lessons: entry.lessons.filter((item) => item.id !== lesson.id) } : entry) })}>{t('course.removeLesson')}</button>
         </div>)}

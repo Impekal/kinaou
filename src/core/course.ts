@@ -4,6 +4,7 @@ import { contentLanguageSchema, projectContentProfile } from './contentProfile'
 import { createRangeRenderPlan, validateRenderRange } from './renderRange'
 import type { RenderPlan } from './render'
 import { courseDemonstrationSchema, courseDemoEvidenceState, courseEvidenceLimits, courseSourceSchema } from './courseEvidence'
+import { courseExerciseLimits, courseExerciseSchema, formatCourseExercises, type CourseExerciseDocument } from './courseExercises'
 
 const id = z.string().regex(/^[a-zA-Z0-9-]{1,100}$/)
 const title = z.string().trim().min(1).max(120)
@@ -14,6 +15,7 @@ export const courseLessonSchema = z.object({
   script: z.string().max(courseScriptLimits.lesson).optional(),
   sources: z.array(courseSourceSchema).max(courseEvidenceLimits.sourcesPerLesson).optional(),
   demonstrations: z.array(courseDemonstrationSchema).max(courseEvidenceLimits.demosPerLesson).optional(),
+  exercises: z.array(courseExerciseSchema).max(courseExerciseLimits.perLesson).optional(),
   range: z.object({ inMs: z.number().int().min(0).max(86400000), outMs: z.number().int().positive().max(86400000) }).strict().refine((range) => range.outMs > range.inMs, 'Lesson Out must be later than In')
 }).strict()
 export const courseOutlineSchema = z.object({
@@ -34,6 +36,13 @@ export const courseOutlineSchema = z.object({
     evidenceLength += JSON.stringify(lesson.sources ?? []).length + JSON.stringify(lesson.demonstrations ?? []).length
   }
   if (evidenceLength > courseEvidenceLimits.courseCharacters) ctx.addIssue({ code: 'custom', path: ['modules'], message: 'Course evidence exceeds the total size limit' })
+  let exerciseLength = 0
+  for (const module of course.modules) for (const lesson of module.lessons) {
+    const exercises = lesson.exercises ?? []
+    if (new Set(exercises.map(exercise => exercise.id)).size !== exercises.length) ctx.addIssue({ code: 'custom', message: 'Exercise IDs must be unique within each lesson' })
+    exerciseLength += JSON.stringify(exercises).length
+  }
+  if (exerciseLength > courseExerciseLimits.courseCharacters) ctx.addIssue({ code: 'custom', path: ['modules'], message: 'Course exercises exceed the total size limit' })
 })
 export type CourseOutline = z.infer<typeof courseOutlineSchema>
 export type CourseLesson = z.infer<typeof courseLessonSchema>
@@ -77,6 +86,12 @@ export function courseLessonScriptExport(project: KinaouProject, lessonId: strin
   const lesson = course?.modules.flatMap(module => module.lessons).find(lesson => lesson.id === lessonId)
   if (!lesson?.script?.trim()) throw new Error('No saved script for this course lesson')
   return { filename: `lesson-${lesson.id}.txt`, text: lesson.script, mimeType: 'text/plain;charset=utf-8' }
+}
+
+export function courseLessonExercisesExport(project: KinaouProject, lessonId: string, kind: CourseExerciseDocument) {
+  const course = projectCourse(project)
+  if (!course) throw new Error('No saved course')
+  return formatCourseExercises(course, lessonId, kind)
 }
 
 export function courseLessonChoices(project: KinaouProject, timelineDurationMs: number) {
