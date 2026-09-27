@@ -269,3 +269,21 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .liveTimelinePlaceholder, .liveTimelineEmpty { position: absolute; inset: 0; display: grid; place-items: center; align-content: center; gap: 6px; text-align: center; padding: 24px; color: #7d8699; font-size: 12px; background: rgba(8,10,15,.7); }
 .liveTimelinePlaceholder small { max-width: 70ch; overflow-wrap: anywhere; color: #d18b95; }
 .liveTimelineNotice { color: #8d96aa; }
+
+.courseWorkflowNav { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; overflow: visible; }
+.courseWorkflowStep { display: flex; align-items: flex-start; gap: 12px; min-width: 0; padding: 16px; border: 1px solid #303647; border-radius: 14px; background: #111620; color: #bbc4d6; text-align: left; }
+.courseWorkflowStep:hover { border-color: #6c61ab; background: #191d2c; }
+.courseWorkflowStep.active { border-color: #9586ef; background: linear-gradient(130deg, #292440, #171c2b); color: #fff; }
+.courseWorkflowStep:focus-visible { outline: 3px solid #ac9aff; outline-offset: 3px; }
+.courseWorkflowStep strong, .courseWorkflowStep small { display: block; overflow-wrap: anywhere; }
+.courseWorkflowStep strong { font-size: 14px; line-height: 1.35; }
+.courseWorkflowStep small { margin-top: 5px; color: #a8b0c0; font-size: 12px; line-height: 1.45; }
+.courseWorkflowNumber { display: grid; place-items: center; flex: 0 0 26px; height: 26px; border-radius: 8px; background: #222a3a; font-size: 12px; font-weight: 800; }
+.courseWorkflowStep.active .courseWorkflowNumber { background: #8170d8; color: #fff; }
+.courseWorkspaceIntro { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; padding: 6px 2px; }
+.courseWorkspaceIntro p { max-width: 82ch; margin-bottom: 0; }
+.courseWorkspaceDraft p { margin-bottom: 12px; }
+.courseWorkspaceLimits summary { cursor: pointer; color: #b8c0d0; }
+.courseWorkspaceLimits p { margin: 14px 0 0; }
+@media (max-width: 1050px) { .courseWorkflowNav { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .courseWorkflowNav { grid-template-columns: 1fr; } .courseWorkspaceIntro { flex-direction: column; gap: 12px; } }
