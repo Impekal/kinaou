@@ -14,7 +14,17 @@ The existing hourly heartbeat `kinaou-autonom-weiterbauen` is PAUSED at the user
 
 Check the available Codex usage windows at safe slice boundaries. At **85% used / 15% remaining** in any available Codex window, start no new slice; finish the already-started bounded slice, tests, PR/merge and separate documentation as far as the remaining allowance permits, then provide a short copyable prompt for continuing in normal ChatGPT with the Mac terminal and actual repository evidence. Do not promise immunity from a hard limit. Normal ChatGPT chat limits are not visible through the Codex usage tool. Last checked during instructor-review work: Codex weekly 17% used, 83% remaining. Never redeem a reset credit without explicit confirmation. Heartbeat stays paused.
 
-## Latest merged handoff — focused multilingual course workspace
+## Latest merged handoff — explicit saved-lesson production handoffs
+
+[PR #343](https://github.com/Impekal/kinaou/pull/343) merged as `6413d98a79abef0ef1f2d3c6c43f8df519e00701` after full [CI 36300691450](https://github.com/Impekal/kinaou/actions/runs/36300691450), including render smoke. Course Production can select a saved lesson and open actual Audio Studio or Studio export. A focused DE/EN/FR handoff card then explicitly applies the saved script/course language or lesson range. No automatic synthesis, render, voice discovery, model/download, project mutation or persistence of navigation intent.
+
+Frozen in-memory handoffs bind the complete saved-project snapshot; forged/copied handoffs, wrong project/target and same-revision edits are rejected. Observed invalidation stays invalid even after A→B→A. Normal app navigation clears the intent; reload cannot replay it. Narration requires nonempty script; export requires a valid active-timeline range. Dirty/busy guards and existing downstream narration/export attribution guards remain. Applying the script explicitly replaces only the text draft; export leaves format/framing/audio unchanged.
+
+Acceptance: 1,801 app tests (16 new), 311 supported local worker tests, build/JS/Swift syntax and full CI passed. Actual authenticated FFmpeg integration now resolves both lesson handoffs before rendering and still checks frames/audio/historical receipts. Real DE/EN/FR browser checks explicit-only French script binding, exact 1–4 s export preparation, retained edited text through language change, stale-project rejection, empty-script guard and normal-navigation clearing. Zero requests/project writes during preparation; console clean. Disposable harness/server removed, foreign files untouched.
+
+Usage checkpoint: Codex weekly 73% used / 27% remaining; heartbeat paused. Next: an explicitly bounded private project-and-registered-media archive, with genuine copies, integrity checks and no claim that models, browser state or unregistered external references are included. Full source-project restoration/instructional acceptance and whole point 8 remain open. No immediate user/SSD/model action needed for isolated repository tests.
+
+## Previous merged handoff — focused multilingual course workspace
 
 [PR #341](https://github.com/Impekal/kinaou/pull/341) merged as `fb8c4b96a127313c931df2bf9ef070ff7073cb28` after full [CI 36299971356](https://github.com/Impekal/kinaou/actions/runs/36299971356), including render smoke. Course now has four DE/EN/FR areas: Course plan, Production, Instructor review and Delivery. Responsive native-button navigation exposes the selected area accessibly; these are workflow locations, not completion claims.
 
