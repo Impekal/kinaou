@@ -14,6 +14,7 @@ import { prepareLessonDelivery, type LessonDeliveryRequest } from '../src/core/c
 import { createHash } from 'node:crypto'
 import { reviewCourseDeliveryMaterials, useReviewedCourseDeliveryMaterials } from '../src/core/courseDeliveryMaterials'
 import { addCaption } from '../src/core/captions'
+import { reviewCourseCollection, useCollectionReview } from '../src/core/courseDeliveryCollection'
 
 const exec = promisify(execFile)
 const run = async (program: string, args: string[]) => (await exec(program, args, { encoding: 'buffer', maxBuffer: 4 * 1024 * 1024 })).stdout
@@ -162,6 +163,23 @@ it('exports separate lessons through the real worker with correct retimed frames
     const worksheet = path.join(root, rich.result!.directory, 'learner/worksheet.txt'), originalWorksheet = await readFile(worksheet)
     await writeFile(worksheet, 'Changed'); expect((await client.lessonDeliveryStatus(richRequest)).state).toBe('integrityFailed')
     await writeFile(worksheet, originalWorksheet); expect((await client.lessonDeliveryStatus(richRequest)).state).toBe('ready')
+    // Browser-compatible fingerprint and real worker copy path: independently recheck
+    // the collection; this technical fixture is not teaching/voice quality evidence.
+    const selection = [await client.inspectLessonDelivery(lookup)]
+    const collectionRequest = useCollectionReview(await reviewCourseCollection(authored, selection), authored, selection, true)
+    let collection = await client.startCourseCollection(collectionRequest)
+    for (let i = 0; i < 200 && ['queued','checking','copying'].includes(collection.state); i++) { await new Promise(resolve => setTimeout(resolve, 20)); collection = await client.courseCollectionStatus(collectionRequest) }
+    expect(collection.state, collection.error).toBe('ready')
+    const collectionFolder = path.join(root, collection.result!.directory), collectionVideo = path.join(root, collection.result!.lessons[0].mediaPath)
+    expect(await readFile(collectionVideo)).toEqual(firstOutput)
+    const collectionIndex = JSON.parse(await readFile(path.join(collectionFolder, 'COURSE.json'), 'utf8'))
+    expect(collectionIndex.request.course.lessonCount).toBe(2); expect(collectionIndex.lessons).toHaveLength(1)
+    await exec('shasum', ['-a', '256', '-c', 'SHA256SUMS'], { cwd: collectionFolder })
+    await run('cmp', [copiedPath, collectionVideo])
+    for (const endpoint of ['start','status']) expect((await fetch(`http://127.0.0.1:43937/course/collection/${endpoint}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(collectionRequest) })).status).toBe(401)
+    await writeFile(collectionVideo, modifiedCopy); expect((await client.courseCollectionStatus(collectionRequest)).state).toBe('integrityFailed')
+    await writeFile(collectionVideo, firstOutput!); expect((await client.courseCollectionStatus(collectionRequest)).state).toBe('ready')
+    expect(await readFile(path.join(root, rich.result!.manifestPath))).toEqual(beforeLibrary)
     await run('shasum', ['-a', '256', path.join(root, rich.result!.mediaPath)])
     const rejectedDelivery = await awaitDelivery(prepareLessonDelivery(project, retained[0].jobId, true))
     expect(rejectedDelivery.state).toBe('failed'); expect(rejectedDelivery.error).toContain('dimensions')

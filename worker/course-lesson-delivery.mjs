@@ -33,11 +33,12 @@ export function validateLessonDeliveryRequest(value) {
   return normalized
 }
 const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b)
-function relativeDirectory(input) { return `KINAOU/Renders/CourseDeliveries/${input.requestId}` }
-async function deliveryParent(root, create = false) {
+function deliverySegments(collectionId) { return collectionId ? ['Renders', 'CourseCollections', collectionId, 'lessons'] : ['Renders', 'CourseDeliveries'] }
+function relativeDirectory(input, collectionId) { return `KINAOU/${deliverySegments(collectionId).join('/')}/${input.requestId}` }
+async function deliveryParent(root, create = false, collectionId) {
   let current = await realpath(root)
   if (path.basename(current) !== 'KINAOU') throw Error('Invalid managed delivery root')
-  for (const part of ['Renders', 'CourseDeliveries']) {
+  for (const part of deliverySegments(collectionId)) {
     current = path.join(current, part)
     if (create) await mkdir(current, { mode: 0o700 }).catch(error => { if (error.code !== 'EEXIST') throw error })
     const info = await lstat(current)
@@ -45,8 +46,8 @@ async function deliveryParent(root, create = false) {
   }
   return current
 }
-async function directory(root, input, create = false) {
-  const folder = path.join(await deliveryParent(root, create), input.requestId)
+async function directory(root, input, create = false, collectionId) {
+  const folder = path.join(await deliveryParent(root, create, collectionId), input.requestId)
   if (!create) {
     const info = await lstat(folder)
     if (!info.isDirectory() || info.isSymbolicLink() || await realpath(folder) !== folder) throw Error('Unsafe delivery directory')
@@ -94,7 +95,9 @@ async function writeOwned(folder, name, data, owned) {
   try { await handle.writeFile(data); await handle.sync() } finally { await handle.close() }
 }
 /** One explicit private media copy; durable request IDs prevent automatic duplicate work. */
-export function createLessonDeliveryRuntime({ root, probe }) {
+export function createLessonDeliveryRuntime({ root, probe, collectionId }) {
+  // Internal-only destination namespace. No HTTP request can choose this option.
+  if (collectionId !== undefined && (typeof collectionId !== 'string' || !uuid.test(collectionId))) throw Error('Invalid internal collection namespace')
   const active = new Map()
   async function snapshot(entry) {
     await entry.started
@@ -108,7 +111,7 @@ export function createLessonDeliveryRuntime({ root, probe }) {
   }
   async function diskStatus(input) {
     let folder
-    try { folder = await directory(root, input) } catch (error) { if (error.code === 'ENOENT') return { schemaVersion: 1, request: input, state: 'unknown' }; throw error }
+    try { folder = await directory(root, input, false, collectionId) } catch (error) { if (error.code === 'ENOENT') return { schemaVersion: 1, request: input, state: 'unknown' }; throw error }
     let saved
     try { saved = validateLessonDeliveryRequest(await jsonFile(path.join(folder, 'request.json'))) } catch (error) { if (error.code === 'ENOENT') return { schemaVersion: 1, request: input, state: 'interrupted', error: 'Reserved directory has no complete request record; do not overwrite it' }; throw error }
     if (!equal(saved, input)) throw Error('Delivery request ID conflicts with a different request')
@@ -116,7 +119,7 @@ export function createLessonDeliveryRuntime({ root, probe }) {
     try { manifest = await jsonFile(path.join(folder, 'manifest.json')) } catch (error) { if (error.code !== 'ENOENT') throw error }
     if (manifest) {
       const result = manifest.result
-      const base = relativeDirectory(input)
+      const base = relativeDirectory(input, collectionId)
       if (manifest.schemaVersion !== 1 || manifest.kind !== 'private-course-lesson-delivery' || !equal(validateLessonDeliveryRequest(manifest.request), input)
         || result?.directory !== base || result.mediaPath !== `${base}/lesson.mp4` || result.manifestPath !== `${base}/manifest.json`
         || result.sourcePath !== input.export.outputRelativePath || !/^[a-f0-9]{64}$/.test(result.sha256) || !Number.isSafeInteger(result.sizeBytes)
@@ -166,7 +169,7 @@ export function createLessonDeliveryRuntime({ root, probe }) {
       if (await hashFile(part, source.sizeBytes) !== sha256) throw Error('Copied video hash differs from source bytes')
       await link(part, mediaPath); owned.add('lesson.mp4')
       await unlink(part); owned.delete('lesson.mp4.partial')
-      const base = relativeDirectory(input), result = { directory: base, manifestPath: `${base}/manifest.json`, mediaPath: `${base}/lesson.mp4`, sourcePath: input.export.outputRelativePath, sizeBytes: source.sizeBytes, sha256, createdAt: now(), integrityCheckedAt: now() }
+      const base = relativeDirectory(input, collectionId), result = { directory: base, manifestPath: `${base}/manifest.json`, mediaPath: `${base}/lesson.mp4`, sourcePath: input.export.outputRelativePath, sizeBytes: source.sizeBytes, sha256, createdAt: now(), integrityCheckedAt: now() }
       if (input.materials) result.files = await writeDeliveryMaterials(folder, base, input.materials, owned, directories, hashFile)
       result.integrityCheckedAt = now()
       const sums = [`${sha256}  lesson.mp4`, ...(result.files ?? []).map(file => `${file.sha256}  ${file.path.slice(base.length + 1)}`)].join('\n') + '\n'
@@ -187,10 +190,15 @@ export function createLessonDeliveryRuntime({ root, probe }) {
     } finally { await output?.close().catch(() => {}); await source?.handle.close().catch(() => {}); active.delete(input.requestId) }
   }
   return {
+    async settledStatus(value) {
+      const input = validateLessonDeliveryRequest(value), entry = active.get(input.requestId)
+      if (entry) { if (!equal(entry.input, input)) throw Error('Delivery request ID conflicts'); await entry.started; await entry.finished }
+      return diskStatus(input)
+    },
     async list(value) {
       const input = libraryLookup(value), page = { schemaVersion: 1, ...input, entries: [], scanned: 0, skipped: 0 }
       let parent
-      try { parent = await deliveryParent(root) } catch (error) { if (error.code === 'ENOENT') return page; throw error }
+      try { parent = await deliveryParent(root, false, collectionId) } catch (error) { if (error.code === 'ENOENT') return page; throw error }
       const ids = []; let count = 0
       for await (const item of await opendir(parent)) {
         if (++count > 10000) throw Error('Delivery library exceeds 10000 directory entries; inspect managed folders manually')
@@ -201,7 +209,7 @@ export function createLessonDeliveryRuntime({ root, probe }) {
       for (const requestId of selected) {
         page.scanned++
         try {
-          const folder = await directory(root, { requestId }), request = validateLessonDeliveryRequest(await jsonFile(path.join(folder, 'request.json')))
+          const folder = await directory(root, { requestId }, false, collectionId), request = validateLessonDeliveryRequest(await jsonFile(path.join(folder, 'request.json')))
           if (request.requestId !== requestId) throw Error('Library record ID differs from directory')
           if (request.projectId !== input.projectId) continue
           let hasCompletionRecord = false
@@ -213,7 +221,7 @@ export function createLessonDeliveryRuntime({ root, probe }) {
       return page
     },
     async inspect(value) {
-      const input = libraryLookup(value, true), folder = await directory(root, input)
+      const input = libraryLookup(value, true), folder = await directory(root, input, false, collectionId)
       const request = validateLessonDeliveryRequest(await jsonFile(path.join(folder, 'request.json')))
       if (request.requestId !== input.requestId || request.projectId !== input.projectId) throw Error('Delivery belongs to another project or ID')
       const entry = active.get(input.requestId)
@@ -226,7 +234,7 @@ export function createLessonDeliveryRuntime({ root, probe }) {
       if (active.size >= 2) throw Error('At most two lesson deliveries may run at once')
       const entry = { input, job: { schemaVersion: 1, request: input, state: 'queued' } }; active.set(input.requestId, entry)
       entry.started = (async () => {
-        const folder = await directory(root, input, true)
+        const folder = await directory(root, input, true, collectionId)
         try { await mkdir(folder, { mode: 0o700 }) } catch (error) { if (error.code !== 'EEXIST') throw error; entry.job = await diskStatus(input); active.delete(input.requestId); return }
         await writeFile(path.join(folder, 'request.json'), JSON.stringify(input), { flag: 'wx', mode: 0o600 })
         await writeStatus(folder, entry.job)

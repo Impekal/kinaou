@@ -16,6 +16,7 @@ import { managedPublishPathSchema, parsePublishPreflightResult, publishIntegrity
 import { exportReceiptSchema, type ExportReceipt } from './exportHistory'
 import { maxCoursePlaybackBytes } from './courseOutputPlayback'
 import { lessonDeliveryRequestSchema, parseLessonDeliveryJob, type LessonDeliveryRequest } from './courseLessonDelivery'
+import { validateCourseCollectionRequest, validateCourseCollectionJob, type CourseCollectionRequest } from '../../worker/course-collection-protocol.mjs'
 import { deliveryLibraryQuerySchema, deliveryLibraryLookupSchema, parseDeliveryLibraryPage, parseDeliveryLibraryInspection, type DeliveryLibraryQuery, type DeliveryLibraryLookup } from './courseDeliveryLibrary'
 import {
   platformPublishReceiptSchema,
@@ -230,6 +231,18 @@ export class WorkerClient {
     const payload = await this.request('/course/delivery/start', { method: 'POST', body: JSON.stringify(input) })
     if (payload?.ok !== true || payload?.type !== 'course-lesson-delivery') throw Error('Invalid delivery response')
     return parseLessonDeliveryJob(payload.job, input)
+  }
+  async startCourseCollection(request: CourseCollectionRequest) {
+    const input = validateCourseCollectionRequest(request)
+    const payload = await this.request('/course/collection/start', { method: 'POST', body: JSON.stringify(input) })
+    if (payload.type !== 'course-collection') throw Error('Invalid collection response')
+    return validateCourseCollectionJob(payload.job, input)
+  }
+  async courseCollectionStatus(request: CourseCollectionRequest) {
+    const input = validateCourseCollectionRequest(request)
+    const payload = await this.request('/course/collection/status', { method: 'POST', body: JSON.stringify(input) })
+    if (payload.type !== 'course-collection') throw Error('Invalid collection response')
+    return validateCourseCollectionJob(payload.job, input)
   }
   async listLessonDeliveries(query: DeliveryLibraryQuery) {
     const input = deliveryLibraryQuerySchema.parse(query)
