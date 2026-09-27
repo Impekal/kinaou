@@ -19,6 +19,7 @@ import { uiCourseOutputMessages } from './uiCourseOutputMessages'
 import { uiCourseNarrationMessages } from './uiCourseNarrationMessages'
 import { uiCourseNarrationPlacementMessages } from './uiCourseNarrationPlacementMessages'
 import { uiCourseCaptionMessages } from './uiCourseCaptionMessages'
+import { uiCourseSubtitleMessages } from './uiCourseSubtitleMessages'
 import { uiShortSelectionMessages } from './uiShortSelectionMessages'
 import { uiShortIntelligenceMessages } from './uiShortIntelligenceMessages'
 import { uiShortFinishingMessages } from './uiShortFinishingMessages'
@@ -67,6 +68,7 @@ export const uiMessages = {
   ...uiCourseNarrationMessages,
   ...uiCourseNarrationPlacementMessages,
   ...uiCourseCaptionMessages,
+  ...uiCourseSubtitleMessages,
   ...uiShortSelectionMessages,
   ...uiShortIntelligenceMessages,
   ...uiShortFinishingMessages,
