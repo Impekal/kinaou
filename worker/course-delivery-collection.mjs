@@ -1,18 +1,19 @@
 import crypto from 'node:crypto'
 import path from 'node:path'
 import { constants } from 'node:fs'
-import { link, lstat, mkdir, open, realpath, rename, statfs, unlink } from 'node:fs/promises'
+import { link, lstat, mkdir, open, opendir, realpath, rename, statfs, unlink } from 'node:fs/promises'
 import { createLessonDeliveryRuntime } from './course-lesson-delivery.mjs'
 import { collectionDirectory, collectionSourceText, courseCollectionLimits, validateCourseCollectionJob, validateCourseCollectionRequest } from './course-collection-protocol.mjs'
+import { validateCollectionLibraryQuery, validateCollectionLibraryLookup, validateCollectionLibraryPage } from './course-collection-library-protocol.mjs'
 
 const now = () => new Date().toISOString()
 const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b)
 const digest = value => crypto.createHash('sha256').update(value).digest('hex')
 const failure = error => String(error?.message ?? error).trim().slice(0, 4000).trim() || 'Collection operation failed'
-async function folderFor(root, id, createParent = false) {
+async function folderFor(root, id, createParent = false, parentOnly = false) {
   let folder = await realpath(root)
   if (path.basename(folder) !== 'KINAOU') throw Error('Invalid collection managed root')
-  for (const part of ['Renders', 'CourseCollections', ...(createParent ? [] : [id])]) {
+  for (const part of ['Renders', 'CourseCollections', ...(createParent || parentOnly ? [] : [id])]) {
     folder = path.join(folder, part)
     if (createParent) await mkdir(folder, { mode: 0o700 }).catch(error => { if (error.code !== 'EEXIST') throw error })
     const info = await lstat(folder)
@@ -131,6 +132,38 @@ export function createCourseCollectionRuntime({ root, probe, lessonRuntime = cre
     return structuredClone(entry.job)
   }
   return {
+    async list(value) {
+      const input = validateCollectionLibraryQuery(value), page = { schemaVersion: 1, ...input, entries: [], scanned: 0, skipped: 0 }
+      let parent
+      try { parent = await folderFor(root, undefined, false, true) } catch (error) { if (error.code === 'ENOENT') return page; throw error }
+      const ids = []; let count = 0
+      for await (const item of await opendir(parent)) {
+        if (++count > 10000) throw Error('Collection library exceeds 10000 directory entries; inspect known managed folders manually')
+        if (/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(item.name) && (!input.after || item.name > input.after)) ids.push(item.name)
+      }
+      ids.sort(); const selected = ids.slice(0, 20)
+      if (ids.length > selected.length) page.nextCursor = selected.at(-1)
+      for (const requestId of selected) {
+        page.scanned++
+        try {
+          const folder = await folderFor(root, requestId), request = validateCourseCollectionRequest(await readJson(path.join(folder, 'request.json')))
+          if (request.requestId !== requestId) throw Error('Collection request differs from directory ID')
+          if (request.projectId !== input.projectId) continue
+          let hasCompletionRecord = false
+          try { const info = await lstat(path.join(folder, 'manifest.json')); hasCompletionRecord = info.isFile() && !info.isSymbolicLink() && info.size > 0 && info.size <= 512 * 1024 } catch (error) { if (error.code !== 'ENOENT') throw error }
+          page.entries.push({ requestId, projectId: input.projectId, course: request.course, selectedLessons: request.lessons.length, hasCompletionRecord })
+        } catch { page.skipped++ } // Read-only: never repair/remove malformed or unsafe records.
+      }
+      return validateCollectionLibraryPage(page, input)
+    },
+    async inspect(value) {
+      const input = validateCollectionLibraryLookup(value), folder = await folderFor(root, input.requestId)
+      const request = validateCourseCollectionRequest(await readJson(path.join(folder, 'request.json')))
+      if (request.requestId !== input.requestId || request.projectId !== input.projectId) throw Error('Collection belongs to another project or ID')
+      const entry = active.get(input.requestId)
+      if (entry) { if (!equal(entry.input, request)) throw Error('Collection request changed on disk'); return snapshot(entry) }
+      return diskStatus(request)
+    },
     async start(value) {
       const input = validateCourseCollectionRequest(value), previous = active.get(input.requestId)
       if (previous) { if (!equal(previous.input, input)) throw Error('Collection ID conflicts'); return snapshot(previous) }

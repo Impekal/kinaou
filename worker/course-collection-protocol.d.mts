@@ -4,6 +4,7 @@ export interface CourseCollectionResult { directory: string; manifestPath: strin
 export interface CourseCollectionJob { schemaVersion: 1; request: CourseCollectionRequest; state: 'unknown' | 'queued' | 'checking' | 'copying' | 'ready' | 'failed' | 'interrupted' | 'integrityFailed'; completedLessons?: number; error?: string; result?: CourseCollectionResult }
 export const courseCollectionLimits: { lessons: number; videoBytes: number; sourceMetadataBytes: number; requestBytes: number }
 export function collectionDirectory(requestId: string): string
+export function validateCollectionCourse(value: unknown): CourseCollectionRequest['course']
 export function validateCourseCollectionRequest(value: unknown): CourseCollectionRequest
 export function validateCourseCollectionJob(value: unknown, request: CourseCollectionRequest): CourseCollectionJob
 export function collectionSourceText(job: unknown): string

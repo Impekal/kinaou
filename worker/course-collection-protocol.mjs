@@ -7,11 +7,15 @@ function hash(value) { if (typeof value !== 'string' || !hashPattern.test(value)
 function id(value) { if (typeof value !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(value)) throw Error('Invalid course identity'); return value }
 function integer(value, min, max) { if (!Number.isSafeInteger(value) || value < min || value > max) throw Error('Invalid collection numeric bound'); return value }
 export function collectionDirectory(requestId) { return `KINAOU/Renders/CourseCollections/${uuid(requestId)}` }
+export function validateCollectionCourse(value) {
+  if (!value || !['de','en','fr'].includes(value.language)) throw Error('Invalid collection language')
+  return { courseId: id(value.courseId), title: text(value.title, 120, true), language: value.language,
+    outlineRevision: integer(value.outlineRevision, 1, Number.MAX_SAFE_INTEGER), lessonCount: integer(value.lessonCount, 1, 200) }
+}
 export function validateCourseCollectionRequest(value) {
   if (value?.schemaVersion !== 1 || value.acknowledgePrivateMetadata !== true || !value.course || !['de','en','fr'].includes(value.course.language)) throw Error('Explicit private collection acknowledgement is required')
   if (!Array.isArray(value.lessons) || !value.lessons.length || value.lessons.length > courseCollectionLimits.lessons) throw Error('Select between 1 and 20 lessons')
-  const course = { courseId: id(value.course.courseId), title: text(value.course.title, 120, true), language: value.course.language,
-    outlineRevision: integer(value.course.outlineRevision, 1, Number.MAX_SAFE_INTEGER), lessonCount: integer(value.course.lessonCount, 1, 200) }
+  const course = validateCollectionCourse(value.course)
   const sourceIds = new Set(), lessonIds = new Set()
   const lessons = value.lessons.map(item => {
     const lesson = { sourceRequestId: uuid(item?.sourceRequestId), sourceFingerprint: hash(item?.sourceFingerprint), moduleId: id(item?.moduleId), lessonId: id(item?.lessonId),

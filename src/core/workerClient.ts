@@ -17,6 +17,7 @@ import { exportReceiptSchema, type ExportReceipt } from './exportHistory'
 import { maxCoursePlaybackBytes } from './courseOutputPlayback'
 import { lessonDeliveryRequestSchema, parseLessonDeliveryJob, type LessonDeliveryRequest } from './courseLessonDelivery'
 import { validateCourseCollectionRequest, validateCourseCollectionJob, type CourseCollectionRequest } from '../../worker/course-collection-protocol.mjs'
+import { validateCollectionLibraryQuery, validateCollectionLibraryLookup, validateCollectionLibraryPage, validateCollectionLibraryInspection, type CollectionLibraryQuery, type CollectionLibraryLookup } from '../../worker/course-collection-library-protocol.mjs'
 import { deliveryLibraryQuerySchema, deliveryLibraryLookupSchema, parseDeliveryLibraryPage, parseDeliveryLibraryInspection, type DeliveryLibraryQuery, type DeliveryLibraryLookup } from './courseDeliveryLibrary'
 import {
   platformPublishReceiptSchema,
@@ -237,6 +238,18 @@ export class WorkerClient {
     const payload = await this.request('/course/collection/start', { method: 'POST', body: JSON.stringify(input) })
     if (payload.type !== 'course-collection') throw Error('Invalid collection response')
     return validateCourseCollectionJob(payload.job, input)
+  }
+  async listCourseCollections(query: CollectionLibraryQuery) {
+    const input = validateCollectionLibraryQuery(query)
+    const payload = await this.request('/course/collection/list', { method: 'POST', body: JSON.stringify(input) })
+    if (payload.type !== 'course-collection-library') throw Error('Invalid collection library response')
+    return validateCollectionLibraryPage(payload.page, input)
+  }
+  async inspectCourseCollection(lookup: CollectionLibraryLookup) {
+    const input = validateCollectionLibraryLookup(lookup)
+    const payload = await this.request('/course/collection/inspect', { method: 'POST', body: JSON.stringify(input) })
+    if (payload.type !== 'course-collection-inspection') throw Error('Invalid collection inspection response')
+    return validateCollectionLibraryInspection(payload.job, input)
   }
   async courseCollectionStatus(request: CourseCollectionRequest) {
     const input = validateCourseCollectionRequest(request)

@@ -4,6 +4,7 @@ import type { LessonDeliveryJob } from '../core/courseLessonDelivery'
 import { CollectionSession, forgetCollectionTicket, readCollectionTicket, reviewCourseCollection, useCollectionReview, type CollectionReview, type CollectionTicket, type CollectionFeedback } from '../core/courseDeliveryCollection'
 import { WorkerClient } from '../core/workerClient'
 import { CourseDeliveryLibraryPanel } from './CourseDeliveryLibraryPanel'
+import { CourseCollectionLibraryPanel } from './CourseCollectionLibraryPanel'
 import type { CourseOutputWorkerProps } from './CourseOutputFileCheckPanel'
 import { useUiLanguage } from './UiLanguageProvider'
 
@@ -73,5 +74,6 @@ export function CourseDeliveryWorkspace(props: CourseOutputWorkerProps & { proje
         {shown.job?.result && <div><code>{shown.job.result.directory}</code><p>{shown.job.result.integrityCheckedAt} · {shown.job.result.totalMediaBytes}</p><ul>{shown.job.result.lessons.map(lesson => <li key={lesson.sourceRequestId}><code>{lesson.mediaPath}</code> · SHA-256: <code>{lesson.sha256}</code></li>)}</ul></div>}
       </div>}
     </section>
+    <CourseCollectionLibraryPanel {...props} />
   </>
 }
