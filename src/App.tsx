@@ -26,6 +26,7 @@ import { ShortFinishingPanel } from './components/ShortFinishingPanel'
 import { ShortAudioFinishingPanel } from './components/ShortAudioFinishingPanel'
 import { PublishPanel } from './components/PublishPanel'
 import { CoursePanel } from './components/CoursePanel'
+import { SearchTrendsPanel } from './components/SearchTrendsPanel'
 import type { CourseProductionHandoff } from './core/courseProductionHandoff'
 import { SettingsPanel } from './components/SettingsPanel'
 import { UiLanguageSelector, useUiLanguage } from './components/UiLanguageProvider'
@@ -38,7 +39,7 @@ import { WorkerClient } from './core/workerClient'
 import type { WorkerHandshake } from './core/workerProtocol'
 import { PersistentVersionHistory } from './core/versioning'
 
-const nav = ['Projects', 'Create', 'Director', 'Studio', 'Course', 'Assets', 'Avatar', 'Audio', 'Images', 'Video', 'Capture', 'Publish', 'Analytics', 'Settings'] as const
+const nav = ['Projects', 'Create', 'Director', 'Research', 'Studio', 'Course', 'Assets', 'Avatar', 'Audio', 'Images', 'Video', 'Capture', 'Publish', 'Analytics', 'Settings'] as const
 const creationKinds = ['idea', 'document', 'url', 'image', 'audio', 'video'] as const
 
 export function App() {
@@ -195,6 +196,7 @@ export function App() {
         {section === 'Capture' && (project ? <CapturePanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
         {section === 'Publish' && (project ? <PublishPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
 
+        {section === 'Research' && (project ? <SearchTrendsPanel key={project.id} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
         {section === 'Course' && (project ? <CoursePanel key={project.id} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} onOpenStudio={() => setSection('Studio')} onOpenAudio={() => setSection('Audio')} onOpenProduction={openCourseProduction} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
 
         {section === 'Studio' && <section className="stack">

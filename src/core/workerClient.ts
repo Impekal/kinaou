@@ -1,4 +1,5 @@
 import { parseAssetUploadResult, type AssetUploadResult } from './assetUpload'
+import { validateSearchTrendQuery, validateSearchTrendSnapshot, type SearchTrendQuery } from '../../worker/search-trends-protocol.mjs'
 import { workerHandshakeSchema, type MediaProbeResult, type MediaProxyResult, type WorkerHandshake } from './workerProtocol'
 import type { RenderPlan } from './render'
 import { parseRenderJob, type RenderJobRecord } from './renderJobs'
@@ -141,6 +142,13 @@ export class WorkerClient {
     const payload = await this.request('/health', { method: 'GET' })
     if (payload?.ok !== true || payload?.type !== 'health') throw new Error('Invalid worker health response')
     return workerHandshakeSchema.parse(payload.handshake)
+  }
+
+  async searchTrends(query: SearchTrendQuery) {
+    const validated = validateSearchTrendQuery(query)
+    const payload = await this.request('/research/search-trends', { method: 'POST', body: JSON.stringify(validated) })
+    if (payload?.ok !== true || payload?.type !== 'search-trends') throw Error('Invalid search trend response')
+    return validateSearchTrendSnapshot(payload.snapshot, validated)
   }
 
   async importAsset(file: Blob, filename: string): Promise<AssetUploadResult> {

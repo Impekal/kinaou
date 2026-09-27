@@ -28,6 +28,7 @@ import { uiCourseOrderingMessages } from './uiCourseOrderingMessages'
 import { uiCourseWorkspaceMessages } from './uiCourseWorkspaceMessages'
 import { uiCourseHandoffMessages } from './uiCourseHandoffMessages'
 import { uiSourceArchiveMessages } from './uiSourceArchiveMessages'
+import { uiSearchTrendMessages } from './uiSearchTrendMessages'
 import { uiShortSelectionMessages } from './uiShortSelectionMessages'
 import { uiShortIntelligenceMessages } from './uiShortIntelligenceMessages'
 import { uiShortFinishingMessages } from './uiShortFinishingMessages'
@@ -85,6 +86,7 @@ export const uiMessages = {
   ...uiCourseWorkspaceMessages,
   ...uiCourseHandoffMessages,
   ...uiSourceArchiveMessages,
+  ...uiSearchTrendMessages,
   ...uiShortSelectionMessages,
   ...uiShortIntelligenceMessages,
   ...uiShortFinishingMessages,

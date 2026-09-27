@@ -1,0 +1,11 @@
+.searchTrendsPanel { min-width: 0; }
+.searchTrendsPanel > .card { padding: 24px; min-width: 0; }
+.searchTrendsPanel article { border-top: 1px solid #343b4d; padding-top: 18px; overflow-wrap: anywhere; }
+.searchTrendsPanel article h4 { margin: 0 0 10px; font-size: 18px; }
+.searchTrendsPanel article p { margin-bottom: 8px; }
+.searchTrendsPanel details { margin: 10px 0; }
+.searchTrendsPanel summary { cursor: pointer; color: #c9c1ff; }
+.searchTrendsPanel a { color: #c5bcff; overflow-wrap: anywhere; }
+.searchTrendsPanel :is(button, a, summary):focus-visible { outline: 3px solid #b9aaff; outline-offset: 3px; }
+.searchTrendsPanel button { justify-self: start; white-space: normal; }
+@media (max-width: 600px) { .searchTrendsPanel > .card { padding: 16px; } .searchTrendsPanel button { width: 100%; } }
