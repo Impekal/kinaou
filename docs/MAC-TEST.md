@@ -161,6 +161,12 @@ Existing collections (#337): when ready, connect an updated worker with `course-
 
 Course ordering (#339, no worker/model/SSD required): in a disposable course edit a script, move its lesson up/down, select another module and explicitly transfer it, then reorder modules. DE/EN/FR changes must preserve the text and destination data. In/Out values and media timeline must stay unchanged. Save/reload, discard an additional draft move, and restore a safety version through History. Old exports keep their historical module attribution and moved lessons show changed, not removed. Full destination and invalid-selection/save-failure cases already run in isolated tests; do not fill real storage or corrupt real projects. New current-context exports remain deliberate, not automatic.
 
+### Optional course workspace check (#341)
+
+In a disposable project, edit a lesson script and switch among Course plan, Production, Instructor review and Delivery, then change DE/EN/FR. The draft must remain unchanged, saved revision unchanged, and saved-content operations blocked until explicit save/discard. Return to Course plan and save; reload must retain the saved content. Navigation alone must not send worker requests. Check narrow layout and keyboard navigation. Leaving Course/reloading is not draft persistence.
+
+With a disposable local worker/output only, begin a private lesson copy, switch area, then return: any retained reminder must inspect the same job, never send another start. Already accepted work may finish despite the view closing. Review the resulting copied bytes; do not interpret this as real course-quality acceptance. No real SSD or model action is required for these isolated tests.
+
 ## Optional application-language check (PR #187, no worker/SSD needed)
 
 Instructor review (#309): use a disposable course and clearly labelled test assertions, or only record checks you actually performed. Select a saved lesson, enter reviewer and scope notes, confirm each check, save and reload. Review must survive, but checkboxes must start unchecked for a new assertion. Change a saved script, exercise, source or production timeline: the earlier record must be stale. An unsaved draft blocks review writes. Opening withdrawal then cancelling must retain records; explicitly confirming withdraws only records and creates a recoverable safety version. No media bytes or external sources are verified by this status, and no platform approval is granted.

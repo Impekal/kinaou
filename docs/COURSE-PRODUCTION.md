@@ -15,6 +15,12 @@ Saved outlines travel with ordinary project serialization, drive backups and Ver
 
 ## Boundaries to review
 
+### Focused course workspace (#341)
+
+Course plan holds authored structure/text; Production contains Studio/Audio entry points, output inspection/playback and subtitles/private single-lesson packages; Instructor review holds self-reported checks; Delivery holds text ZIPs and private package/collection libraries. Navigation and explanations are available in DE/EN/FR with responsive keyboard-accessible buttons. Area numbers do not certify completion.
+
+The course draft survives in-page area/language changes but is not autosaved. Dirty saved-content guards remain; return to Course plan to save/discard before continuing. Leaving Course or reloading can lose that draft. Switching areas unmounts operational panels, closes previews and discards late results. Accepted worker operations may still run; retained reminders only permit explicit same-ID checks, not duplicate starts. No jobs, lists, inspections or project/history writes happen merely by navigating.
+
 ### Reorder the course without moving video content (#339)
 
 In the course draft, use **Move module up/down** or **Move lesson up/down**. To transfer a lesson, choose another module, then explicitly **Move lesson to destination module**; it is appended there and can be reordered further. Full destinations (100 lessons) are disabled. Stable IDs, exact scripts, sources/demonstrations, exercises/materials and In/Out ranges move together. Existing overall limits remain 50 modules / 200 lessons. Incomplete draft fields are retained, not normalized or discarded; ordinary save still validates them.
@@ -213,7 +219,7 @@ The local browser displayed the new Course entry/form and language options on a 
 
 ## Next course slices
 
-Current after #339: course modules/lessons can be reordered and moved safely in the draft, alongside the existing production, review and real private-delivery paths. Next: organize the long Course page into clear planning, production, instructor-review and delivery areas, without losing drafts or implying cancelled worker work; then further integration and real course-quality acceptance. Selected delivery subsets are not necessarily entire courses, and no collection is a full source-project archive. Older next-step paragraphs are dated history.
+Current after #341: Course is organized into focused planning, production, review and delivery areas with draft retention and truthful detach/recovery behavior. Next: explicit saved-lesson handoff to narration and export, avoiding repeated selection without automatically generating/rendering; then further integration and actual course-quality acceptance. Selected collections are not necessarily entire courses or source-project archives. Older next-step paragraphs are dated history.
 
 PR #211 verification: full 498 application + 82 native tests and build/syntax gate passed. Sixteen regressions cover stale revision/range/project identity, removed/ineligible lessons, DE/EN/FR controls and stable range diagnostic codes. Isolated localhost:5192 with a synthetic video and temporary worker verified language-switch selection retention, disabled future bounds, stale blocking after a 4→3s trim, explicit re-review, a real 2s Full-HD MP4 and exact 1–3s receipt with unchanged names/revision/course language, custom-range deselection and receipt persistence after reload. Browser console clean; test processes stopped. Existing real-worker retiming/audio/independent-lesson execution tests remain green.
 

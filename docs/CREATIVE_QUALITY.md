@@ -58,6 +58,7 @@ Collection-library update (#337): prior collections can be rediscovered and expl
 
 Course-order update (#339): curriculum order and module membership can change without changing stable lesson IDs, authored content, time ranges or video timelines. Explicit save/history makes changes reversible. Historical export/module attribution remains untouched; moved lessons produce changed-outline status and prior instructor metadata reviews become stale. Ordering tests prove preservation, not curriculum quality or approval.
 
+- Course workspace (#341): four DE/EN/FR areas reduce simultaneous tools while preserving in-page drafts and saved-content guards. Navigation starts nothing; inactive previews/checks detach and accepted copies recover by explicit same-ID status only. Actual browser/worker delayed-reply recovery passed without duplicate copy. Workflow areas are not teaching-quality or completion badges.
 - Retain course/module/lecture relationships and individual project/source/export references; one lecture must be replaceable without rebuilding the entire course.
 - Technical demonstrations must actually run or be recorded; generated UI images must not masquerade as evidence of working software.
 - Track instructional accuracy, source dates, prerequisite coverage, duplicate content, exercise-answer consistency and pedagogical progression. Avoid fabricated expertise, certificates, learning outcomes or approval guarantees.
