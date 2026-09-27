@@ -15,6 +15,14 @@ Saved outlines travel with ordinary project serialization, drive backups and Ver
 
 ## Boundaries to review
 
+### Reorder the course without moving video content (#339)
+
+In the course draft, use **Move module up/down** or **Move lesson up/down**. To transfer a lesson, choose another module, then explicitly **Move lesson to destination module**; it is appended there and can be reordered further. Full destinations (100 lessons) are disabled. Stable IDs, exact scripts, sources/demonstrations, exercises/materials and In/Out ranges move together. Existing overall limits remain 50 modules / 200 lessons. Incomplete draft fields are retained, not normalized or discarded; ordinary save still validates them.
+
+Reordering changes curriculum order, not video timeline order or media bytes. Changes remain unsaved until **Save course outline**, with the existing safety version and revision increment; discard restores saved structure. Save failure retains the draft for retry. Version History restores prior structure/content without deleting media. Historic output receipts retain their original module IDs and are not rebound; an existing lesson moved elsewhere is reported as changed, not removed. Old package/collection records remain historical and current-collection identity guards still apply. Use deliberate current-context exports when needed; no automatic rerender or review approval occurs.
+
+Acceptance: 18 new app tests / 1,770 total, 311 supported local worker tests, build/JS/Swift syntax and full CI 36299047204 passed. Tests establish identity/content/range preservation, bounds, persistence/reload/history, unchanged render plans and unchanged historical references. Real DE/EN/FR Course browser covers dirty script retention, lesson/module moves, simulated persistence failure, retry/reload, actual safety-version restore and discard; console clean. Temporary fixture data removed; no real instructional acceptance claimed.
+
 ### Rediscover and inspect prior collections (#337)
 
 Use **Existing course collections** with a connected worker offering `course-collection-library`. Explicitly load, select and **Recheck this collection’s files**; no browser recovery ticket or FFprobe is required for these reads. The list shows recorded course details, selected-versus-total lesson counts and completion-record presence only. It does not read all media or establish integrity. Explicit inspection rehashes the parent records and every completed child payload; missing/changed files fail visibly without repair.
@@ -205,7 +213,7 @@ The local browser displayed the new Course entry/form and language options on a 
 
 ## Next course slices
 
-Current after #337: actual private multi-lesson collections now have read-only discovery and integrity inspection without browser reminders. Next: improve course organization with safe module/lesson reordering and cross-module moves, then further production integration and actual course-quality acceptance. A selected subset is not necessarily the entire course; no collection is a complete source-project archive. Older next-step paragraphs below are dated history.
+Current after #339: course modules/lessons can be reordered and moved safely in the draft, alongside the existing production, review and real private-delivery paths. Next: organize the long Course page into clear planning, production, instructor-review and delivery areas, without losing drafts or implying cancelled worker work; then further integration and real course-quality acceptance. Selected delivery subsets are not necessarily entire courses, and no collection is a full source-project archive. Older next-step paragraphs are dated history.
 
 PR #211 verification: full 498 application + 82 native tests and build/syntax gate passed. Sixteen regressions cover stale revision/range/project identity, removed/ineligible lessons, DE/EN/FR controls and stable range diagnostic codes. Isolated localhost:5192 with a synthetic video and temporary worker verified language-switch selection retention, disabled future bounds, stale blocking after a 4→3s trim, explicit re-review, a real 2s Full-HD MP4 and exact 1–3s receipt with unchanged names/revision/course language, custom-range deselection and receipt persistence after reload. Browser console clean; test processes stopped. Existing real-worker retiming/audio/independent-lesson execution tests remain green.
 
