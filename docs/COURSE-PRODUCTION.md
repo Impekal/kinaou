@@ -15,6 +15,16 @@ Saved outlines travel with ordinary project serialization, drive backups and Ver
 
 ## Boundaries to review
 
+### Course transcript captions (#319)
+
+After placing a course-associated recording through Audio, use **Assets → local transcription** with an explicitly installed whisper.cpp runtime/model. No model is downloaded. In **Studio → Caption Editor → Lesson captions from transcript**, select the saved transcript and review the proposed timeline times/text. Confirm that you checked them against the real recording, then explicitly insert. The helper uses recognized segment times plus the narration start, not evenly distributed script estimates or automatic text substitution. New transcript metadata retains the original course source; legacy transcripts require their source to remain present.
+
+The source must still match project/course/lesson/script/language, and recognized language must match course language. Exactly one audible full recording at normal speed/zero source offset must be placed at current lesson start and fit the lesson. Trimmed, retimed, repeated, missing or moved recordings block instead of guessing. Segments must be nonempty, ordered, nonoverlapping and within measured audio duration (1,000 segments / 200,000 UTF-8 bytes maximum). A single unlocked visible caption track is used, or one is created on insertion. Existing visible overlap and repeated transcript/narration captions block without replacement. Ordinary free-text captions remain available.
+
+Project changes require a fresh review and acknowledgement. A failed save retains review for retry; safety history restores the pre-insert state without deleting files. Reload retains captions, not unfinished decisions. Text and timing remain editable in the ordinary Caption Editor/Timeline. Associated transcripts no longer use generic zero-based import. The helper does not verify physical bytes, recognition correctness, pronunciation, factual content, accessibility quality or platform acceptance.
+
+Acceptance: 45 new regressions, 1,545 app tests, 224 local worker tests, build/syntax and full CI 36288212160 passed. Real worker executes STT conversion, a clearly fixed-output test CLI, durable normalized JSON and aligned caption planning. Full CI requires libass and verifies real caption pixels at the expected intervals and none before/between/after. Local FFmpeg lacks libass; those pixels are verified remotely, while the actual local process/JSON/timing path passes. Earlier audio/transcript bytes remain unchanged. Browser metadata-only DE/FR/EN checks cover failure/retry, duplicate protection, reload, safety restore and stale acknowledgement; clean console. Fixtures do not prove real whisper recognition or course quality.
+
 ### Reviewed narration placement at lesson start (#317)
 
 In Audio Studio, expand **Place recording at lesson start** on a course-associated recording. Audition the real recording first. Choose an unlocked, audible voice/dialogue track or explicitly create a new voice track, then **Review placement**. The summary shows current lesson start, complete measured audio duration/end, remaining lesson time and historical/current revisions. **Place the reviewed full recording** creates a Version History snapshot and saves the clip at normal speed with zero source offset. There is no automatic trimming, acceleration, shifting, fade or caption creation.
@@ -35,7 +45,7 @@ Changing the draft or saved source blocks another course-bound start until expli
 
 Acceptance: 16 new regressions, 1,464 app tests, 224 local worker tests, build/syntax and full CI 36286447988 passed. Real authenticated worker + explicit synthetic tone CLI verifies exact submitted course text, measured WAV, persistence/history and same-job save retry with unchanged earlier files. Browser synthetic fixture verifies DE/FR/EN, source/language guards, save failure/retry, stale late-result rejection and retained historical attribution; clean console. Neither tone nor browser simulation is natural-speech evidence. Existing separately accepted real speech engines remain the quality basis.
 
-The separately reviewed course-aware placement path is now available in #317 above. Generic Audio placement still appends to a selected compatible track; it does not automatically know lesson start/range. Caption timing and final course production integration remain open. No automatic instructional approval or publication occurs.
+The separately reviewed course-aware placement path is available in #317 and source-bound STT captions in #319 above. Generic Audio placement still appends to a selected compatible track; it does not automatically know lesson start/range. Final course production/delivery integration remains open. No automatic instructional approval or publication occurs.
 
 ### Retained lesson output references (#313)
 
