@@ -6,6 +6,12 @@ Pre-flight status: the complete worker job pipeline (authentication, honest capa
 
 > Paste tip: run the code blocks exactly as written. They intentionally contain no `#` comments — the default macOS zsh does not accept interactive comments and errors on pasted `#` lines.
 
+## Optional public-search-trend acceptance — 2026-09-27
+
+Already executed on isolated development data for #347; no SSD/model action is required. Connect an updated local worker, open a disposable project and enter Research. Before clicking retrieve, confirm no result/network request. Select DE and explicitly retrieve: Google attribution, country, retrieval/feed-publication times and literal provider figures must be present. Retain one observation and reload: it stays historical without a new fetch. Repeat UI review in EN/FR; selecting France must not relabel the retained German observation. Failed saves must show an error, not success; changing country while a response is delayed must drop the obsolete result. No linked article/image should be downloaded automatically.
+
+This sends the chosen market and network request/IP to Google's public RSS endpoint, not project text or credentials. Offline/unavailable feeds must fail honestly; no fabricated fallback. It is not a weekly/monthly statistics, competition, fact-checking or teaching-quality test. See RESEARCH-TRENDS.md for the exact scope.
+
 ## Stage 0 — Prerequisites
 
 Check Node.js (22+ required) and git:

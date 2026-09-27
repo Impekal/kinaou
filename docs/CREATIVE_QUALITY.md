@@ -4,6 +4,10 @@ User clarification: 2026-09-20. These are acceptance targets, not a claim that t
 
 Current acceptance summary (2026-09-27): completion points 1–3 have passed their documented gates: DE/EN/FR UI, comfortable editing and human-accepted natural/authorized-own-voice speech. FLUX.2 Klein still-image identity and Pack 3 multi-reference preservation are accepted, but final generative avatar motion/expression/lip sync remain open. Course outlines, individual exports and per-lesson scripts are implemented; complete course production is not. Later dated evidence below supersedes historical baseline descriptions. See COMPLETION_CHECKLIST.md for the current seven open main points.
 
+## Search-trend evidence boundary — 2026-09-27
+
+#347 implements explicit attributed public Google Trends RSS retrieval, not an automated editorial truth/demand engine. Seven market codes do not filter query language; raw provider figures do not establish video searches, competition, a specific measurement window or future views. Linked report titles are unverified source data, never instructions or authorization to reuse media. Selected saved observations remain historical with country/feed/retrieval dates and original attribution. Authored source review, market/language/subject analysis and genuine competition/audience evidence are still needed. No model-only idea may be promoted to measured trend evidence. See RESEARCH-TRENDS.md for bounds and tests.
+
 ## Photo-driven, video-driven and fully generated avatars
 
 - Three explicit source modes are required: an authorized reference photo, an authorized reference video, or a fully generated fictional identity with no real-person reference. All three target identity-consistent, believable performance, expressions, motion and audio-driven lip sync.
