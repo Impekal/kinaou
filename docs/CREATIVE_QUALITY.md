@@ -52,6 +52,8 @@ Packaged-subtitle update (#331): explicitly reviewed current-edit WebVTT can acc
 
 Delivery-library update (#333): old lesson packages can be rediscovered and explicitly rehashed without browser tickets. Listing is metadata-only and does not establish file availability/integrity; targeted inspection rechecks actual payload hashes with project/ID binding and stale-result isolation. No new copy, repair, automatic resume, upload or approval. Real byte/browser tests establish safe discovery/recovery behavior only, not teaching expertise or content correctness.
 
+Collection update (#335): explicitly verified historical lesson packages can be reviewed in current course order and copied into independent private multi-lesson collections with payload hashes, ordered index and no-duplicate durable recovery. Selected-versus-total counts, historic/current titles and revisions remain visible; fingerprints bind exact source metadata and payload hashes, not teaching correctness. Whole folders remain private and are not source-project backups or platform approval. Synthetic byte/browser/tamper tests do not replace watching, listening and expert review.
+
 - Retain course/module/lecture relationships and individual project/source/export references; one lecture must be replaceable without rebuilding the entire course.
 - Technical demonstrations must actually run or be recorded; generated UI images must not masquerade as evidence of working software.
 - Track instructional accuracy, source dates, prerequisite coverage, duplicate content, exercise-answer consistency and pedagogical progression. Avoid fabricated expertise, certificates, learning outcomes or approval guarantees.
