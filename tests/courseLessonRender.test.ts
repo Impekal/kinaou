@@ -10,6 +10,8 @@ import { createRenderPlan, preview1080pPreset } from '../src/core/render'
 import { WorkerClient } from '../src/core/workerClient'
 import { forgetExportReceipt, projectCourseOutputIndex, projectExportHistory, recordSuccessfulExport } from '../src/core/exportHistory'
 import { CourseOutputPreflight, type CourseOutputCheckFeedback } from '../src/core/courseOutputPreflight'
+import { prepareLessonDelivery, type LessonDeliveryRequest } from '../src/core/courseLessonDelivery'
+import { createHash } from 'node:crypto'
 
 const exec = promisify(execFile)
 const run = async (program: string, args: string[]) => (await exec(program, args, { encoding: 'buffer', maxBuffer: 4 * 1024 * 1024 })).stdout
@@ -97,6 +99,27 @@ it('exports separate lessons through the real worker with correct retimed frames
     const partial = await fetch('http://127.0.0.1:43937/course/output-media', { method: 'POST', signal: aborted.signal, headers: { authorization: 'Bearer course-test', 'content-type': 'application/json' }, body: JSON.stringify({ export: retained[1] }) })
     expect(partial.status).toBe(200); aborted.abort(); await partial.body?.cancel().catch(() => {})
     expect((await check(retained[1].jobId)).phase).toBe('matched')
+    const deliveryRequest = prepareLessonDelivery(project, retained[1].jobId, true)
+    const awaitDelivery = async (request: LessonDeliveryRequest) => {
+      let result = await client.startLessonDelivery(request)
+      for (let i = 0; i < 200 && ['queued','copying','verifying'].includes(result.state); i++) { await new Promise(resolve => setTimeout(resolve, 20)); result = await client.lessonDeliveryStatus(request) }
+      return result
+    }
+    const delivered = await awaitDelivery(deliveryRequest)
+    expect(delivered.state, delivered.error).toBe('ready')
+    const copiedPath = path.join(root, delivered.result!.mediaPath)
+    expect(await readFile(copiedPath)).toEqual(firstOutput)
+    expect(delivered.result!.sha256).toBe(createHash('sha256').update(firstOutput!).digest('hex'))
+    const manifest = JSON.parse(await readFile(path.join(root, delivered.result!.manifestPath), 'utf8'))
+    expect(manifest.request.export.courseLesson.lessonId).toBe('red'); expect(manifest.preflight.ready).toBe(true)
+    expect(manifest.fullProjectBackup).toBe(false)
+    expect((await client.startLessonDelivery(deliveryRequest)).result?.mediaPath).toBe(delivered.result!.mediaPath)
+    const modifiedCopy = Buffer.from(firstOutput!); modifiedCopy[modifiedCopy.length - 1] ^= 1; await writeFile(copiedPath, modifiedCopy)
+    expect((await client.lessonDeliveryStatus(deliveryRequest)).state).toBe('integrityFailed')
+    await writeFile(copiedPath, firstOutput!); expect((await client.lessonDeliveryStatus(deliveryRequest)).state).toBe('ready')
+    const rejectedDelivery = await awaitDelivery(prepareLessonDelivery(project, retained[0].jobId, true))
+    expect(rejectedDelivery.state).toBe('failed'); expect(rejectedDelivery.error).toContain('dimensions')
+    expect((await fetch('http://127.0.0.1:43937/course/delivery/start', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(deliveryRequest) })).status).toBe(401)
     expect(await check(retained[0].jobId)).toMatchObject({ phase: 'mismatch', result: { checks: { videoStream: true, dimensions: false, duration: true } } })
     const bluePath = path.join(root, 'KINAOU/Renders/lesson-blue.mp4'), blueBytes = await readFile(bluePath)
     await rename(bluePath, bluePath + '.test-held')

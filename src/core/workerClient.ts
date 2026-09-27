@@ -15,6 +15,7 @@ import { assertSafeManagedPath } from './storage'
 import { managedPublishPathSchema, parsePublishPreflightResult, publishIntegrityResultSchema, publishPackageListSchema, publishPackageRequestSchema, publishPackageResultSchema, publishProjectIdSchema, type PublishIntegrityResult, type PublishPackageEntry, type PublishPackageRequest, type PublishPackageResult, type PublishPreflightResult } from './publishPackage'
 import { exportReceiptSchema, type ExportReceipt } from './exportHistory'
 import { maxCoursePlaybackBytes } from './courseOutputPlayback'
+import { lessonDeliveryRequestSchema, parseLessonDeliveryJob, type LessonDeliveryRequest } from './courseLessonDelivery'
 import {
   platformPublishReceiptSchema,
   platformPublishRequestSchema,
@@ -221,6 +222,19 @@ export class WorkerClient {
       if (total !== length) throw new Error('Lesson media response ended early')
       return new Blob(chunks, { type: 'video/mp4' })
     } finally { await reader?.cancel().catch(() => {}); reader?.releaseLock() }
+  }
+
+  async startLessonDelivery(request: LessonDeliveryRequest) {
+    const input = lessonDeliveryRequestSchema.parse(request)
+    const payload = await this.request('/course/delivery/start', { method: 'POST', body: JSON.stringify(input) })
+    if (payload?.ok !== true || payload?.type !== 'course-lesson-delivery') throw Error('Invalid delivery response')
+    return parseLessonDeliveryJob(payload.job, input)
+  }
+  async lessonDeliveryStatus(request: LessonDeliveryRequest) {
+    const input = lessonDeliveryRequestSchema.parse(request)
+    const payload = await this.request('/course/delivery/status', { method: 'POST', body: JSON.stringify(input) })
+    if (payload?.ok !== true || payload?.type !== 'course-lesson-delivery') throw Error('Invalid delivery status')
+    return parseLessonDeliveryJob(payload.job, input)
   }
 
   async listPublishPackages(projectId: string): Promise<PublishPackageEntry[]> {
