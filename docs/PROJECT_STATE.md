@@ -14,7 +14,17 @@ The existing hourly heartbeat `kinaou-autonom-weiterbauen` is PAUSED at the user
 
 Check the available Codex usage windows at safe slice boundaries. At **85% used / 15% remaining** in any available Codex window, start no new slice; finish the already-started bounded slice, tests, PR/merge and separate documentation as far as the remaining allowance permits, then provide a short copyable prompt for continuing in normal ChatGPT with the Mac terminal and actual repository evidence. Do not promise immunity from a hard limit. Normal ChatGPT chat limits are not visible through the Codex usage tool. Last checked during instructor-review work: Codex weekly 17% used, 83% remaining. Never redeem a reset credit without explicit confirmation. Heartbeat stays paused.
 
-## Latest merged handoff — safe course module and lesson ordering
+## Latest merged handoff — focused multilingual course workspace
+
+[PR #341](https://github.com/Impekal/kinaou/pull/341) merged as `fb8c4b96a127313c931df2bf9ef070ff7073cb28` after full [CI 36299971356](https://github.com/Impekal/kinaou/actions/runs/36299971356), including render smoke. Course now has four DE/EN/FR areas: Course plan, Production, Instructor review and Delivery. Responsive native-button navigation exposes the selected area accessibly; these are workflow locations, not completion claims.
+
+The outline draft remains in its parent across in-page area and language changes. Saved-content operations keep their dirty guards and a return-to-plan notice. Inactive operational panels unmount: previews/checks close and late responses detach, while accepted worker work may continue. Retained operation reminders support explicit same-ID status recovery, never automatic restart. Switching areas saves nothing; leaving Course/reloading can still lose an unsaved draft. No worker/model/media behavior was changed.
+
+Acceptance: 1,785 app tests (15 new), 311 supported local worker tests, build/JS/Swift syntax and full CI passed. Actual DE/EN/FR browser checks preserve drafts, block dirty operations, retain a rejected-save draft and reload the saved revision. Desktop and 480px layouts reviewed, console clean. An isolated real worker copied a generated 27,690-byte MP4 while its accepted reply was delayed and the view changed; returning and checking the same operation recovered success with exactly one start and one status request. External cmp/SHA-256 matched. All disposable fixtures, browser test data and servers were removed; foreign files untouched.
+
+Usage checkpoint: Codex weekly 71% used / 29% remaining; heartbeat paused. Next: explicit saved-lesson handoff from Course to narration/export without repeating selection or automatically dispatching jobs. Whole point 8 remains open for full integration, source-project archives and actual instructional acceptance. No immediate SSD/model/user action needed.
+
+## Previous merged handoff — safe course module and lesson ordering
 
 [PR #339](https://github.com/Impekal/kinaou/pull/339) merged as `13aa4aa4a36c6793fc89e5bf4d79a48436ea9673` after full [CI 36299047204](https://github.com/Impekal/kinaou/actions/runs/36299047204), including render smoke. DE/EN/FR controls reorder modules and lessons and explicitly move a lesson to the end of another module. Lesson fieldsets group controls accessibly. All changes stay in the existing course draft until explicit save with safety history; discard restores saved structure.
 
