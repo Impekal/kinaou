@@ -1,5 +1,7 @@
 import { it, expect, vi } from 'vitest'
 import { createHash } from 'node:crypto'
+import { addCaption } from '../src/core/captions'
+import { inspectDeliverySubtitles } from '../worker/course-delivery-subtitles.mjs'
 import { createProject } from '../src/core/project'
 import { newCourseOutline, projectCourse, saveCourseOutline } from '../src/core/course'
 import { recordSuccessfulExport } from '../src/core/exportHistory'
@@ -99,4 +101,42 @@ it('retains a large v2 packet before start and restores it without another copy 
   expect([...values.values()][0].length).toBeGreaterThan(65536)
   const recovered = new LessonDeliverySession(readLessonDeliveryTicket(storage, saved.id)!, { storage, client, publish, current: () => true }); await recovered.check(); await recovered.start()
   expect(client.startLessonDelivery).toHaveBeenCalledTimes(1); expect(client.lessonDeliveryStatus).toHaveBeenCalledTimes(1)
+})
+
+function captionFixture() {
+  const project = fixture()
+  project.tracks.push({ id: 'delivery-captions', type: 'caption', name: 'Captions', muted: false, locked: false, clips: [] })
+  return addCaption(addCaption(project, { text: 'Bonjour <b>🌍</b> & A --> B', startMs: 100, durationMs: 300 }), { text: 'Fin\nÜberblick', startMs: 800, durationMs: 400 })
+}
+it('adds reviewed lesson-relative escaped subtitles only on explicit opt-in and retains clipping disclosure', async () => {
+  const project = captionFixture(), before = JSON.stringify(project)
+  const plain = await reviewCourseDeliveryMaterials(project, 'job'); expect(plain.subtitles).toBeUndefined(); expect(plain.files.some(file => file.path.endsWith('.vtt'))).toBe(false)
+  const review = await reviewCourseDeliveryMaterials(project, 'job', { includeSubtitles: true }), request = useReviewedCourseDeliveryMaterials(project, review, prepareLessonDelivery(project, 'job', true), true)
+  expect(review.subtitles).toEqual({ cueCount: 2, clippedCues: 1 }); expect(request.schemaVersion).toBe(3)
+  const text = review.files.find(file => file.path === 'learner/subtitles.vtt')!.text
+  expect(text).toBe('WEBVTT\n\n1\n00:00:00.100 --> 00:00:00.400\nBonjour &lt;b&gt;🌍&lt;/b&gt; &amp; A --&gt; B\n\n2\n00:00:00.800 --> 00:00:01.000\nFin\nÜberblick\n')
+  expect(inspectDeliverySubtitles(text, 1000)).toEqual({ cueCount: 2 }); expect(JSON.stringify(project)).toBe(before)
+  expect(() => useReviewedCourseDeliveryMaterials({ ...project, title: 'Edited' }, review, request, true)).toThrow()
+  expect(() => lessonDeliveryRequestSchema.parse({ ...request, schemaVersion: 2 })).toThrow()
+})
+it.each(['missing','muted','overlap','invalidText'])('does not silently omit selected subtitles when %s', async kind => {
+  let project = captionFixture()
+  const track = project.tracks.find(track => track.id === 'delivery-captions')!
+  if (kind === 'missing') track.clips = []
+  if (kind === 'muted') track.muted = true
+  if (kind === 'overlap') project = addCaption(project, { text: 'Overlap', startMs: 150, durationMs: 200 })
+  if (kind === 'invalidText') project.assets.find(asset => asset.kind === 'caption')!.metadata.text = 'A\n\nB'
+  await expect(reviewCourseDeliveryMaterials(project, 'job', { includeSubtitles: true })).rejects.toThrow()
+  expect((await reviewCourseDeliveryMaterials(project, 'job')).subtitles).toBeUndefined()
+})
+it.each(['file','metadata','count','clipping','version','text','duration'])('rejects subtitle packet %s inconsistencies', async kind => {
+  const project = captionFixture(), review = await reviewCourseDeliveryMaterials(project, 'job', { includeSubtitles: true }), request = useReviewedCourseDeliveryMaterials(project, review, prepareLessonDelivery(project, 'job', true), true)
+  if (kind === 'file') request.materials!.files = request.materials!.files.filter(file => !file.path.endsWith('.vtt'))
+  if (kind === 'metadata') delete request.materials!.subtitles
+  if (kind === 'count') request.materials!.subtitles!.cueCount++
+  if (kind === 'clipping') request.materials!.subtitles!.clippedCues = 3
+  if (kind === 'version') request.schemaVersion = 2
+  if (kind === 'text') request.materials!.files.find(file => file.path.endsWith('.vtt'))!.text = 'not WebVTT'
+  if (kind === 'duration') request.materials!.files.find(file => file.path.endsWith('.vtt'))!.text = 'WEBVTT\n\n1\n00:00:00.000 --> 00:00:02.000\nToo late\n'
+  expect(() => lessonDeliveryRequestSchema.parse(request)).toThrow()
 })

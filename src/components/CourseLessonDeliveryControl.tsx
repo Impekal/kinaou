@@ -11,11 +11,13 @@ export function CourseLessonDeliveryControl({ project, jobId, dirty, workerUrl =
   const [storedTicket, setTicket] = useState<LessonDeliveryTicket | null>(null), [feedback, setFeedback] = useState<DeliveryFeedback | null>(null), [error, setError] = useState('')
   const [ack, setAck] = useState(false), [forgetAck, setForgetAck] = useState(false), [initializedId, setInitializedId] = useState(''), [feedbackScope, setFeedbackScope] = useState('')
   const [includeMaterials, setIncludeMaterials] = useState(false), [materialReview, setMaterialReview] = useState<CourseDeliveryMaterialReview | null>(null), [materialAck, setMaterialAck] = useState(false), [materialError, setMaterialError] = useState(''), [preparing, setPreparing] = useState(false)
+  const [includeSubtitles, setIncludeSubtitles] = useState(false)
   const reviewSequence = useRef(0), materialScope = useRef('')
   const ticket = storedTicket?.request.projectId === project.id ? storedTicket : null, initialized = initializedId === project.id
   const available = workerConnected && !!workerToken.trim() && workerCapabilities.includes('course-lesson-delivery')
   const supportsMaterials = workerCapabilities.includes('course-delivery-materials')
-  const signature = JSON.stringify([project, jobId, dirty, workerUrl, workerToken, available, supportsMaterials]), current = useRef(signature), session = useRef<LessonDeliverySession | null>(null), mounted = useRef(true), currentProjectId = useRef(project.id)
+  const supportsSubtitles = workerCapabilities.includes('course-delivery-subtitles')
+  const signature = JSON.stringify([project, jobId, dirty, workerUrl, workerToken, available, supportsMaterials, supportsSubtitles, includeMaterials, includeSubtitles]), current = useRef(signature), session = useRef<LessonDeliverySession | null>(null), mounted = useRef(true), currentProjectId = useRef(project.id)
   currentProjectId.current = project.id
   const currentMaterialReview = materialScope.current === signature ? materialReview : null
   if (current.current !== signature) { current.current = signature; session.current?.detach(); reviewSequence.current++ }
@@ -36,7 +38,7 @@ export function CourseLessonDeliveryControl({ project, jobId, dirty, workerUrl =
     }); session.current = task; return task
   }
   async function start() {
-    if (!available || !initialized || dirty || !ack || !jobId || ticket || error || preparing || feedback?.phase === 'checking' || (includeMaterials && (!supportsMaterials || !currentMaterialReview || !materialAck))) return
+    if (!available || !initialized || dirty || !ack || !jobId || ticket || error || preparing || feedback?.phase === 'checking' || (includeMaterials && (!supportsMaterials || !currentMaterialReview || !materialAck || (includeSubtitles && !supportsSubtitles)))) return
     let request
     try {
       request = prepareLessonDelivery(project, jobId, ack)
@@ -48,7 +50,7 @@ export function CourseLessonDeliveryControl({ project, jobId, dirty, workerUrl =
     } catch (cause) { setError(String(cause)); refreshTicket() }
   }
   async function check() {
-    if (!ticket || !available || ticket.workerUrl !== workerUrl || feedback?.phase === 'checking' || (ticket.request.materials && !supportsMaterials)) return
+    if (!ticket || !available || ticket.workerUrl !== workerUrl || feedback?.phase === 'checking' || (ticket.request.materials && !supportsMaterials) || (ticket.request.materials?.subtitles && !supportsSubtitles)) return
     try { await createSession(ticket).check() } catch (cause) { setError(String(cause)) }
   }
   function forget() {
@@ -56,11 +58,11 @@ export function CourseLessonDeliveryControl({ project, jobId, dirty, workerUrl =
     try { forgetLessonDeliveryTicket(window.localStorage, ticket); session.current?.detach(); setTicket(null); setFeedback(null); setForgetAck(false); setAck(false); setError('') } catch (cause) { setError(String(cause)) }
   }
   async function prepareMaterials() {
-    if (!includeMaterials || dirty || !jobId || preparing || ticket) return
+    if (!includeMaterials || dirty || !jobId || preparing || ticket || (includeSubtitles && !supportsSubtitles)) return
     const sequence = ++reviewSequence.current, baseline = current.current
     setPreparing(true); setMaterialError(''); setMaterialReview(null); setMaterialAck(false)
     try {
-      const review = await reviewCourseDeliveryMaterials(project, jobId)
+      const review = await reviewCourseDeliveryMaterials(project, jobId, { includeSubtitles })
       if (mounted.current && sequence === reviewSequence.current && baseline === current.current) { materialScope.current = baseline; setMaterialReview(review) }
     } catch (cause) { if (mounted.current && sequence === reviewSequence.current && baseline === current.current) setMaterialError(String(cause)) }
     finally { if (mounted.current && sequence === reviewSequence.current) setPreparing(false) }
@@ -71,23 +73,29 @@ export function CourseLessonDeliveryControl({ project, jobId, dirty, workerUrl =
     {!available && <p>{t('course.delivery.unavailable')}</p>}
     {error && <div role="alert">{t('course.delivery.storageError')}<details><summary>{t('common.details')}</summary>{error}</details></div>}
     {!ticket && <>
-      <label><input type="checkbox" checked={includeMaterials} disabled={dirty || !initialized || !!error || !supportsMaterials} onChange={event => { setIncludeMaterials(event.target.checked); reviewSequence.current++; setMaterialReview(null); setMaterialAck(false); setAck(false); setPreparing(false); setMaterialError('') }}/>{t('course.delivery.materials.include')}</label>
+      <label><input type="checkbox" checked={includeMaterials} disabled={dirty || !initialized || !!error || !supportsMaterials} onChange={event => { setIncludeMaterials(event.target.checked); setIncludeSubtitles(false); reviewSequence.current++; setMaterialReview(null); setMaterialAck(false); setAck(false); setPreparing(false); setMaterialError('') }}/>{t('course.delivery.materials.include')}</label>
       {!supportsMaterials && <p>{t('course.delivery.materials.unavailable')}</p>}
       {includeMaterials && <div>
-        <p>{t('course.delivery.materials.help')}</p><button disabled={dirty || !jobId || preparing} onClick={prepareMaterials}>{t(preparing ? 'course.delivery.materials.preparing' : 'course.delivery.materials.prepare')}</button>
+        <p>{t('course.delivery.materials.help')}</p>
+        <label><input type="checkbox" checked={includeSubtitles} disabled={dirty || preparing || !supportsSubtitles} onChange={event => setIncludeSubtitles(event.target.checked)}/>{t('course.delivery.subtitles.include')}</label>
+        {includeSubtitles && <p>{t('course.delivery.subtitles.help')}</p>}
+        {!supportsSubtitles && <p>{t('course.delivery.subtitles.unavailable')}</p>}
+        <button disabled={dirty || !jobId || preparing || (includeSubtitles && !supportsSubtitles)} onClick={prepareMaterials}>{t(preparing ? 'course.delivery.materials.preparing' : 'course.delivery.materials.prepare')}</button>
         {materialError && <div role="alert">{t('course.delivery.materials.failed')}<details><summary>{t('common.details')}</summary>{materialError}</details></div>}
         {currentMaterialReview && <><p>{t('course.delivery.materials.revisions', { video: currentMaterialReview.exportRevision, text: currentMaterialReview.source.context.outlineRevision, count: currentMaterialReview.files.length, bytes: currentMaterialReview.bytes })}</p>
+          {currentMaterialReview.subtitles && <p>{t('course.delivery.subtitles.summary', { count: currentMaterialReview.subtitles.cueCount, clipped: currentMaterialReview.subtitles.clippedCues })}</p>}
           {currentMaterialReview.files.map(file => <details key={file.path}><summary>{file.path} · {t(file.path.startsWith('learner/') ? 'course.delivery.materials.learner' : 'course.delivery.materials.instructor')}</summary><pre style={{ whiteSpace: 'pre-wrap', maxHeight: 240, overflow: 'auto' }}>{file.text}</pre></details>)}</>}
         <label><input type="checkbox" checked={!!currentMaterialReview && materialAck} disabled={!currentMaterialReview || dirty || preparing} onChange={event => setMaterialAck(event.target.checked)}/>{t('course.delivery.materials.ack')}</label>
       </div>}
       {!includeMaterials && materialError && <div role="alert">{materialError}</div>}
       <label><input type="checkbox" checked={ack} disabled={dirty || !initialized || !!error || preparing} onChange={event => setAck(event.target.checked)}/>{t('course.delivery.ack')}</label>
-      <button disabled={!available || !initialized || dirty || !jobId || !ack || !!error || preparing || feedback?.phase === 'checking' || (includeMaterials && (!supportsMaterials || !currentMaterialReview || !materialAck))} onClick={start}>{t('course.delivery.start')}</button></>}
+      <button disabled={!available || !initialized || dirty || !jobId || !ack || !!error || preparing || feedback?.phase === 'checking' || (includeMaterials && (!supportsMaterials || !currentMaterialReview || !materialAck || (includeSubtitles && !supportsSubtitles)))} onClick={start}>{t('course.delivery.start')}</button></>}
     {ticket && <div>
       <p>{t('course.delivery.retained', { lesson: ticket.request.export.courseLesson.lessonTitle, id: ticket.request.requestId })}</p><code>{ticket.request.export.outputRelativePath}</code>
       <p>{t('course.delivery.recovery')}</p>{ticket.workerUrl !== workerUrl && <p>{t('course.delivery.connection', { url: ticket.workerUrl })}</p>}
       {ticket.request.materials && !supportsMaterials && <p>{t('course.delivery.materials.unavailable')}</p>}
-      <button disabled={!available || ticket.workerUrl !== workerUrl || feedback?.phase === 'checking' || (!!ticket.request.materials && !supportsMaterials)} onClick={check}>{t('course.delivery.check')}</button>
+      {ticket.request.materials?.subtitles && !supportsSubtitles && <p>{t('course.delivery.subtitles.unavailable')}</p>}
+      <button disabled={!available || ticket.workerUrl !== workerUrl || feedback?.phase === 'checking' || (!!ticket.request.materials && !supportsMaterials) || (!!ticket.request.materials?.subtitles && !supportsSubtitles)} onClick={check}>{t('course.delivery.check')}</button>
       <label><input type="checkbox" checked={forgetAck} disabled={feedback?.phase === 'checking'} onChange={event => setForgetAck(event.target.checked)}/>{t('course.delivery.forgetAck')}</label>
       <button disabled={!forgetAck || feedback?.phase === 'checking'} onClick={forget}>{t('course.delivery.forget')}</button>
     </div>}
