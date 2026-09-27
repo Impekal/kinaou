@@ -15,6 +15,16 @@ Saved outlines travel with ordinary project serialization, drive backups and Ver
 
 ## Boundaries to review
 
+### Reviewed narration placement at lesson start (#317)
+
+In Audio Studio, expand **Place recording at lesson start** on a course-associated recording. Audition the real recording first. Choose an unlocked, audible voice/dialogue track or explicitly create a new voice track, then **Review placement**. The summary shows current lesson start, complete measured audio duration/end, remaining lesson time and historical/current revisions. **Place the reviewed full recording** creates a Version History snapshot and saves the clip at normal speed with zero source offset. There is no automatic trimming, acceleration, shifting, fade or caption creation.
+
+The helper requires the same project/course/lesson, current script text and language. Deliberate range/name/module edits can be used after a fresh review without falsely rewriting the audio's historical source. Overlong audio blocks; explicitly adjust the course bounds or create a shorter take. Existing use of this recording anywhere blocks duplication, even on muted tracks. Overlapping audible voice/dialogue clips or course-associated audio on any active track block placement, including when a new track is selected. Background music remains allowed. Manual append remains available separately and does not align to lessons.
+
+Any project edit requires fresh review. A failed project save leaves the review retryable; restore the safety version to undo placement without deleting the recording. Reload preserves saved clips, not unfinished reviews. Metadata checks do not open or hash media, verify spoken words, assess pronunciation or establish course quality.
+
+Acceptance: 36 new regressions, 1,500 app tests, 224 local worker tests, build/syntax and full CI 36287419866 passed. Real authenticated worker/FFmpeg renders the complete synthetic tone at 1–3 s within a 5 s video, verifies silence before/after and unchanged source WAVs. The audio stream may end before the video; only the measurement buffer is silence-padded. Browser metadata-only fixture verifies DE/FR/EN, failed-save retry, duplicate guard, reload, history restoration, stale review and fresh new-track placement after range edits. No new model or speech-quality acceptance is implied.
+
 ### Saved lesson scripts through local speech (#315)
 
 Save the course, use **Open Audio Studio for lesson narration**, expand **Narrate a saved lesson**, choose a saved nonblank lesson and explicitly **Load lesson script into text draft**. Loading replaces only the current Audio text draft; it does not synthesize, translate or edit the project's main script, storyboard or timeline. Leading/trailing whitespace is trimmed by the existing speech path; internal Unicode/newlines are preserved. Course language is independent of the app and project content language.
@@ -25,7 +35,7 @@ Changing the draft or saved source blocks another course-bound start until expli
 
 Acceptance: 16 new regressions, 1,464 app tests, 224 local worker tests, build/syntax and full CI 36286447988 passed. Real authenticated worker + explicit synthetic tone CLI verifies exact submitted course text, measured WAV, persistence/history and same-job save retry with unchanged earlier files. Browser synthetic fixture verifies DE/FR/EN, source/language guards, save failure/retry, stale late-result rejection and retained historical attribution; clean console. Neither tone nor browser simulation is natural-speech evidence. Existing separately accepted real speech engines remain the quality basis.
 
-Course-aware timeline placement, caption timing and final media integration remain open after this slice. Generic Audio placement still appends to a selected compatible track; it does not automatically know lesson start/range. No automatic instructional approval or publication occurs.
+The separately reviewed course-aware placement path is now available in #317 above. Generic Audio placement still appends to a selected compatible track; it does not automatically know lesson start/range. Caption timing and final course production integration remain open. No automatic instructional approval or publication occurs.
 
 ### Retained lesson output references (#313)
 
