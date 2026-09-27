@@ -11,6 +11,8 @@ import { planShortExportBatch, planShortExportRanges, projectShortExportMaximum,
 import { archiveProjectShortBatch, requestPersistedShortBatchCancellation, clearProjectShortBatch, createPersistedShortBatch, nextShortBatchItem, planSelectiveShortBatchRetry, projectPersistedShortBatch, projectShortBatchArchive, rebuildPersistedShortBatchPlans, replacePersistedShortBatchItems, retryableShortBatchItems, reviewArchivedShortBatchSelection, shortBatchBusy, storeProjectShortBatch, type PersistedShortBatch, type PersistedShortBatchItem } from '../core/shortExportBatch'
 import { forgetProjectShortExportRecipe, projectShortExportRecipes, reviewShortExportRecipe, saveProjectShortExportRecipe, shortExportRecipeLimit } from '../core/shortExportRecipes'
 import { recordSuccessfulExport } from '../core/exportHistory'
+import type { PersistentVersionHistory } from '../core/versioning'
+import { CourseOutputIndexPanel } from './CourseOutputIndexPanel'
 import { courseLessonChoices, planCourseLessonExport } from '../core/course'
 import { CourseLessonSelector } from './CourseLessonSelector'
 import { reviewCourseExport, resolveCourseExportReview, type CourseExportReview } from '../core/courseExportReview'
@@ -30,6 +32,7 @@ import { markShortBatchSubmission, ShortBatchSubmission } from '../core/shortBat
 import { commitShortBatchChange, type ShortBatchNotice } from '../core/shortBatchCommit'
 
 interface RenderPanelProps {
+  history?: PersistentVersionHistory
   project: KinaouProject
   workerUrl: string
   workerToken: string
@@ -44,7 +47,7 @@ const targetFormats = Object.keys(formatProfiles) as TargetFormat[]
 interface ArchivedBatchSelectionReview { batchId: string; unavailable: Array<{ candidateId: string; title: string }> }
 interface ShortRecipeReview { recipeId: string; unavailableCandidateIds: string[] }
 
-export function RenderPanel({ project, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange, onCreateDerivative }: RenderPanelProps) {
+export function RenderPanel({ project, history, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange, onCreateDerivative }: RenderPanelProps) {
   const readiness = useMemo(() => renderReadiness(project), [project])
   const format = projectTargetFormat(project)
   const profile = formatProfiles[format]
@@ -645,6 +648,10 @@ export function RenderPanel({ project, workerUrl, workerToken, workerConnected, 
       {error && <div className="errorBox" role="alert">{t('export.failed')}<details><summary>{t('common.details')}</summary>{visibleError}</details></div>}
 
       {single && <SingleExportStatus feedback={single} onRetry={() => { void singleSession.current?.run() }} onCancel={() => { void singleSession.current?.cancel() }} onDetach={detachSingle} />}
+      {single?.phase === 'saveFailed' && history && project.metadata.courseOutputIndex !== undefined && <div className="stack">
+        <p>{t('course.outputs.recovery')}</p>
+        <CourseOutputIndexPanel key={`recovery-${project.id}`} project={project} dirty={false} history={history} onProjectChange={next => { latest.current.onProjectChange(next); latest.current.project = next }} />
+      </div>}
 
       <ShortBatchStatus items={batchItems} notice={batchPersistenceMessage} resumeError={visibleBatchResumeError} retryableIds={retryableBatchIds} retrySelectedIds={retrySelectedIds} setRetrySelectedIds={setRetrySelectedIds} busy={busy} retryDisabled={!retrySelectedIds.length || !readiness.ready || !duckingCheck.valid || !workerConnected || !workerToken.trim() || busy || submitting || retryReframingBlocked || Boolean(batchResumeError)} retryReframingBlocked={retryReframingBlocked} cancelRequested={persistedBatch.current?.cancelRequested} cancelling={batchCancelling} canCancel={batchBusy && !batchResumeError} canDiscard={!batchReceiptError && !batchSubmitting.current && !activeBatchItem && (!batchBusy || Boolean(batchResumeError))} archiveOnDiscard={!batchBusy && Boolean(persistedBatch.current)} onRetry={startSelectedShortBatchRetries} onCancel={() => { void cancelShortBatch() }} onDiscard={discardShortBatch} />
 

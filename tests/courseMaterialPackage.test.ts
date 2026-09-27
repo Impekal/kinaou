@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import { expect, it, vi } from 'vitest'
 import { courseOutlineSchema, newCourseOutline, projectCourse, saveCourseOutline } from '../src/core/course'
 import { courseMaterialLimits } from '../src/core/courseMaterials'
+import { recordSuccessfulExport } from '../src/core/exportHistory'
 import { createCourseMaterialPackage } from '../src/core/courseMaterialPackage'
 import { courseInstructorReviewState, courseInstructorSignature, recordCourseInstructorReview } from '../src/core/courseInstructorReview'
 import { createTextZip, textZipLimits } from '../src/core/textZip'
@@ -113,6 +114,29 @@ it('includes explicit private instructor content and truthful review/media bound
     expect(JSON.parse(read('private/video-references.json'))).toMatchObject({ mediaIncluded: false, filePresenceChecked: false, fullArchive: false, receipts: [] })
     expect(paths.some(path => path.endsWith('.mp4'))).toBe(false)
   })
+})
+
+it('packages retained course references even after the generic recent list evicts them', async () => {
+  let project = fixture()
+  const course = projectCourse(project)!, lesson = course.modules[0].lessons[0]
+  const receipt = { jobId: 'lesson-job', label: 'TEST output', outputRelativePath: 'KINAOU/Renders/lesson.mp4', format: 'landscape' as const, range: lesson.range, durationMs: 1000, sceneIds: [], completedAt: '2026-09-27T00:00:00Z' }
+  project = recordSuccessfulExport(project, { ...receipt, courseLesson: { courseId: course.id, moduleId: 'module', lessonId: 'lesson', courseTitle: course.title, moduleTitle: 'Module', lessonTitle: 'Lesson', language: course.language, outlineRevision: course.revision } })
+  for (let i = 0; i < 55; i++) project = recordSuccessfulExport(project, { ...receipt, jobId: 'ordinary-' + i })
+  inspectZip((await createCourseMaterialPackage(project, 'instructor')).bytes, read => {
+    expect(JSON.parse(read('private/video-references.json')).receipts).toEqual([])
+    const retained = JSON.parse(read('private/retained-lesson-outputs.json'))
+    expect(retained).toMatchObject({ mediaIncluded: false, filePresenceChecked: false, integrityChecked: false, fullArchive: false, referenceLimit: 1000 })
+    expect(retained.references.map((entry: { jobId: string }) => entry.jobId)).toEqual(['lesson-job'])
+  })
+  inspectZip((await createCourseMaterialPackage(project, 'learner')).bytes, (_read, paths) => {
+    expect(paths.some(path => path.startsWith('private/'))).toBe(false)
+  })
+})
+
+it('refuses corrupt retained outputs in a private package without exposing them to learners', async () => {
+  const project = fixture(); project.metadata.courseOutputIndex = { broken: true }
+  await expect(createCourseMaterialPackage(project, 'instructor')).rejects.toThrow(/Invalid course output/)
+  await expect(createCourseMaterialPackage(project, 'learner')).resolves.toHaveProperty('bytes')
 })
 
 it('freezes saved input before async work and keeps stale review labels in the package', async () => {
