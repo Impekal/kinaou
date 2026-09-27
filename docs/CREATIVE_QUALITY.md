@@ -54,6 +54,8 @@ Delivery-library update (#333): old lesson packages can be rediscovered and expl
 
 Collection update (#335): explicitly verified historical lesson packages can be reviewed in current course order and copied into independent private multi-lesson collections with payload hashes, ordered index and no-duplicate durable recovery. Selected-versus-total counts, historic/current titles and revisions remain visible; fingerprints bind exact source metadata and payload hashes, not teaching correctness. Whole folders remain private and are not source-project backups or platform approval. Synthetic byte/browser/tamper tests do not replace watching, listening and expert review.
 
+Collection-library update (#337): prior collections can be rediscovered and explicitly rehashed without browser reminders or FFprobe. Historical completion-record presence is not file verification; completed/interrupted/tampered states stay distinct, and late replies cannot restore stale UI results. No creation, repair, automatic restart or teaching approval. Actual file/browser checks establish safe read-only recovery, not instructional correctness.
+
 - Retain course/module/lecture relationships and individual project/source/export references; one lecture must be replaceable without rebuilding the entire course.
 - Technical demonstrations must actually run or be recorded; generated UI images must not masquerade as evidence of working software.
 - Track instructional accuracy, source dates, prerequisite coverage, duplicate content, exercise-answer consistency and pedagogical progression. Avoid fabricated expertise, certificates, learning outcomes or approval guarantees.

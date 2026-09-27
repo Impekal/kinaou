@@ -15,6 +15,14 @@ Saved outlines travel with ordinary project serialization, drive backups and Ver
 
 ## Boundaries to review
 
+### Rediscover and inspect prior collections (#337)
+
+Use **Existing course collections** with a connected worker offering `course-collection-library`. Explicitly load, select and **Recheck this collection’s files**; no browser recovery ticket or FFprobe is required for these reads. The list shows recorded course details, selected-versus-total lesson counts and completion-record presence only. It does not read all media or establish integrity. Explicit inspection rehashes the parent records and every completed child payload; missing/changed files fail visibly without repair.
+
+Pages scan up to 20 UUID directories (10,000 total-entry ceiling), filter by current project and count unreadable/unsafe skips. Empty pages may belong to other projects while a next page exists; reload after concurrent folder changes. Missing roots are not created. Project/ID mismatches and unsafe links are refused. Scope/selection changes discard late feedback; retry is explicit; reload starts idle. No copy, restart, resume, upload, deletion or project/browser-ticket write occurs. Interrupted collections remain incomplete. Whole folders stay private and are not authenticated expertise, platform approval or full source-project archives.
+
+Acceptance: 19 new app tests / 1,752 total; 3 new worker tests / 311 supported local total; build/JS/Swift syntax and full CI 36298261239 passed. Actual worker/file and DE/EN/FR browser tests verify discovery, explicit-only inspection, missing/restored copy, interrupted state, stale-response/draft isolation, idle reload and zero start calls. Independent shasum/cmp verify both 28,242-byte copies. Disposable fixtures removed; no real instructional acceptance is claimed.
+
 ### Private multi-lesson collections (#335)
 
 With a saved course and updated local worker (`course-delivery-collection`, FFprobe), inspect each desired historical lesson package in the library and explicitly add it to the selection. Review the selection against the current outline; current module/lesson ordering and titles are shown beside historical package titles/revisions. IDs, declared course language and ranges must match. Different revision/title is allowed only after fresh review; current text does not replace the recorded package content. One package per lesson, at most 20 selected lessons / 32 GiB video / 8 MiB source metadata. The UI explicitly says selected N of total M, not necessarily a whole course.
@@ -197,7 +205,7 @@ The local browser displayed the new Course entry/form and language options on a 
 
 ## Next course slices
 
-Current after #335: the previously listed course authoring, narration/captions, inspection/playback and per-lesson packages now feed reviewed multi-lesson collections with actual independent payload copies, ordered index, hashes and durable recovery. Next: read-only rediscovery of prior collections without browser reminders, followed by actual course-quality acceptance. A selected subset is not necessarily the entire course, and no collection is a complete source-project archive. Older next-step paragraphs below are dated history.
+Current after #337: actual private multi-lesson collections now have read-only discovery and integrity inspection without browser reminders. Next: improve course organization with safe module/lesson reordering and cross-module moves, then further production integration and actual course-quality acceptance. A selected subset is not necessarily the entire course; no collection is a complete source-project archive. Older next-step paragraphs below are dated history.
 
 PR #211 verification: full 498 application + 82 native tests and build/syntax gate passed. Sixteen regressions cover stale revision/range/project identity, removed/ineligible lessons, DE/EN/FR controls and stable range diagnostic codes. Isolated localhost:5192 with a synthetic video and temporary worker verified language-switch selection retention, disabled future bounds, stale blocking after a 4→3s trim, explicit re-review, a real 2s Full-HD MP4 and exact 1–3s receipt with unchanged names/revision/course language, custom-range deselection and receipt persistence after reload. Browser console clean; test processes stopped. Existing real-worker retiming/audio/independent-lesson execution tests remain green.
 
