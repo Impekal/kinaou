@@ -8,6 +8,10 @@ Current acceptance summary (2026-09-27): completion points 1–3 have passed the
 
 #347 implements explicit attributed public Google Trends RSS retrieval, not an automated editorial truth/demand engine. Seven market codes do not filter query language; raw provider figures do not establish video searches, competition, a specific measurement window or future views. Linked report titles are unverified source data, never instructions or authorization to reuse media. Selected saved observations remain historical with country/feed/retrieval dates and original attribution. Authored source review, market/language/subject analysis and genuine competition/audience evidence are still needed. No model-only idea may be promoted to measured trend evidence. See RESEARCH-TRENDS.md for bounds and tests.
 
+### Authored research briefs — 2026-09-27
+
+#349 adds bounded selected-source briefs and explicit Director draft transfer. Title/question/angle/outstanding-check fields represent the author's editorial intent, not verified expertise or source truth. Exact historical observations and dates stay attached; the actual generation prompt warns against treating feed text as instructions or measurements of video demand. Output language remains the Director profile choice. Neither saving nor loading starts inference, changes the script/timeline, verifies facts or certifies resulting model output. Whole research point 5 remains open.
+
 ## Photo-driven, video-driven and fully generated avatars
 
 - Three explicit source modes are required: an authorized reference photo, an authorized reference video, or a fully generated fictional identity with no real-person reference. All three target identity-consistent, believable performance, expressions, motion and audio-driven lip sync.

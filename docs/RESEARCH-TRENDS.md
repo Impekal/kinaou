@@ -38,4 +38,16 @@ The project ledger is capped at 200 individually selected observations and 1 MiB
 - [Google Trends attribution guidance](https://support.google.com/trends/answer/4365538?hl=en). Preserve Google attribution; applicable Google terms still apply.
 - [Saxes upstream implementation and strict XML behavior](https://github.com/lddubeau/saxes).
 
-Next: authored source-bound briefs and explicit Director transfer, honest evidence review and research scope/filtering. Broader markets, language/subject evidence, longitudinal observations and legitimate competition/audience measurements remain open. No fabricated substitute when live access is unavailable.
+## Authored briefs and explicit Director transfer — #349
+
+Select 1–5 retained observations in Research, then write a working title, question, editorial angle and outstanding source checks. Save explicitly. The project keeps exact selected source snapshots, an authored revision and timestamp; history saves the prior project before persistence. Identical saves are idempotent. Maximum 32,000 UTF-8 bytes, title 120 characters, question/angle 2,000 each, outstanding checks 4,000. No automatic fact-verification or inference occurs.
+
+The edit baseline binds project identity, saved brief and retained ledger. A changed ledger/brief blocks stale saves, including reordered or removed source indices; unrelated script edits are preserved. A pristine form may refresh its source choices, but a dirty draft is retained and must be consciously discarded/reloaded if stale. Save failures retain the draft and never show success; a pre-save history snapshot may already exist. Leaving Research can lose an unsaved draft, so the ordinary Open Director action is disabled until saved.
+
+Director displays the saved title/question/uncertainties, revision and source count. A separate explicit acknowledgement permits replacement of its creative-brief draft. Nothing is auto-loaded/generated on navigation or reload; script, timeline and project metadata are unchanged by loading. Changed observed brief identity invalidates the acknowledgement, including a return to an earlier identity. Existing output-language/market profile controls generation; a German observation does not force German output.
+
+The actual local-model brief includes authored intent and bounded historical evidence JSON, with instructions to treat feed fields as data, preserve dates/attribution and avoid claiming verified facts, demand, competition, usage rights or best publishing times. Model outputs still require review. Saved sources are not a cryptographic generation receipt or proof that a model followed them; editing the creative draft can change its context. No model download or real inference was run for this integration.
+
+Acceptance: 17 new app tests, 1,843 total; executable client request confirms source data and explicit French output profile coexist. DE/EN/FR browser test covers failed save preserving draft, language changes, saved reload, explicit replacement of existing Director text, unchanged original project script, zero network calls and blocked source change. Synthetic browser sources are labelled test examples; #347 separately tested genuine public DE/FR RSS retrieval. Full CI including worker/render smoke passed. Disposable fixture/history/server removed.
+
+Next: honest evidence review and research scope/filtering. Broader markets, language/subject evidence, longitudinal observations and legitimate competition/audience measurements remain open. No fabricated substitute when live access is unavailable.
