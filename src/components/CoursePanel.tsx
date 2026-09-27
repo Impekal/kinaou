@@ -6,6 +6,7 @@ import type { PersistentVersionHistory } from '../core/versioning'
 import { useUiLanguage } from './UiLanguageProvider'
 import { CourseLessonEvidenceEditor } from './CourseLessonEvidenceEditor'
 import { CourseLessonExercisesEditor } from './CourseLessonExercisesEditor'
+import { CourseInstructorReviewPanel } from './CourseInstructorReviewPanel'
 import type { CourseExerciseDocument } from '../core/courseExercises'
 
 interface Props { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void; onOpenStudio: () => void }
@@ -85,6 +86,7 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio }:
       <small>{t('course.restoreHelp')}</small>
       {error && <div className="errorBox" role="alert">{t(errorKind)}<details><summary>{t('common.details')}</summary>{error}</details></div>}{message && <div className="successBox" role="status">{t(message)}</div>}
     </div>
+    <CourseInstructorReviewPanel key={project.id} project={project} dirty={dirty} history={history} onProjectChange={onProjectChange} />
     <div className="card note">{t('course.boundary')}</div>
   </section>
 }
