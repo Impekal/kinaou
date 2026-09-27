@@ -32,6 +32,8 @@ Implemented foundation (#185, #303, #305, #307, #309, #311): one project persist
 
 Course workflow target: audience/prerequisites → learning outcomes → modules → lectures → verified examples/demonstrations → scripts and narration → visuals/screen recordings → captions → practice and reviewed solutions → per-lecture media/resource exports → instructor review.
 
+Narration update (#315): saved lesson scripts now run through existing actual local Audio Studio adapters with explicit source/language binding, stale-source guards, historical audio attribution and protected retake continuity. Loading text does not start generation or change main project scripts/timelines. Real-worker tone execution and synthetic UI gates establish integration, not a new naturalness or instructional-quality acceptance. Lesson-aligned placement, captions and final course production remain open.
+
 Retained output update (#313): successful lesson exports now retain up to 1,000 project-scoped references / 4 MiB independently of the generic recent list. Historic outline context, safety-backed removal/reset and same-session save-only recovery are implemented. Reference retention and outline agreement are not media existence/integrity checks, complete backups or instructional-quality evidence. The private text package includes these references, not videos.
 
 - Retain course/module/lecture relationships and individual project/source/export references; one lecture must be replaceable without rebuilding the entire course.
