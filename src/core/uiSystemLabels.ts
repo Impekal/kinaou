@@ -11,6 +11,7 @@ const exactHistoryLabels: Record<string, UiMessageKey> = {
   'Before saving imported media': 'history.system.importedMedia',
   'Before saving generated voice': 'history.system.generatedVoice',
   'Before placing lesson narration': 'history.system.courseNarrationPlacement',
+  'Before lesson transcript captions': 'history.system.courseCaptions',
   'Before adding a caption': 'history.system.addCaption',
   'Before editing caption text': 'history.system.editCaption',
   'Before saving course outline': 'history.system.courseOutline',

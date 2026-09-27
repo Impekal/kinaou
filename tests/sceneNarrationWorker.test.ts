@@ -13,6 +13,8 @@ import { newCourseOutline, saveCourseOutline } from '../src/core/course'
 import { assertCourseNarrationVoice, bindCourseNarration, registerCourseNarration } from '../src/core/courseNarration'
 import { applyCourseNarrationPlacement, reviewCourseNarrationPlacement } from '../src/core/courseNarrationPlacement'
 import { createRenderPlan, preview1080pPreset } from '../src/core/render'
+import { registerTranscriptAsset } from '../src/core/transcripts'
+import { applyCourseTranscriptCaptions, reviewCourseTranscriptCaptions } from '../src/core/courseTranscriptCaptions'
 
 it('executes the narration session through the authenticated real worker using a clearly synthetic tone CLI fixture', async () => {
   // Contract/execution evidence only: this is not Piper inference or a speech-quality test.
@@ -31,7 +33,18 @@ writeFileSync(output+'.text', readFileSync(text));
 execFileSync('ffmpeg',['-v','error','-f','lavfi','-i','sine=frequency=440:duration=2','-c:a','pcm_s16le',output]);
 `)
   await chmod(cli, 0o700)
-  const worker = spawn(process.execPath, ['worker/mac-worker.mjs'], { env: { ...process.env, KINAOU_MANAGED_ROOT: root, KINAOU_WORKER_PORT: '43941', KINAOU_WORKER_TOKEN: 'narration-contract', KINAOU_PIPER_CLI: cli }, stdio: ['ignore', 'pipe', 'pipe'] })
+  // Deliberately fixed recognizer output verifies the real STT process/file contract,
+  // not whisper inference or recognized-word accuracy. The input remains a tone.
+  await writeFile(path.join(root, 'Models', 'ggml-fixture.bin'), 'TEST ONLY - NO STT MODEL')
+  const sttCli = path.join(temporary, 'transcript-fixture.mjs')
+  await writeFile(sttCli, `#!/usr/bin/env node
+import {writeFileSync,statSync} from 'node:fs';
+const args=process.argv.slice(2), input=args[args.indexOf('-f')+1], output=args[args.indexOf('-of')+1];
+if(statSync(input).size<1000)throw Error('Converted audio fixture missing');
+writeFileSync(output+'.json',JSON.stringify({result:{language:'de'},transcription:[{timestamps:{from:'00:00:00,200',to:'00:00:00,900'},text:'Guten Tag.'},{timestamps:{from:'00:00:01,100',to:'00:00:01,900'},text:'Überblick'}]}));
+`)
+  await chmod(sttCli, 0o700)
+  const worker = spawn(process.execPath, ['worker/mac-worker.mjs'], { env: { ...process.env, KINAOU_MANAGED_ROOT: root, KINAOU_WORKER_PORT: '43941', KINAOU_WORKER_TOKEN: 'narration-contract', KINAOU_PIPER_CLI: cli, KINAOU_WHISPER_CLI: sttCli }, stdio: ['ignore', 'pipe', 'pipe'] })
   let logs = ''
   worker.stdout.on('data', chunk => { logs += chunk })
   worker.stderr.on('data', chunk => { logs += chunk })
@@ -144,6 +157,36 @@ execFileSync('ffmpeg',['-v','error','-f','lavfi','-i','sine=frequency=440:durati
       for (let i = 0; i + 1 < pcm.length; i += 2) peak = Math.max(peak, Math.abs(pcm.readInt16LE(i)))
       if (audible) expect(peak).toBeGreaterThan(1000); else expect(peak).toBeLessThan(20)
     }
+    // Execute actual authenticated STT job/conversion/normalization, then align the
+    // returned segments to the course recording and preserve all original files.
+    let stt = await client.startStt(courseAudio.uri, 'KINAOU/Models/ggml-fixture.bin', 'de')
+    for (let i = 0; i < 200 && ['queued', 'running'].includes(stt.state); i++) {
+      await new Promise(resolve => setTimeout(resolve, 30)); stt = await client.sttStatus(stt.id)
+    }
+    expect(stt.state, stt.error).toBe('succeeded')
+    const transcriptBytes = await readFile(path.join(temporary, stt.transcriptPath!))
+    courseProject = registerTranscriptAsset(courseProject, courseAudio.id, stt)
+    const transcriptAsset = courseProject.assets.at(-1)!
+    courseProject = applyCourseTranscriptCaptions(courseProject, reviewCourseTranscriptCaptions(courseProject, transcriptAsset.id))
+    expect(courseProject.tracks.at(-1)!.clips.map(clip => [clip.startMs, clip.durationMs])).toEqual([[1200, 700], [2100, 800]])
+    const captionPlan = createRenderPlan(courseProject, { ...preview1080pPreset, width: 640, height: 360 }, 'KINAOU/Renders/course-transcript-captions.mp4')
+    const hasSubtitles = /\bsubtitles\s+V->V/.test(execFileSync('ffmpeg', ['-hide_banner', '-filters'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }))
+    if (process.env.CI) expect(hasSubtitles, 'Full CI requires libass/subtitles').toBe(true)
+    if (hasSubtitles) {
+      let captionRender = await client.startRender(captionPlan)
+      for (let i = 0; i < 300 && ['queued', 'running'].includes(captionRender.state); i++) {
+        await new Promise(resolve => setTimeout(resolve, 50)); captionRender = await client.renderStatus(captionRender.id)
+      }
+      expect(captionRender.state, captionRender.error).toBe('succeeded')
+      const output = path.join(temporary, captionPlan.outputRelativePath)
+      for (const [at, visible] of [[0.5, false], [1.5, true], [2.0, false], [2.5, true], [3.5, false]] as const) {
+        const pixels = execFileSync('ffmpeg', ['-v', 'error', '-ss', String(at), '-i', output, '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], { maxBuffer: 4 * 1024 * 1024 })
+        let white = 0
+        for (let i = 0; i < pixels.length; i += 3) if (pixels[i] > 180 && pixels[i + 1] > 180 && pixels[i + 2] > 180) white++
+        if (visible) expect(white).toBeGreaterThan(10); else expect(white).toBe(0)
+      }
+    }
+    expect(await readFile(path.join(temporary, stt.transcriptPath!))).toEqual(transcriptBytes)
     expect(await readFile(coursePath)).toEqual(courseBytes)
     expect(await readFile(generatedPath)).toEqual(generatedBytes)
     expect(await readFile(absolute)).toEqual(original)
