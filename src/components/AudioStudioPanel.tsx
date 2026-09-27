@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AssetPlacementControl } from './AssetPlacementControl'
+import { CourseNarrationPlacementControl } from './CourseNarrationPlacementControl'
 import type { KinaouProject } from '../core/project'
 import type { PersistentVersionHistory } from '../core/versioning'
 import { WorkerClient } from '../core/workerClient'
@@ -212,6 +213,8 @@ export function AudioStudioPanel({ project, history, workerUrl, workerToken, wor
       {empty && <div className="note" role="status">{t('audio.empty')}</div>}
       {error && <div className="errorBox" role="alert">{t('audio.error')}<details><summary>{t('common.details')}</summary>{error}</details></div>}
     </div>
-    {generated.length > 0 && <div className="card generatedVoices"><div className="eyebrow">{t('audio.assets')}</div>{generated.map(asset => <div key={asset.id}><span><strong>{String(asset.metadata.name)}</strong><small>{seconds(Number(asset.metadata.durationMs))}s · {String(asset.metadata.voiceId ?? asset.metadata.voicePath ?? asset.metadata.adapterId)} · {t('audio.take', { index: Number(asset.metadata.speechRetakeIndex ?? 1) })}</small>{courseSourceLabel(asset)}</span><div className="directorActions"><button className="secondaryButton" disabled={!available || locked || detecting || !selectedVoice || text.trim() !== String(asset.metadata.sourceText ?? '') || !courseRetakeAllowed(asset)} onClick={() => void generate(asset.id)}>{t('audio.retake')}</button><AssetPlacementControl project={project} asset={asset} onProjectChange={onProjectChange} /></div></div>)}</div>}
+    {generated.length > 0 && <div className="card generatedVoices"><div className="eyebrow">{t('audio.assets')}</div>{generated.map(asset => <div key={asset.id}><span><strong>{String(asset.metadata.name)}</strong><small>{seconds(Number(asset.metadata.durationMs))}s · {String(asset.metadata.voiceId ?? asset.metadata.voicePath ?? asset.metadata.adapterId)} · {t('audio.take', { index: Number(asset.metadata.speechRetakeIndex ?? 1) })}</small>{courseSourceLabel(asset)}</span><div className="directorActions"><button className="secondaryButton" disabled={!available || locked || detecting || !selectedVoice || text.trim() !== String(asset.metadata.sourceText ?? '') || !courseRetakeAllowed(asset)} onClick={() => void generate(asset.id)}>{t('audio.retake')}</button>{asset.metadata.courseNarrationSource !== undefined
+      ? <><CourseNarrationPlacementControl project={project} asset={asset} history={history} disabled={locked || detecting} onProjectChange={onProjectChange} /><details><summary>{t('course.voicePlace.manual')}</summary><AssetPlacementControl project={project} asset={asset} onProjectChange={onProjectChange} /></details></>
+      : <AssetPlacementControl project={project} asset={asset} onProjectChange={onProjectChange} />}</div></div>)}</div>}
   </section>
 }

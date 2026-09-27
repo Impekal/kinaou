@@ -11,6 +11,8 @@ import { PersistentVersionHistory } from '../src/core/versioning'
 import { ProjectRepository } from '../src/core/persistence'
 import { newCourseOutline, saveCourseOutline } from '../src/core/course'
 import { assertCourseNarrationVoice, bindCourseNarration, registerCourseNarration } from '../src/core/courseNarration'
+import { applyCourseNarrationPlacement, reviewCourseNarrationPlacement } from '../src/core/courseNarrationPlacement'
+import { createRenderPlan, preview1080pPreset } from '../src/core/render'
 
 it('executes the narration session through the authenticated real worker using a clearly synthetic tone CLI fixture', async () => {
   // Contract/execution evidence only: this is not Piper inference or a speech-quality test.
@@ -113,6 +115,35 @@ execFileSync('ffmpeg',['-v','error','-f','lavfi','-i','sine=frequency=440:durati
     expect(courseStarts).toBe(1); expect(courseStates.at(-1)?.phase).toBe('succeeded')
     expect(repository.load(courseProject.id)?.assets[0].metadata).toMatchObject({ durationMs: 2000, sourceText: binding.script, courseNarrationSource: { projectId: courseProject.id, course: binding.course } })
     expect(courseProject.script).toBe('Unchanged main script'); expect(courseProject.tracks).toHaveLength(0)
+    // Real timeline placement + FFmpeg output: silence before/after, full synthetic tone inside.
+    // Synthetic source only, not evidence of pronunciation, emotion or naturalness.
+    const visualPath = path.join(root, 'Assets', 'placement-test.mp4')
+    execFileSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=blue:size=160x90:rate=30:duration=5', '-pix_fmt', 'yuv420p', visualPath])
+    const courseAudio = courseProject.assets[0]
+    courseProject = parseProject({ ...courseProject, assets: [...courseProject.assets, { id: 'placement-visual', kind: 'video', uri: 'KINAOU/Assets/placement-test.mp4', managed: true, metadata: { durationMs: 5000 } }], tracks: [{ id: 'visual', type: 'video', name: 'Visual', clips: [{ id: 'visual-clip', assetId: 'placement-visual', startMs: 0, durationMs: 5000 }] }] })
+    const beforePlacement = structuredClone(courseProject)
+    courseProject = applyCourseNarrationPlacement(courseProject, reviewCourseNarrationPlacement(courseProject, courseAudio.id, null))
+    expect(courseProject.metadata).toEqual(beforePlacement.metadata)
+    expect(courseProject.tracks[0]).toEqual(beforePlacement.tracks[0])
+    const plan = createRenderPlan(courseProject, { ...preview1080pPreset, width: 320, height: 180 }, 'KINAOU/Renders/course-narration-placement.mp4')
+    let render = await client.startRender(plan)
+    for (let i = 0; i < 300 && ['queued', 'running'].includes(render.state); i++) {
+      await new Promise(resolve => setTimeout(resolve, 50)); render = await client.renderStatus(render.id)
+    }
+    expect(render.state, render.error).toBe('succeeded')
+    const renderedPath = path.join(temporary, plan.outputRelativePath)
+    const renderedDuration = Number(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', renderedPath], { encoding: 'utf8' }))
+    expect(Math.abs(renderedDuration - 5)).toBeLessThan(0.08)
+    // A track may legitimately end before the video. Decode from zero and pad only
+    // the measurement buffer, so an absent tail means silence, not a failed seek.
+    const decoded = execFileSync('ffmpeg', ['-v', 'error', '-i', renderedPath, '-af', 'apad', '-t', '5', '-vn', '-ac', '1', '-ar', '48000', '-f', 's16le', '-'])
+    for (const [at, audible] of [[0.3, false], [1.2, true], [2.8, true], [3.3, false]] as const) {
+      const pcm = decoded.subarray(Math.round(at * 48000) * 2, Math.round((at + 0.1) * 48000) * 2)
+      expect(pcm.length).toBeGreaterThan(100)
+      let peak = 0
+      for (let i = 0; i + 1 < pcm.length; i += 2) peak = Math.max(peak, Math.abs(pcm.readInt16LE(i)))
+      if (audible) expect(peak).toBeGreaterThan(1000); else expect(peak).toBeLessThan(20)
+    }
     expect(await readFile(coursePath)).toEqual(courseBytes)
     expect(await readFile(generatedPath)).toEqual(generatedBytes)
     expect(await readFile(absolute)).toEqual(original)
@@ -121,4 +152,4 @@ execFileSync('ffmpeg',['-v','error','-f','lavfi','-i','sine=frequency=440:durati
     await new Promise<void>(resolve => { if (worker.exitCode !== null) resolve(); else worker.once('close', () => resolve()) })
     await rm(temporary, { recursive: true, force: true })
   }
-}, 30000)
+}, 60000)
