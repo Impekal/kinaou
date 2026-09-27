@@ -10,6 +10,7 @@ import { CourseInstructorReviewPanel } from './CourseInstructorReviewPanel'
 import { CourseLessonMaterialsEditor } from './CourseLessonMaterialsEditor'
 import { CourseMaterialPackagePanel } from './CourseMaterialPackagePanel'
 import { CourseOutputIndexPanel } from './CourseOutputIndexPanel'
+import { CourseSubtitleExportPanel } from './CourseSubtitleExportPanel'
 import type { CourseExerciseDocument } from '../core/courseExercises'
 
 interface Props { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void; onOpenStudio: () => void; onOpenAudio?: () => void }
@@ -94,6 +95,7 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio, o
     <CourseInstructorReviewPanel key={project.id} project={project} dirty={dirty} history={history} onProjectChange={onProjectChange} />
     <CourseMaterialPackagePanel key={`materials-${project.id}`} project={project} dirty={dirty} />
     <CourseOutputIndexPanel key={`outputs-${project.id}`} project={project} dirty={dirty} history={history} onProjectChange={onProjectChange} />
+    <CourseSubtitleExportPanel key={`subtitles-${project.id}`} project={project} dirty={dirty} />
     <div className="card note">{t('course.boundary')}</div>
   </section>
 }
