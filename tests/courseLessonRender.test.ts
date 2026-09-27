@@ -13,6 +13,7 @@ import { CourseOutputPreflight, type CourseOutputCheckFeedback } from '../src/co
 import { prepareLessonDelivery, type LessonDeliveryRequest } from '../src/core/courseLessonDelivery'
 import { createHash } from 'node:crypto'
 import { reviewCourseDeliveryMaterials, useReviewedCourseDeliveryMaterials } from '../src/core/courseDeliveryMaterials'
+import { addCaption } from '../src/core/captions'
 
 const exec = promisify(execFile)
 const run = async (program: string, args: string[]) => (await exec(program, args, { encoding: 'buffer', maxBuffer: 4 * 1024 * 1024 })).stdout
@@ -123,10 +124,14 @@ it('exports separate lessons through the real worker with correct retimed frames
     lesson.script = '\ufeff  Bonjour 🌍\r\nPRIVATE_SCRIPT'
     lesson.materials = [{ id: 'handout', title: 'Handout', audience: 'learner', body: 'Saved handout' }]
     lesson.exercises = [{ id: 'exercise', title: 'Practice', prompt: 'Question?', hint: 'Hint', solution: 'PRIVATE_ANSWER', criteria: 'PRIVATE_RUBRIC' }]
-    const authored = saveCourseOutline(project, outline), materialReview = await reviewCourseDeliveryMaterials(authored, retained[1].jobId)
+    const authoredBase = saveCourseOutline(project, outline)
+    authoredBase.tracks = [...authoredBase.tracks, { id: 'delivery-captions', type: 'caption', name: 'Delivery captions', clips: [], muted: false, locked: false }]
+    const authored = addCaption(addCaption(authoredBase, { text: 'Bonjour <b>🌍</b>', startMs: 100, durationMs: 200 }), { text: 'Fin', startMs: 400, durationMs: 200 })
+    const materialReview = await reviewCourseDeliveryMaterials(authored, retained[1].jobId, { includeSubtitles: true })
     const richRequest = useReviewedCourseDeliveryMaterials(authored, materialReview, prepareLessonDelivery(authored, retained[1].jobId, true), true)
     const rich = await awaitDelivery(richRequest)
-    expect(rich.state, rich.error).toBe('ready'); expect(rich.result!.files).toHaveLength(5)
+    expect(rich.state, rich.error).toBe('ready'); expect(rich.result!.files).toHaveLength(6)
+    expect(richRequest.schemaVersion).toBe(3); expect(richRequest.materials!.subtitles).toEqual({ cueCount: 2, clippedCues: 1 })
     expect(richRequest.materials!.source.context.outlineRevision).toBe(richRequest.export.courseLesson.outlineRevision + 1)
     expect(await readFile(path.join(root, rich.result!.mediaPath))).toEqual(firstOutput)
     for (const file of richRequest.materials!.files) {
@@ -136,6 +141,11 @@ it('exports separate lessons through the real worker with correct retimed frames
     }
     const richManifest = JSON.parse(await readFile(path.join(root, rich.result!.manifestPath), 'utf8'))
     expect(richManifest.request.materials.source.context.outlineRevision).toBe(richRequest.materials!.source.context.outlineRevision)
+    const subtitlePath = path.join(root, rich.result!.directory, 'learner/subtitles.vtt'), subtitleBytes = await readFile(subtitlePath)
+    const subtitleProbe = JSON.parse((await run('ffprobe', ['-v', 'error', '-show_packets', '-of', 'json', subtitlePath])).toString())
+    expect(subtitleProbe.packets.map((packet: { pts_time: string; duration_time: string }) => [Number(packet.pts_time), Number(packet.duration_time)])).toEqual([[0.1, 0.2], [0.4, 0.1]])
+    await writeFile(subtitlePath, 'WEBVTT\n\n'); expect((await client.lessonDeliveryStatus(richRequest)).state).toBe('integrityFailed')
+    await writeFile(subtitlePath, subtitleBytes); expect((await client.lessonDeliveryStatus(richRequest)).state).toBe('ready')
     const worksheet = path.join(root, rich.result!.directory, 'learner/worksheet.txt'), originalWorksheet = await readFile(worksheet)
     await writeFile(worksheet, 'Changed'); expect((await client.lessonDeliveryStatus(richRequest)).state).toBe('integrityFailed')
     await writeFile(worksheet, originalWorksheet); expect((await client.lessonDeliveryStatus(richRequest)).state).toBe('ready')

@@ -7,13 +7,13 @@ import { courseDeliveryMaterialLimits, lessonDeliveryMaterialsSchema } from './c
 export const maxLessonDeliveryBytes = 8 * 1024 ** 3
 const identity = z.string().min(1).max(200).refine(value => value === value.trim() && !/[\x00-\x1f\x7f]/.test(value))
 export const lessonDeliveryRequestSchema = z.object({
-  schemaVersion: z.union([z.literal(1), z.literal(2)]), requestId: z.string().regex(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/),
+  schemaVersion: z.union([z.literal(1), z.literal(2), z.literal(3)]), requestId: z.string().regex(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/),
   projectId: identity, acknowledgePrivateMetadata: z.literal(true), export: exportReceiptSchema.extend({ courseLesson: courseExportContextSchema }).strict(),
   materials: lessonDeliveryMaterialsSchema.optional()
 }).strict().superRefine((value, ctx) => {
   const { materials, ...base } = value, encoder = new TextEncoder()
   if (encoder.encode(JSON.stringify(base)).length > 48 * 1024 || encoder.encode(JSON.stringify(value)).length > courseDeliveryMaterialLimits.requestBytes) ctx.addIssue({ code: 'custom', message: 'Delivery request size limit exceeded' })
-  if ((value.schemaVersion === 2) !== !!materials) ctx.addIssue({ code: 'custom', message: 'Version 2 requires reviewed materials; version 1 is video-only' })
+  if ((value.schemaVersion !== 1) !== !!materials || (value.schemaVersion === 3) !== !!materials?.subtitles) ctx.addIssue({ code: 'custom', message: 'Version 1 is video-only; version 2 requires texts; version 3 requires reviewed subtitles' })
   if (materials) {
     const source = materials.source, original = value.export.courseLesson
     if (['courseId','moduleId','lessonId','language'].some(key => source.context[key as keyof typeof original] !== original[key as keyof typeof original]) || source.range.inMs !== value.export.range.inMs || source.range.outMs !== value.export.range.outMs) ctx.addIssue({ code: 'custom', message: 'Material context does not match selected video identity/language/range' })

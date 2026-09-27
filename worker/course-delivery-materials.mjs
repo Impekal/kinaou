@@ -2,9 +2,10 @@ import crypto from 'node:crypto'
 import { constants } from 'node:fs'
 import { lstat, mkdir, open, realpath } from 'node:fs/promises'
 import path from 'node:path'
+import { inspectDeliverySubtitles } from './course-delivery-subtitles.mjs'
 export const MAX_DELIVERY_MATERIAL_BYTES = 512 * 1024
 export const MAX_DELIVERY_REQUEST_BYTES = 1536 * 1024
-const filePath = /^(?:learner\/(?:worksheet|material-[a-zA-Z0-9-]{1,100})\.txt|instructor\/(?:script|answer-key|material-[a-zA-Z0-9-]{1,100})\.txt|instructor\/lesson\.json)$/
+const filePath = /^(?:learner\/(?:worksheet|material-[a-zA-Z0-9-]{1,100})\.txt|learner\/subtitles\.vtt|instructor\/(?:script|answer-key|material-[a-zA-Z0-9-]{1,100})\.txt|instructor\/lesson\.json)$/
 const digest = value => crypto.createHash('sha256').update(value).digest('hex')
 export function validateDeliveryMaterials(value, receipt) {
   const source = value?.source, context = source?.context, original = receipt.courseLesson
@@ -21,7 +22,7 @@ export function validateDeliveryMaterials(value, receipt) {
   normalizedContext.language = context.language
   if (source.range?.inMs !== receipt.range.inMs || source.range?.outMs !== receipt.range.outMs || !/^[a-f0-9]{64}$/.test(source.projectMetadataSha256)
     || typeof source.preparedAt !== 'string' || !Number.isFinite(Date.parse(source.preparedAt)) || new Date(source.preparedAt).toISOString() !== source.preparedAt) throw Error('Invalid material source snapshot')
-  if (!Array.isArray(value.files) || !value.files.length || value.files.length > 14) throw Error('Material file count exceeds 14')
+  if (!Array.isArray(value.files) || !value.files.length || value.files.length > (value.subtitles ? 15 : 14)) throw Error('Material file count exceeds limit')
   let total = 0; const names = new Set()
   const files = value.files.map(file => {
     if (typeof file?.path !== 'string' || !filePath.test(file.path) || names.has(file.path.toLowerCase())) throw Error('Unsafe, duplicate or wrong-audience material path')
@@ -32,7 +33,15 @@ export function validateDeliveryMaterials(value, receipt) {
     if (file.sha256 !== digest(bytes)) throw Error('Reviewed material hash does not match its text')
     return { path: file.path, text: file.text, sha256: file.sha256 }
   })
-  return { acknowledgeTextVideoMatch: true, source: { context: normalizedContext, range: { inMs: source.range.inMs, outMs: source.range.outMs }, projectMetadataSha256: source.projectMetadataSha256, preparedAt: source.preparedAt }, files }
+  const subtitleFile = files.find(file => file.path === 'learner/subtitles.vtt')
+  if (!!subtitleFile !== !!value.subtitles) throw Error('Subtitle metadata/file mismatch')
+  let subtitles
+  if (subtitleFile) {
+    const parsed = inspectDeliverySubtitles(subtitleFile.text, source.range.outMs - source.range.inMs)
+    if (parsed.cueCount !== value.subtitles.cueCount || !Number.isSafeInteger(value.subtitles.clippedCues) || value.subtitles.clippedCues < 0 || value.subtitles.clippedCues > parsed.cueCount) throw Error('Invalid subtitle counts')
+    subtitles = { cueCount: parsed.cueCount, clippedCues: value.subtitles.clippedCues }
+  }
+  return { acknowledgeTextVideoMatch: true, source: { context: normalizedContext, range: { inMs: source.range.inMs, outMs: source.range.outMs }, projectMetadataSha256: source.projectMetadataSha256, preparedAt: source.preparedAt }, files, ...(subtitles ? { subtitles } : {}) }
 }
 export async function writeDeliveryMaterials(folder, base, materials, owned, directories, hashFile) {
   const created = new Set(), results = []
@@ -61,7 +70,7 @@ export async function verifyDeliveryMaterials(folder, base, materials, files, ha
   }
 }
 export const materialDeliveryReadme = {
-  en: 'PRIVATE KINAOU LESSON PACKAGE\nVideo and reviewed saved texts. learner/ contains authored learner materials and worksheets; instructor/ contains private scripts, answers and saved lesson notes. Root records also contain private text and paths: NEVER share this whole package unchanged with learners. Inspect learner-authored hints/materials for answer disclosure. Recheck all hashes before delivery. Metadata review does not authenticate expertise or lock the original video. No separate subtitle file or full source-project backup; no teaching/platform approval.\n',
-  de: 'PRIVATES KINAOU-LEKTIONSPAKET\nVideo und geprüfte gespeicherte Texte. learner/ enthält Lernmaterialien und Arbeitsblätter; instructor/ enthält private Skripte, Lösungen und Lektionsnotizen. Auch die Hauptverzeichnis-Belege enthalten private Texte und Pfade: Dieses Gesamtpaket NIE unverändert an Lernende weitergeben. Hinweise/Lernmaterialien auf verratene Antworten prüfen. Vor Weitergabe alle Hashes erneut prüfen. Metadatenprüfung bestätigt weder Fachwissen noch unverändertes Originalvideo. Keine separate Untertiteldatei, kein vollständiges Quellprojektbackup, keine fachliche/Plattformfreigabe.\n',
-  fr: 'DOSSIER PRIVÉ DE LEÇON KINAOU\nVidéo et textes enregistrés relus. learner/ contient supports et exercices ; instructor/ contient scripts, corrigés et notes privés. Les documents à la racine contiennent aussi textes et chemins privés : ne partagez JAMAIS ce dossier complet tel quel avec les apprenants. Vérifiez que les indices/supports ne dévoilent pas les réponses. Revérifiez toutes les empreintes. La revue des métadonnées ne certifie ni expertise ni vidéo originale inchangée. Sans sous-titres séparés ni sauvegarde complète du projet ; aucune validation pédagogique/de plateforme.\n'
+  en: 'PRIVATE KINAOU LESSON PACKAGE\nVideo and reviewed saved texts. learner/ contains authored learner materials and worksheets; instructor/ contains private scripts, answers and saved lesson notes. Root records also contain private text and paths: NEVER share this whole package unchanged with learners. Inspect learner-authored hints/materials for answer disclosure. Recheck all hashes before delivery. Metadata review does not authenticate expertise or lock the original video. Subtitles only when listed as learner/subtitles.vtt; compare current-edit timing to the actual video. No full source-project backup; no teaching/platform approval.\n',
+  de: 'PRIVATES KINAOU-LEKTIONSPAKET\nVideo und geprüfte gespeicherte Texte. learner/ enthält Lernmaterialien und Arbeitsblätter; instructor/ enthält private Skripte, Lösungen und Lektionsnotizen. Auch die Hauptverzeichnis-Belege enthalten private Texte und Pfade: Dieses Gesamtpaket NIE unverändert an Lernende weitergeben. Hinweise/Lernmaterialien auf verratene Antworten prüfen. Vor Weitergabe alle Hashes erneut prüfen. Metadatenprüfung bestätigt weder Fachwissen noch unverändertes Originalvideo. Untertitel nur wenn als learner/subtitles.vtt aufgeführt; aktuelle Schnittzeiten gegen das tatsächliche Video prüfen. Kein vollständiges Quellprojektbackup, keine fachliche/Plattformfreigabe.\n',
+  fr: 'DOSSIER PRIVÉ DE LEÇON KINAOU\nVidéo et textes enregistrés relus. learner/ contient supports et exercices ; instructor/ contient scripts, corrigés et notes privés. Les documents à la racine contiennent aussi textes et chemins privés : ne partagez JAMAIS ce dossier complet tel quel avec les apprenants. Vérifiez que les indices/supports ne dévoilent pas les réponses. Revérifiez toutes les empreintes. La revue des métadonnées ne certifie ni expertise ni vidéo originale inchangée. Sous-titres uniquement si learner/subtitles.vtt est présent ; comparez les temps du montage courant à la vidéo réelle. Sans sauvegarde complète du projet ; aucune validation pédagogique/de plateforme.\n'
 }

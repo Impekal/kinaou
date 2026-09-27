@@ -91,6 +91,36 @@ function withMaterials() {
   ].map(file => ({ ...file, sha256: crypto.createHash('sha256').update(file.text).digest('hex') })) }
   return input
 }
+function withSubtitles() {
+  const input = withMaterials(); input.schemaVersion = 3
+  const text = 'WEBVTT\n\n1\n00:00:00.000 --> 00:00:01.000\nBonjour &lt;b&gt;🌍&lt;/b&gt;\n'
+  input.materials.files.push({ path: 'learner/subtitles.vtt', text, sha256: crypto.createHash('sha256').update(text).digest('hex') })
+  input.materials.subtitles = { cueCount: 1, clippedCues: 1 }; return input
+}
+test('retains actual v3 subtitle bytes/counts and rehashes them after worker restart without resubmission', () => setup(async ({ root, runtime, source }) => {
+  const input = withSubtitles(); await runtime.start(input); const job = await finish(runtime, input)
+  assert.equal(job.state, 'ready'); assert.equal(job.request.schemaVersion, 3)
+  const folder = path.join(root, 'Renders/CourseDeliveries', input.requestId), subtitle = path.join(folder, 'learner/subtitles.vtt')
+  assert.equal(await readFile(subtitle, 'utf8'), input.materials.files[2].text)
+  const restarted = createLessonDeliveryRuntime({ root, probe: () => { throw Error('No new copy') } })
+  assert.equal((await restarted.start(input)).state, 'ready')
+  assert.deepEqual((await restarted.status(input)).request.materials.subtitles, { cueCount: 1, clippedCues: 1 })
+  await writeFile(subtitle, 'WEBVTT\n\n'); assert.equal((await restarted.status(input)).state, 'integrityFailed')
+  assert.deepEqual(await readdir(path.dirname(folder)), [input.requestId]); assert.deepEqual(await readFile(source), bytes)
+}))
+for (const kind of ['version','file','metadata','count','clipping','format','range']) test(`rejects invalid subtitle ${kind} before output creation`, () => setup(async ({ runtime, renders }) => {
+  const input = withSubtitles()
+  if (kind === 'version') input.schemaVersion = 2
+  if (kind === 'file') input.materials.files.pop()
+  if (kind === 'metadata') delete input.materials.subtitles
+  if (kind === 'count') input.materials.subtitles.cueCount = 2
+  if (kind === 'clipping') input.materials.subtitles.clippedCues = 2
+  if (kind === 'format' || kind === 'range') {
+    const file = input.materials.files[2]; file.text = kind === 'format' ? 'not WebVTT' : file.text.replace('00:00:01.000', '00:00:02.000')
+    file.sha256 = crypto.createHash('sha256').update(file.text).digest('hex')
+  }
+  await assert.rejects(runtime.start(input)); assert.deepEqual(await readdir(renders), ['source.mp4'])
+}))
 test('writes exact reviewed text bytes, separates answers and rehashes all payloads after restart', () => setup(async ({ root, source, runtime }) => {
   const input = withMaterials(); await runtime.start(input); const job = await finish(runtime, input)
   assert.equal(job.state, 'ready'); assert.equal(job.result.files.length, 2)

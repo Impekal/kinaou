@@ -5,12 +5,13 @@ import { projectCourseOutputIndex } from './exportHistory'
 import type { KinaouProject } from './project'
 import { lessonDeliveryRequestSchema, type LessonDeliveryRequest } from './courseLessonDelivery'
 import { lessonDeliveryMaterialsSchema, type LessonDeliveryMaterials } from './courseDeliveryMaterialSchema'
+import { reviewCourseSubtitleExport, downloadReviewedCourseSubtitles } from './courseSubtitleExport'
 
-export interface CourseDeliveryMaterialReview { readonly source: LessonDeliveryMaterials['source']; readonly files: LessonDeliveryMaterials['files']; readonly exportRevision: number; readonly bytes: number }
+export interface CourseDeliveryMaterialReview { readonly source: LessonDeliveryMaterials['source']; readonly files: LessonDeliveryMaterials['files']; readonly exportRevision: number; readonly bytes: number; readonly subtitles?: LessonDeliveryMaterials['subtitles'] }
 const reviews = new WeakMap<CourseDeliveryMaterialReview, { baseline: string; jobId: string; materials: LessonDeliveryMaterials }>()
 function freeze<T>(value: T): T { if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value) } return value }
 async function digest(text: string) { return [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)))].map(byte => byte.toString(16).padStart(2, '0')).join('') }
-export async function reviewCourseDeliveryMaterials(project: KinaouProject, jobId: string): Promise<CourseDeliveryMaterialReview> {
+export async function reviewCourseDeliveryMaterials(project: KinaouProject, jobId: string, options: { includeSubtitles?: boolean } = {}): Promise<CourseDeliveryMaterialReview> {
   const snapshot = structuredClone(project), baseline = JSON.stringify(project), course = projectCourse(snapshot)
   const receipt = projectCourseOutputIndex(snapshot).find(entry => entry.jobId === jobId), context = receipt?.courseLesson
   const module = course?.modules.find(entry => entry.id === context?.moduleId), lesson = module?.lessons.find(entry => entry.id === context?.lessonId)
@@ -26,9 +27,15 @@ export async function reviewCourseDeliveryMaterials(project: KinaouProject, jobI
     files.push({ path: 'learner/worksheet.txt', text: formatCourseExercises(course, lesson.id, 'worksheet').text })
     files.push({ path: 'instructor/answer-key.txt', text: formatCourseExercises(course, lesson.id, 'answer-key').text })
   }
+  let subtitles
+  if (options.includeSubtitles) {
+    const captionReview = reviewCourseSubtitleExport(snapshot, lesson.id)
+    files.push({ path: 'learner/subtitles.vtt', text: downloadReviewedCourseSubtitles(snapshot, captionReview).text })
+    subtitles = { cueCount: captionReview.cues.length, clippedCues: captionReview.clippedCues }
+  }
   const source = { context: courseExportContextSchema.parse({ courseId: course.id, moduleId: module.id, lessonId: lesson.id, courseTitle: course.title, moduleTitle: module.title, lessonTitle: lesson.title, outlineRevision: course.revision, language: course.language }), range: lesson.range, projectMetadataSha256: await courseInstructorSignature(snapshot), preparedAt: new Date().toISOString() }
-  const materials = lessonDeliveryMaterialsSchema.parse({ acknowledgeTextVideoMatch: true, source, files: await Promise.all(files.map(async file => ({ ...file, sha256: await digest(file.text) }))) })
-  const review = freeze({ source: materials.source, files: materials.files, exportRevision: context.outlineRevision, bytes: materials.files.reduce((sum, file) => sum + new TextEncoder().encode(file.text).length, 0) })
+  const materials = lessonDeliveryMaterialsSchema.parse({ acknowledgeTextVideoMatch: true, source, ...(subtitles ? { subtitles } : {}), files: await Promise.all(files.map(async file => ({ ...file, sha256: await digest(file.text) }))) })
+  const review = freeze({ source: materials.source, files: materials.files, ...(subtitles ? { subtitles } : {}), exportRevision: context.outlineRevision, bytes: materials.files.reduce((sum, file) => sum + new TextEncoder().encode(file.text).length, 0) })
   reviews.set(review, { baseline, jobId, materials }); return review
 }
 export function useReviewedCourseDeliveryMaterials(project: KinaouProject, review: CourseDeliveryMaterialReview, request: LessonDeliveryRequest, acknowledged: boolean): LessonDeliveryRequest {
@@ -36,5 +43,5 @@ export function useReviewedCourseDeliveryMaterials(project: KinaouProject, revie
   if (!record || !acknowledged || record.baseline !== JSON.stringify(project) || request.projectId !== project.id || request.export.jobId !== record.jobId) throw Error('Review the current lesson files and their video match again')
   const receipt = projectCourseOutputIndex(project).find(entry => entry.jobId === record.jobId)
   if (JSON.stringify(receipt) !== JSON.stringify(request.export)) throw Error('Material review belongs to another export receipt')
-  return lessonDeliveryRequestSchema.parse({ ...request, schemaVersion: 2, materials: record.materials })
+  return lessonDeliveryRequestSchema.parse({ ...request, schemaVersion: record.materials.subtitles ? 3 : 2, materials: record.materials })
 }

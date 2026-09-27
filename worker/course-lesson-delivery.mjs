@@ -16,7 +16,7 @@ const deliveryReadme = {
 }
 function text(value, limit, allowLines = false) { if (typeof value !== 'string' || !value.trim() || value !== value.trim() || value.length > limit || (allowLines ? /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/ : /[\x00-\x1f\x7f]/).test(value)) throw Error('Invalid delivery text'); return value }
 export function validateLessonDeliveryRequest(value) {
-  if (!value || ![1,2].includes(value.schemaVersion) || value.acknowledgePrivateMetadata !== true || !uuid.test(value.requestId)) throw Error('Invalid or unacknowledged lesson delivery request')
+  if (!value || ![1,2,3].includes(value.schemaVersion) || value.acknowledgePrivateMetadata !== true || !uuid.test(value.requestId)) throw Error('Invalid or unacknowledged lesson delivery request')
   const raw = value.export?.courseLesson
   if (!raw || !Number.isSafeInteger(raw.outlineRevision) || raw.outlineRevision < 1 || !['de', 'en', 'fr'].includes(raw.language)) throw Error('Invalid lesson context')
   const courseLesson = {}
@@ -27,7 +27,8 @@ export function validateLessonDeliveryRequest(value) {
   const normalized = { schemaVersion: value.schemaVersion, requestId: value.requestId, projectId: text(value.projectId, 200), acknowledgePrivateMetadata: true, export: { ...validatePublishExportReceipt(value.export), courseLesson } }
   if (Buffer.byteLength(JSON.stringify(normalized)) > 48 * 1024) throw Error('Delivery request exceeds 48 KiB')
   if (value.schemaVersion === 1 && value.materials !== undefined) throw Error('Reviewed materials require request version 2')
-  if (value.schemaVersion === 2) normalized.materials = validateDeliveryMaterials(value.materials, normalized.export)
+  if (value.schemaVersion !== 1) normalized.materials = validateDeliveryMaterials(value.materials, normalized.export)
+  if ((value.schemaVersion === 3) !== !!normalized.materials?.subtitles) throw Error('Reviewed subtitle files require request version 3')
   if (Buffer.byteLength(JSON.stringify(normalized)) > MAX_DELIVERY_REQUEST_BYTES) throw Error('Delivery request size limit exceeded')
   return normalized
 }
