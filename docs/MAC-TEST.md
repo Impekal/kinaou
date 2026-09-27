@@ -16,6 +16,12 @@ This sends the chosen market and network request/IP to Google's public RSS endpo
 
 #349 was exercised with disposable, clearly synthetic observations. Select a retained observation, fill working title/question/angle/outstanding checks and save. A deliberately failed test save must preserve the draft without success. Switching DE/EN/FR must preserve authored text. Reload the saved project, open Director, and verify the existing creative draft is unchanged until the explicit replace checkbox and action. The loaded draft must include historical source/market/timestamps and unverified-data limits. Project script/timeline must stay unchanged, with zero model/network calls. The Director output-language profile is independent of source country. A changed retained ledger while editing must block stale save rather than retarget selected indices. This is workflow verification, not model-output/fact-check quality acceptance.
 
+## Optional local publication-plan acceptance — 2026-09-27
+
+#351 already passed isolated real main/vertical rendering, plan persistence and calendar-file tests. In Publish, choose retained exports, a future local time, explicit IANA zone, market and rationale. Berlin 2026-10-25 02:30 must be rejected as ambiguous; 2026-10-24 18:00 plus 24 elapsed hours must display the Short at October 25 17:00. Review and confirm before saving. A failed save must preserve review for save-only retry. Reload must restore the saved plan with no network call; explicit saved-form loading permits editing. Changed project context hides the old proposal; missing recent receipts warn without pretending to check files.
+
+Download the private ICS only intentionally. It must contain tentative UTC events and no invitations/alarms; this does not schedule any upload or post. Actual calendar import is a separate optional user action and was not performed during acceptance. See PUBLICATION-PLANNING.md for exact scope and privacy limits. No SSD/model action is required.
+
 ## Stage 0 — Prerequisites
 
 Check Node.js (22+ required) and git:

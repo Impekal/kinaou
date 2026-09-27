@@ -12,6 +12,10 @@ Current acceptance summary (2026-09-27): completion points 1–3 have passed the
 
 #349 adds bounded selected-source briefs and explicit Director draft transfer. Title/question/angle/outstanding-check fields represent the author's editorial intent, not verified expertise or source truth. Exact historical observations and dates stay attached; the actual generation prompt warns against treating feed text as instructions or measurements of video demand. Output language remains the Director profile choice. Neither saving nor loading starts inference, changes the script/timeline, verifies facts or certifies resulting model output. Whole research point 5 remains open.
 
+### Main-video/Short timing experiments — 2026-09-27
+
+#351 adds explicitly reviewed local timing plans using retained exports, IANA zone, market and authored rationale. Default Short offsets are editable experiments, not evidence-based best-time advice. DST gaps/folds fail instead of silently shifting ambiguous input; elapsed-hour offsets show both UTC and local times. Private tentative ICS events are manual calendar aids, not platform scheduling, audience measurements, upload confirmation or eligibility. Real render/metadata/file tests verify workflow only. See PUBLICATION-PLANNING.md; whole points 6 and 9 remain open.
+
 ## Photo-driven, video-driven and fully generated avatars
 
 - Three explicit source modes are required: an authorized reference photo, an authorized reference video, or a fully generated fictional identity with no real-person reference. All three target identity-consistent, believable performance, expressions, motion and audio-driven lip sync.
