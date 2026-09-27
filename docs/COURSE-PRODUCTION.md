@@ -15,6 +15,16 @@ Saved outlines travel with ordinary project serialization, drive backups and Ver
 
 ## Boundaries to review
 
+### Lesson materials and separate ZIP packages (#311)
+
+Author text resources under **Lesson materials**, save with the outline, and explicitly select **Learners** for shareable resources. New resources default to **Instructor only**. Limits: 10 per lesson, 20,000 body characters each, 400,000 serialized material characters per course. Existing projects remain compatible; revisions/history and stale-review detection apply. Removing a material changes metadata only.
+
+**Download learner ZIP** includes only learner-visible material fields and exercise worksheets. It excludes solution/rubric fields, scripts, internal resources and source/review notes. Authored hints or learner materials can still reveal answers: inspect before sharing. **Download private instructor ZIP** includes those private fields and requires a fresh explicit acknowledgement. It also includes the saved outline, self-reported review states and retained course-video references, not video files. The generic receipt list still retains only 50 entries. Review state is not certification or file-byte validation.
+
+Both packages include an ID-based manifest and course-language README. Incomplete selected materials/exercises block packaging rather than silently disappearing. Unsaved drafts block downloads; changed project/draft context discards late results. Packages contain UTF-8 TXT/JSON only, with exact authored content, safe paths, CRC32 and bounded stored ZIP headers following [PKWARE APPNOTE](https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT). Maximum 4,096 entries and 16 MiB total; no runtime dependency, encryption, external fetch, executable content, full-project backup or platform approval. A download request is not claimed as browser-native save confirmation.
+
+Acceptance: 22 new regressions, 1,427 app tests, 224 local worker tests, build/syntax passed; full CI 36284693332 includes render smoke. System unzip verifies actual archives, CRC rejection, safe paths, exact Unicode/BOM and learner/private separation. Browser DE/FR/EN, safe defaults, failed save/retry/reload, edit-reset acknowledgement and actual native downloads passed. Final console clean after correcting duplicate sibling keys. Tests use synthetic content, not verified teaching material.
+
 ### Explicit instructor review records (#309)
 
 After saving the outline, select a lesson under **Instructor review**. Enter the actual reviewer's name and concrete scope/limitations, and explicitly confirm the content/source, demonstration and exercise/material checks. Only record work genuinely performed. No boxes are preselected. This stores a self-reported assertion with a timestamp, not identity authentication, tamper-proof certification, automatic expert approval or platform eligibility.
@@ -53,7 +63,7 @@ Limits: 20 sources and 10 demonstrations per lesson, 4,000 characters per notes/
 - Scripts preserve authored whitespace and language. The optional field is backward-compatible with existing outlines; limits are 20,000 characters per lesson and 200,000 for all course scripts. Script edits increment the outline revision and make prior course-export review stale. This is not pedagogical sign-off or proof that the selected MP4 contains that script. Existing exports are not overwritten or relabelled.
 - Course outline limits: 50 modules, 100 lessons per module and 200 lessons total. The existing project export history remains bounded to its newest **50 receipts**; older MP4s are not deleted, but a permanent per-lesson archive is still needed for very large courses.
 - Course identities are retained in the **project export receipt**. Generic Publish can handle the MP4, but its current sidecar is not a dedicated course/material bundle and does not preserve the new structured course context. Do not claim a ready-to-upload course package.
-- Lesson objectives are authored planning text. They do not become narration, automatically verified learning outcomes or a proof that a demonstration works. No exercise, solution, materials bundle, instructor sign-off or automatic publication is implemented here.
+- Lesson objectives are authored planning text. They do not become narration, automatically verified learning outcomes or proof that a demonstration works. Exercise/solution authoring, text-only material bundles and self-reported instructor records now exist; actual expert verification, media-inclusive course bundles and automatic publication are not provided by these features.
 
 ## Verification
 
@@ -62,6 +72,8 @@ The full PR gate passed 289 app tests, 82 native worker tests, production build 
 The local browser displayed the new Course entry/form and language options on a separate test origin. The full save/reload/export behavior is covered by automated tests; the optional manual checklist is in MAC-TEST.md. No real teaching course has been reviewed or approved.
 
 ## Next course slices
+
+Current after #311: authored scripts, sources/demo records, exercises/solutions, explicit instructor records and text-resource ZIP delivery are implemented. Next: retained per-lesson output references beyond the generic receipt window, then reviewed script-to-production integration and actual course-quality acceptance. A text bundle is not a complete media archive. Older next-step paragraphs below are dated history.
 
 PR #211 verification: full 498 application + 82 native tests and build/syntax gate passed. Sixteen regressions cover stale revision/range/project identity, removed/ineligible lessons, DE/EN/FR controls and stable range diagnostic codes. Isolated localhost:5192 with a synthetic video and temporary worker verified language-switch selection retention, disabled future bounds, stale blocking after a 4→3s trim, explicit re-review, a real 2s Full-HD MP4 and exact 1–3s receipt with unchanged names/revision/course language, custom-range deselection and receipt persistence after reload. Browser console clean; test processes stopped. Existing real-worker retiming/audio/independent-lesson execution tests remain green.
 

@@ -14,7 +14,15 @@ The existing hourly heartbeat `kinaou-autonom-weiterbauen` is PAUSED at the user
 
 Check the available Codex usage windows at safe slice boundaries. At **85% used / 15% remaining** in any available Codex window, start no new slice; finish the already-started bounded slice, tests, PR/merge and separate documentation as far as the remaining allowance permits, then provide a short copyable prompt for continuing in normal ChatGPT with the Mac terminal and actual repository evidence. Do not promise immunity from a hard limit. Normal ChatGPT chat limits are not visible through the Codex usage tool. Last checked during instructor-review work: Codex weekly 17% used, 83% remaining. Never redeem a reset credit without explicit confirmation. Heartbeat stays paused.
 
-## Latest merged handoff — explicit instructor review records
+## Latest merged handoff — learner and private instructor material packages
+
+[PR #311](https://github.com/Impekal/kinaou/pull/311) merged as `03da808fd1a810c4983276d73f2168d4d1e97ddd` after full [CI 36284693332](https://github.com/Impekal/kinaou/actions/runs/36284693332), including render smoke. Lessons now persist bounded authored text materials, private to the instructor by default. Saved-only ZIP downloads separate learner materials/worksheets from private scripts, solutions, internal materials and review/source notes. Instructor download requires an unchecked-by-default acknowledgement that resets on edits. Both packages disclose draft status, no media/file fetching, no encryption, no complete backup and no platform approval. Course language controls generated headers; original Unicode and whitespace remain exact.
+
+Acceptance: 1,427 app tests (22 new), 224 local worker tests, build and JS/Swift syntax passed; full remote gate includes the locally unavailable libass smoke. Native browser downloads were read back with system `unzip`: learner ZIP had no private test markers, instructor ZIP included the intended private fields, both passed CRC checks. DE/FR/EN, safe defaults, failure/retry, reload and acknowledgement reset passed. A duplicate React sibling key found in browser testing was fixed; clean final tab had no console errors. Temporary harness/server removed. No worker, models, SSD/media, platform or deployment changes; foreign duplicate files untouched.
+
+Usage checkpoint: Codex weekly 21% used / 79% remaining, below the 85% boundary. Continue without a new “weiter”; heartbeat remains paused. Point 8 is still open. Next safe slice: retained per-lesson output references beyond the generic 50-receipt window, with explicit limits, recovery and no false claim of a media archive. Actual script-to-media/course-quality acceptance and complete media packages remain open.
+
+## Previous merged handoff — explicit instructor review records
 
 [PR #309](https://github.com/Impekal/kinaou/pull/309) merged as `a6b9b792ee9d417c75b0103f125dd2df94f0e8c4` after full [CI 36283699093](https://github.com/Impekal/kinaou/actions/runs/36283699093), including render smoke. Saved lessons now support explicit self-reported expert checks, reviewer name, scope/limitations and timestamp. A canonical SHA-256 snapshot binds these records to course/project content and metadata (excluding the review ledger and bookkeeping timestamps). Changes conservatively require another review; late digests cannot overwrite changed projects or unsaved drafts. Save/withdrawal uses safety history; withdrawal requires an inline two-step confirmation. UI and history labels are DE/EN/FR.
 
@@ -111,7 +119,7 @@ Safety rule: only paths below the configured KINAOU root may be created/moved/de
 ## Repository
 Repo: `Impekal/kinaou`
 Default branch: `main`
-Latest implementation main SHA after instructor review PR #309: `a6b9b792ee9d417c75b0103f125dd2df94f0e8c4`
+Latest implementation main SHA after material packages PR #311: `03da808fd1a810c4983276d73f2168d4d1e97ddd`
 
 ## Merged slices
 - **PR #261** — final DE/EN/FR point-1 acceptance gate. A dedicated cross-workflow regression reuses unchanged drafts and authored data through DE → FR → EN across the real application shell plus representative Settings, Course, Timeline, Assets and Publish surfaces. A second acceptance path exercises active/recovery feedback for Audio, Image, Video, single export and STT while preserving submitted content and technical diagnostics; the existing Short batch multilingual lifecycle/recovery suite remains part of the same full gate. The temporary final-coverage notice was removed only after this acceptance passed. PR CI 35657095575 on `d1c98dd` and main CI 35657251441 on merge `f6b8232` both passed 978/978 application tests across 100 test files, 83/83 worker tests, production build and worker syntax checks. No new dependency, browser automation framework, worker behavior, model, media, persistence, render or deployment behavior was introduced. **Completion point 1 is complete.**
