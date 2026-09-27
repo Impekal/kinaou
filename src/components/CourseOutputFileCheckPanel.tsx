@@ -5,6 +5,7 @@ import { CourseOutputPreflight, type CourseOutputCheckFeedback } from '../core/c
 import type { KinaouProject } from '../core/project'
 import { WorkerClient } from '../core/workerClient'
 import { useUiLanguage } from './UiLanguageProvider'
+import { CourseOutputPlaybackControl } from './CourseOutputPlaybackControl'
 
 export interface CourseOutputWorkerProps { workerUrl?: string; workerToken?: string; workerConnected?: boolean; workerCapabilities?: string[] }
 export function CourseOutputFileCheckPanel({ project, dirty, workerUrl = '', workerToken = '', workerConnected = false, workerCapabilities = [] }: CourseOutputWorkerProps & { project: KinaouProject; dirty: boolean }) {
@@ -50,5 +51,6 @@ export function CourseOutputFileCheckPanel({ project, dirty, workerUrl = '', wor
       <p>{t(result.actual.audioCodec ? 'course.fileCheck.audio' : 'course.fileCheck.noAudio', { codec: result.actual.audioCodec ?? '' })}</p>
     </div>}
     {shown && <button onClick={() => { session.current?.detach(); session.current = null; setFeedback(null) }}>{t('course.fileCheck.forget')}</button>}
+    <CourseOutputPlaybackControl project={project} jobId={receipt?.jobId ?? ''} dirty={dirty} workerUrl={workerUrl} workerToken={workerToken} workerConnected={workerConnected} workerCapabilities={workerCapabilities}/>
   </section>
 }

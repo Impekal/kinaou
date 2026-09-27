@@ -14,6 +14,7 @@ import { parseWebCaptureBrowsers, parseWebCaptureJob, type WebCaptureBrowser, ty
 import { assertSafeManagedPath } from './storage'
 import { managedPublishPathSchema, parsePublishPreflightResult, publishIntegrityResultSchema, publishPackageListSchema, publishPackageRequestSchema, publishPackageResultSchema, publishProjectIdSchema, type PublishIntegrityResult, type PublishPackageEntry, type PublishPackageRequest, type PublishPackageResult, type PublishPreflightResult } from './publishPackage'
 import { exportReceiptSchema, type ExportReceipt } from './exportHistory'
+import { maxCoursePlaybackBytes } from './courseOutputPlayback'
 import {
   platformPublishReceiptSchema,
   platformPublishRequestSchema,
@@ -193,6 +194,33 @@ export class WorkerClient {
     const payload = await this.request('/publish/preflight', { method: 'POST', body: JSON.stringify({ export: validated }) })
     if (payload?.ok !== true || payload?.type !== 'publish-preflight') throw new Error('Invalid worker publish preflight response')
     return parsePublishPreflightResult(payload.result, validated)
+  }
+
+  async loadCourseOutput(receipt: ExportReceipt, signal?: AbortSignal): Promise<Blob> {
+    const validated = exportReceiptSchema.parse(receipt)
+    if (!validated.courseLesson) throw new Error('Course playback requires a lesson receipt')
+    const response = await this.fetchImpl(`${this.baseUrl}/course/output-media`, { method: 'POST', redirect: 'error', signal,
+      headers: { authorization: `Bearer ${this.token}`, 'content-type': 'application/json' }, body: JSON.stringify({ export: validated }) })
+    const reader = response.body?.getReader()
+    try {
+      if (response.status !== 200) throw new Error(`Lesson media request failed with HTTP ${response.status}`)
+      if (response.headers.get('content-type')?.split(';')[0].trim() !== 'video/mp4') throw new Error('Invalid lesson media type')
+      const header = response.headers.get('content-length') ?? '', length = Number(header)
+      if (!/^\d+$/.test(header) || !Number.isSafeInteger(length) || length <= 0 || length > maxCoursePlaybackBytes || !reader) throw new Error('Lesson playback requires a nonempty MP4 of at most 256 MiB')
+      if (validated.sizeBytes !== undefined && length !== validated.sizeBytes) throw new Error('Lesson media size differs from its receipt')
+      const chunks: Uint8Array<ArrayBuffer>[] = []; let total = 0
+      while (true) {
+        signal?.throwIfAborted()
+        const { done, value } = await reader.read()
+        if (done) break
+        total += value.byteLength
+        if (total > length || total > maxCoursePlaybackBytes) throw new Error('Lesson media exceeded its declared size')
+        chunks.push(new Uint8Array(value))
+      }
+      signal?.throwIfAborted()
+      if (total !== length) throw new Error('Lesson media response ended early')
+      return new Blob(chunks, { type: 'video/mp4' })
+    } finally { await reader?.cancel().catch(() => {}); reader?.releaseLock() }
   }
 
   async listPublishPackages(projectId: string): Promise<PublishPackageEntry[]> {
