@@ -15,6 +15,16 @@ Saved outlines travel with ordinary project serialization, drive backups and Ver
 
 ## Boundaries to review
 
+### Private project plus registered-media archive (#345)
+
+Course Delivery → Archive project and registered media explicitly reviews the saved metadata inventory, then requires acknowledgement before copying. This review does not claim file presence/size; the authenticated local worker checks those and free space. It copies exact JSON and registered managed files into a new private `KINAOU/Archive/ProjectSources/<id>/source/KINAOU/` tree, preserving source-relative paths. Inline captions stay embedded. The original project/media are unchanged.
+
+Limits: 500 assets, 5 MiB project JSON, 8 GiB/file, 32 GiB total media plus 64 MiB reserve, one active copy. Only safe KINAOU/Assets and KINAOU/Renders file paths; unavailable, offline, unmanaged, linked or conflicting sources block instead of silently disappearing. Duplicate identical paths copy once. Streaming readback hashes and completed status reinspection cover JSON/media/README/checksum list. SHA-256 is not a signature or global point-in-time filesystem snapshot.
+
+The whole folder is private: scripts, answers, identity/voice provenance and paths may be included. Models, browser state/settings/credentials, unregistered outputs and external/metadata-path references are not collected. No automated restore or replacement of an active root is provided. A real isolated test rendered correct picture/audio from the archive after original sources were made unavailable; this is technical evidence, not full-reference or teaching-quality acceptance.
+
+The browser retains only worker URL, operation/project IDs and project digest before dispatch. Lost replies/reload inspect the same operation only. Failed/interrupted copies never automatically resume or overwrite; explicit forgetting removes only the browser reminder, not files. Keep the archive path and test recovery separately before relying on it.
+
 ### Saved-lesson production handoffs (#343)
 
 In Production, select one saved lesson and choose Audio Studio or video export. The target focuses an explicit preparation card: apply script/course language to the text draft, or apply the lesson range. Neither navigation nor application generates media or changes the project. Narration replaces the existing text draft only after the labelled action; export leaves format, framing and audio unchanged. Review and start production separately.
@@ -225,7 +235,7 @@ The local browser displayed the new Course entry/form and language options on a 
 
 ## Next course slices
 
-Current after #343: focused workspace and explicit saved-lesson handoffs connect course planning to real narration/export without automatic production. Next: genuine private copies of the project document and registered media with integrity verification and clear exclusions (models, browser history/settings, unregistered external references). Full restore/teaching acceptance remains separate; existing lesson collections are not source-project backups. Older next-step paragraphs are dated history.
+Current after #345: Course now also makes real private project/registered-media copies, verified through hash checks and isolated re-render from archived sources. Remaining course work includes broader reference preservation, archive rediscovery/restore UX and actual instructional acceptance; no whole-point completion is claimed. Next safe repository priority: point 5's missing attributable live trend input, beginning with an explicit public RSS read and honest country/time/source limitations, without paid/account/cloud-inference APIs.
 
 PR #211 verification: full 498 application + 82 native tests and build/syntax gate passed. Sixteen regressions cover stale revision/range/project identity, removed/ineligible lessons, DE/EN/FR controls and stable range diagnostic codes. Isolated localhost:5192 with a synthetic video and temporary worker verified language-switch selection retention, disabled future bounds, stale blocking after a 4→3s trim, explicit re-review, a real 2s Full-HD MP4 and exact 1–3s receipt with unchanged names/revision/course language, custom-range deselection and receipt persistence after reload. Browser console clean; test processes stopped. Existing real-worker retiming/audio/independent-lesson execution tests remain green.
 
