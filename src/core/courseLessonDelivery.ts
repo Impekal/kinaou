@@ -2,15 +2,25 @@ import { z } from 'zod'
 import { exportReceiptSchema, projectCourseOutputIndex } from './exportHistory'
 import { courseExportContextSchema } from './course'
 import type { KinaouProject } from './project'
+import { courseDeliveryMaterialLimits, lessonDeliveryMaterialsSchema } from './courseDeliveryMaterialSchema'
 
 export const maxLessonDeliveryBytes = 8 * 1024 ** 3
 const identity = z.string().min(1).max(200).refine(value => value === value.trim() && !/[\x00-\x1f\x7f]/.test(value))
 export const lessonDeliveryRequestSchema = z.object({
-  schemaVersion: z.literal(1), requestId: z.string().regex(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/),
-  projectId: identity, acknowledgePrivateMetadata: z.literal(true), export: exportReceiptSchema.extend({ courseLesson: courseExportContextSchema }).strict()
-}).strict().refine(value => new TextEncoder().encode(JSON.stringify(value)).length <= 48 * 1024, 'Delivery request exceeds 48 KiB')
+  schemaVersion: z.union([z.literal(1), z.literal(2)]), requestId: z.string().regex(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/),
+  projectId: identity, acknowledgePrivateMetadata: z.literal(true), export: exportReceiptSchema.extend({ courseLesson: courseExportContextSchema }).strict(),
+  materials: lessonDeliveryMaterialsSchema.optional()
+}).strict().superRefine((value, ctx) => {
+  const { materials, ...base } = value, encoder = new TextEncoder()
+  if (encoder.encode(JSON.stringify(base)).length > 48 * 1024 || encoder.encode(JSON.stringify(value)).length > courseDeliveryMaterialLimits.requestBytes) ctx.addIssue({ code: 'custom', message: 'Delivery request size limit exceeded' })
+  if ((value.schemaVersion === 2) !== !!materials) ctx.addIssue({ code: 'custom', message: 'Version 2 requires reviewed materials; version 1 is video-only' })
+  if (materials) {
+    const source = materials.source, original = value.export.courseLesson
+    if (['courseId','moduleId','lessonId','language'].some(key => source.context[key as keyof typeof original] !== original[key as keyof typeof original]) || source.range.inMs !== value.export.range.inMs || source.range.outMs !== value.export.range.outMs) ctx.addIssue({ code: 'custom', message: 'Material context does not match selected video identity/language/range' })
+  }
+})
 export type LessonDeliveryRequest = z.infer<typeof lessonDeliveryRequestSchema>
-const resultSchema = z.object({ directory: z.string(), manifestPath: z.string(), mediaPath: z.string(), sourcePath: z.string(), sizeBytes: z.number().int().positive().max(maxLessonDeliveryBytes), sha256: z.string().regex(/^[a-f0-9]{64}$/), createdAt: z.string().datetime(), integrityCheckedAt: z.string().datetime() }).strict()
+const resultSchema = z.object({ directory: z.string(), manifestPath: z.string(), mediaPath: z.string(), sourcePath: z.string(), sizeBytes: z.number().int().positive().max(maxLessonDeliveryBytes), sha256: z.string().regex(/^[a-f0-9]{64}$/), createdAt: z.string().datetime(), integrityCheckedAt: z.string().datetime(), files: z.array(z.object({ path: z.string(), sha256: z.string().regex(/^[a-f0-9]{64}$/), sizeBytes: z.number().int().positive().max(courseDeliveryMaterialLimits.bytes) }).strict()).max(courseDeliveryMaterialLimits.files).optional() }).strict()
 const jobSchema = z.object({
   schemaVersion: z.literal(1), request: lessonDeliveryRequestSchema,
   state: z.enum(['unknown','queued','copying','verifying','ready','failed','interrupted','integrityFailed']),
@@ -25,6 +35,15 @@ export function parseLessonDeliveryJob(value: unknown, request: LessonDeliveryRe
     const result = job.result
     if (!result || result.directory !== base || result.mediaPath !== `${base}/lesson.mp4` || result.manifestPath !== `${base}/manifest.json` || result.sourcePath !== expected.export.outputRelativePath
       || (expected.export.sizeBytes !== undefined && result.sizeBytes !== expected.export.sizeBytes)) throw Error('Delivery result does not match requested files')
+    if (expected.materials) {
+      if (!result.files || result.files.length !== expected.materials.files.length) throw Error('Missing delivery material results')
+      const paths = new Set<string>()
+      for (const file of result.files) {
+        const source = expected.materials.files.find(entry => `${base}/${entry.path}` === file.path)
+        if (!source || paths.has(file.path) || file.sha256 !== source.sha256 || file.sizeBytes !== new TextEncoder().encode(source.text).length) throw Error('Delivery material result differs from reviewed bytes')
+        paths.add(file.path)
+      }
+    } else if (result.files) throw Error('Unexpected materials on video-only delivery')
   } else if (job.result) throw Error('Unfinished delivery cannot expose a completed result')
   if (!['copying','verifying'].includes(job.state) && (job.copiedBytes !== undefined || job.totalBytes !== undefined)) throw Error('Unexpected delivery progress')
   if (!['failed','interrupted','integrityFailed'].includes(job.state) && job.error) throw Error('Unexpected delivery error')
@@ -44,7 +63,7 @@ export type DeliveryStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'
 const key = (id: string) => `kinaou.course-delivery.pending.v1.${encodeURIComponent(id)}`
 export function readLessonDeliveryTicket(storage: DeliveryStorage, projectId: string): LessonDeliveryTicket | null {
   const raw = storage.getItem(key(projectId)); if (raw === null) return null
-  if (raw.length > 65536) throw Error('Oversized delivery recovery record')
+  if (raw.length > 2 * 1024 * 1024) throw Error('Oversized delivery recovery record')
   const ticket = ticketSchema.parse(JSON.parse(raw))
   if (ticket.request.projectId !== projectId) throw Error('Delivery recovery belongs to another project')
   return ticket

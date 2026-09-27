@@ -82,3 +82,72 @@ for (const kind of ['ack','id','course','path','project']) test(`rejects malform
   if (kind === 'project') input.projectId = 'bad\nproject'
   await assert.rejects(runtime.start(input)); assert.deepEqual(await readdir(renders), ['source.mp4'])
 }))
+
+function withMaterials() {
+  const input = request(); input.schemaVersion = 2
+  input.materials = { acknowledgeTextVideoMatch: true, source: { context: { ...input.export.courseLesson, outlineRevision: 2 }, range: input.export.range, projectMetadataSha256: 'a'.repeat(64), preparedAt: '2026-09-27T00:00:00.000Z' }, files: [
+    { path: 'learner/worksheet.txt', text: '\ufeff  Question 🌍\r\nHint' },
+    { path: 'instructor/answer-key.txt', text: 'PRIVATE_ANSWER' }
+  ].map(file => ({ ...file, sha256: crypto.createHash('sha256').update(file.text).digest('hex') })) }
+  return input
+}
+test('writes exact reviewed text bytes, separates answers and rehashes all payloads after restart', () => setup(async ({ root, source, runtime }) => {
+  const input = withMaterials(); await runtime.start(input); const job = await finish(runtime, input)
+  assert.equal(job.state, 'ready'); assert.equal(job.result.files.length, 2)
+  const folder = path.join(root, 'Renders/CourseDeliveries', input.requestId)
+  for (const file of input.materials.files) assert.deepEqual(await readFile(path.join(folder, file.path)), Buffer.from(file.text))
+  assert.doesNotMatch(await readFile(path.join(folder, 'learner/worksheet.txt'), 'utf8'), /PRIVATE_ANSWER/)
+  assert.match(await readFile(path.join(folder, 'README.txt'), 'utf8'), /NEVER share this whole package/)
+  const sums = await readFile(path.join(folder, 'SHA256SUMS'), 'utf8')
+  for (const file of input.materials.files) assert.ok(sums.includes(`${file.sha256}  ${file.path}\n`))
+  const restarted = createLessonDeliveryRuntime({ root, probe })
+  assert.equal((await restarted.status(input)).state, 'ready')
+  const privateFile = path.join(folder, 'instructor/answer-key.txt')
+  await writeFile(privateFile, 'PRIVATE_ANSWEZ'); assert.equal((await restarted.status(input)).state, 'integrityFailed')
+  await unlink(privateFile); assert.equal((await restarted.status(input)).state, 'integrityFailed')
+  await writeFile(privateFile, 'PRIVATE_ANSWER'); assert.equal((await restarted.start(input)).state, 'ready')
+  await unlink(privateFile); await symlink(source, privateFile); assert.equal((await restarted.status(input)).state, 'integrityFailed')
+  assert.deepEqual(await readFile(source), bytes)
+}))
+for (const kind of ['hash','path','duplicate','unicode','control','size','count','language','range','ack','version','missing']) test(`rejects invalid material ${kind} before reserving output`, () => setup(async ({ runtime, renders }) => {
+  const input = withMaterials(), packet = input.materials
+  if (kind === 'hash') packet.files[0].sha256 = 'f'.repeat(64)
+  if (kind === 'path') packet.files[0].path = 'learner/answer-key.txt'
+  if (kind === 'duplicate') packet.files[1].path = packet.files[0].path
+  if (kind === 'unicode') packet.files[0].text = '\ud800'
+  if (kind === 'control') packet.files[0].text = 'bad\0text'
+  if (kind === 'size') packet.files[0].text = 'é'.repeat(262145)
+  if (kind === 'count') packet.files = Array.from({ length: 15 }, (_, i) => ({ ...packet.files[0], path: `learner/material-${i}.txt` }))
+  if (kind === 'language') packet.source.context.language = 'fr'
+  if (kind === 'range') packet.source.range = { inMs: 0, outMs: 2000 }
+  if (kind === 'ack') packet.acknowledgeTextVideoMatch = false
+  if (kind === 'version') input.schemaVersion = 1
+  if (kind === 'missing') delete input.materials
+  await assert.rejects(runtime.start(input)); assert.deepEqual(await readdir(renders), ['source.mp4'])
+}))
+for (const collision of ['lesson.mp4','manifest.json','learner']) test(`never overwrites or deletes a foreign ${collision} that appears during the operation`, () => setup(async ({ root, source }) => {
+  const input = withMaterials(), folder = path.join(root, 'Renders/CourseDeliveries', input.requestId)
+  const runtime = createLessonDeliveryRuntime({ root, probe: async () => {
+    if (collision === 'learner') { await mkdir(path.join(folder, collision)); await writeFile(path.join(folder, collision, 'foreign.txt'), 'FOREIGN') }
+    else await writeFile(path.join(folder, collision), 'FOREIGN')
+    return probe()
+  } })
+  await runtime.start(input)
+  // A foreign malformed manifest is deliberately not accepted as a completed job.
+  if (collision === 'manifest.json') {
+    try { assert.equal((await finish(runtime, input)).state, 'failed') }
+    catch (error) { assert.ok(error instanceof SyntaxError) }
+  } else assert.equal((await finish(runtime, input)).state, 'failed')
+  // The in-memory failure precedes asynchronous cleanup/status persistence.
+  let persisted
+  for (let i = 0; i < 200; i++) {
+    persisted = JSON.parse(await readFile(path.join(folder, 'status.json'), 'utf8'))
+    if (persisted.state === 'failed') break
+    await new Promise(resolve => setTimeout(resolve, 5))
+  }
+  assert.equal(persisted.state, 'failed')
+  assert.equal(await readFile(path.join(folder, collision === 'learner' ? 'learner/foreign.txt' : collision), 'utf8'), 'FOREIGN')
+  assert.ok(!(await readdir(folder)).includes('lesson.mp4.partial'))
+  if (collision !== 'lesson.mp4') assert.ok(!(await readdir(folder)).includes('lesson.mp4'))
+  assert.deepEqual(await readFile(source), bytes)
+}))

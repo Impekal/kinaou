@@ -5,13 +5,14 @@ import { mkdir, mkdtemp, rm, readFile, rename, writeFile } from 'node:fs/promise
 import os from 'node:os'
 import path from 'node:path'
 import { createProject, parseProject } from '../src/core/project'
-import { newCourseOutline, planCourseLessonExport, saveCourseOutline } from '../src/core/course'
+import { newCourseOutline, planCourseLessonExport, projectCourse, saveCourseOutline } from '../src/core/course'
 import { createRenderPlan, preview1080pPreset } from '../src/core/render'
 import { WorkerClient } from '../src/core/workerClient'
 import { forgetExportReceipt, projectCourseOutputIndex, projectExportHistory, recordSuccessfulExport } from '../src/core/exportHistory'
 import { CourseOutputPreflight, type CourseOutputCheckFeedback } from '../src/core/courseOutputPreflight'
 import { prepareLessonDelivery, type LessonDeliveryRequest } from '../src/core/courseLessonDelivery'
 import { createHash } from 'node:crypto'
+import { reviewCourseDeliveryMaterials, useReviewedCourseDeliveryMaterials } from '../src/core/courseDeliveryMaterials'
 
 const exec = promisify(execFile)
 const run = async (program: string, args: string[]) => (await exec(program, args, { encoding: 'buffer', maxBuffer: 4 * 1024 * 1024 })).stdout
@@ -117,6 +118,28 @@ it('exports separate lessons through the real worker with correct retimed frames
     const modifiedCopy = Buffer.from(firstOutput!); modifiedCopy[modifiedCopy.length - 1] ^= 1; await writeFile(copiedPath, modifiedCopy)
     expect((await client.lessonDeliveryStatus(deliveryRequest)).state).toBe('integrityFailed')
     await writeFile(copiedPath, firstOutput!); expect((await client.lessonDeliveryStatus(deliveryRequest)).state).toBe('ready')
+    // Texts authored after the render require a fresh explicit review; both revisions survive.
+    const outline = projectCourse(project)!, lesson = outline.modules[0].lessons[0]
+    lesson.script = '\ufeff  Bonjour 🌍\r\nPRIVATE_SCRIPT'
+    lesson.materials = [{ id: 'handout', title: 'Handout', audience: 'learner', body: 'Saved handout' }]
+    lesson.exercises = [{ id: 'exercise', title: 'Practice', prompt: 'Question?', hint: 'Hint', solution: 'PRIVATE_ANSWER', criteria: 'PRIVATE_RUBRIC' }]
+    const authored = saveCourseOutline(project, outline), materialReview = await reviewCourseDeliveryMaterials(authored, retained[1].jobId)
+    const richRequest = useReviewedCourseDeliveryMaterials(authored, materialReview, prepareLessonDelivery(authored, retained[1].jobId, true), true)
+    const rich = await awaitDelivery(richRequest)
+    expect(rich.state, rich.error).toBe('ready'); expect(rich.result!.files).toHaveLength(5)
+    expect(richRequest.materials!.source.context.outlineRevision).toBe(richRequest.export.courseLesson.outlineRevision + 1)
+    expect(await readFile(path.join(root, rich.result!.mediaPath))).toEqual(firstOutput)
+    for (const file of richRequest.materials!.files) {
+      const actual = await readFile(path.join(root, rich.result!.directory, file.path))
+      expect(actual).toEqual(Buffer.from(file.text)); expect(createHash('sha256').update(actual).digest('hex')).toBe(file.sha256)
+      if (file.path.startsWith('learner/')) expect(actual.toString()).not.toContain('PRIVATE_')
+    }
+    const richManifest = JSON.parse(await readFile(path.join(root, rich.result!.manifestPath), 'utf8'))
+    expect(richManifest.request.materials.source.context.outlineRevision).toBe(richRequest.materials!.source.context.outlineRevision)
+    const worksheet = path.join(root, rich.result!.directory, 'learner/worksheet.txt'), originalWorksheet = await readFile(worksheet)
+    await writeFile(worksheet, 'Changed'); expect((await client.lessonDeliveryStatus(richRequest)).state).toBe('integrityFailed')
+    await writeFile(worksheet, originalWorksheet); expect((await client.lessonDeliveryStatus(richRequest)).state).toBe('ready')
+    await run('shasum', ['-a', '256', path.join(root, rich.result!.mediaPath)])
     const rejectedDelivery = await awaitDelivery(prepareLessonDelivery(project, retained[0].jobId, true))
     expect(rejectedDelivery.state).toBe('failed'); expect(rejectedDelivery.error).toContain('dimensions')
     expect((await fetch('http://127.0.0.1:43937/course/delivery/start', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(deliveryRequest) })).status).toBe(401)

@@ -1,9 +1,10 @@
 import { constants } from 'node:fs'
-import { lstat, mkdir, open, realpath, rename, statfs, unlink, writeFile } from 'node:fs/promises'
+import { link, lstat, mkdir, open, realpath, rename, rmdir, statfs, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import { openCourseOutputMedia } from './course-output-media.mjs'
 import { buildPublishPreflightResult, validatePublishExportReceipt } from './publish-package.mjs'
+import { MAX_DELIVERY_REQUEST_BYTES, materialDeliveryReadme, validateDeliveryMaterials, verifyDeliveryMaterials, writeDeliveryMaterials } from './course-delivery-materials.mjs'
 
 export const MAX_LESSON_DELIVERY_BYTES = 8 * 1024 ** 3
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/
@@ -15,7 +16,7 @@ const deliveryReadme = {
 }
 function text(value, limit, allowLines = false) { if (typeof value !== 'string' || !value.trim() || value !== value.trim() || value.length > limit || (allowLines ? /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/ : /[\x00-\x1f\x7f]/).test(value)) throw Error('Invalid delivery text'); return value }
 export function validateLessonDeliveryRequest(value) {
-  if (!value || value.schemaVersion !== 1 || value.acknowledgePrivateMetadata !== true || !uuid.test(value.requestId)) throw Error('Invalid or unacknowledged lesson delivery request')
+  if (!value || ![1,2].includes(value.schemaVersion) || value.acknowledgePrivateMetadata !== true || !uuid.test(value.requestId)) throw Error('Invalid or unacknowledged lesson delivery request')
   const raw = value.export?.courseLesson
   if (!raw || !Number.isSafeInteger(raw.outlineRevision) || raw.outlineRevision < 1 || !['de', 'en', 'fr'].includes(raw.language)) throw Error('Invalid lesson context')
   const courseLesson = {}
@@ -23,8 +24,11 @@ export function validateLessonDeliveryRequest(value) {
   courseLesson.outlineRevision = raw.outlineRevision
   for (const key of ['courseTitle', 'moduleTitle', 'lessonTitle']) courseLesson[key] = text(raw[key], 240, true)
   courseLesson.language = raw.language
-  const normalized = { schemaVersion: 1, requestId: value.requestId, projectId: text(value.projectId, 200), acknowledgePrivateMetadata: true, export: { ...validatePublishExportReceipt(value.export), courseLesson } }
+  const normalized = { schemaVersion: value.schemaVersion, requestId: value.requestId, projectId: text(value.projectId, 200), acknowledgePrivateMetadata: true, export: { ...validatePublishExportReceipt(value.export), courseLesson } }
   if (Buffer.byteLength(JSON.stringify(normalized)) > 48 * 1024) throw Error('Delivery request exceeds 48 KiB')
+  if (value.schemaVersion === 1 && value.materials !== undefined) throw Error('Reviewed materials require request version 2')
+  if (value.schemaVersion === 2) normalized.materials = validateDeliveryMaterials(value.materials, normalized.export)
+  if (Buffer.byteLength(JSON.stringify(normalized)) > MAX_DELIVERY_REQUEST_BYTES) throw Error('Delivery request size limit exceeded')
   return normalized
 }
 const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b)
@@ -44,7 +48,7 @@ async function jsonFile(file) {
   const handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK)
   try {
     const info = await handle.stat()
-    if (!info.isFile() || info.size <= 0 || info.size > 65536) throw Error('Invalid delivery record')
+    if (!info.isFile() || info.size <= 0 || info.size > 2 * 1024 * 1024) throw Error('Invalid delivery record')
     const bytes = Buffer.alloc(info.size)
     let offset = 0
     while (offset < bytes.length) { const { bytesRead } = await handle.read(bytes, offset, bytes.length - offset, offset); if (!bytesRead) throw Error('Truncated delivery record'); offset += bytesRead }
@@ -65,6 +69,11 @@ async function writeStatus(folder, job) {
   const temp = path.join(folder, 'status.next.json')
   await writeFile(temp, JSON.stringify(job), { flag: 'wx', mode: 0o600 })
   await rename(temp, path.join(folder, 'status.json'))
+}
+async function writeOwned(folder, name, data, owned) {
+  const handle = await open(path.join(folder, name), constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600)
+  owned.add(name)
+  try { await handle.writeFile(data); await handle.sync() } finally { await handle.close() }
 }
 /** One explicit private media copy; durable request IDs prevent automatic duplicate work. */
 export function createLessonDeliveryRuntime({ root, probe }) {
@@ -88,6 +97,10 @@ export function createLessonDeliveryRuntime({ root, probe }) {
       try { sha256 = await hashFile(path.join(folder, 'lesson.mp4'), result.sizeBytes) }
       catch (error) { return { schemaVersion: 1, request: input, state: 'integrityFailed', error: String(error.message ?? error).slice(0, 4000) } }
       if (sha256 !== result.sha256) return { schemaVersion: 1, request: input, state: 'integrityFailed', error: 'Delivery video no longer matches its recorded hash' }
+      try {
+        if (input.materials) await verifyDeliveryMaterials(folder, base, input.materials, result.files, hashFile)
+        else if (result.files) throw Error('Unexpected material files in video-only delivery')
+      } catch (error) { return { schemaVersion: 1, request: input, state: 'integrityFailed', error: String(error.message ?? error).slice(0, 4000) } }
       return { schemaVersion: 1, request: input, state: 'ready', result: { ...result, integrityCheckedAt: now() } }
     }
     let status
@@ -98,6 +111,7 @@ export function createLessonDeliveryRuntime({ root, probe }) {
   async function execute(entry, folder) {
     const { input } = entry, part = path.join(folder, 'lesson.mp4.partial'), mediaPath = path.join(folder, 'lesson.mp4')
     let source, output
+    const owned = new Set(), directories = new Set()
     try {
       source = await openCourseOutputMedia(root, input.export, MAX_LESSON_DELIVERY_BYTES)
       const before = await source.handle.stat(), disk = await statfs(folder)
@@ -105,6 +119,7 @@ export function createLessonDeliveryRuntime({ root, probe }) {
       entry.job = { schemaVersion: 1, request: input, state: 'copying', copiedBytes: 0, totalBytes: source.sizeBytes }
       await writeStatus(folder, entry.job)
       output = await open(part, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600)
+      owned.add('lesson.mp4.partial')
       const hash = crypto.createHash('sha256'), buffer = Buffer.allocUnsafe(1024 * 1024)
       for (let offset = 0; offset < source.sizeBytes;) {
         const { bytesRead } = await source.handle.read(buffer, 0, Math.min(buffer.length, source.sizeBytes - offset), offset)
@@ -121,18 +136,25 @@ export function createLessonDeliveryRuntime({ root, probe }) {
       const preflight = buildPublishPreflightResult(input.export, { ...await probe(part), sizeBytes: source.sizeBytes }, now())
       if (!preflight.ready) throw Error(`Copied lesson preflight failed: ${Object.entries(preflight.checks).filter(([, pass]) => !pass).map(([name]) => name).join(', ')}`)
       if (await hashFile(part, source.sizeBytes) !== sha256) throw Error('Copied video hash differs from source bytes')
-      await rename(part, mediaPath)
+      await link(part, mediaPath); owned.add('lesson.mp4')
+      await unlink(part); owned.delete('lesson.mp4.partial')
       const base = relativeDirectory(input), result = { directory: base, manifestPath: `${base}/manifest.json`, mediaPath: `${base}/lesson.mp4`, sourcePath: input.export.outputRelativePath, sizeBytes: source.sizeBytes, sha256, createdAt: now(), integrityCheckedAt: now() }
-      await writeFile(path.join(folder, 'SHA256SUMS'), `${sha256}  lesson.mp4\n`, { flag: 'wx', mode: 0o600 })
-      await writeFile(path.join(folder, 'README.txt'), deliveryReadme[input.export.courseLesson.language], { flag: 'wx', mode: 0o600 })
-      await writeFile(path.join(folder, 'manifest.json'), JSON.stringify({ schemaVersion: 1, kind: 'private-course-lesson-delivery', request: input, result, preflight, privateMetadata: true, fullProjectBackup: false, teachingQualityApproved: false }, null, 2), { flag: 'wx', mode: 0o600 })
+      if (input.materials) result.files = await writeDeliveryMaterials(folder, base, input.materials, owned, directories, hashFile)
+      result.integrityCheckedAt = now()
+      const sums = [`${sha256}  lesson.mp4`, ...(result.files ?? []).map(file => `${file.sha256}  ${file.path.slice(base.length + 1)}`)].join('\n') + '\n'
+      await writeOwned(folder, 'SHA256SUMS', sums, owned)
+      await writeOwned(folder, 'README.txt', (input.materials ? materialDeliveryReadme : deliveryReadme)[input.export.courseLesson.language], owned)
+      await writeOwned(folder, 'manifest.next.json', JSON.stringify({ schemaVersion: 1, kind: 'private-course-lesson-delivery', request: input, result, preflight, privateMetadata: true, fullProjectBackup: false, teachingQualityApproved: false }, null, 2), owned)
+      await link(path.join(folder, 'manifest.next.json'), path.join(folder, 'manifest.json'))
+      await unlink(path.join(folder, 'manifest.next.json')).catch(() => {})
       entry.job = { schemaVersion: 1, request: input, state: 'ready', result }
       await writeStatus(folder, entry.job).catch(() => {}) // Complete manifest is authoritative if final status write failed.
     } catch (error) {
       entry.job = { schemaVersion: 1, request: input, state: 'failed', error: String(error.message ?? error).slice(0, 4000) }
       await output?.close().catch(() => {}); output = undefined
       // Only this newly created operation's own payloads, never original media or foreign files.
-      for (const name of ['lesson.mp4.partial', 'lesson.mp4', 'SHA256SUMS', 'README.txt']) await unlink(path.join(folder, name)).catch(() => {})
+      for (const name of owned) await unlink(path.join(folder, name)).catch(() => {})
+      for (const name of directories) await rmdir(path.join(folder, name)).catch(() => {})
       await writeStatus(folder, entry.job).catch(() => {})
     } finally { await output?.close().catch(() => {}); await source?.handle.close().catch(() => {}); active.delete(input.requestId) }
   }
