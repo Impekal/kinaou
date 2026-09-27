@@ -31,6 +31,48 @@ async function finish(runtime, input) {
   for (let i = 0; i < 400; i++) { const job = await runtime.status(input); if (!['queued','checking','copying'].includes(job.state)) return job; await new Promise(resolve => setTimeout(resolve, 5)) }
   throw Error('Collection fixture timed out')
 }
+test('collection discovery is metadata-only and explicit inspection works after restart without browser request or ffprobe', () => setup(async f => {
+  assert.equal((await f.runtime.list({ projectId: 'project' })).scanned, 0)
+  assert.ok(!(await readdir(f.renders)).includes('CourseCollections'))
+  await f.runtime.start(f.input); assert.equal((await finish(f.runtime, f.input)).state, 'ready')
+  const manifest = await readFile(path.join(f.folder, 'manifest.json')), request = await readFile(path.join(f.folder, 'request.json'))
+  const restarted = createCourseCollectionRuntime({ root: f.root, probe: () => { throw Error('Read-only inspection must not probe') } })
+  const page = await restarted.list({ projectId: 'project' })
+  assert.deepEqual(page.entries, [{ requestId: f.input.requestId, projectId: 'project', course: f.input.course, selectedLessons: 2, hasCompletionRecord: true }])
+  assert.equal((await restarted.inspect({ projectId: 'project', requestId: f.input.requestId })).state, 'ready')
+  await assert.rejects(restarted.inspect({ projectId: 'other', requestId: f.input.requestId }), /another project/)
+  assert.deepEqual((await restarted.list({ projectId: 'other' })).entries, [])
+  const media = path.join(f.folder, 'lessons', f.sources[0].request.requestId, 'lesson.mp4')
+  await writeFile(media, 'CHANGED')
+  assert.equal((await restarted.list({ projectId: 'project' })).entries[0].hasCompletionRecord, true)
+  assert.equal((await restarted.inspect({ projectId: 'project', requestId: f.input.requestId })).state, 'integrityFailed')
+  assert.equal(await readFile(media, 'utf8'), 'CHANGED'); assert.deepEqual(await readFile(path.join(f.folder, 'manifest.json')), manifest); assert.deepEqual(await readFile(path.join(f.folder, 'request.json')), request)
+  assert.deepEqual(await readdir(path.dirname(f.folder)), [f.input.requestId]); assert.equal((await f.lessons.status(f.sources[0].request)).state, 'ready')
+}))
+test('collection library paginates empty other-project pages, skips malformed/unsafe entries and never repairs them', () => setup(async f => {
+  const parent = path.dirname(f.folder), id = n => `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`
+  await mkdir(parent)
+  for (let n = 1; n <= 43; n++) {
+    const folder = path.join(parent, id(n))
+    if (n === 31) { await symlink(f.temp, folder); continue }
+    await mkdir(folder); const input = { ...f.input, requestId: n === 32 ? crypto.randomUUID() : id(n), projectId: n <= 20 ? 'other' : 'project' }
+    await writeFile(path.join(folder, 'request.json'), n === 30 ? '{malformed' : JSON.stringify(input))
+  }
+  const first = await f.runtime.list({ projectId: 'project' }); assert.equal(first.scanned, 20); assert.deepEqual(first.entries, []); assert.equal(first.nextCursor, id(20))
+  const second = await f.runtime.list({ projectId: 'project', after: first.nextCursor }); assert.equal(second.scanned, 20); assert.equal(second.skipped, 3); assert.equal(second.entries.length, 17); assert.equal(second.nextCursor, id(40))
+  const third = await f.runtime.list({ projectId: 'project', after: second.nextCursor }); assert.equal(third.scanned, 3); assert.equal(third.entries.length, 3); assert.equal(third.nextCursor, undefined)
+  assert.ok(third.entries.every(entry => !entry.hasCompletionRecord))
+  assert.equal((await f.runtime.inspect({ projectId: 'project', requestId: id(43) })).state, 'interrupted')
+  await assert.rejects(f.runtime.inspect({ projectId: 'project', requestId: id(32) }), /another project or ID/)
+  await assert.rejects(f.runtime.inspect({ projectId: 'project', requestId: id(31) }), /Unsafe/)
+  assert.equal(await readFile(path.join(parent, id(30), 'request.json'), 'utf8'), '{malformed'); assert.equal((await readdir(parent)).length, 43)
+}))
+test('collection listing rejects unsafe parent and invalid cursor/project before reading anything', () => setup(async f => {
+  await assert.rejects(f.runtime.list({ projectId: 'bad\nproject' })); await assert.rejects(f.runtime.list({ projectId: 'project', after: '../escape' }))
+  await symlink(f.temp, path.join(f.renders, 'CourseCollections'))
+  await assert.rejects(f.runtime.list({ projectId: 'project' }), /Unsafe/)
+  await assert.rejects(f.runtime.inspect({ projectId: 'project', requestId: '../escape' }))
+}))
 test('copies two independent v3 packages, exact private materials and ordered subset index; survives source removal/restart', () => setup(async f => {
   await f.runtime.start(f.input); const job = await finish(f.runtime, f.input); assert.equal(job.state, 'ready', job.error)
   assert.equal(validateCourseCollectionJob(job, f.input).result.lessons.length, 2)
