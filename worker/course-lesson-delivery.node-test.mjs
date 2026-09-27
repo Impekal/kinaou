@@ -181,3 +181,51 @@ for (const collision of ['lesson.mp4','manifest.json','learner']) test(`never ov
   if (collision !== 'lesson.mp4') assert.ok(!(await readdir(folder)).includes('lesson.mp4'))
   assert.deepEqual(await readFile(source), bytes)
 }))
+
+test('library is explicitly read-only, works without browser tickets and rehashes selected files', () => setup(async ({ root, renders, runtime, source }) => {
+  assert.deepEqual(await runtime.list({ projectId: 'project' }), { schemaVersion: 1, projectId: 'project', entries: [], scanned: 0, skipped: 0 })
+  assert.deepEqual(await readdir(renders), ['source.mp4'])
+  const input = withSubtitles(); await runtime.start(input); await finish(runtime, input)
+  const restarted = createLessonDeliveryRuntime({ root, probe: () => { throw Error('Library must never render/probe/create') } }), folder = path.join(renders, 'CourseDeliveries', input.requestId)
+  const before = await readdir(folder), manifest = await readFile(path.join(folder, 'manifest.json'))
+  const page = await restarted.list({ projectId: 'project' })
+  assert.equal(page.entries.length, 1); assert.equal(page.entries[0].hasCompletionRecord, true); assert.equal(page.entries[0].hasSubtitles, true)
+  assert.equal(page.entries[0].requestVersion, 3); assert.equal(page.entries[0].materialFiles, 3)
+  const lookup = { projectId: 'project', requestId: input.requestId }
+  assert.equal((await restarted.inspect(lookup)).state, 'ready')
+  const subtitle = path.join(folder, 'learner/subtitles.vtt'); await writeFile(subtitle, 'Changed')
+  assert.equal((await restarted.list({ projectId: 'project' })).entries[0].hasCompletionRecord, true) // A listing is not a verification.
+  assert.equal((await restarted.inspect(lookup)).state, 'integrityFailed')
+  assert.deepEqual(await readFile(path.join(folder, 'manifest.json')), manifest); assert.deepEqual(await readdir(folder), before)
+  assert.deepEqual(await readFile(source), bytes)
+  assert.equal((await restarted.list({ projectId: 'another' })).entries.length, 0)
+  await assert.rejects(restarted.inspect({ ...lookup, projectId: 'another' }), /another project/)
+}))
+test('library paginates by folder ID, skips malformed/unsafe entries and retains interrupted records without writes', () => setup(async ({ root, renders, runtime, temp }) => {
+  const parent = path.join(renders, 'CourseDeliveries'); await mkdir(parent)
+  const ids = Array.from({ length: 43 }, (_, i) => `00000000-0000-0000-0000-${String(i + 1).padStart(12, '0')}`)
+  for (const [index, requestId] of ids.entries()) {
+    const folder = path.join(parent, requestId), input = { ...request(), requestId, projectId: index % 2 ? 'other' : 'project' }
+    await mkdir(folder); await writeFile(path.join(folder, 'request.json'), JSON.stringify(input))
+  }
+  await writeFile(path.join(parent, ids[2], 'request.json'), 'malformed')
+  await rm(path.join(parent, ids[4]), { recursive: true }); await mkdir(path.join(temp, 'outside')); await symlink(path.join(temp, 'outside'), path.join(parent, ids[4]))
+  const first = await runtime.list({ projectId: 'project' })
+  assert.equal(first.scanned, 20); assert.equal(first.skipped, 2); assert.equal(first.entries.length, 8); assert.equal(first.nextCursor, ids[19])
+  const second = await runtime.list({ projectId: 'project', after: first.nextCursor })
+  assert.equal(second.entries.length, 10); assert.equal(second.nextCursor, ids[39])
+  const last = await runtime.list({ projectId: 'project', after: second.nextCursor })
+  assert.equal(last.entries.length, 2); assert.equal(last.nextCursor, undefined); assert.equal(last.scanned, 3)
+  assert.equal((await runtime.inspect({ projectId: 'project', requestId: ids[0] })).state, 'interrupted')
+  assert.deepEqual(await readdir(path.join(parent, ids[0])), ['request.json'])
+  assert.deepEqual(await readdir(path.join(temp, 'outside')), [])
+  await assert.rejects(runtime.list({ projectId: 'project', after: '../escape' }))
+  await assert.rejects(runtime.inspect({ projectId: 'project', requestId: '../escape' }))
+  const wrongId = { ...request(), requestId: crypto.randomUUID() }; await writeFile(path.join(parent, ids[0], 'request.json'), JSON.stringify(wrongId))
+  await assert.rejects(runtime.inspect({ projectId: 'project', requestId: ids[0] }), /another project or ID/)
+  assert.equal((await runtime.list({ projectId: 'project' })).skipped, 3)
+}))
+test('library refuses a linked parent rather than reading another tree', () => setup(async ({ renders, temp, runtime }) => {
+  await mkdir(path.join(temp, 'outside')); await symlink(path.join(temp, 'outside'), path.join(renders, 'CourseDeliveries'))
+  await assert.rejects(runtime.list({ projectId: 'project' }), /Unsafe/)
+}))

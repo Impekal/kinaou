@@ -16,6 +16,7 @@ import { managedPublishPathSchema, parsePublishPreflightResult, publishIntegrity
 import { exportReceiptSchema, type ExportReceipt } from './exportHistory'
 import { maxCoursePlaybackBytes } from './courseOutputPlayback'
 import { lessonDeliveryRequestSchema, parseLessonDeliveryJob, type LessonDeliveryRequest } from './courseLessonDelivery'
+import { deliveryLibraryQuerySchema, deliveryLibraryLookupSchema, parseDeliveryLibraryPage, parseDeliveryLibraryInspection, type DeliveryLibraryQuery, type DeliveryLibraryLookup } from './courseDeliveryLibrary'
 import {
   platformPublishReceiptSchema,
   platformPublishRequestSchema,
@@ -229,6 +230,18 @@ export class WorkerClient {
     const payload = await this.request('/course/delivery/start', { method: 'POST', body: JSON.stringify(input) })
     if (payload?.ok !== true || payload?.type !== 'course-lesson-delivery') throw Error('Invalid delivery response')
     return parseLessonDeliveryJob(payload.job, input)
+  }
+  async listLessonDeliveries(query: DeliveryLibraryQuery) {
+    const input = deliveryLibraryQuerySchema.parse(query)
+    const payload = await this.request('/course/delivery/list', { method: 'POST', body: JSON.stringify(input) })
+    if (payload?.ok !== true || payload?.type !== 'course-delivery-library') throw Error('Invalid delivery library response')
+    return parseDeliveryLibraryPage(payload.page, input)
+  }
+  async inspectLessonDelivery(lookup: DeliveryLibraryLookup) {
+    const input = deliveryLibraryLookupSchema.parse(lookup)
+    const payload = await this.request('/course/delivery/inspect', { method: 'POST', body: JSON.stringify(input) })
+    if (payload?.ok !== true || payload?.type !== 'course-delivery-inspection') throw Error('Invalid delivery inspection response')
+    return parseDeliveryLibraryInspection(payload.job, input)
   }
   async lessonDeliveryStatus(request: LessonDeliveryRequest) {
     const input = lessonDeliveryRequestSchema.parse(request)

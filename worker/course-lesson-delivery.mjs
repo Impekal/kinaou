@@ -1,5 +1,5 @@
 import { constants } from 'node:fs'
-import { link, lstat, mkdir, open, realpath, rename, rmdir, statfs, unlink, writeFile } from 'node:fs/promises'
+import { link, lstat, mkdir, open, opendir, realpath, rename, rmdir, statfs, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import { openCourseOutputMedia } from './course-output-media.mjs'
@@ -34,16 +34,33 @@ export function validateLessonDeliveryRequest(value) {
 }
 const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b)
 function relativeDirectory(input) { return `KINAOU/Renders/CourseDeliveries/${input.requestId}` }
-async function directory(root, input, create = false) {
+async function deliveryParent(root, create = false) {
   let current = await realpath(root)
   if (path.basename(current) !== 'KINAOU') throw Error('Invalid managed delivery root')
-  for (const part of ['Renders', 'CourseDeliveries', ...(create ? [] : [input.requestId])]) {
+  for (const part of ['Renders', 'CourseDeliveries']) {
     current = path.join(current, part)
     if (create) await mkdir(current, { mode: 0o700 }).catch(error => { if (error.code !== 'EEXIST') throw error })
     const info = await lstat(current)
     if (!info.isDirectory() || info.isSymbolicLink() || await realpath(current) !== current) throw Error('Unsafe delivery directory')
   }
-  return create ? path.join(current, input.requestId) : current
+  return current
+}
+async function directory(root, input, create = false) {
+  const folder = path.join(await deliveryParent(root, create), input.requestId)
+  if (!create) {
+    const info = await lstat(folder)
+    if (!info.isDirectory() || info.isSymbolicLink() || await realpath(folder) !== folder) throw Error('Unsafe delivery directory')
+  }
+  return folder
+}
+function libraryLookup(value, inspect = false) {
+  const projectId = text(value?.projectId, 200)
+  if (inspect) {
+    if (typeof value.requestId !== 'string' || !uuid.test(value.requestId)) throw Error('Invalid delivery lookup ID')
+    return { projectId, requestId: value.requestId }
+  }
+  if (value.after !== undefined && (typeof value.after !== 'string' || !uuid.test(value.after))) throw Error('Invalid delivery library cursor')
+  return { projectId, ...(value.after ? { after: value.after } : {}) }
 }
 async function jsonFile(file) {
   const handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK)
@@ -170,6 +187,39 @@ export function createLessonDeliveryRuntime({ root, probe }) {
     } finally { await output?.close().catch(() => {}); await source?.handle.close().catch(() => {}); active.delete(input.requestId) }
   }
   return {
+    async list(value) {
+      const input = libraryLookup(value), page = { schemaVersion: 1, ...input, entries: [], scanned: 0, skipped: 0 }
+      let parent
+      try { parent = await deliveryParent(root) } catch (error) { if (error.code === 'ENOENT') return page; throw error }
+      const ids = []; let count = 0
+      for await (const item of await opendir(parent)) {
+        if (++count > 10000) throw Error('Delivery library exceeds 10000 directory entries; inspect managed folders manually')
+        if (uuid.test(item.name) && (!input.after || item.name > input.after)) ids.push(item.name)
+      }
+      ids.sort(); const selected = ids.slice(0, 20)
+      if (ids.length > selected.length) page.nextCursor = selected.at(-1)
+      for (const requestId of selected) {
+        page.scanned++
+        try {
+          const folder = await directory(root, { requestId }), request = validateLessonDeliveryRequest(await jsonFile(path.join(folder, 'request.json')))
+          if (request.requestId !== requestId) throw Error('Library record ID differs from directory')
+          if (request.projectId !== input.projectId) continue
+          let hasCompletionRecord = false
+          try { const info = await lstat(path.join(folder, 'manifest.json')); hasCompletionRecord = info.isFile() && !info.isSymbolicLink() && info.size > 0 && info.size <= 2 * 1024 * 1024 } catch (error) { if (error.code !== 'ENOENT') throw error }
+          page.entries.push({ requestId, projectId: request.projectId, courseLesson: request.export.courseLesson, sourcePath: request.export.outputRelativePath,
+            requestVersion: request.schemaVersion, materialFiles: request.materials?.files.length ?? 0, hasSubtitles: !!request.materials?.subtitles, hasCompletionRecord })
+        } catch { page.skipped++ } // Never repair, delete or follow an unsafe/unreadable entry.
+      }
+      return page
+    },
+    async inspect(value) {
+      const input = libraryLookup(value, true), folder = await directory(root, input)
+      const request = validateLessonDeliveryRequest(await jsonFile(path.join(folder, 'request.json')))
+      if (request.requestId !== input.requestId || request.projectId !== input.projectId) throw Error('Delivery belongs to another project or ID')
+      const entry = active.get(input.requestId)
+      if (entry) { if (!equal(entry.input, request)) throw Error('Delivery request changed on disk'); return snapshot(entry) }
+      return diskStatus(request)
+    },
     async start(value) {
       const input = validateLessonDeliveryRequest(value), previous = active.get(input.requestId)
       if (previous) { if (!equal(previous.input, input)) throw Error('Delivery request ID conflicts'); return snapshot(previous) }
