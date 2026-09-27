@@ -23,6 +23,7 @@ import { uiCourseSubtitleMessages } from './uiCourseSubtitleMessages'
 import { uiCourseOutputCheckMessages } from './uiCourseOutputCheckMessages'
 import { uiCoursePlaybackMessages } from './uiCoursePlaybackMessages'
 import { uiCourseDeliveryMessages } from './uiCourseDeliveryMessages'
+import { uiCourseCollectionMessages } from './uiCourseCollectionMessages'
 import { uiShortSelectionMessages } from './uiShortSelectionMessages'
 import { uiShortIntelligenceMessages } from './uiShortIntelligenceMessages'
 import { uiShortFinishingMessages } from './uiShortFinishingMessages'
@@ -75,6 +76,7 @@ export const uiMessages = {
   ...uiCourseOutputCheckMessages,
   ...uiCoursePlaybackMessages,
   ...uiCourseDeliveryMessages,
+  ...uiCourseCollectionMessages,
   ...uiShortSelectionMessages,
   ...uiShortIntelligenceMessages,
   ...uiShortFinishingMessages,

@@ -4,8 +4,9 @@ import { WorkerClient } from '../core/workerClient'
 import type { KinaouProject } from '../core/project'
 import type { CourseOutputWorkerProps } from './CourseOutputFileCheckPanel'
 import { useUiLanguage } from './UiLanguageProvider'
+import type { LessonDeliveryJob } from '../core/courseLessonDelivery'
 
-export function CourseDeliveryLibraryPanel({ project, dirty, workerUrl = '', workerToken = '', workerConnected = false, workerCapabilities = [] }: CourseOutputWorkerProps & { project: KinaouProject; dirty: boolean }) {
+export function CourseDeliveryLibraryPanel({ project, dirty, workerUrl = '', workerToken = '', workerConnected = false, workerCapabilities = [], onSelectVerified, canSelectVerified = true }: CourseOutputWorkerProps & { project: KinaouProject; dirty: boolean; onSelectVerified?: (job: LessonDeliveryJob) => void; canSelectVerified?: boolean }) {
   const { t } = useUiLanguage()
   const available = workerConnected && !!workerToken.trim() && workerCapabilities.includes('course-delivery-library')
   const scope = JSON.stringify([project, dirty, workerUrl, workerToken, available]), current = useRef(scope), mounted = useRef(true), session = useRef<DeliveryLibrarySession | null>(null)
@@ -51,5 +52,6 @@ export function CourseDeliveryLibraryPanel({ project, dirty, workerUrl = '', wor
       {(shown.detail || shown.job?.error) && <details><summary>{t('common.details')}</summary>{shown.detail || shown.job?.error}</details>}
     </div>}
     {result && <div><p>{t('course.delivery.result')}</p><code>{result.directory}</code><p>SHA-256: <code>{result.sha256}</code></p><p>{t('course.delivery.checked', { time: result.integrityCheckedAt, size: result.sizeBytes })}</p>{result.files && <ul>{result.files.map(file => <li key={file.path}><code>{file.path}</code> · {file.sizeBytes} · SHA-256: <code>{file.sha256}</code></li>)}</ul>}</div>}
+    {shown?.job?.state === 'ready' && onSelectVerified && <button disabled={!available || dirty || busy || !canSelectVerified} onClick={() => { if (shown.job?.state === 'ready') onSelectVerified(structuredClone(shown.job)) }}>{t('course.collection.add')}</button>}
   </section>
 }
