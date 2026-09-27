@@ -7,8 +7,9 @@ import { searchTrendCountries, type SearchTrendCountry, type SearchTrendSnapshot
 import type { CourseOutputWorkerProps } from './CourseOutputFileCheckPanel'
 import { useUiLanguage } from './UiLanguageProvider'
 import './SearchTrendsPanel.css'
+import { ResearchBriefPanel } from './ResearchBriefPanel'
 
-export function SearchTrendsPanel({ project, history, onProjectChange, workerUrl = '', workerToken = '', workerConnected = false, workerCapabilities = [] }: CourseOutputWorkerProps & { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void }) {
+export function SearchTrendsPanel({ project, history, onProjectChange, onOpenDirector, workerUrl = '', workerToken = '', workerConnected = false, workerCapabilities = [] }: CourseOutputWorkerProps & { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void; onOpenDirector?: () => void }) {
   const { t } = useUiLanguage(), [country, setCountry] = useState<SearchTrendCountry>('DE')
   const available = workerConnected && !!workerToken.trim() && workerCapabilities.includes('public-search-trends')
   const scope = JSON.stringify([project.id, country, workerUrl, workerToken, available]), current = useRef(scope), session = useRef<SearchTrendSession | null>(null)
@@ -53,6 +54,7 @@ export function SearchTrendsPanel({ project, history, onProjectChange, workerUrl
       {!snapshot.items.length && <p>{t('research.empty')}</p>}
       {snapshot.items.map((item, index) => <article key={index}>{itemView(item)}<button className="secondaryButton" disabled={!!ledgerError} onClick={() => retain(index)}>{t('research.retain')}</button></article>)}
     </div>}
+    <ResearchBriefPanel key={project.id} project={project} history={history} onProjectChange={onProjectChange} onOpenDirector={onOpenDirector} />
     <div className="card stack"><h3>{t('research.history')} ({retained.length}/200)</h3>
       {!retained.length && !ledgerError && <p>{t('research.historyEmpty')}</p>}
       {retained.map((entry, index) => <article key={index}><p>{t(`research.${entry.country}`)} · {entry.retrievedAt}</p>{itemView(entry.items[0])}{provenance(entry)}</article>)}
