@@ -15,6 +15,16 @@ Saved outlines travel with ordinary project serialization, drive backups and Ver
 
 ## Boundaries to review
 
+### Reviewed per-lesson WebVTT download (#321)
+
+In Course, save all drafts, then use **Subtitle file per lesson**. Select a saved lesson and review visible timeline caption text and lesson-relative timestamps. Time zero corresponds to lesson In. Intervals crossing a lesson edge are bounded exactly like the range-render plan; the review reports their count and keeps complete text. Check against the intended lesson video, acknowledge, then download. File names retain lesson ID, declared course language and outline revision. This is current-edit data, not a verified match to any earlier MP4; rerender matching video when appropriate.
+
+This plain-text [WebVTT](https://www.w3.org/TR/webvtt1/) profile uses UTF-8, millisecond timestamps and escaped literal markup/entities. It preserves Unicode and ordinary line breaks, normalizes CRLF/CR to LF, and rejects empty cue lines/control characters rather than silently dropping text. No translation, automatic language detection, fonts, colors, positions or effects are exported. Overlaps and invalid/unavailable caption data block the whole file. Limits: 1,000 cues / 1 MiB. Muted/outside captions are excluded; locked captions can be read without editing them. No project or media mutation, upload or platform-acceptance claim occurs.
+
+Project changes invalidate review; entering an unsaved draft discards it. A delivery error can be retried from the unchanged review. Download feedback only confirms that a browser download was requested; inspect the actual file. Neither filename/revision nor user acknowledgement proves agreement with an old video or instructional/accessibility quality.
+
+Acceptance: 37 new tests, 1,582 app tests, 224 local worker tests, build/syntax and full CI 36289403732 passed. Actual temporary file plus native browser download were parsed by ffprobe with exact packet times; the browser's own WebVTT parser preserved literal tags, arrows, ampersands, emoji and multiline text. DE/FR/EN, failed download/retry, stale project and dirty-draft guards passed; clean console. The 138-byte disposable browser file is `lesson-vtt-browser-test-fr-r1.vtt`. No video/model/SSD operation was needed.
+
 ### Course transcript captions (#319)
 
 After placing a course-associated recording through Audio, use **Assets → local transcription** with an explicitly installed whisper.cpp runtime/model. No model is downloaded. In **Studio → Caption Editor → Lesson captions from transcript**, select the saved transcript and review the proposed timeline times/text. Confirm that you checked them against the real recording, then explicitly insert. The helper uses recognized segment times plus the narration start, not evenly distributed script estimates or automatic text substitution. New transcript metadata retains the original course source; legacy transcripts require their source to remain present.
@@ -117,7 +127,7 @@ The local browser displayed the new Course entry/form and language options on a 
 
 ## Next course slices
 
-Current after #315: authored scripts, sources/demo records, exercises/solutions, explicit instructor records, text-resource ZIP delivery, retained lesson output references and source-bound local script narration are implemented. Next: explicit lesson-aligned narration placement, caption/production integration and actual course-quality acceptance. Text bundles and retained references are not complete media archives. Older next-step paragraphs below are dated history.
+Current after #321: authored scripts, sources/demo records, exercises/solutions, explicit instructor records, text-resource ZIP delivery, retained output references, source-bound local narration, reviewed lesson-aligned placement, STT captions and reviewed WebVTT sidecars are implemented. Next: real-file lesson-output checks, complete delivery/media integration and actual course-quality acceptance. Text bundles, subtitle sidecars and retained references are not complete media archives. Older next-step paragraphs below are dated history.
 
 PR #211 verification: full 498 application + 82 native tests and build/syntax gate passed. Sixteen regressions cover stale revision/range/project identity, removed/ineligible lessons, DE/EN/FR controls and stable range diagnostic codes. Isolated localhost:5192 with a synthetic video and temporary worker verified language-switch selection retention, disabled future bounds, stale blocking after a 4→3s trim, explicit re-review, a real 2s Full-HD MP4 and exact 1–3s receipt with unchanged names/revision/course language, custom-range deselection and receipt persistence after reload. Browser console clean; test processes stopped. Existing real-worker retiming/audio/independent-lesson execution tests remain green.
 
