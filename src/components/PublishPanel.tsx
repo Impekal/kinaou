@@ -16,6 +16,7 @@ import { YouTubePublishPanel } from './YouTubePublishPanel'
 import { InstagramPublishPanel } from './InstagramPublishPanel'
 import { TikTokHandoffPanel } from './TikTokHandoffPanel'
 import { ManualSocialHandoffPanel } from './ManualSocialHandoffPanel'
+import { PublicationEditorialControl } from './PublicationEditorialControl'
 
 interface PublishPanelProps {
   project: KinaouProject
@@ -404,6 +405,10 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
           {!receipts.length && <small>{t('publish.noExports')}</small>}
         </div>
       </div>
+
+      <PublicationEditorialControl project={project} jobId={selected?.jobId} busy={operationBusy} onApply={item => {
+        setTitle(item.title); setDescription(item.description); setTags(item.tags.join(', ')); setResult(null); setPreflight(null); setError(''); setDefaultsMessage('')
+      }} />
 
       {selected && <div className="card availabilityPanel">
         <div className="sectionLead">
