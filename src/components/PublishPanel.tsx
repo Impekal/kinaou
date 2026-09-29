@@ -15,6 +15,7 @@ import { displayExportReceiptLabel } from '../core/uiSystemLabels'
 import { YouTubePublishPanel } from './YouTubePublishPanel'
 import { InstagramPublishPanel } from './InstagramPublishPanel'
 import { TikTokHandoffPanel } from './TikTokHandoffPanel'
+import { ManualSocialHandoffPanel } from './ManualSocialHandoffPanel'
 
 interface PublishPanelProps {
   project: KinaouProject
@@ -513,6 +514,14 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
       />
 
       <YouTubePublishPanel
+        projectId={project.id}
+        workerUrl={workerUrl}
+        workerToken={workerToken}
+        workerConnected={workerConnected}
+        workerCapabilities={workerCapabilities}
+      />
+
+      <ManualSocialHandoffPanel
         projectId={project.id}
         workerUrl={workerUrl}
         workerToken={workerToken}
