@@ -26,6 +26,12 @@ Download the private ICS only intentionally. It must contain tentative UTC event
 
 #353 already passed isolated actual worker/MP4 and browser acceptance. With a disposable generic V3 package, explicitly load and verify in Publish. Historical caption/keywords/path and the actual SHA must be visible. Destination/project A→B→A must discard results even if a previous check finishes late; reload must issue no request. A missing or changed video must fail; restoration permits an explicit retry. Check DE/EN/FR and clipboard-denied manual-selection fallback. No platform account or upload is required for this check. Actual external posting is a separate deliberate action, not part of this acceptance. See MANUAL-SOCIAL-HANDOFF.md.
 
+## Optional publication editorial acceptance — 2026-09-30
+
+#355 passed isolated real-worker/protocol and browser acceptance. Save a timing plan and authored source, prepare a draft, and confirm no automatic model request. Explicit discovery/generation needs an already installed trusted local model and updated worker; no download is required for manual editing. Check titles/descriptions/keywords in the selected content language and verify each quote against both source and actual video. Deliberate save failure must retain review for save-only retry; package fields stay unchanged until separate acknowledgement. Source changes must make saved copy historical; changing project/context A→B→A during a delayed reply must discard that reply. Reload must initiate no request.
+
+Actual installed Llama 3.1 8B was tested with cloud disabled. DE/EN sample copy was usable; French retained German titles/mixed terminology and is **not quality-approved**. Do not equate schema-valid output with three-language accuracy. The isolated test runtime was stopped, no models downloaded and no SSD action is required for independent work. See PUBLICATION-EDITORIAL.md for bounds and evidence.
+
 ## Stage 0 — Prerequisites
 
 Check Node.js (22+ required) and git:

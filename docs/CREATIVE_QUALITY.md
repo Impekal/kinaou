@@ -20,6 +20,10 @@ Current acceptance summary (2026-09-27): completion points 1–3 have passed the
 
 Manual social delivery (#353): Facebook/Threads can reuse an explicitly selected generic export package after actual byte verification, with historical authored text and unchanged separate keywords. This is not automatic publication, a metadata-quality score, rights/AI-disclosure approval or measured engagement evidence. Platform-specific review stays explicit; whole point 9 remains open. See MANUAL-SOCIAL-HANDOFF.md.
 
+### Source-bound publication editorial copy — 2026-09-30
+
+Publication editorial copy (#355): main/Short drafts are explicitly source/plan/export-bound, with local-model provenance, exact quotations, human language/content acknowledgement and separate package-form application. Quotes prove text occurrence only, not factual support or correspondence with a historical video. Real installed Llama 3.1 8B produced usable DE/EN examples but mixed German into French despite language instructions; French output quality is explicitly **not accepted**. Manual multilingual correction remains available. No automatic trend/virality/language/factual approval. See PUBLICATION-EDITORIAL.md; whole points 6 and 9 remain open.
+
 ## Photo-driven, video-driven and fully generated avatars
 
 - Three explicit source modes are required: an authorized reference photo, an authorized reference video, or a fully generated fictional identity with no real-person reference. All three target identity-consistent, believable performance, expressions, motion and audio-driven lip sync.
