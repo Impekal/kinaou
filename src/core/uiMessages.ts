@@ -1,4 +1,5 @@
 import type { UiLanguage } from './uiLanguage'
+import { uiSourceLibraryMessages } from './uiSourceLibraryMessages'
 import { uiSettingsMessages } from './uiSettingsMessages'
 import { uiHistoryMessages } from './uiHistoryMessages'
 import { uiBackupMessages } from './uiBackupMessages'
@@ -90,6 +91,7 @@ export const uiMessages = {
   ...uiCourseWorkspaceMessages,
   ...uiCourseHandoffMessages,
   ...uiSourceArchiveMessages,
+  ...uiSourceLibraryMessages,
   ...uiSearchTrendMessages,
   ...uiResearchBriefMessages,
   ...uiPublicationPlanMessages,

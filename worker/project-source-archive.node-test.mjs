@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
-import { mkdtemp, mkdir, writeFile, readFile, rm, stat, symlink } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile, readFile, rm, stat, symlink, readdir, rename } from 'node:fs/promises'
 import { createProjectSourceArchiveRuntime } from './project-source-archive.mjs'
 import { sourceArchiveDirectory, sourceProjectInventory, sourceAssetPath, validateSourceArchiveQuery, validateSourceArchiveJob } from './project-source-protocol.mjs'
 const digest = data => crypto.createHash('sha256').update(data).digest('hex')
@@ -83,4 +83,65 @@ test('rejects unsafe paths and bound violations before any copying',async t=>{
   assert.throws(()=>sourceProjectInventory('x'.repeat(5*1024**2+1)))
   assert.throws(()=>sourceAssetPath('KINAOU/Assets/'+Array(10).fill('界'.repeat(60)).join('/')))
   await assert.rejects(stat(path.join(f.root,'Archive')),{code:'ENOENT'})
+})
+test('empty library never creates directories or requires a project/browser ticket', async t => {
+  const f = await fixture(t)
+  assert.deepEqual(await f.runtime.list({}), { schemaVersion: 1, entries: [], scanned: 0, skipped: 0 })
+  await assert.rejects(stat(path.join(f.root, 'Archive')), { code: 'ENOENT' })
+  for (const query of [null, [], { after: '../outside' }, { projectId: 'ignored-filter' }]) await assert.rejects(f.runtime.list(query))
+  await rename(f.root, path.join(path.dirname(f.root), 'DisconnectedFixture'))
+  await assert.rejects(f.runtime.list({}), { code: 'ENOENT' })
+})
+test('rediscovers different projects after restart without reading media, then checks their actual bytes and title', async t => {
+  const f = await fixture(t), first = request(f.project), second = request({ ...f.project, id: 'another', title: 'Other private project' })
+  for (const input of [first, second]) { await f.runtime.start(input); assert.equal((await settle(f.runtime, input)).state, 'ready') }
+  const parent = path.join(f.root, 'Archive', 'ProjectSources'), before = await readdir(parent)
+  const folder = path.join(parent, first.requestId), oldManifest = await readFile(path.join(folder, 'manifest.json'))
+  // Same-size mutation cannot be detected by metadata discovery.
+  await writeFile(path.join(folder, 'source/KINAOU/Assets/source.bin'), Buffer.alloc(f.media.length, 12))
+  const fresh = createProjectSourceArchiveRuntime({ root: f.root }), page = await fresh.list({})
+  assert.deepEqual(page.entries.map(item => item.query.projectId).sort(), ['another', 'project'])
+  assert.equal(page.entries.every(item => item.hasCompletionRecord), true)
+  assert.equal((await fresh.status(page.entries.find(item => item.query.projectId === 'project').query)).state, 'integrityFailed')
+  const good = await fresh.status(page.entries.find(item => item.query.projectId === 'another').query)
+  assert.equal(good.state, 'ready'); assert.equal(good.result.projectTitle, 'Other private project')
+  assert.deepEqual(await readdir(parent), before); assert.deepEqual(await readFile(path.join(folder, 'manifest.json')), oldManifest)
+  await writeFile(path.join(folder, 'source/KINAOU/Assets/source.bin'), f.media)
+  assert.equal((await fresh.status(first)).result.projectTitle, f.project.title)
+})
+test('library paginates through malformed and unsafe records without following links or repairing files', async t => {
+  const f = await fixture(t), parent = path.join(f.root, 'Archive', 'ProjectSources'); await mkdir(parent, { recursive: true })
+  const ids = Array.from({ length: 23 }, (_, index) => `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`)
+  for (const id of ids) { await mkdir(path.join(parent, id)); const input = { ...request(f.project), requestId: id }; delete input.projectText; await writeFile(path.join(parent, id, 'request.json'), JSON.stringify(input)) }
+  await writeFile(path.join(parent, ids[1], 'request.json'), '{bad')
+  await rm(path.join(parent, ids[2], 'request.json')); await symlink(path.join(parent, ids[0], 'request.json'), path.join(parent, ids[2], 'request.json'))
+  await rm(path.join(parent, ids[3]), { recursive: true }); await symlink(path.join(parent, ids[0]), path.join(parent, ids[3]))
+  await writeFile(path.join(parent, ids[4], 'request.json'), Buffer.from([0xff]))
+  await writeFile(path.join(parent, ids[5], 'request.json'), 'x'.repeat(4097))
+  const foreign = path.join(parent, 'leave-me.txt'); await writeFile(foreign, 'KEEP')
+  const first = await f.runtime.list({}); assert.equal(first.scanned, 20); assert.equal(first.skipped, 5); assert.equal(first.entries.length, 15); assert.equal(first.nextCursor, ids[19])
+  const next = await f.runtime.list({ after: first.nextCursor }); assert.equal(next.scanned, 3); assert.equal(next.entries.length, 3); assert.equal(next.nextCursor, undefined)
+  assert.equal(first.entries.every(item => !item.hasCompletionRecord), true)
+  assert.equal((await f.runtime.status(first.entries[0].query)).state, 'interrupted')
+  assert.equal((await readFile(foreign)).toString(), 'KEEP'); assert.equal((await readFile(path.join(parent, ids[1], 'request.json'))).toString(), '{bad')
+})
+test('library refuses a symlinked archive root and never treats a symlinked completion record as completed', async t => {
+  const f = await fixture(t), input = request(f.project); await f.runtime.start(input); await settle(f.runtime, input)
+  const folder = path.join(f.root, sourceArchiveDirectory(input.requestId).slice(7)), saved = await readFile(path.join(folder, 'manifest.json'))
+  await writeFile(path.join(f.root, 'foreign-manifest.json'), saved); await rm(path.join(folder, 'manifest.json')); await symlink(path.join(f.root, 'foreign-manifest.json'), path.join(folder, 'manifest.json'))
+  assert.equal((await f.runtime.list({})).entries[0].hasCompletionRecord, false)
+  await assert.rejects(f.runtime.status(input))
+  await rm(path.join(f.root, 'Archive'), { recursive: true }); await mkdir(path.join(f.root, 'foreign')); await symlink('foreign', path.join(f.root, 'Archive'))
+  await assert.rejects(f.runtime.list({}), /Unsafe/)
+  assert.deepEqual(await readFile(path.join(f.root, 'foreign-manifest.json')), saved)
+})
+test('title hints remain unverified and missing project metadata does not hide an archive request', async t => {
+  const f = await fixture(t), input = request(f.project); await f.runtime.start(input); await settle(f.runtime, input)
+  const file = path.join(f.root, sourceArchiveDirectory(input.requestId).slice(7), 'source/KINAOU/Projects/project.json'), original = await readFile(file)
+  assert.equal((await f.runtime.list({})).entries[0].titleHint, f.project.title)
+  await writeFile(file, JSON.stringify({ ...f.project, title: 'Changed title in damaged archive' }))
+  assert.equal((await f.runtime.list({})).entries[0].titleHint, 'Changed title in damaged archive')
+  assert.equal((await f.runtime.status(input)).state, 'integrityFailed')
+  await rm(file); const missing = await f.runtime.list({}); assert.equal(missing.entries.length, 1); assert.equal(missing.entries[0].titleHint, undefined)
+  await writeFile(file, original); assert.equal((await f.runtime.status(input)).result.projectTitle, f.project.title)
 })

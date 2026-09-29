@@ -1,8 +1,9 @@
 import crypto from 'node:crypto'
 import path from 'node:path'
 import { constants } from 'node:fs'
-import { lstat, realpath, mkdir, open, statfs, rename, link, unlink } from 'node:fs/promises'
+import { lstat, realpath, mkdir, open, opendir, statfs, rename, link, unlink } from 'node:fs/promises'
 import { projectSourceLimits as limits, sourceArchiveDirectory, sourceProjectInventory, validateSourceArchiveQuery, validateSourceArchiveRequest, validateSourceArchiveJob } from './project-source-protocol.mjs'
+import { validateSourceLibraryQuery, validateSourceLibraryPage } from './project-source-library-protocol.mjs'
 
 const now = () => new Date().toISOString()
 const hash = bytes => crypto.createHash('sha256').update(bytes).digest('hex')
@@ -97,7 +98,7 @@ export function createProjectSourceArchiveRuntime({ root }) {
           if (record?.name !== name || !Number.isSafeInteger(record.sizeBytes) || record.sizeBytes < 1 || record.sizeBytes > 1024 ** 2 || typeof record.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(record.sha256)
             || hash(await readRecord(folder, [name])) !== record.sha256) throw Error('Archive information record differs')
         }
-        return { ...job, result: { ...result, integrityCheckedAt: now() } }
+        return { ...job, result: { ...result, projectTitle: inventory.title, integrityCheckedAt: now() } }
       } catch (error) { return { schemaVersion: 1, query, state: 'integrityFailed', error: failure(error) } }
     }
     let status
@@ -160,6 +161,39 @@ export function createProjectSourceArchiveRuntime({ root }) {
     } finally { active.delete(query.requestId) }
   }
   return {
+    async list(value) {
+      const input = validateSourceLibraryQuery(value), page = { schemaVersion: 1, ...input, entries: [], scanned: 0, skipped: 0 }
+      const base = await canonical(root) // Missing/disconnected root is an error, not an empty library.
+      let parent
+      try { parent = await directory(base, ['Archive', 'ProjectSources']) }
+      catch (error) { if (error.code === 'ENOENT') return page; throw error }
+      const ids = []; let count = 0
+      for await (const item of await opendir(parent)) {
+        if (++count > 10000) throw Error('Source archive library exceeds 10000 entries; inspect known folders manually')
+        if (/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(item.name) && (!input.after || item.name > input.after)) ids.push(item.name)
+      }
+      ids.sort(); const selected = ids.slice(0, 20)
+      if (ids.length > selected.length) page.nextCursor = selected.at(-1)
+      for (const requestId of selected) {
+        page.scanned++
+        try {
+          const folder = await folderFor(requestId)
+          const retained = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(await readRecord(folder, ['request.json'], 4096)))
+          const query = validateSourceArchiveQuery(retained)
+          if (query.requestId !== requestId || retained.acknowledgePrivateArchive !== true || !['de', 'en', 'fr'].includes(retained.language)) throw Error('Archive request differs from directory')
+          let hasCompletionRecord = false
+          try { const info = await lstat(path.join(folder, 'manifest.json')); hasCompletionRecord = info.isFile() && !info.isSymbolicLink() && info.size > 0 && info.size <= 2 * 1024 ** 2 }
+          catch (error) { if (error.code !== 'ENOENT') throw error }
+          let titleHint
+          try {
+            const document = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(await readRecord(folder, ['source', 'KINAOU', 'Projects', 'project.json'], limits.projectBytes)))
+            if (document?.id === query.projectId && typeof document.title === 'string' && document.title.trim() && document.title.length <= 1000 && !/[\x00-\x1f\x7f]/.test(document.title)) titleHint = document.title
+          } catch { /* Missing/unsafe project metadata does not hide a recoverable request. */ }
+          page.entries.push({ query, hasCompletionRecord, ...(titleHint === undefined ? {} : { titleHint }) })
+        } catch { page.skipped++ } // Discovery never repairs, removes, hashes payloads or follows unsafe records.
+      }
+      return validateSourceLibraryPage(page, input)
+    },
     async start(value) {
       const request = validateSourceArchiveRequest(value), query = validateSourceArchiveQuery(request)
       if (hash(request.projectText) !== query.projectSha256) throw Error('Submitted project hash differs')

@@ -19,6 +19,7 @@ import { maxCoursePlaybackBytes } from './courseOutputPlayback'
 import { lessonDeliveryRequestSchema, parseLessonDeliveryJob, type LessonDeliveryRequest } from './courseLessonDelivery'
 import { validateCourseCollectionRequest, validateCourseCollectionJob, type CourseCollectionRequest } from '../../worker/course-collection-protocol.mjs'
 import { validateSourceArchiveRequest, validateSourceArchiveQuery, validateSourceArchiveJob, type SourceArchiveRequest, type SourceArchiveQuery } from '../../worker/project-source-protocol.mjs'
+import { validateSourceLibraryQuery, validateSourceLibraryPage, type SourceLibraryQuery } from '../../worker/project-source-library-protocol.mjs'
 import { validateCollectionLibraryQuery, validateCollectionLibraryLookup, validateCollectionLibraryPage, validateCollectionLibraryInspection, type CollectionLibraryQuery, type CollectionLibraryLookup } from '../../worker/course-collection-library-protocol.mjs'
 import { deliveryLibraryQuerySchema, deliveryLibraryLookupSchema, parseDeliveryLibraryPage, parseDeliveryLibraryInspection, type DeliveryLibraryQuery, type DeliveryLibraryLookup } from './courseDeliveryLibrary'
 import {
@@ -259,6 +260,12 @@ export class WorkerClient {
     const payload = await this.request('/projects/source-archive/status', { method: 'POST', body: JSON.stringify(input) })
     if (payload?.type !== 'project-source-archive') throw Error('Invalid project archive response')
     return validateSourceArchiveJob(payload.job, input)
+  }
+  async listProjectSourceArchives(query: SourceLibraryQuery) {
+    const input = validateSourceLibraryQuery(query)
+    const payload = await this.request('/projects/source-archive/list', { method: 'POST', body: JSON.stringify(input) })
+    if (payload?.type !== 'project-source-library') throw Error('Invalid source library response')
+    return validateSourceLibraryPage(payload.page, input)
   }
   async listCourseCollections(query: CollectionLibraryQuery) {
     const input = validateCollectionLibraryQuery(query)
