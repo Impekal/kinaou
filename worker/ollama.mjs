@@ -11,7 +11,7 @@ export async function listOllamaModels(baseUrl, fetchImpl = fetch) {
   if (!response.ok) throw new Error(`Ollama model list failed with HTTP ${response.status}`)
   const payload = await response.json()
   if (!Array.isArray(payload.models)) throw new Error('Invalid Ollama model list')
-  return payload.models.map((item) => ({ id: String(item.model ?? item.name ?? ''), sizeBytes: Number(item.size ?? 0) })).filter((item) => item.id && Number.isFinite(item.sizeBytes))
+  return payload.models.filter(item => item && !item.remote_host && !item.remote_model).map((item) => ({ id: String(item.model ?? item.name ?? ''), sizeBytes: Number(item.size ?? 0) })).filter((item) => item.id && Number.isFinite(item.sizeBytes))
 }
 
 export async function generateDirectorPlan(baseUrl, model, brief, fetchImpl = fetch) {

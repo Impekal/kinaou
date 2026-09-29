@@ -1235,6 +1235,12 @@ export class WorkerClient {
     return payload.plan
   }
 
+  async generatePublicationEditorial(model: string, context: unknown): Promise<unknown> {
+    const payload = await this.request('/publication/editorial/generate', { method: 'POST', body: JSON.stringify({ model, context }) })
+    if (payload?.ok !== true || payload?.type !== 'publication-editorial') throw new Error('Invalid editorial response')
+    return payload.result
+  }
+
   async generateAiEditorProposal(model: string, instruction: string, context: unknown): Promise<unknown> {
     const payload = await this.request('/ai-editor/generate', { method: 'POST', body: JSON.stringify({ model, instruction, context }) })
     if (payload?.ok !== true || payload?.type !== 'ai-editor-proposal') throw new Error('Invalid AI Editor response')
