@@ -53,7 +53,11 @@ it('archives real media, restores an independent copy over authenticated routes,
     expect((await client.projectSourceRestoreStatus(restoreRequest)).state).toBe('ready')
     const restoredRoot = path.join(temp, restoration.result!.managedRoot)
     const restored=await worker(restoredRoot,43955)
-    let render=await restored.startRender(createRenderPlan(archivedProject,{...preview1080pPreset,width:320,height:180},'KINAOU/Renders/restored-proof.mp4'))
+    const reopenedEntry = (await restored.listProjectBackups()).find(entry => entry.path === 'KINAOU/Projects/project.json')
+    expect(reopenedEntry?.title).toBe(project.title)
+    const reopenedProject = parseProject(await restored.loadProjectBackup(reopenedEntry!.id))
+    expect(reopenedProject).toEqual(project)
+    let render=await restored.startRender(createRenderPlan(reopenedProject,{...preview1080pPreset,width:320,height:180},'KINAOU/Renders/restored-proof.mp4'))
     for(let i=0;i<200&&['queued','running'].includes(render.state);i++){await new Promise(resolve=>setTimeout(resolve,30));render=await restored.renderStatus(render.id)}
     expect(render.state,render.error).toBe('succeeded')
     const output=path.join(restoredRoot,'Renders/restored-proof.mp4')
