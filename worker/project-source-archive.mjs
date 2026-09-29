@@ -70,6 +70,8 @@ const readme = {
   de: 'PRIVATE KINAOU-PROJEKT- UND MEDIENSICHERUNG\nNur Projektdokument und registrierte verwaltete Medien; Inline-Untertitel bleiben im Dokument. Keine Komplettsicherung von Rechner, Modellen, Browserverlauf/Einstellungen oder Zugangsdaten. Nicht registrierte Exporte, externe Nachweise/Referenzen und beliebige Metadatenpfade werden nicht verfolgt. Kein globaler Dateisystem-Snapshot oder fachliche Freigabe. Privat halten: Skripte, Lösungen, Identitäts-/Stimmnachweise und Pfade können enthalten sein. Nicht deinen aktiven KINAOU-Ordner ersetzen. Hashes prüfen und Wiederherstellung zuerst in getrenntem Speicher testen.\n',
   fr: 'ARCHIVE PRIVÉE KINAOU : PROJET ET MÉDIAS ENREGISTRÉS\nDocument du projet et médias gérés enregistrés uniquement ; sous-titres internes dans le document. Ni sauvegarde complète de machine, modèles, historique/réglages du navigateur ou identifiants. Exports non enregistrés, preuves/références externes et chemins arbitraires des métadonnées non suivis. Ni instantané global du disque ni validation pédagogique. Garder privé : scripts, réponses, provenance identitaire/vocale et chemins possibles. Ne remplacez pas votre dossier KINAOU actif. Vérifiez les empreintes et testez la restauration séparément.\n'
 }
+// Internal filesystem primitives shared with isolated restoration; never exposed as routes.
+export const sourceArchiveIO = { canonical, directory, opened, readRecord, hashFile, writeExclusive, writeStatus, stable, hash, failure, equal, now }
 export function createProjectSourceArchiveRuntime({ root }) {
   const active = new Map()
   async function folderFor(id, create = false) {

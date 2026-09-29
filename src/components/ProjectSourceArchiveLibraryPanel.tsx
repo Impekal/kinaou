@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { SourceLibrarySession, type SourceLibraryFeedback, type SourceLibraryPage } from '../core/projectSourceLibrary'
 import { WorkerClient } from '../core/workerClient'
 import { useUiLanguage } from './UiLanguageProvider'
+import { ProjectSourceRestorePanel } from './ProjectSourceRestorePanel'
 interface Props { workerUrl: string; workerToken: string; workerConnected: boolean; workerCapabilities: string[]; managedRoots: string[] }
 export function ProjectSourceArchiveLibraryPanel(props: Props) {
   const identity = JSON.stringify([props.workerUrl, props.workerToken, props.workerConnected, props.workerCapabilities.includes('project-source-library'), props.managedRoots])
@@ -53,5 +54,6 @@ function SourceLibraryView({ workerUrl, workerToken, workerConnected, workerCapa
       <p>{t('sourceLibrary.projectPath')}<br /><code>{result.projectPath}</code></p><p>{t('sourceLibrary.folder')}<br /><code>{result.directory}</code></p>
       <p>{t('sourceLibrary.private')}</p><details><summary>{t('sourceLibrary.files')}</summary><ul>{result.files.map(file => <li key={file.path}><code>{file.path}</code> · {file.sizeBytes} · SHA-256: <code>{file.sha256}</code></li>)}</ul></details>
     </div>}
+    <ProjectSourceRestorePanel workerUrl={workerUrl} workerToken={workerToken} workerConnected={workerConnected} workerCapabilities={workerCapabilities} managedRoots={managedRoots} verified={feedback?.job?.state === 'ready' ? feedback.job : undefined} />
   </section>
 }
