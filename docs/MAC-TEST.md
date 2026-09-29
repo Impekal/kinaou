@@ -40,6 +40,12 @@ Actual installed Llama 3.1 8B was tested with cloud disabled. DE/EN sample copy 
 
 #359 passed isolated actual worker/FFmpeg and browser tests; no user SSD action is currently required. With an updated connected worker, open Settings without a project. Nothing should be requested until explicitly listing archives. Select an existing entry: title and completion-file hints must remain labelled unverified. Explicitly check integrity to obtain actual hashes and the verified historical project title. Missing/incomplete/corrupted files must fail honestly; a disconnected storage root must not appear as an empty library. Changing connection/root A→B→A while a reply is delayed must discard it. Reload issues zero requests. Check DE/EN/FR. No restore/copy/repair or active-root replacement is part of this feature. Never tamper with user backups for testing; corruption tests used disposable copies only. See PROJECT-SOURCE-LIBRARY.md.
 
+## Optional isolated restoration acceptance — 2026-09-30
+
+#361 passed isolated real-worker/FFmpeg and browser acceptance without using user SSD data. In Settings, fully verify an existing disposable archive, review its title/media count and acknowledge a private additional working copy. The new job ID must be retained before submission. A lost reply must preserve that ID and offer status checking, never automatically create another copy. Reload must make zero requests; explicit checks rehash the copied bytes. A changed/missing file must fail; no partial copy may be overwritten/resumed. Check DE/EN/FR and discard late results after root A→B→A changes. Removing the browser reminder must not remove files.
+
+Actual separate-worker reopening via Projects → drive backup list/load and real MP4/WAV re-rendering passed while original media and archive were unavailable. Starting another worker and loading the project are separate explicit actions, not automatic side effects. Use a separate port and the new restored `source/KINAOU` root, never the original archive or active root. This is not a request to alter production storage now. See PROJECT-SOURCE-RESTORE.md.
+
 ## Stage 0 — Prerequisites
 
 Check Node.js (22+ required) and git:

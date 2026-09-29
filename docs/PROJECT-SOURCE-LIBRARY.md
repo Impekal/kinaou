@@ -18,7 +18,7 @@ Each retained request is a bounded 4 KiB regular, non-symlink stable read with s
 
 Explicit integrity checking is point-in-time consistency evidence, not a signed authenticity guarantee, comparison with the current project, media-rights approval, or teaching-quality certification. Project documents can contain scripts, exercises, private answers and provenance. Only registered managed media and the saved project document are archived; models, browser state, credential stores, unregistered outputs and arbitrary external references are not separately backed up.
 
-Do not use the only backup as an active production root: later jobs could modify it. A separately reviewed isolated restoration workflow remains to implement; this panel does not change storage configuration.
+Do not use the only backup as an active production root: later jobs could modify it. The separate explicit [isolated restoration workflow](PROJECT-SOURCE-RESTORE.md) added by #361 can create a new independent working copy. Listing/checking alone still does not restore anything or change storage configuration.
 
 ## Executed evidence
 
