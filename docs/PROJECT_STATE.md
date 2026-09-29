@@ -1,6 +1,6 @@
 # KINAOU — PROJECT STATE & HANDOFF
 
-Last updated: 2026-09-29
+Last updated: 2026-09-30
 
 ## Current completion summary — 2026-09-27
 
@@ -14,7 +14,19 @@ The existing hourly heartbeat `kinaou-autonom-weiterbauen` is PAUSED at the user
 
 Check the available Codex usage windows at safe slice boundaries. At **85% used / 15% remaining** in any available Codex window, start no new slice; finish the already-started bounded slice, tests, PR/merge and separate documentation as far as the remaining allowance permits, then provide a short copyable prompt for continuing in normal ChatGPT with the Mac terminal and actual repository evidence. Do not promise immunity from a hard limit. Normal ChatGPT chat limits are not visible through the Codex usage tool. See the latest merged handoff below for the current usage checkpoint; earlier percentages are historical. Never redeem a reset credit without explicit confirmation. Heartbeat stays paused.
 
-## Latest merged handoff — manual Facebook and Threads delivery
+## Latest merged handoff — source-bound publication editorial proposals
+
+[PR #355](https://github.com/Impekal/kinaou/pull/355) merged as `c58fe26610021f66c58dc0d21c341b1783a93ef6` after full [CI 36638240597](https://github.com/Impekal/kinaou/actions/runs/36638240597), including render smoke. Publish now explicitly prepares authored or installed-local-model titles/descriptions/plain keywords/rationales/exact source quotes for the saved main/Short plan. Review, language/content acknowledgement, history-backed save and per-export package-form replacement remain separate. No automatic package, upload, posting, model download, trend measurement or best-time claim.
+
+Exact plan/receipt/source/profile bindings, bounded strict schemas, observed A→B→A guards and save-only recovery prevent stale replacement. Local model metadata is checked before sending source text: remote/unknown metadata is refused, and common discovery omits explicitly remote aliases. Export paths and labels remain review bindings but are excluded from inference. The local runtime itself must be trusted; this is not cryptographic attestation. See [PUBLICATION-EDITORIAL.md](PUBLICATION-EDITORIAL.md).
+
+Acceptance: 1,933 app tests across 201 files (27 new), 349 supported local worker tests (6 new), production build, syntax and full unmodified CI. Executable authenticated worker/model-protocol integration and DE/EN/FR browser review, failed-save retry, explicit package-form transfer, reload and delayed A→B→A invalidation passed. Full local app tests used two workers on the heavily loaded Mac; earlier default-parallel attempts exposed a disposable harness port collision and an existing five-second test timeout under load. Harness collision was removed; no assertions/timeouts/CI gates were weakened. Foreign files/stash untouched; disposable browser harness, fixture data and own test processes removed.
+
+Actual already-installed `llama3.1:8b` ran through Ollama 0.33.3 on an isolated loopback server with cloud disabled and no downloads. DE/EN examples were usable on inspection; French remained partly German after explicit system/prompt/schema language instructions and removal of export labels. **French model-output quality is not accepted.** All languages still require human review; exact source quotes establish occurrence only, not truth, semantic support, language correctness or agreement with historical MP4s. Manual DE/EN/FR drafting/editing is available. Source-size acceptance does not establish the runtime consumed its entire context. Whole points 4–10 remain open.
+
+Usage checkpoint: 12% weekly consumed, no reset credit redeemed; heartbeat remains paused and the existing AC-only wake helper unchanged. Next safe priority: test an explicit narrow local language-correction path for editorial draft fields, preserving source quotes/provenance and requiring fresh human review; do not silently retry generation or download another model. No immediate SSD/user action is required for independent work.
+
+## Previous merged handoff — manual Facebook and Threads delivery
 
 [PR #353](https://github.com/Impekal/kinaou/pull/353) merged as `a56e6e4667d392fe556fcf96b5b7025c358d2ca0` after full [CI 36633670558](https://github.com/Impekal/kinaou/actions/runs/36633670558), including render smoke. Publish now explicitly loads generic V3 packages and rechecks actual video bytes before offering historical text, separate keywords and managed-relative file paths for manual Facebook/Threads delivery, in DE/EN/FR. No accounts, provider API, upload, automatic shortening/hashtag rewriting, scheduling or publication receipt. Destination/project/connection changes discard evidence and late results/errors; reload starts zero requests. External links are plain site roots with no project data.
 
