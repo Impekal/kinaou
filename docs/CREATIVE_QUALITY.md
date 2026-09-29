@@ -24,6 +24,8 @@ Manual social delivery (#353): Facebook/Threads can reuse an explicitly selected
 
 Publication editorial copy (#355): main/Short drafts are explicitly source/plan/export-bound, with local-model provenance, exact quotations, human language/content acknowledgement and separate package-form application. Quotes prove text occurrence only, not factual support or correspondence with a historical video. Real installed Llama 3.1 8B produced usable DE/EN examples but mixed German into French despite language instructions; French output quality is explicitly **not accepted**. Manual multilingual correction remains available. No automatic trend/virality/language/factual approval. See PUBLICATION-EDITORIAL.md; whole points 6 and 9 remain open.
 
+Editorial language follow-up (#357): an explicit narrow local translation pass, followed by before/after human comparison, produced appropriate DE/EN/FR sample fields with the already installed Llama 3.1 8B. Original quotations and creator provenance remain fixed, with the language model recorded separately. It is not a silent retry, fact checker or universal language approval; the broader generator's French limitation remains. Actual browser/worker/model acceptance tests the bounded workflow, not arbitrary content quality.
+
 ## Photo-driven, video-driven and fully generated avatars
 
 - Three explicit source modes are required: an authorized reference photo, an authorized reference video, or a fully generated fictional identity with no real-person reference. All three target identity-consistent, believable performance, expressions, motion and audio-driven lip sync.

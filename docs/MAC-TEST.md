@@ -32,6 +32,10 @@ Download the private ICS only intentionally. It must contain tentative UTC event
 
 Actual installed Llama 3.1 8B was tested with cloud disabled. DE/EN sample copy was usable; French retained German titles/mixed terminology and is **not quality-approved**. Do not equate schema-valid output with three-language accuracy. The isolated test runtime was stopped, no models downloaded and no SSD action is required for independent work. See PUBLICATION-EDITORIAL.md for bounds and evidence.
 
+## Optional local editorial language-pass acceptance — 2026-09-30
+
+#357 was exercised through the real browser, authenticated worker and already installed Llama 3.1 8B, with cloud disabled and no downloads. Load a complete current draft and explicitly request a language revision. Compare all four translated field types against their originals; source quotes must stay unchanged. The draft must not change until acknowledgement/application, and saving still requires a fresh normal review. A failed save must retry without another translation. Reload must preserve separate original/translation provenance with zero requests. Source/project/connection changes, including A→B→A during a delayed real response, must discard obsolete candidates. An old worker without the new language capability must leave the action unavailable. The DE/EN/FR sample pass does not certify arbitrary model language, facts or video agreement; see PUBLICATION-EDITORIAL.md.
+
 ## Stage 0 — Prerequisites
 
 Check Node.js (22+ required) and git:
