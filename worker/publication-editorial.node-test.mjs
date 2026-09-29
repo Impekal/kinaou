@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { editorialContextSchema, generatePublicationEditorial, validateEditorialProposal } from './publication-editorial.mjs'
+import { editorialContextSchema, generatePublicationEditorial, translatePublicationEditorial, validateEditorialLanguagePass, validateEditorialProposal } from './publication-editorial.mjs'
 import { listOllamaModels } from './ollama.mjs'
 const localMetadata = () => new Response(JSON.stringify({ model_info: { 'general.architecture': 'llama' } }))
 const context = { schemaVersion: 1, projectId: 'fixture', planId: 'c7ae8adc-f207-4dfb-ac13-f03a3d5f3b4a', planRevision: 1,
@@ -65,4 +65,54 @@ test('quotes provide exact text grounding, not semantic verification or platform
   const extra = structuredClone(proposal); extra.items[0].verifiedTruth = true
   assert.throws(() => validateEditorialProposal(context, extra))
   assert.deepEqual(validateEditorialProposal(context, proposal), proposal)
+})
+for (const [locale, language] of [['de', 'German'], ['en', 'English'], ['fr', 'French']]) test(`explicit ${locale} language pass sends only draft fields and preserves source quotes`, async () => {
+  const before = JSON.stringify(proposal), calls = []
+  const result = await translatePublicationEditorial('http://127.0.0.1:11434', 'translator', { ...context, outputLanguage: locale }, proposal, async (url, options) => {
+    calls.push(url); assert.equal(options.redirect, 'error')
+    if (url.endsWith('/api/show')) return localMetadata()
+    const body = JSON.parse(options.body), input = JSON.parse(body.prompt.split('INPUT_JSON:\n')[1])
+    assert.match(body.system, new RegExp(`Translate to ${language}`))
+    assert.equal(body.stream, false); assert.equal(body.options.temperature, 0); assert.equal(body.tools, undefined)
+    assert.deepEqual(Object.keys(options.headers), ['content-type'])
+    assert.equal(body.prompt.includes(context.sourceText), false); assert.equal(body.prompt.includes(proposal.items[0].sourceQuote), false)
+    assert.deepEqual(Object.keys(input), ['items'])
+    for (const item of input.items) { assert.equal(item.sourceQuote, undefined); item.title = 'Translated heading' }
+    return new Response(JSON.stringify({ response: JSON.stringify(input) }))
+  })
+  assert.equal(calls.length, 2); assert.equal(result.outputLanguage, locale); assert.equal(result.modelId, 'translator')
+  assert.deepEqual(result.proposal.items.map(item => item.sourceQuote), proposal.items.map(item => item.sourceQuote))
+  assert.equal(JSON.stringify(proposal), before)
+})
+test('language pass refuses invalid draft before inference and remote metadata before draft fields', async () => {
+  let calls = 0
+  await assert.rejects(translatePublicationEditorial('http://127.0.0.1:11434', 'translator', context, { ...proposal, items: [] }, async () => { calls++; return localMetadata() }))
+  assert.equal(calls, 0)
+  await assert.rejects(translatePublicationEditorial('http://127.0.0.1:11434', 'translator', context, proposal, async (url, options) => {
+    calls++; assert.equal(url.endsWith('/api/show'), true); assert.deepEqual(JSON.parse(options.body), { model: 'translator', verbose: false })
+    return new Response(JSON.stringify({ remote_host: 'https://ollama.com' }))
+  }), /remote or unknown/)
+  assert.equal(calls, 1)
+})
+test('language pass rejects reordered, changed, missing, extra or oversized fields without automatic retries', async () => {
+  const fields = { items: proposal.items.map(({ sourceQuote, ...rest }) => rest) }
+  for (const fault of ['reordered', 'changed-id', 'missing', 'quote-injection', 'oversized', 'remote-response', 'malformed', 'http']) {
+    let calls = 0; const copy = structuredClone(fields)
+    if (fault === 'reordered') copy.items.reverse()
+    if (fault === 'changed-id') copy.items[0].jobId = 'other'
+    if (fault === 'missing') copy.items.pop()
+    if (fault === 'quote-injection') copy.items[0].sourceQuote = 'Changed'
+    if (fault === 'oversized') copy.items[0].title = 'x'.repeat(201)
+    await assert.rejects(translatePublicationEditorial('http://127.0.0.1:11434', 'translator', context, proposal, async url => {
+      if (url.endsWith('/api/show')) return localMetadata()
+      calls++; if (fault === 'http') return new Response('', { status: 503 })
+      return new Response(fault === 'malformed' ? 'invalid' : JSON.stringify({ response: JSON.stringify(copy), ...(fault === 'remote-response' ? { remote_model: 'remote' } : {}) }))
+    }))
+    assert.equal(calls, 1)
+  }
+})
+test('client-side language validation rejects replacing one genuine quotation with a different genuine quotation', () => {
+  const changed = structuredClone(proposal); changed.items[0].sourceQuote = 'untrusted test text'
+  assert.throws(() => validateEditorialLanguagePass(context, proposal, changed), /preserve/)
+  assert.deepEqual(validateEditorialLanguagePass(context, proposal, proposal), proposal)
 })

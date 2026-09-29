@@ -6,3 +6,5 @@ export const editorialContextSchema: ZodType<EditorialContext>
 export const editorialProposalSchema: ZodType<EditorialProposal>
 export function validateEditorialProposal(context: unknown, value: unknown): EditorialProposal
 export function generatePublicationEditorial(baseUrl: string, model: string, context: unknown, fetchImpl?: typeof fetch): Promise<{proposal: EditorialProposal; modelId: string; adapterId: 'ollama'}>
+export function validateEditorialLanguagePass(context: unknown, original: unknown, candidate: unknown): EditorialProposal
+export function translatePublicationEditorial(baseUrl: string, model: string, context: unknown, proposal: unknown, fetchImpl?: typeof fetch): Promise<{proposal: EditorialProposal; modelId: string; adapterId: 'ollama'; outputLanguage: 'de'|'en'|'fr'}>
