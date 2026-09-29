@@ -31,6 +31,7 @@ import { PublicationPlanPanel } from './components/PublicationPlanPanel'
 import { PublicationEditorialPanel } from './components/PublicationEditorialPanel'
 import type { CourseProductionHandoff } from './core/courseProductionHandoff'
 import { SettingsPanel } from './components/SettingsPanel'
+import { ProjectSourceArchiveLibraryPanel } from './components/ProjectSourceArchiveLibraryPanel'
 import { UiLanguageSelector, useUiLanguage } from './components/UiLanguageProvider'
 import { resolveUiMessage, uiMessageReference } from './core/uiMessages'
 import { createProjectFromInput, type CreationInputKind } from './core/create'
@@ -231,13 +232,13 @@ export function App() {
           </>}
         </section>}
 
-        {section === 'Settings' && <SettingsPanel
+        {section === 'Settings' && <><SettingsPanel
           workerUrl={workerUrl} workerToken={workerToken} workerBusy={workerBusy} workerError={resolveUiMessage(language, workerError)} workerHandshake={workerHandshake}
           onWorkerUrlChange={(value) => { setWorkerUrl(value); setWorkerHandshake(null); setWorkerError('') }}
           onWorkerTokenChange={(value) => { setWorkerToken(value); setWorkerHandshake(null); setWorkerError('') }}
           onTestConnection={testWorkerConnection} storage={storage} workspaceRoot={workspaceRoot} storageBackend={storageBackend}
           onWorkspaceRootChange={setWorkspaceRoot} onStorageBackendChange={setStorageBackend} onSaveStorage={saveStorageProfile}
-        />}
+        /><ProjectSourceArchiveLibraryPanel workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} managedRoots={workerHandshake?.managedRoots ?? []} /></>}
 
         {!['Projects', 'Create', 'Director', 'Studio', 'Course', 'Assets', 'Avatar', 'Audio', 'Images', 'Video', 'Capture', 'Publish', 'Settings'].includes(section) && <section className="card emptyState"><div className="eyebrow">{t(`nav.${section}`)}</div><h2>{t('shell.reserved')}</h2><p>{t('shell.reservedHelp')}</p></section>}
       </main>

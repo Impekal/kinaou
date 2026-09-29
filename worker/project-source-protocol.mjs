@@ -63,6 +63,7 @@ export function validateSourceArchiveJob(value, lookup) {
     const totalBytes = integer(result.totalBytes, projectSourceLimits.totalBytes)
     if (files.reduce((sum, file) => sum + file.sizeBytes, 0) !== totalBytes) throw Error('Source archive total differs')
     job.result = { scope: result.scope, directory: base, projectPath: result.projectPath, manifestPath: result.manifestPath, projectSha256: query.projectSha256, createdAt: result.createdAt, integrityCheckedAt: result.integrityCheckedAt, totalBytes, files }
+    if (result.projectTitle !== undefined) job.result.projectTitle = text(result.projectTitle, 1000)
   } else if (value.result !== undefined) throw Error('Incomplete source archive cannot have a completed result')
   return job
 }
