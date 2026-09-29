@@ -1,0 +1,209 @@
+{
+  "schemaVersion": 1,
+  "title": "Pressing: Raum und Passweg",
+  "language": "de",
+  "home": "Team A",
+  "away": "Team B",
+  "players": [
+    {
+      "id": "home-1",
+      "team": "home",
+      "number": 1,
+      "label": "",
+      "x": 7,
+      "y": 50
+    },
+    {
+      "id": "home-2",
+      "team": "home",
+      "number": 2,
+      "label": "",
+      "x": 23,
+      "y": 14
+    },
+    {
+      "id": "home-3",
+      "team": "home",
+      "number": 3,
+      "label": "",
+      "x": 23,
+      "y": 38
+    },
+    {
+      "id": "home-4",
+      "team": "home",
+      "number": 4,
+      "label": "",
+      "x": 23,
+      "y": 62
+    },
+    {
+      "id": "home-5",
+      "team": "home",
+      "number": 5,
+      "label": "",
+      "x": 23,
+      "y": 86
+    },
+    {
+      "id": "home-6",
+      "team": "home",
+      "number": 6,
+      "label": "",
+      "x": 37,
+      "y": 22
+    },
+    {
+      "id": "home-7",
+      "team": "home",
+      "number": 7,
+      "label": "Sechser",
+      "x": 40,
+      "y": 50
+    },
+    {
+      "id": "home-8",
+      "team": "home",
+      "number": 8,
+      "label": "",
+      "x": 37,
+      "y": 78
+    },
+    {
+      "id": "home-9",
+      "team": "home",
+      "number": 9,
+      "label": "",
+      "x": 48,
+      "y": 14
+    },
+    {
+      "id": "home-10",
+      "team": "home",
+      "number": 10,
+      "label": "",
+      "x": 48,
+      "y": 50
+    },
+    {
+      "id": "home-11",
+      "team": "home",
+      "number": 11,
+      "label": "",
+      "x": 48,
+      "y": 86
+    },
+    {
+      "id": "away-1",
+      "team": "away",
+      "number": 1,
+      "label": "",
+      "x": 93,
+      "y": 50
+    },
+    {
+      "id": "away-2",
+      "team": "away",
+      "number": 2,
+      "label": "",
+      "x": 77,
+      "y": 86
+    },
+    {
+      "id": "away-3",
+      "team": "away",
+      "number": 3,
+      "label": "",
+      "x": 77,
+      "y": 62
+    },
+    {
+      "id": "away-4",
+      "team": "away",
+      "number": 4,
+      "label": "",
+      "x": 77,
+      "y": 38
+    },
+    {
+      "id": "away-5",
+      "team": "away",
+      "number": 5,
+      "label": "",
+      "x": 77,
+      "y": 14
+    },
+    {
+      "id": "away-6",
+      "team": "away",
+      "number": 6,
+      "label": "",
+      "x": 63,
+      "y": 78
+    },
+    {
+      "id": "away-7",
+      "team": "away",
+      "number": 7,
+      "label": "",
+      "x": 63,
+      "y": 50
+    },
+    {
+      "id": "away-8",
+      "team": "away",
+      "number": 8,
+      "label": "",
+      "x": 63,
+      "y": 22
+    },
+    {
+      "id": "away-9",
+      "team": "away",
+      "number": 9,
+      "label": "",
+      "x": 52,
+      "y": 86
+    },
+    {
+      "id": "away-10",
+      "team": "away",
+      "number": 10,
+      "label": "",
+      "x": 52,
+      "y": 50
+    },
+    {
+      "id": "away-11",
+      "team": "away",
+      "number": 11,
+      "label": "",
+      "x": 52,
+      "y": 14
+    }
+  ],
+  "ball": {
+    "x": 43,
+    "y": 50
+  },
+  "arrows": [
+    {
+      "id": "3f9625f3-9584-4073-a425-012f8a28af7f",
+      "from": "home-7",
+      "to": {
+        "x": 65,
+        "y": 35
+      },
+      "kind": "pass"
+    },
+    {
+      "id": "96eda00f-8770-4248-b98b-defd2ccb03ef",
+      "from": "home-9",
+      "to": {
+        "x": 75,
+        "y": 32
+      },
+      "kind": "run"
+    }
+  ]
+}

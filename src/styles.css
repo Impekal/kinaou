@@ -291,3 +291,14 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .sourceRestore label { display: flex; align-items: flex-start; gap: 12px; line-height: 1.5; }
 .sourceRestore input[type="checkbox"] { width: auto; flex: 0 0 auto; margin-top: 3px; }
 .sourceRestore code { overflow-wrap: anywhere; }
+.tacticsPanel { padding: 28px; min-width: 0; }
+.tacticsPanel h2 { margin-top: 0; }
+.tacticsLayout { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr); gap: 28px; align-items: start; }
+.tacticsPreview { position: sticky; top: 20px; min-width: 0; }
+.tacticsPreview img { width: 100%; height: auto; display: block; border-radius: 12px; border: 1px solid #394a43; cursor: crosshair; }
+.tacticsPreview p { color: #aeb8c8; font-size: .9rem; }
+.tacticsAck { display: flex; align-items: flex-start; gap: 12px; line-height: 1.5; }
+.tacticsAck input[type="checkbox"] { width: auto; flex: 0 0 auto; margin-top: 3px; }
+.tacticsSaved { display: grid; gap: 12px; border-top: 1px solid #343946; padding-top: 20px; min-width: 0; }
+.tacticsSaved code { overflow-wrap: anywhere; }
+@media (max-width: 1000px) { .tacticsLayout { grid-template-columns: 1fr; } .tacticsPreview { position: static; } }

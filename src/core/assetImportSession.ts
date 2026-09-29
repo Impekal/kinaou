@@ -24,13 +24,18 @@ export class AssetImportSession {
   private complete = false
   private detached = false
   private snapshotDone = false
+  private readonly assetMetadata: Record<string, unknown>
   constructor(private project: KinaouProject, private connection: string, private file: File, private kind: ImportableMediaKind, private deps: {
     client: Pick<WorkerClient, 'importAsset' | 'probe'>
     environment: () => { project: KinaouProject; connection: string }
     snapshot: (project: KinaouProject) => void
     persist: (project: KinaouProject) => void
     publish: (feedback: AssetImportFeedback) => void
-  }) {}
+    assetMetadata?: Record<string, unknown>
+  }) {
+    this.assetMetadata = structuredClone(deps.assetMetadata ?? {})
+    if (!this.assetMetadata || typeof this.assetMetadata !== 'object' || Array.isArray(this.assetMetadata) || new TextEncoder().encode(JSON.stringify(this.assetMetadata)).length > 64000) throw Error('Invalid authored asset metadata')
+  }
   get unresolved() { return !this.complete && !this.detached }
   get wasDetached() { return this.detached }
   observe(project: KinaouProject, connection: string) {
@@ -67,7 +72,11 @@ export class AssetImportSession {
       }
       if (!this.current()) return
       phase = 'saving'; this.publish(phase)
-      this.next ??= parseProject(importProbedMedia(this.project, { kind: this.kind, managedPath: this.uploaded.managedPath, name: this.uploaded.name, probe: { ...this.probe, mimeType: this.file.type || undefined } }))
+      if (!this.next) {
+        const imported = importProbedMedia(this.project, { kind: this.kind, managedPath: this.uploaded.managedPath, name: this.uploaded.name, probe: { ...this.probe, mimeType: this.file.type || undefined } })
+        const previousIds = new Set(this.project.assets.map(asset => asset.id))
+        this.next = parseProject({ ...imported, assets: imported.assets.map(asset => previousIds.has(asset.id) ? asset : { ...asset, metadata: { ...this.assetMetadata, ...asset.metadata } }) })
+      }
       if (!this.snapshotDone) { this.deps.snapshot(this.project); this.snapshotDone = true }
       const previous = this.project; this.project = this.next
       try { this.deps.persist(this.next) } catch (cause) { this.project = previous; throw cause }

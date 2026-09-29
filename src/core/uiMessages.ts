@@ -1,6 +1,7 @@
 import type { UiLanguage } from './uiLanguage'
 import { uiSourceLibraryMessages } from './uiSourceLibraryMessages'
 import { uiSourceRestoreMessages } from './uiSourceRestoreMessages'
+import { uiFootballTacticsMessages } from './uiFootballTacticsMessages'
 import { uiSettingsMessages } from './uiSettingsMessages'
 import { uiHistoryMessages } from './uiHistoryMessages'
 import { uiBackupMessages } from './uiBackupMessages'
@@ -94,6 +95,7 @@ export const uiMessages = {
   ...uiSourceArchiveMessages,
   ...uiSourceLibraryMessages,
   ...uiSourceRestoreMessages,
+  ...uiFootballTacticsMessages,
   ...uiSearchTrendMessages,
   ...uiResearchBriefMessages,
   ...uiPublicationPlanMessages,
