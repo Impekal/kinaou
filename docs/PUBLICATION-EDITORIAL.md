@@ -2,6 +2,18 @@
 
 Implemented in #355, 2026-09-30. This is a private local drafting/review workflow, not automatic publication or a verified marketing engine.
 
+## Optional local language pass — #357
+
+If a complete draft uses mixed or incorrect language, explicitly select an installed local model and request a language revision. This is a separate action, not an automatic repair/retry of generation. It targets the saved content profile's output language, not the interface language. Changing the content profile first makes the old editorial context stale and requires a new current draft.
+
+Only title, description, plain keywords, rationale and stable export IDs reach this translation request. Source/context/profile/receipt fields are excluded. Canonical exact source quotations are retained by KINAOU and never regenerated; returned items must match the original count/order/IDs and strict field bounds. A second client-side check refuses changed quotations even if they are another genuine source substring. These checks cannot prove preserved meaning or correct language.
+
+The candidate appears in a translated before/after view while the original draft stays unchanged. Check names, numbers, claims and caveats, then acknowledge before applying or discard it. Applying updates draft fields only, clears earlier reviews and records the last language-pass model/adapter/target independently of the original authored/generator provenance. Fresh normal review/save remains required. Failed save permits save-only retry; reload preserves both provenance layers. Editing or changing source/project/connection invalidates obsolete candidates and acknowledgements; A→B→A cannot revive them. An older worker without `publication-editorial-language` cannot perform the request.
+
+Authenticated POST `/publication/editorial/translate` is bounded to 164,000 request bytes; original context/proposal/record bounds remain unchanged. It uses the same installed-model discovery, pre-source local `/api/show` guard, loopback-only origin, redirect refusal, timeout and bounded response reader as generation. No token forwarding, cloud fallback, model download, automatic request or automatic save. The model can still alter meaning or choose the wrong language; human comparison is essential.
+
+Acceptance: 1,936 app tests / 201 files, 355 supported worker tests, build/syntax and full CI 36640329458 including render smoke. Actual Llama 3.1 8B / Ollama 0.33.3 with `OLLAMA_NO_CLOUD=1`, `OLLAMA_NOPRUNE=1` and no downloads produced appropriate FR/EN/DE examples in 10/20/26 seconds (load-dependent, not performance promises). Example French title: “Options de passe au football : Le principe”; original German source quote remained exact. The real browser/worker/model path passed explicit comparison/application, failed-save recovery without another generation, reload with zero requests, provenance preservation, DE/EN/FR UI, delayed actual response discard after A→B→A and old-worker gating. Console clean on fresh load; all owned fixtures/processes removed. The broad-generation French failure below remains historical evidence of an unresolved general-quality limitation; the narrow pass is not universal model certification.
+
 ## Workflow
 
 1. Save a main-video/companion-Short timing plan using retained exports, and provide authored script/storyboard material.
