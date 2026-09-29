@@ -1241,6 +1241,12 @@ export class WorkerClient {
     return payload.result
   }
 
+  async translatePublicationEditorial(model: string, context: unknown, proposal: unknown): Promise<unknown> {
+    const payload = await this.request('/publication/editorial/translate', { method: 'POST', body: JSON.stringify({ model, context, proposal }) })
+    if (payload?.ok !== true || payload?.type !== 'publication-editorial-language') throw new Error('Invalid editorial language response')
+    return payload.result
+  }
+
   async generateAiEditorProposal(model: string, instruction: string, context: unknown): Promise<unknown> {
     const payload = await this.request('/ai-editor/generate', { method: 'POST', body: JSON.stringify({ model, instruction, context }) })
     if (payload?.ok !== true || payload?.type !== 'ai-editor-proposal') throw new Error('Invalid AI Editor response')

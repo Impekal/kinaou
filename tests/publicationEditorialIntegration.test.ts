@@ -18,6 +18,11 @@ it('executes authenticated worker → local structured-model protocol → bound 
     if (request.url === '/api/tags') return response.end(JSON.stringify({ models: [{ model: 'fixture-only', size: 1 }] }))
     if (request.url === '/api/show') return response.end(JSON.stringify({ model_info: { 'general.architecture': 'llama' } }))
     if (request.url !== '/api/generate') { response.statusCode = 404; return response.end('{}') }
+    if (body.prompt.includes('INPUT_JSON:\n')) {
+      const input = JSON.parse(body.prompt.split('INPUT_JSON:\n')[1])
+      for (const item of input.items) item.title = 'Revised language fixture'
+      return response.end(JSON.stringify({ response: JSON.stringify(input) }))
+    }
     const context = JSON.parse(body.prompt.split('CONTEXT_JSON:\n')[1])
     response.end(JSON.stringify({ response: JSON.stringify({ schemaVersion: 1, items: context.exports.map((entry: { jobId: string }) => ({ jobId: entry.jobId, title: 'Le triangle expliqué', description: 'Un exemple pédagogique.', tags: ['Football'], rationale: 'Expliquer le jeu.', sourceQuote: 'Ein Dreieck schafft drei Passwege.' })) }) }))
   })
@@ -46,6 +51,16 @@ it('executes authenticated worker → local structured-model protocol → bound 
     expect(requests.find(request => request.url === '/api/show')?.body).toEqual({ model: 'fixture-only', verbose: false })
     expect(generated[0].authorization).toBeUndefined(); expect(generated[0].body.prompt).not.toContain('editorial-fixture-only')
     expect(generated[0].body.prompt).toContain('not a transcript proven to belong to each export')
+    await expect(new WorkerClient({ baseUrl: 'http://127.0.0.1:43976', token: 'wrong' }).translatePublicationEditorial('fixture-only', context, result.proposal)).rejects.toThrow()
+    await expect(client.translatePublicationEditorial('not-installed', context, result.proposal)).rejects.toThrow()
+    const translated = await client.translatePublicationEditorial('fixture-only', context, result.proposal) as { proposal: { items: Array<{ title: string; sourceQuote: string }> }; outputLanguage: string; modelId: string; adapterId: 'ollama' }
+    expect(translated.outputLanguage).toBe(context.outputLanguage); expect(translated.modelId).toBe('fixture-only')
+    expect(translated.proposal.items[0].title).toBe('Revised language fixture'); expect(translated.proposal.items[0].sourceQuote).toBe(project.script)
+    const languageRequest = requests.filter(request => request.url === '/api/generate')[1]
+    expect(languageRequest.authorization).toBeUndefined(); expect(languageRequest.body.prompt).not.toContain(project.script)
+    const revised = applyPublicationEditorial(next, reviewPublicationEditorial(next, context, translated.proposal, { kind: 'local-model', modelId: result.modelId, adapterId: 'ollama', edited: true, languagePass: { modelId: translated.modelId, adapterId: 'ollama', outputLanguage: context.outputLanguage } }), true)
+    expect(projectPublicationEditorial(parseProject(JSON.parse(JSON.stringify(revised))))!.provenance.languagePass!.modelId).toBe('fixture-only')
+    expect(JSON.stringify(project)).toBe(before)
   } finally {
     worker?.kill('SIGKILL'); if (worker && worker.exitCode === null && worker.signalCode === null) await new Promise<void>(done => { worker!.once('close', () => done()); setTimeout(done, 3000).unref() })
     local.closeAllConnections(); await new Promise<void>(done => local.close(() => done())); await rm(temp, { recursive: true, force: true })

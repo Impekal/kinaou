@@ -87,6 +87,19 @@ it('refuses corrupt saved metadata and forged model provenance', () => {
   project.metadata.publicationEditorial = { schemaVersion: 1 }
   expect(() => reviewPublicationEditorial(project, context, proposal(project), authored)).toThrow()
 })
+it.each(['authored', 'local-model'] as const)('retains original %s provenance alongside the separate language model after save/reload', kind => {
+  const project = editorialFixture(), context = publicationEditorialContext(project)
+  const origin = { kind, ...(kind === 'local-model' ? { modelId: 'original-generator', adapterId: 'ollama' as const } : {}), edited: true,
+    languagePass: { modelId: 'translator', adapterId: 'ollama' as const, outputLanguage: context.outputLanguage } }
+  const saved = applyPublicationEditorial(project, reviewPublicationEditorial(project, context, proposal(project), origin), true)
+  const record = projectPublicationEditorial(parseProject(JSON.parse(JSON.stringify(saved))))!
+  expect(record.provenance).toEqual(origin); expect(record.context).toEqual(context)
+  expect(saved.script).toBe(project.script); expect(saved.metadata.publicationPlan).toEqual(project.metadata.publicationPlan)
+})
+it('rejects language provenance inconsistent with the reviewed output language', () => {
+  const project = editorialFixture(), context = publicationEditorialContext(project)
+  expect(() => reviewPublicationEditorial(project, context, proposal(project), { ...authored, languagePass: { modelId: 'translator', adapterId: 'ollama', outputLanguage: 'fr' } })).toThrow('does not match')
+})
 const storage = () => { const map = new Map<string, string>(); return { getItem: (key: string) => map.get(key) ?? null, setItem: (key: string, value: string) => { map.set(key, value) }, removeItem: (key: string) => { map.delete(key) } } }
 it.each(uiLanguages)('renders explicit editorial preparation and package handoff in %s without requests or writes', language => {
   const project = editorialFixture(), saved = applyPublicationEditorial(project, reviewPublicationEditorial(project, publicationEditorialContext(project), proposal(project), authored), true)

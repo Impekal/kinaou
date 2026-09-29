@@ -13,7 +13,9 @@ export function publicationEditorialContext(project: KinaouProject): EditorialCo
     outputLanguage: profile.outputLanguage, targetMarket: plan.targetMarket, audience: profile.audience, objective: profile.objective, tone: profile.tone, sourceText,
     exports: plan.events.map(event => ({ jobId: event.receipt.jobId, kind: event.kind, label: event.receipt.label, receipt: JSON.stringify(event.receipt) })) })
 }
-const provenance = z.object({ kind: z.enum(['authored', 'local-model']), modelId: z.string().min(1).max(200).optional(), adapterId: z.literal('ollama').optional(), edited: z.boolean() }).strict().superRefine((value, ctx) => {
+const provenance = z.object({ kind: z.enum(['authored', 'local-model']), modelId: z.string().min(1).max(200).optional(), adapterId: z.literal('ollama').optional(), edited: z.boolean(),
+  languagePass: z.object({ modelId: z.string().min(1).max(200), adapterId: z.literal('ollama'), outputLanguage: z.enum(['de', 'en', 'fr']) }).strict().optional()
+}).strict().superRefine((value, ctx) => {
   if (value.kind === 'local-model' ? !value.modelId || !value.adapterId : value.modelId !== undefined || value.adapterId !== undefined) ctx.addIssue({ code: 'custom', message: 'Invalid editorial provenance' })
 })
 export type EditorialProvenance = z.infer<typeof provenance>
@@ -23,6 +25,7 @@ function validateRecord(value: unknown, projectId: string): PublicationEditorial
   const record = recordSchema.parse(value)
   if (record.context.projectId !== projectId) throw Error('Editorial project mismatch')
   validateEditorialProposal(record.context, record.proposal)
+  if (record.provenance.languagePass && record.provenance.languagePass.outputLanguage !== record.context.outputLanguage) throw Error('Language-pass provenance does not match editorial output language')
   if (new TextEncoder().encode(JSON.stringify(record)).length > 140000) throw Error('Editorial record exceeds 140,000 bytes')
   return record
 }
