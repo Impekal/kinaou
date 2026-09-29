@@ -22,6 +22,10 @@ This sends the chosen market and network request/IP to Google's public RSS endpo
 
 Download the private ICS only intentionally. It must contain tentative UTC events and no invitations/alarms; this does not schedule any upload or post. Actual calendar import is a separate optional user action and was not performed during acceptance. See PUBLICATION-PLANNING.md for exact scope and privacy limits. No SSD/model action is required.
 
+## Optional manual Facebook/Threads handoff acceptance — 2026-09-29
+
+#353 already passed isolated actual worker/MP4 and browser acceptance. With a disposable generic V3 package, explicitly load and verify in Publish. Historical caption/keywords/path and the actual SHA must be visible. Destination/project A→B→A must discard results even if a previous check finishes late; reload must issue no request. A missing or changed video must fail; restoration permits an explicit retry. Check DE/EN/FR and clipboard-denied manual-selection fallback. No platform account or upload is required for this check. Actual external posting is a separate deliberate action, not part of this acceptance. See MANUAL-SOCIAL-HANDOFF.md.
+
 ## Stage 0 — Prerequisites
 
 Check Node.js (22+ required) and git:

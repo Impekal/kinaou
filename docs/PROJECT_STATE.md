@@ -1,6 +1,6 @@
 # KINAOU — PROJECT STATE & HANDOFF
 
-Last updated: 2026-09-27
+Last updated: 2026-09-29
 
 ## Current completion summary — 2026-09-27
 
@@ -14,7 +14,15 @@ The existing hourly heartbeat `kinaou-autonom-weiterbauen` is PAUSED at the user
 
 Check the available Codex usage windows at safe slice boundaries. At **85% used / 15% remaining** in any available Codex window, start no new slice; finish the already-started bounded slice, tests, PR/merge and separate documentation as far as the remaining allowance permits, then provide a short copyable prompt for continuing in normal ChatGPT with the Mac terminal and actual repository evidence. Do not promise immunity from a hard limit. Normal ChatGPT chat limits are not visible through the Codex usage tool. See the latest merged handoff below for the current usage checkpoint; earlier percentages are historical. Never redeem a reset credit without explicit confirmation. Heartbeat stays paused.
 
-## Latest merged handoff — local main-video and Short timing plans
+## Latest merged handoff — manual Facebook and Threads delivery
+
+[PR #353](https://github.com/Impekal/kinaou/pull/353) merged as `a56e6e4667d392fe556fcf96b5b7025c358d2ca0` after full [CI 36633670558](https://github.com/Impekal/kinaou/actions/runs/36633670558), including render smoke. Publish now explicitly loads generic V3 packages and rechecks actual video bytes before offering historical text, separate keywords and managed-relative file paths for manual Facebook/Threads delivery, in DE/EN/FR. No accounts, provider API, upload, automatic shortening/hashtag rewriting, scheduling or publication receipt. Destination/project/connection changes discard evidence and late results/errors; reload starts zero requests. External links are plain site roots with no project data.
+
+Acceptance: 1,906 app tests (21 new), 343 supported local worker tests, production build and full CI. The executable real-worker test creates a genuine FFmpeg MP4/package, checks SHA-256, rejects same-size modification and missing source, and confirms read-only handoff requests and unchanged project/package. Browser acceptance covers DE/EN/FR, actual hash, clipboard success feedback/failure fallback, destination/project A→B→A invalidation, delayed genuine response, missing-file refusal and explicit recovery; clean console after fresh start. Temporary fixture, MP4/package, harness and processes removed; foreign files/stash untouched. A harness-only CSS import and HMR root warning were corrected/reloaded before final acceptance; no product runtime warning remained.
+
+This is point-in-time file evidence and historical authored metadata, not current-project/media agreement, authenticity, rights, provider eligibility, engagement or actual posting. See [MANUAL-SOCIAL-HANDOFF.md](MANUAL-SOCIAL-HANDOFF.md). Whole points 4–10 remain open. Usage reset is reflected by the live account check: 3% weekly consumed at this slice boundary, no reset credit redeemed. Heartbeat stays paused. Next safe priority: source-bound local editorial title/description/keyword proposals tied to retained main/Short exports and their publication plan, with explicit human review and no invented audience/trend evidence. No immediate SSD/model action is required for independent repository work.
+
+## Previous merged handoff — local main-video and Short timing plans
 
 [PR #351](https://github.com/Impekal/kinaou/pull/351) merged as `0839543b5e87b8cef95cd8fc2a186e5484723d1d` after full [CI 36305068245](https://github.com/Impekal/kinaou/actions/runs/36305068245), including render smoke. Publish now offers a DE/EN/FR local plan for one retained main-video export and 1–3 companion Short exports. Explicit future wall time, IANA zone, market and rationale; editable 24/72/168-hour starting offsets are labelled authored experiments, never measured optimal times. Review/acknowledge/save are separate, with project history and explicit saved-plan form loading.
 

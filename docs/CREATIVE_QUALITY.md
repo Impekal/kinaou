@@ -16,6 +16,10 @@ Current acceptance summary (2026-09-27): completion points 1–3 have passed the
 
 #351 adds explicitly reviewed local timing plans using retained exports, IANA zone, market and authored rationale. Default Short offsets are editable experiments, not evidence-based best-time advice. DST gaps/folds fail instead of silently shifting ambiguous input; elapsed-hour offsets show both UTC and local times. Private tentative ICS events are manual calendar aids, not platform scheduling, audience measurements, upload confirmation or eligibility. Real render/metadata/file tests verify workflow only. See PUBLICATION-PLANNING.md; whole points 6 and 9 remain open.
 
+### Manual social handoff — 2026-09-29
+
+Manual social delivery (#353): Facebook/Threads can reuse an explicitly selected generic export package after actual byte verification, with historical authored text and unchanged separate keywords. This is not automatic publication, a metadata-quality score, rights/AI-disclosure approval or measured engagement evidence. Platform-specific review stays explicit; whole point 9 remains open. See MANUAL-SOCIAL-HANDOFF.md.
+
 ## Photo-driven, video-driven and fully generated avatars
 
 - Three explicit source modes are required: an authorized reference photo, an authorized reference video, or a fully generated fictional identity with no real-person reference. All three target identity-consistent, believable performance, expressions, motion and audio-driven lip sync.
