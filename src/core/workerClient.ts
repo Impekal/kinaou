@@ -20,6 +20,7 @@ import { lessonDeliveryRequestSchema, parseLessonDeliveryJob, type LessonDeliver
 import { validateCourseCollectionRequest, validateCourseCollectionJob, type CourseCollectionRequest } from '../../worker/course-collection-protocol.mjs'
 import { validateSourceArchiveRequest, validateSourceArchiveQuery, validateSourceArchiveJob, type SourceArchiveRequest, type SourceArchiveQuery } from '../../worker/project-source-protocol.mjs'
 import { validateSourceLibraryQuery, validateSourceLibraryPage, type SourceLibraryQuery } from '../../worker/project-source-library-protocol.mjs'
+import { validateSourceRestoreRequest, validateSourceRestoreQuery, validateSourceRestoreJob, type SourceRestoreRequest, type SourceRestoreQuery } from '../../worker/project-source-restore-protocol.mjs'
 import { validateCollectionLibraryQuery, validateCollectionLibraryLookup, validateCollectionLibraryPage, validateCollectionLibraryInspection, type CollectionLibraryQuery, type CollectionLibraryLookup } from '../../worker/course-collection-library-protocol.mjs'
 import { deliveryLibraryQuerySchema, deliveryLibraryLookupSchema, parseDeliveryLibraryPage, parseDeliveryLibraryInspection, type DeliveryLibraryQuery, type DeliveryLibraryLookup } from './courseDeliveryLibrary'
 import {
@@ -248,6 +249,18 @@ export class WorkerClient {
     const payload = await this.request('/course/collection/start', { method: 'POST', body: JSON.stringify(input) })
     if (payload.type !== 'course-collection') throw Error('Invalid collection response')
     return validateCourseCollectionJob(payload.job, input)
+  }
+  async startProjectSourceRestore(request: SourceRestoreRequest) {
+    const input = validateSourceRestoreRequest(request)
+    const payload = await this.request('/projects/source-restore/start', { method: 'POST', body: JSON.stringify(input) })
+    if (payload?.type !== 'project-source-restore') throw Error('Invalid restoration response')
+    return validateSourceRestoreJob(payload.job, input)
+  }
+  async projectSourceRestoreStatus(query: SourceRestoreQuery) {
+    const input = validateSourceRestoreQuery(query)
+    const payload = await this.request('/projects/source-restore/status', { method: 'POST', body: JSON.stringify(input) })
+    if (payload?.type !== 'project-source-restore') throw Error('Invalid restoration response')
+    return validateSourceRestoreJob(payload.job, input)
   }
   async startProjectSourceArchive(request: SourceArchiveRequest) {
     const input = validateSourceArchiveRequest(request)

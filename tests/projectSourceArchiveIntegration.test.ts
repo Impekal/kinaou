@@ -9,9 +9,10 @@ import { newCourseOutline, saveCourseOutline, projectCourse } from '../src/core/
 import { createRenderPlan, preview1080pPreset } from '../src/core/render'
 import { reviewProjectSourceArchive, useProjectSourceArchiveReview } from '../src/core/projectSourceArchive'
 import { WorkerClient } from '../src/core/workerClient'
+import { prepareSourceRestore } from '../src/core/projectSourceRestore'
 const exec = promisify(execFile)
 const run = async (command: string, args: string[]) => (await exec(command,args,{encoding:'buffer',maxBuffer:4*1024**2})).stdout
-it('archives real registered media over authenticated routes and renders again solely from the archived source root',async context=>{
+it('archives real media, restores an independent copy over authenticated routes, and renders without originals or archive access',async context=>{
   try { await run('ffmpeg',['-version']); await run('ffprobe',['-version']) } catch(cause) { if(process.env.CI)throw cause;context.skip('FFmpeg required');return }
   const temp=await mkdtemp(path.join(os.tmpdir(),'kinaou-source-render-')),root=path.join(temp,'KINAOU'),workers:ChildProcess[]=[]
   async function worker(managed: string, port: number) {
@@ -36,23 +37,35 @@ it('archives real registered media over authenticated routes and renders again s
     const rediscovered = await new WorkerClient({ baseUrl: 'http://127.0.0.1:43954', token: 'source-test-only' }).listProjectSourceArchives({})
     expect(rediscovered.entries).toHaveLength(1); expect(rediscovered.entries[0].hasCompletionRecord).toBe(true)
     const retainedQuery = rediscovered.entries[0].query
-    expect((await client.projectSourceArchiveStatus(retainedQuery)).result!.projectTitle).toBe(project.title)
-    const archive=path.join(temp,job.result!.directory),archivedProject=parseProject(JSON.parse((await readFile(path.join(temp,job.result!.projectPath))).toString()))
+    const verified = await client.projectSourceArchiveStatus(retainedQuery)
+    expect(verified.result!.projectTitle).toBe(project.title)
+    const restoreRequest = await prepareSourceRestore(verified, 'fr', true)
+    let restoration = await client.startProjectSourceRestore(restoreRequest)
+    for (let i = 0; i < 200 && ['queued','copying'].includes(restoration.state); i++) { await new Promise(resolve => setTimeout(resolve, 25)); restoration = await client.projectSourceRestoreStatus(restoreRequest) }
+    expect(restoration.state, restoration.error).toBe('ready')
+    expect((await client.startProjectSourceRestore(restoreRequest)).result!.directory).toBe(restoration.result!.directory)
+    const archive=path.join(temp,job.result!.directory),archivedProject=parseProject(JSON.parse((await readFile(path.join(temp,restoration.result!.projectPath))).toString()))
     expect(archivedProject).toEqual(project);expect(projectCourse(archivedProject)?.modules[0].lessons[0].script).toBe('Private retained lesson script')
     expect(await readFile(path.join(archive,'source/KINAOU/Assets/original.mp4'))).toEqual(original)
     await rename(path.join(root,'Assets'),path.join(root,'TestHeldAssets'))
     expect((await client.projectSourceArchiveStatus(request)).state).toBe('ready')
-    const restored=await worker(path.join(archive,'source/KINAOU'),43955)
+    await rename(archive, archive + '-held')
+    expect((await client.projectSourceRestoreStatus(restoreRequest)).state).toBe('ready')
+    const restoredRoot = path.join(temp, restoration.result!.managedRoot)
+    const restored=await worker(restoredRoot,43955)
     let render=await restored.startRender(createRenderPlan(archivedProject,{...preview1080pPreset,width:320,height:180},'KINAOU/Renders/restored-proof.mp4'))
     for(let i=0;i<200&&['queued','running'].includes(render.state);i++){await new Promise(resolve=>setTimeout(resolve,30));render=await restored.renderStatus(render.id)}
     expect(render.state,render.error).toBe('succeeded')
-    const output=path.join(archive,'source/KINAOU/Renders/restored-proof.mp4')
+    const output=path.join(restoredRoot,'Renders/restored-proof.mp4')
     const probe=JSON.parse((await run('ffprobe',['-v','error','-show_format','-of','json',output])).toString());expect(Math.abs(Number(probe.format.duration)-1)).toBeLessThan(0.1)
     const pixel=await run('ffmpeg',['-v','error','-i',output,'-vf','scale=1:1','-frames:v','1','-f','rawvideo','-pix_fmt','rgb24','-']);expect(pixel[2]).toBeGreaterThan(200)
     const samples=await run('ffmpeg',['-v','error','-i',output,'-t','0.1','-vn','-ac','1','-f','s16le','-']);let peak=0;for(let i=0;i+1<samples.length;i+=2)peak=Math.max(peak,Math.abs(samples.readInt16LE(i)));expect(peak).toBeGreaterThan(1000)
     await rename(path.join(root,'TestHeldAssets'),path.join(root,'Assets'))
+    await rename(archive + '-held', archive)
     expect(await readFile(path.join(root,'Assets','original.mp4'))).toEqual(original);expect(JSON.stringify(project)).toBe(before)
     for(const action of ['start','status','list'])expect((await fetch('http://127.0.0.1:43954/projects/source-archive/'+action,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(request)})).status).toBe(401)
+    for(const action of ['start','status'])expect((await fetch('http://127.0.0.1:43954/projects/source-restore/'+action,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(restoreRequest)})).status).toBe(401)
+    await expect(client.projectSourceRestoreStatus({ ...restoreRequest, evidenceSha256: '0'.repeat(64) })).rejects.toThrow()
     await expect(client.projectSourceArchiveStatus({...request,projectId:'wrong-project'})).rejects.toThrow()
     const manifestBefore = await readFile(path.join(archive, 'manifest.json'))
     await writeFile(path.join(archive,'source/KINAOU/Assets/original.mp4'),Buffer.alloc(original.length,31))
@@ -61,6 +74,10 @@ it('archives real registered media over authenticated routes and renders again s
     await writeFile(path.join(archive,'source/KINAOU/Assets/original.mp4'),original)
     expect((await client.projectSourceArchiveStatus(retainedQuery)).state).toBe('ready')
     expect(await readFile(path.join(archive, 'manifest.json'))).toEqual(manifestBefore)
+    const restoredFile = path.join(restoredRoot, 'Assets/original.mp4')
+    await writeFile(restoredFile, Buffer.alloc(original.length, 14))
+    expect((await client.projectSourceRestoreStatus(restoreRequest)).state).toBe('integrityFailed')
+    expect((await client.projectSourceArchiveStatus(retainedQuery)).state).toBe('ready')
   }finally{
     for(const child of workers)child.kill('SIGKILL')
     await Promise.all(workers.map(child=>new Promise<void>(resolve=>{if(child.exitCode!==null||child.signalCode!==null)return resolve();child.once('close',()=>resolve());setTimeout(resolve,3000).unref()})))
