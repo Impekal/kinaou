@@ -36,6 +36,10 @@ Actual installed Llama 3.1 8B was tested with cloud disabled. DE/EN sample copy 
 
 #357 was exercised through the real browser, authenticated worker and already installed Llama 3.1 8B, with cloud disabled and no downloads. Load a complete current draft and explicitly request a language revision. Compare all four translated field types against their originals; source quotes must stay unchanged. The draft must not change until acknowledgement/application, and saving still requires a fresh normal review. A failed save must retry without another translation. Reload must preserve separate original/translation provenance with zero requests. Source/project/connection changes, including A→B→A during a delayed real response, must discard obsolete candidates. An old worker without the new language capability must leave the action unavailable. The DE/EN/FR sample pass does not certify arbitrary model language, facts or video agreement; see PUBLICATION-EDITORIAL.md.
 
+## Optional project/media archive discovery acceptance — 2026-09-30
+
+#359 passed isolated actual worker/FFmpeg and browser tests; no user SSD action is currently required. With an updated connected worker, open Settings without a project. Nothing should be requested until explicitly listing archives. Select an existing entry: title and completion-file hints must remain labelled unverified. Explicitly check integrity to obtain actual hashes and the verified historical project title. Missing/incomplete/corrupted files must fail honestly; a disconnected storage root must not appear as an empty library. Changing connection/root A→B→A while a reply is delayed must discard it. Reload issues zero requests. Check DE/EN/FR. No restore/copy/repair or active-root replacement is part of this feature. Never tamper with user backups for testing; corruption tests used disposable copies only. See PROJECT-SOURCE-LIBRARY.md.
+
 ## Stage 0 — Prerequisites
 
 Check Node.js (22+ required) and git:
