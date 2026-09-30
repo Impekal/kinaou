@@ -483,3 +483,6 @@ The accepted product boundary is deliberately narrow:
 Creation Receipts record the exact images used by each generation rather than every image that has ever existed in the Avatar lineage.
 
 A real authenticated Pack 3 worker run reproduced the human-accepted direct-runtime result pixel-for-pixel.
+## Local personal performance evidence — 2026-09-30
+
+#377 retains explicitly reviewed local daily-view CSV reports with original selected cells, actual-byte source hashes and authored scope. Exact sums and calendar gaps are descriptive of the imported data only. A self-declared platform or a hash is not provider authentication; views are not unique people, absent days are not zero, and overlapping reports must not be added. No measured best-time, search-demand, competitive advantage or future-reach claim follows. Synthetic fixtures verify software mechanics only; no actual user account export has been accepted. See LOCAL-ANALYTICS.md; whole publication/analytics point 9 remains open.
