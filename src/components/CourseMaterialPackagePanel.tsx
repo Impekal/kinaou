@@ -36,6 +36,7 @@ export function CourseMaterialPackagePanel({ project, dirty }: { project: Kinaou
   }
   return <section className="card stack">
     <h3>{t('course.package.heading')}</h3><p>{t('course.package.help')}</p>
+    <p>{t('course.package.workbook')}</p>
     {dirty && <small>{t('course.saveFirst')}</small>}
     <label><input type="checkbox" checked={privateAck} disabled={busy || dirty} onChange={event => setPrivateAck(event.target.checked)} />{t('course.package.privateAck')}</label>
     <div className="directorActions">

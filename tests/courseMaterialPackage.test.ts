@@ -90,12 +90,13 @@ it('excludes all instructor-only fields and references from a real learner ZIP',
     const file = await createCourseMaterialPackage(project, 'learner')
     expect(file.filename).toMatch(/^course-[a-zA-Z0-9-]+-learner-r1.zip$/)
     inspectZip(file.bytes, (read, paths) => {
-      expect(paths).toEqual(['manifest.json', 'README.txt', 'lessons/lesson-lesson/material-public.txt', 'lessons/lesson-lesson/worksheet.txt'])
+      expect(paths).toEqual(['manifest.json', 'README.txt', 'lessons/lesson-lesson/material-public.txt', 'lessons/lesson-lesson/worksheet.txt', 'workbook.html'])
       for (const path of paths) expect(read(path)).not.toContain('SECRET')
       expect(read('lessons/lesson-lesson/material-public.txt')).toContain('  Bonjour\nÜberblick 🌍  ')
       const manifest = JSON.parse(read('manifest.json'))
       expect(manifest).toMatchObject({ audience: 'learner', mediaIncluded: false, draft: true, urlsFetched: false, fullProjectBackup: false })
-      expect(manifest.modules[0].lessons[0].files).toEqual(paths.slice(2))
+      expect(manifest.modules[0].lessons[0].files).toEqual(paths.slice(2,4))
+      expect(manifest.learnerWorkbook).toBe('workbook.html'); expect(read('workbook.html')).toContain('Bonjour\nÜberblick 🌍')
     })
     expect(JSON.stringify(project)).toBe(before); expect(fetch).not.toHaveBeenCalled()
   } finally { fetch.mockRestore() }
@@ -200,6 +201,7 @@ it.each(uiLanguages)('localizes package headers/controls in %s and requires priv
     createElement(CourseMaterialPackagePanel, { key: 'package', project: saved, dirty: false })
   ] }))
   expect(html).toContain(translateUi(language, 'course.materials.title'))
+  expect(html).toContain(translateUi(language, 'course.package.workbook'))
   expect(html).toContain('<button disabled="">' + translateUi(language, 'course.package.instructor'))
   expect(html).toContain('SECRET_MATERIAL') // private authoring UI, not a learner export
 })
