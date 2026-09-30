@@ -2,14 +2,14 @@ import { useEffect, useState } from 'react'
 import type { KinaouProject } from '../core/project'
 import type { PersistentVersionHistory } from '../core/versioning'
 import { retainedSearchTrends } from '../core/searchTrends'
-import { projectResearchBrief, researchBriefDraft, researchBriefKey, saveResearchBrief, type ResearchBriefDraft } from '../core/researchBrief'
+import { projectResearchBrief, researchBriefAssessmentsCurrent, researchBriefDraft, researchBriefKey, saveResearchBrief, type ResearchBriefDraft } from '../core/researchBrief'
 import { useUiLanguage } from './UiLanguageProvider'
 
 const empty: ResearchBriefDraft = { title: '', question: '', angle: '', uncertainties: '', selected: [] }
 export function ResearchBriefPanel({ project, history, onProjectChange, onOpenDirector }: { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void; onOpenDirector?: () => void }) {
   const { t } = useUiLanguage()
-  let observations: ReturnType<typeof retainedSearchTrends> = [], initial = empty, readError = '', savedBrief: ReturnType<typeof projectResearchBrief> = null
-  try { observations = retainedSearchTrends(project); initial = researchBriefDraft(project); savedBrief = projectResearchBrief(project) } catch (cause) { readError = String(cause) }
+  let observations: ReturnType<typeof retainedSearchTrends> = [], initial = empty, readError = '', savedBrief: ReturnType<typeof projectResearchBrief> = null, assessmentsCurrent = true
+  try { observations = retainedSearchTrends(project); initial = researchBriefDraft(project); savedBrief = projectResearchBrief(project); assessmentsCurrent = researchBriefAssessmentsCurrent(project) } catch (cause) { readError = String(cause) }
   const [draft, setDraft] = useState(initial), [baseline, setBaseline] = useState(researchBriefKey(project)), [dirty, setDirty] = useState(false), [saved, setSaved] = useState(false), [error, setError] = useState('')
   const key = researchBriefKey(project), stale = baseline !== key
   useEffect(() => { if (!dirty && baseline !== key && !readError) { setDraft(initial); setBaseline(key); setSaved(false); setError('') } }, [key, dirty, baseline, readError])
@@ -39,6 +39,8 @@ export function ResearchBriefPanel({ project, history, onProjectChange, onOpenDi
     {saved && <p role="status">{t('researchBrief.saved')}</p>}
     {(error || readError) && <div role="alert">{t('researchBrief.failed')}<details><summary>{t('common.details')}</summary>{error || readError}</details></div>}
     {savedBrief && <p>{t('researchBrief.details', { revision: savedBrief.revision, count: savedBrief.evidence.length, date: savedBrief.savedAt })}</p>}
-    {onOpenDirector && <button className="secondaryButton" disabled={dirty || stale || !!readError || !savedBrief} onClick={onOpenDirector}>{t('researchBrief.open')}</button>}
+    {!!savedBrief?.sourceAssessments?.length && <details><summary>{t('assessment.briefIncluded', { count: savedBrief.sourceAssessments.length })}</summary><p>{t('assessment.boundary')}</p><pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{JSON.stringify(savedBrief.sourceAssessments, null, 2)}</pre></details>}
+    {!assessmentsCurrent && <p role="alert">{t('assessment.briefStale')}</p>}
+    {onOpenDirector && <button className="secondaryButton" disabled={dirty || stale || !!readError || !savedBrief || !assessmentsCurrent} onClick={onOpenDirector}>{t('researchBrief.open')}</button>}
   </div>
 }

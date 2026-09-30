@@ -10,6 +10,7 @@ import './SearchTrendsPanel.css'
 import { ResearchBriefPanel } from './ResearchBriefPanel'
 import { filterResearchObservations, newResearchObservationFilter, type ResearchObservationFilter } from '../core/researchObservationFilter'
 import { ResearchDossierPanel } from './ResearchDossierPanel'
+import { ResearchSourceAssessmentPanel } from './ResearchSourceAssessmentPanel'
 
 export function SearchTrendsPanel({ project, history, onProjectChange, onOpenDirector, workerUrl = '', workerToken = '', workerConnected = false, workerCapabilities = [] }: CourseOutputWorkerProps & { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void; onOpenDirector?: () => void }) {
   const { t } = useUiLanguage(), [country, setCountry] = useState<SearchTrendCountry>('DE')
@@ -59,6 +60,7 @@ export function SearchTrendsPanel({ project, history, onProjectChange, onOpenDir
       {!snapshot.items.length && <p>{t('research.empty')}</p>}
       {snapshot.items.map((item, index) => <article key={index}>{itemView(item)}<button className="secondaryButton" disabled={!!ledgerError} onClick={() => retain(index)}>{t('research.retain')}</button></article>)}
     </div>}
+    <ResearchSourceAssessmentPanel key={`assessment-${project.id}`} project={project} history={history} onProjectChange={onProjectChange} />
     <ResearchBriefPanel key={project.id} project={project} history={history} onProjectChange={onProjectChange} onOpenDirector={onOpenDirector} />
     <div className="card stack"><h3>{t('research.history')} ({retained.length}/200)</h3>
       <p>{t('research.filterHelp')}</p>

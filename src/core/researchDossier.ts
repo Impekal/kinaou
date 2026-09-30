@@ -3,6 +3,7 @@ import { retainedSearchTrends } from './searchTrends'
 import { filterResearchObservations, type ResearchObservationFilter } from './researchObservationFilter'
 import { isUiLanguage, type UiLanguage } from './uiLanguage'
 import { translateUi, type UiMessageKey } from './uiMessages'
+import { selectedSourceAssessments, sourceAssessmentIdentity } from './researchSourceAssessment'
 
 type Format = 'json' | 'text'
 export interface ResearchDossierFile { filename: string; mimeType: string; text: string }
@@ -13,15 +14,16 @@ export function buildResearchDossier(project: KinaouProject, filters: ResearchOb
   const ledger = retainedSearchTrends(project), selected = filterResearchObservations(ledger, filters)
   if (!selected.length) throw Error('No retained observations match this selection')
   const createdAt = now.toISOString(), t = (key: UiMessageKey, values?: Record<string, string | number>) => translateUi(language, key, values)
+  const creatorAssessments = selectedSourceAssessments(project, selected.map(item => item.entry))
   const payload = {
     schemaVersion: 1, type: 'kinaou-research-source-dossier', createdAt, documentLanguage: language,
     projectTitle: project.title, filters: { ...filters }, dateTimezone: 'UTC', retainedCount: ledger.length, exportedCount: selected.length,
     marketCoverage: 'incomplete', factChecked: false, feedHashesReverified: false, limitations: t('research.dossierBoundary'),
-    observations: selected.map(({ entry }) => entry)
+    observations: selected.map(({ entry }) => entry), creatorAssessments, creatorAssessmentNotice: t('assessment.dossier')
   }
   const lines = [t('research.dossierHeading'), t('research.dossierProject') + ': ' + JSON.stringify(project.title),
     t('research.dossierCreated', { date: createdAt }), t('research.filterCount', { matches: selected.length, total: ledger.length }),
-    '', payload.limitations, '', t('research.filterHeading'),
+    '', payload.limitations, payload.creatorAssessmentNotice, '', t('research.filterHeading'),
     t('research.filterText') + ': ' + (filters.text || '—'),
     t('research.filterCountry') + ': ' + (filters.country === 'all' ? t('research.filterAll') : t(`research.${filters.country}`)),
     t('research.filterBasis') + ': ' + t(filters.dateBasis === 'published' ? 'research.filterPublished' : 'research.filterRetrieved'),
@@ -35,6 +37,10 @@ export function buildResearchDossier(project: KinaouProject, filters: ResearchOb
       item.reportedTraffic === null ? t('research.noTraffic') : t('research.traffic', { value: item.reportedTraffic }),
       'feedSha256: ' + entry.feedSha256, t('research.references'))
     for (const article of item.articles) lines.push(article.title + ' — ' + article.source, article.url)
+    const assessment = creatorAssessments.find(record => sourceAssessmentIdentity(record.observation) === sourceAssessmentIdentity(entry))
+    if (assessment) lines.push('', t('assessment.historical', { revision: assessment.revision, date: assessment.savedAt }), t('assessment.boundary'),
+      t('assessment.claim') + ': ' + assessment.claim, t('assessment.finding') + ': ' + t(`assessment.${assessment.finding}`),
+      t('assessment.notes') + ': ' + assessment.notes, t('assessment.links'), ...assessment.readArticleUrls)
   })
   const base = 'kinaou-research-sources-' + createdAt.slice(0, 10)
   const files = { json: { filename: base + '.json', mimeType: 'application/json;charset=utf-8', text: JSON.stringify(payload, null, 2) + '\n' },
@@ -49,7 +55,7 @@ export class ResearchDossierSession {
   private generation = 0
   private reviews = new WeakMap<ResearchDossierReview, { generation: number; bytes: string }>()
   observe(project: KinaouProject, filters: ResearchObservationFilter, language: UiLanguage) {
-    const signature = JSON.stringify([project.id, project.title, project.metadata.searchTrendObservations ?? null, filters, language])
+    const signature = JSON.stringify([project.id, project.title, project.metadata.searchTrendObservations ?? null, project.metadata.researchSourceAssessmentsV1 ?? null, filters, language])
     if (signature !== this.signature) { this.signature = signature; this.generation++ }
   }
   prepare(project: KinaouProject, filters: ResearchObservationFilter, language: UiLanguage, now = new Date()) {
