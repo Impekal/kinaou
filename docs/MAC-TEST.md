@@ -6,6 +6,10 @@ Pre-flight status: the complete worker job pipeline (authentication, honest capa
 
 > Paste tip: run the code blocks exactly as written. They intentionally contain no `#` comments — the default macOS zsh does not accept interactive comments and errors on pasted `#` lines.
 
+## Optional sports-workspace acceptance — 2026-09-30
+
+Sports workspace #369 was tested separately at localhost:43982: edit board, sequence and motion inputs, switch the three tabs using clicks and Left/Right/Home/End, then switch DE/FR/EN. Drafts must remain until leaving Sports/reloading. Studio handoff must navigate without saving or generating. Images must not contain sports tools; Research must not claim unavailable, while Analytics still does. Saved media/track behavior remains covered by the actual PNG/sequence/motion render suites. No SSD/model action needed. See SPORTS-WORKSPACE.md.
+
 ## Optional public-search-trend acceptance — 2026-09-27
 
 Already executed on isolated development data for #347; no SSD/model action is required. Connect an updated local worker, open a disposable project and enter Research. Before clicking retrieve, confirm no result/network request. Select DE and explicitly retrieve: Google attribution, country, retrieval/feed-publication times and literal provider figures must be present. Retain one observation and reload: it stays historical without a new fetch. Repeat UI review in EN/FR; selecting France must not relabel the retained German observation. Failed saves must show an error, not success; changing country while a response is delayed must drop the obsolete result. No linked article/image should be downloaded automatically.
