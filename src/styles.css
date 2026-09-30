@@ -305,4 +305,13 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .tacticsSequenceReview { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; padding-left: 24px; }
 .tacticsSequenceReview img { display: block; width: 100%; height: auto; margin: 8px 0; }
 .tacticsSequenceReview code { overflow-wrap: anywhere; }
+.sportsLead { padding: 28px; }
+.sportsLead h2 { margin: 6px 0; }
+.sportsTabs { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+.sportsTabs button { flex: 1 1 180px; display: grid; gap: 8px; padding: 18px; text-align: left; border: 1px solid #394a43; border-radius: 12px; background: #181d28; color: #e8eef3; }
+.sportsTabs button[aria-selected="true"] { background: #183e38; border-color: #77debc; }
+.sportsTabs span { color: #c1ccd3; font-size: .85rem; line-height: 1.5; }
+.sportsTabs button:focus-visible, .sportsView:focus-visible { outline: 2px solid #77debc; outline-offset: 4px; }
+.sportsView { min-width: 0; }
+.sportsView[hidden] { display: none; }
 @media (max-width: 1000px) { .tacticsLayout { grid-template-columns: 1fr; } .tacticsPreview { position: static; } }
