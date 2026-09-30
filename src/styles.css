@@ -283,6 +283,12 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .courseWorkspaceIntro { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; padding: 6px 2px; }
 .courseWorkspaceIntro p { max-width: 82ch; margin-bottom: 0; }
 .courseWorkspaceDraft p { margin-bottom: 12px; }
+.courseOutlineNavigator { padding: 18px; background: #171c2b; border: 1px solid #514675; border-radius: 14px; }
+.courseOutlineNavigator h3, .courseOutlineNavigator p { margin: 0; }
+.courseOutlineNavigator .formRow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.courseOutlineNavigator label, .courseOutlineNavigator select { min-width: 0; width: 100%; }
+.courseOutlineNavigator .directorActions { justify-content: space-between; align-items: center; }
+@media (max-width: 560px) { .courseOutlineNavigator .formRow { grid-template-columns: 1fr; } }
 .courseWorkspaceLimits summary { cursor: pointer; color: #b8c0d0; }
 .courseWorkspaceLimits p { margin: 14px 0 0; }
 @media (max-width: 1050px) { .courseWorkflowNav { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

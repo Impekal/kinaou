@@ -20,6 +20,8 @@ import { CourseWorkspaceNavigation, type CourseWorkspaceStage } from './CourseWo
 import { CourseProductionLauncher } from './CourseProductionLauncher'
 import { ProjectSourceArchivePanel } from './ProjectSourceArchivePanel'
 import type { CourseProductionHandoff } from '../core/courseProductionHandoff'
+import { CourseOutlineNavigator } from './CourseOutlineNavigator'
+import { courseOutlineIssueFocus, resolveCourseOutlineFocus, type CourseOutlineFocus } from '../core/courseOutlineFocus'
 
 interface Props extends CourseOutputWorkerProps { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void; onOpenStudio: () => void; onOpenAudio?: () => void; onOpenProduction?: (handoff: CourseProductionHandoff) => void }
 
@@ -33,9 +35,22 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio, o
   const [errorKind, setErrorKind] = useState<'course.invalid' | 'course.failed' | 'course.scriptDownloadFailed' | 'course.exercises.downloadFailed' | 'course.order.failed'>('course.failed')
   const [message, setMessage] = useState<'course.saved' | 'course.discarded' | null>(null)
   const [stage, setStage] = useState<CourseWorkspaceStage>('outline')
+  const [selection, setSelection] = useState<CourseOutlineFocus>({ moduleId: '', lessonId: '' })
+  const focus = resolveCourseOutlineFocus(draft, selection)
   const dirty = JSON.stringify(saved) !== JSON.stringify(draft)
   const count = draft.modules.reduce((sum, module) => sum + module.lessons.length, 0)
-  function change(next: CourseOutline) { setDraft(next); setMessage(null) }
+  function change(next: CourseOutline, preferred = focus) { setDraft(next); setSelection(resolveCourseOutlineFocus(next, preferred)); setMessage(null) }
+  function addModule() {
+    if (draft.modules.length >= 50) return
+    const id = crypto.randomUUID()
+    change({ ...draft, modules: [...draft.modules, { id, title: `${t('course.module')} ${draft.modules.length + 1}`, lessons: [] }] }, { moduleId: id, lessonId: '' })
+  }
+  function addLesson(moduleId: string) {
+    const module = draft.modules.find(item => item.id === moduleId)
+    if (!module || count >= 200 || module.lessons.length >= 100) return
+    const id = crypto.randomUUID(), start = module.lessons.at(-1)?.range.outMs ?? 0
+    change({ ...draft, modules: draft.modules.map(item => item.id === moduleId ? { ...item, lessons: [...item.lessons, { id, title: `${t('course.lesson')} ${item.lessons.length + 1}`, objective: '', range: { inMs: start, outMs: start + 60000 } }] } : item) }, { moduleId, lessonId: id })
+  }
   function reorder(action: () => CourseOutline) {
     setError('')
     try { change(action()) } catch (cause) { setErrorKind('course.order.failed'); setError(String(cause)) }
@@ -59,7 +74,11 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio, o
   function save() {
     setError(''); setMessage(null)
     const parsed = courseOutlineSchema.safeParse(draft)
-    if (!parsed.success) { setErrorKind('course.invalid'); setError(parsed.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join(' · ')); return }
+    if (!parsed.success) {
+      const invalidFocus = parsed.error.issues.map(issue => courseOutlineIssueFocus(draft, issue.path)).find(Boolean)
+      if (invalidFocus) setSelection(invalidFocus)
+      setErrorKind('course.invalid'); setError(parsed.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join(' · ')); return
+    }
     try {
       const next = saveCourseOutline(project, parsed.data)
       if (next !== project) { history.snapshot(project, 'Before saving course outline', 'system'); onProjectChange(next) }
@@ -86,11 +105,12 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio, o
     <div className="card stack">
       <p>{t('course.rangeHelp')}</p>
       <p>{t('course.order.help')}</p>
-      {draft.modules.map((module, moduleIndex) => <fieldset key={module.id} className="stack">
+      <CourseOutlineNavigator draft={draft} selected={focus} onSelect={setSelection} />
+      {draft.modules.map((module, moduleIndex) => module.id === focus.moduleId ? <fieldset key={module.id} className="stack">
         <legend>{t('course.module')} {moduleIndex + 1}</legend>
         <CourseModuleOrderControls index={moduleIndex} count={draft.modules.length} onMove={index => reorder(() => reorderCourseModule(draft, module.id, index))} />
         <label>{t('course.moduleTitle')}<input maxLength={120} value={module.title} onChange={(event) => change({ ...draft, modules: draft.modules.map((entry) => entry.id === module.id ? { ...entry, title: event.target.value } : entry) })} /></label>
-        {module.lessons.map((lesson, lessonIndex) => <fieldset key={lesson.id} className="card stack">
+        {module.lessons.map((lesson, lessonIndex) => lesson.id === focus.lessonId ? <fieldset key={lesson.id} className="card stack">
           <legend>{t('course.lesson')} {moduleIndex + 1}.{lessonIndex + 1} · {lesson.title}</legend>
           <CourseLessonOrderControls draft={draft} moduleId={module.id} lessonId={lesson.id} onMove={(target, index) => reorder(() => moveCourseLesson(draft, module.id, lesson.id, target, index))} />
           <label>{t('course.lessonTitle')}<input maxLength={120} value={lesson.title} onChange={(event) => change({ ...draft, modules: draft.modules.map((entry) => entry.id === module.id ? { ...entry, lessons: entry.lessons.map((item) => item.id === lesson.id ? { ...item, title: event.target.value } : item) } : entry) })} /></label>
@@ -103,11 +123,11 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio, o
           <CourseLessonMaterialsEditor lesson={lesson} onChange={next => change({ ...draft, modules: draft.modules.map(entry => entry.id === module.id ? { ...entry, lessons: entry.lessons.map(item => item.id === lesson.id ? next : item) } : entry) })} />
           <div className="formRow">{(['inMs', 'outMs'] as const).map((edge) => <label key={edge}>{t(edge === 'inMs' ? 'course.in' : 'course.out')}<input type="number" min="0" step="0.001" value={Number.isFinite(lesson.range[edge]) ? lesson.range[edge] / 1000 : ''} onChange={(event) => change({ ...draft, modules: draft.modules.map((entry) => entry.id === module.id ? { ...entry, lessons: entry.lessons.map((item) => item.id === lesson.id ? { ...item, range: { ...item.range, [edge]: event.target.value === '' ? NaN : Math.round(Number(event.target.value) * 1000) } } : item) } : entry) })} /></label>)}</div>
           <button className="secondaryButton" onClick={() => change({ ...draft, modules: draft.modules.map((entry) => entry.id === module.id ? { ...entry, lessons: entry.lessons.filter((item) => item.id !== lesson.id) } : entry) })}>{t('course.removeLesson')}</button>
-        </fieldset>)}
-        <div className="directorActions"><button disabled={count >= 200 || module.lessons.length >= 100} onClick={() => change({ ...draft, modules: draft.modules.map((entry) => entry.id === module.id ? { ...entry, lessons: [...entry.lessons, { id: crypto.randomUUID(), title: `${t('course.lesson')} ${entry.lessons.length + 1}`, objective: '', range: { inMs: entry.lessons.at(-1)?.range.outMs ?? 0, outMs: (entry.lessons.at(-1)?.range.outMs ?? 0) + 60000 } }] } : entry) })}>{t('course.addLesson')}</button><button className="secondaryButton" onClick={() => change({ ...draft, modules: draft.modules.filter((entry) => entry.id !== module.id) })}>{t('course.removeModule')}</button></div>
-      </fieldset>)}
-      <button disabled={draft.modules.length >= 50} onClick={() => change({ ...draft, modules: [...draft.modules, { id: crypto.randomUUID(), title: `${t('course.module')} ${draft.modules.length + 1}`, lessons: [] }] })}>{t('course.addModule')}</button>
-      <div className="directorActions"><button className="primary" disabled={!dirty} onClick={save}>{t('course.save')}</button><button disabled={!dirty} onClick={() => { setDraft(saved ?? newCourseOutline(project)); setError(''); setMessage('course.discarded') }}>{t('course.discard')}</button><button disabled={dirty} onClick={onOpenStudio}>{t('course.studio')}</button></div>
+        </fieldset> : null)}
+        <div className="directorActions"><button disabled={count >= 200 || module.lessons.length >= 100} onClick={() => addLesson(module.id)}>{t('course.addLesson')}</button><button className="secondaryButton" onClick={() => change({ ...draft, modules: draft.modules.filter((entry) => entry.id !== module.id) })}>{t('course.removeModule')}</button></div>
+      </fieldset> : null)}
+      <button disabled={draft.modules.length >= 50} onClick={addModule}>{t('course.addModule')}</button>
+      <div className="directorActions"><button className="primary" disabled={!dirty} onClick={save}>{t('course.save')}</button><button disabled={!dirty} onClick={() => { change(saved ?? newCourseOutline(project)); setError(''); setMessage('course.discarded') }}>{t('course.discard')}</button><button disabled={dirty} onClick={onOpenStudio}>{t('course.studio')}</button></div>
       {dirty && <small>{t('course.saveFirst')}</small>}
       <small>{t('course.restoreHelp')}</small>
       {error && <div className="errorBox" role="alert">{t(errorKind)}<details><summary>{t('common.details')}</summary>{error}</details></div>}{message && <div className="successBox" role="status">{t(message)}</div>}
