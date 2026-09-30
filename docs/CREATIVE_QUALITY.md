@@ -58,6 +58,8 @@ Editorial language follow-up (#357): an explicit narrow local translation pass, 
 
 ## Complete course production
 
+Direct lesson actions (#401, 2026-09-30) reduce repeated selection, not review. Audio Studio and video export still require explicit script/range application and separate job submission. Voice-gap filtering measures eligible saved clip intervals, not audible/intelligible speech or a requirement to narrate every second. Browser checks reached both real recipient panels with zero generation/requests/writes; actual speech, media and teaching quality remain separate acceptance requirements.
+
 Explicit gap drafts (#399, 2026-09-30) transfer exact saved visual-gap times to a separately accepted demonstration-placement form. They do not infer useful teaching content, auto-select a source, fill/render a gap or certify permission/quality. Existing active media remain protected even when excluded/offline. Full review and acknowledgement still precede insertion; changed context invalidates pending selection. Actual decoded-frame/narration/hash tests and synthetic browser recovery checks passed; whole course point remains open.
 
 Saved production overview (#397, 2026-09-30): exact union of eligible saved visual/voice intervals identifies lesson-relative gaps without double-counting overlap. It shows record presence and historical exports, not rendered pixels, audible/intelligible speech, subtitle agreement, fresh media integrity, complete teaching or platform approval. Zero-gain audio, muted tracks and unsupported/unavailable media do not count. Silence can be intentional; full occupancy can still contain bad or invisible content. No automatic fill, generation, inspection, retrieval or project writes. See COURSE-PRODUCTION-OVERVIEW.md.
