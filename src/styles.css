@@ -345,3 +345,7 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .analyticsTable th, .analyticsTable td { padding: 10px; border-bottom: 1px solid #33455a; }
 .analyticsReport code { overflow-wrap: anywhere; white-space: pre-wrap; }
 .analyticsPanel small { line-height: 1.6; }
+.courseOverview { padding: 20px; }
+.courseOverview article { padding: 18px; gap: 12px; }
+.courseOverview article p, .courseOverview article h4 { margin: 0; }
+.courseOverview button { border: 1px solid #454d62; border-radius: 9px; padding: 9px 11px; background: #181d28; color: #d8deeb; font-weight: 700; }

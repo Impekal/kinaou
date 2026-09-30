@@ -17,7 +17,6 @@ import type { CourseExerciseDocument } from '../core/courseExercises'
 import { moveCourseLesson, reorderCourseModule } from '../core/courseOrdering'
 import { CourseModuleOrderControls, CourseLessonOrderControls } from './CourseOrderControls'
 import { CourseWorkspaceNavigation, type CourseWorkspaceStage } from './CourseWorkspaceNavigation'
-import { CourseProductionLauncher } from './CourseProductionLauncher'
 import { CourseDemoPlacementPanel } from './CourseDemoPlacementPanel'
 import { CourseProductionOverviewPanel } from './CourseProductionOverviewPanel'
 import {courseGapPlacementIsCurrent,type CourseGapPlacement} from '../core/courseGapPlacement'
@@ -139,8 +138,7 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio, o
     </div>
     </>}
     {stage === 'production' && <>
-    <CourseProductionOverviewPanel project={project} dirty={dirty} onEditLesson={(moduleId,lessonId)=>{if(dirty)return;setSelection({moduleId,lessonId});setStage('outline')}} onPrepareGap={value=>{setGap(value);placementAnchor.current?.focus()}}/>
-    {onOpenProduction && <CourseProductionLauncher project={project} dirty={dirty} onOpen={onOpenProduction} />}
+    <CourseProductionOverviewPanel project={project} dirty={dirty} onEditLesson={(moduleId,lessonId)=>{if(dirty)return;setSelection({moduleId,lessonId});setStage('outline')}} onPrepareGap={value=>{setGap(value);placementAnchor.current?.focus()}} onOpenProduction={onOpenProduction}/>
     <div ref={placementAnchor} tabIndex={-1}><CourseDemoPlacementPanel project={project} dirty={dirty} history={history} onProjectChange={onProjectChange} pendingGap={gap} onClearGap={()=>setGap(null)}/></div>
     <div className="directorActions"><button className="primary" disabled={dirty} onClick={onOpenStudio}>{t('course.studio')}</button>{onOpenAudio && <button className="secondaryButton" disabled={dirty} onClick={onOpenAudio}>{t('course.narration.open')}</button>}</div>
     <CourseOutputIndexPanel key={`outputs-${project.id}`} project={project} dirty={dirty} history={history} onProjectChange={onProjectChange} />

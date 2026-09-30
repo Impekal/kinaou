@@ -14,6 +14,8 @@ export const uiCourseOverviewMessages={
  'course.overview.filter':['Lektionen anzeigen','Show lessons','Afficher les leçons'],
  'course.overview.filter.all':['Alle Lektionen','All lessons','Toutes les leçons'],
  'course.overview.filter.visualGaps':['Mit Bildclip-Lücken','With visual-clip gaps','Avec lacunes de clips visuels'],
+ 'course.overview.filter.voiceGaps':['Mit Stimmenspur-Lücken','With voice-track gaps','Avec lacunes de pistes vocales'],
+ 'course.overview.actionsHelp':['Öffne Vertonung oder Videoexport direkt bei der gewünschten Lektion. Am Ziel musst du das gespeicherte Skript oder den Zeitbereich ausdrücklich übernehmen; kein Auftrag startet automatisch. Stimmenspur-Lücken bedeuten nicht, dass überall Sprache nötig ist.','Open narration or video export directly from the intended lesson. At the destination, explicitly apply its saved script or range; no job starts automatically. Voice-track gaps do not mean speech is needed everywhere.','Ouvrez la narration ou l’export vidéo directement depuis la leçon voulue. À destination, appliquez explicitement son script ou sa plage enregistrés ; aucune tâche ne démarre automatiquement. Une lacune vocale ne signifie pas que la parole est nécessaire partout.'],
  'course.overview.filter.noScript':['Ohne gespeichertes Skript','Without a saved script','Sans script enregistré'],
  'course.overview.filter.noExports':['Ohne hinterlegte Exportreferenz','Without a retained export reference','Sans référence d’export conservée'],
  'course.overview.count':['{shown} von {total} gespeicherten Lektionen','{shown} of {total} saved lessons','{shown} sur {total} leçons enregistrées'],

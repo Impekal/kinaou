@@ -22,8 +22,8 @@ export interface CourseProductionRow {
   demonstrations:number;linkedDemonstrations:number;exercises:number;completeExercises:number;materials:number
   exports:number;matchingOutlineExports:number
 }
-export type CourseOverviewFilter='all'|'visualGaps'|'noScript'|'noExports'
-export const filterCourseOverview=(rows:CourseProductionRow[],filter:CourseOverviewFilter)=>rows.filter(row=>filter==='all'||filter==='visualGaps'&&row.visuals.gaps.length>0||filter==='noScript'&&!row.scriptPresent||filter==='noExports'&&row.exports===0)
+export type CourseOverviewFilter='all'|'visualGaps'|'voiceGaps'|'noScript'|'noExports'
+export const filterCourseOverview=(rows:CourseProductionRow[],filter:CourseOverviewFilter)=>rows.filter(row=>filter==='all'||filter==='visualGaps'&&row.visuals.gaps.length>0||filter==='voiceGaps'&&row.voice.gaps.length>0||filter==='noScript'&&!row.scriptPresent||filter==='noExports'&&row.exports===0)
 /** Saved metadata only. Occupancy is neither actual pixels/speech nor a renderability or quality certificate. */
 export function courseProductionOverview(input:KinaouProject):CourseProductionRow[]{
   const project=parseProject(input),course=projectCourse(project);if(!course)return []
