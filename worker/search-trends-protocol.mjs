@@ -1,4 +1,11 @@
-export const searchTrendCountries = ['DE','FR','GB','US','CA','AT','CH']
+export const initialSearchTrendCountries = Object.freeze(['DE','FR','GB','US','CA','AT','CH'])
+export const expandedSearchTrendCountries = Object.freeze(['AU','BR','IN','JP','ZA','NG'])
+export const searchTrendCountries = Object.freeze([...initialSearchTrendCountries, ...expandedSearchTrendCountries])
+export const expandedSearchTrendCapability = 'public-search-trend-markets-v2'
+export function supportsSearchTrendCountry(country, capabilities) {
+  return searchTrendCountries.includes(country) && Array.isArray(capabilities) && capabilities.includes('public-search-trends') &&
+    (initialSearchTrendCountries.includes(country) || capabilities.includes(expandedSearchTrendCapability))
+}
 export const searchTrendLimits = { feedBytes: 2 * 1024 ** 2, items: 200, articles: 5, snapshotBytes: 1024 ** 2 }
 export function validateSearchTrendQuery(value) {
   if (!value || !searchTrendCountries.includes(value.country) || Object.keys(value).some(key => key !== 'country')) throw Error('Select a supported public trend country')

@@ -2,11 +2,37 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { parseSearchTrendFeed, createSearchTrendRuntime } from './search-trends.mjs'
-import { validateSearchTrendQuery, validateSearchTrendSnapshot, publicTrendArticleUrl, searchTrendLimits } from './search-trends-protocol.mjs'
+import { validateSearchTrendQuery, validateSearchTrendSnapshot, publicTrendArticleUrl, searchTrendLimits, searchTrendCountries, initialSearchTrendCountries, expandedSearchTrendCountries, expandedSearchTrendCapability, supportsSearchTrendCountry } from './search-trends-protocol.mjs'
 const date = '2026-09-27T07:00:00.000Z', sha = 'a'.repeat(64)
 const item = '<item><title>Example &amp; topic</title><pubDate>Sun, 27 Sep 2026 07:00:00 GMT</pubDate><ht:approx_traffic>200+</ht:approx_traffic><ht:news_item><ht:news_item_title><![CDATA[Example <report>]]></ht:news_item_title><ht:news_item_url>https://example.org/report</ht:news_item_url><ht:news_item_source>Example</ht:news_item_source></ht:news_item></item>'
 const feed = (items = item) => '<rss xmlns:ht="https://trends.google.com/trending/rss"><channel><link>https://trends.google.com/trending/rss?geo=DE</link>' + items + '</channel></rss>'
 const response = xml => new Response(xml, { headers: { 'content-type': 'application/rss+xml; charset=utf-8' } })
+test('immutable bounded country list and explicit old-worker capability boundary', () => {
+  assert.equal(searchTrendCountries.length, 13); assert.equal(new Set(searchTrendCountries).size, 13)
+  for (const list of [searchTrendCountries, initialSearchTrendCountries, expandedSearchTrendCountries]) assert.throws(() => list.push('ZZ'))
+  for (const country of initialSearchTrendCountries) assert.equal(supportsSearchTrendCountry(country, ['public-search-trends']), true)
+  for (const country of expandedSearchTrendCountries) {
+    assert.equal(supportsSearchTrendCountry(country, ['public-search-trends']), false)
+    assert.equal(supportsSearchTrendCountry(country, [expandedSearchTrendCapability]), false)
+    assert.equal(supportsSearchTrendCountry(country, ['public-search-trends', expandedSearchTrendCapability]), true)
+  }
+  for (const country of ['WORLD', 'worldwide', '', 'au', 'AU&geo=US', 'ZZ', null]) { assert.throws(() => validateSearchTrendQuery({ country })); assert.equal(supportsSearchTrendCountry(country, ['public-search-trends', expandedSearchTrendCapability]), false) }
+})
+for (const country of expandedSearchTrendCountries) test('expanded '+country+' uses exact fixed RSS, literal Unicode and isolated cache', async () => {
+  const xml = feed().replace('geo=DE', 'geo='+country).replace('Example &amp; topic', 'SYNTHETIC 日本語 · futebol · sport')
+  let calls = 0
+  const runtime = createSearchTrendRuntime({ fetchImpl: async (url, options) => {
+    calls++; assert.equal(url, 'https://trends.google.com/trending/rss?geo='+country)
+    assert.equal(options.credentials, 'omit'); assert.equal(options.redirect, 'error'); assert.equal(options.body, undefined); assert.equal(options.headers.authorization, undefined)
+    return response(xml)
+  } })
+  const result = await runtime.load({ country })
+  assert.equal(result.country, country); assert.equal(result.items[0].query, 'SYNTHETIC 日本語 · futebol · sport'); assert.equal(result.items[0].reportedTraffic, '200+')
+  assert.equal(result.feedSha256, createHash('sha256').update(xml).digest('hex'))
+  assert.deepEqual(await runtime.load({ country }), result); assert.equal(calls, 1)
+  assert.throws(() => validateSearchTrendSnapshot(result, { country: 'DE' }))
+  assert.throws(() => parseSearchTrendFeed(feed(), country, date, sha))
+})
 test('strictly parses literal figures, escaped text, feed publication time and attributed links', () => {
   const snapshot = parseSearchTrendFeed(feed(), 'DE', date, sha)
   assert.equal(snapshot.items[0].query, 'Example & topic'); assert.equal(snapshot.items[0].articles[0].title, 'Example <report>')
