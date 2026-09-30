@@ -48,6 +48,10 @@ Actual separate-worker reopening via Projects → drive backup list/load and rea
 
 ## Stage 0 — Prerequisites
 
+### Optional original football tactics acceptance (#363)
+
+In a disposable project, open Images → Football tactics board. Edit a player/ball by click and coordinates; add a pass and run arrow, undo/redo, and switch the application language without changing the board content language. Review/acknowledge and save through the local worker; expect one actual 1920×1080 PNG and editable board metadata. Simulate a project-save failure only in a test harness, then use save-only retry; no second upload/file. Reload and edit the saved board as a new draft; old PNG remains unchanged. Explicitly place on an existing track or create a five-second image track, then render/inspect the real field, players, arrows and mandatory notice. For portrait output, deliberately use contain-fit. No AI/model download/SSD is required for a disposable local-root test. A connection/root change while a reply is held must detach it even after A→B→A; it must not register a late result. A detached upload may leave an unregistered copy, never an automatic deletion. This does not accept animated players, match analysis or the complete sports workflow.
+
 Check Node.js (22+ required) and git:
 
 ```bash

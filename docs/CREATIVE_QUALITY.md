@@ -112,6 +112,8 @@ User clarification 2026-09-20: support cartoons, engaging short children's conte
 
 ## Football and sports formats
 
+Shipped bounded foundation (#363): an original editable football tactics board with 22 players, ball and pass/run arrows; real browser-rasterized 1920×1080 PNG, source provenance, independent DE/EN/FR image labels and actual timeline/render output. An unavoidable schematic notice distinguishes it from footage/tracking. This is static illustration, not player animation, automatic tactical advice or evidence of a real match. Labels and analysis require human review. No third-party media, logos, model or service required. See [FOOTBALL-TACTICS.md](FOOTBALL-TACTICS.md); whole point 7 remains open.
+
 Additional format requirement (2026-09-20): football and other sports, including analysis, tactics explanations, instructional content, current topics and Shorts. Keep match results, dates, statistics and claimed trends attributable to checked sources. Use original/authorized footage and preserve provenance; an illustration or generated recreation must not be presented as an authentic match recording. These are acceptance targets, not shipped live sports-data or highlight-acquisition features. The no-recurring-provider-cost constraint still applies.
 
 ## Manual editing usability (current state)
