@@ -21,8 +21,6 @@ Labels and coordinates are bounded/validated; SVG text is escaped, and there are
 
 Actual local browser acceptance verified editable player/ball/arrows, undo/redo, DE/EN/FR interface with unchanged content, persistent editable source after reload, save-only retry, new-track placement and an H.264 384×216 five-second output. A held genuine probe response was released after root A→B→A; it did not register the detached image. Fresh console clean; own temporary files, browser data and processes removed.
 
-## Limits
-
 ## Ordered explanation sequences (#365)
 
 Below the board editor, choose 2–12 saved, managed, not-known-offline tactics graphics. Repeated graphics are allowed. Give the new track a name, choose a start from 0–3600 seconds and authored per-step durations from 1–60 seconds in 0.1-second increments. Reorder/remove steps, review their source previews and total timing, then explicitly acknowledge creating an additional image track. This inserts contiguous standard clips with hard cuts and preserves all existing tracks/assets; it does not generate or upload media. Review possible overlapping tracks and contain-fit for portrait output in Studio before export.
