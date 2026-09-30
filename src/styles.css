@@ -301,4 +301,8 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .tacticsAck input[type="checkbox"] { width: auto; flex: 0 0 auto; margin-top: 3px; }
 .tacticsSaved { display: grid; gap: 12px; border-top: 1px solid #343946; padding-top: 20px; min-width: 0; }
 .tacticsSaved code { overflow-wrap: anywhere; }
+.tacticsSequence fieldset { display: grid; gap: 12px; border: 1px solid #394a43; border-radius: 10px; padding: 16px; min-width: 0; }
+.tacticsSequenceReview { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; padding-left: 24px; }
+.tacticsSequenceReview img { display: block; width: 100%; height: auto; margin: 8px 0; }
+.tacticsSequenceReview code { overflow-wrap: anywhere; }
 @media (max-width: 1000px) { .tacticsLayout { grid-template-columns: 1fr; } .tacticsPreview { position: static; } }
