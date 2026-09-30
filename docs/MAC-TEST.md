@@ -287,3 +287,6 @@ In a separate test project, review a Director plan containing a visual descripti
 1. The capability chips shown after Test connection.
 2. Which stages were green.
 3. For anything red: the exact error text shown in the PWA and the worker's terminal output.
+# Optional local Analytics acceptance — 2026-09-30
+
+#377 replaces the historical Analytics placeholder. With an open disposable project, select your own authorized UTF-8 CSV, choose delimiter/date/views columns and exact formats, review every retained row and explicitly excluded summary, then acknowledge daily (not cumulative) scope before saving. Check zero versus missing days and original cells. The synthetic acceptance fixture saved/reloaded correctly in the real app; failing persistence in the isolated harness retried with one report/snapshot. A held read and a prepared review must be discarded after observed project A→B→A. Reload must perform no automatic import/request. Check DE/EN/FR. No SSD/model/account action is required for this local feature; a genuine user export is still required before claiming real-account correctness. See LOCAL-ANALYTICS.md.

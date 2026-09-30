@@ -1,0 +1,28 @@
+# Private local daily-view reports
+
+Implemented in #377 (2026-09-30). Analytics is now an actual DE/EN/FR workspace for an open project, not the earlier placeholder. Choose an authorized local CSV, explicitly map date/views columns and formats, prepare the complete daily report, review original cells and excluded summary, acknowledge daily/non-cumulative scope, then save. Source platform, channel/video/group and optional timezone note are authored claims, not authenticated provider metadata. No network, account connection, model or upload is used.
+
+## Exact bounds and interpretation
+
+- UTF-8, optionally BOM; SHA-256 covers a copy of the actual original bytes, including the BOM. Invalid encoding/control characters fail. Maximum 512 KiB, 64 columns, 200-character non-empty headers and 4,096-character cells.
+- Explicit comma or semicolon delimiter; RFC 4180 quoting/escaped quotes with explicit LF and semicolon extensions. Malformed quoting, blank data rows and inconsistent field widths fail. No formula evaluation or automatic delimiter/number/date guessing.
+- Dates: strict four-digit ISO YYYY-MM-DD, DD/MM/YYYY, MM/DD/YYYY or DD.MM.YYYY, years 0001–9999 and real leap/calendar validation. Values: exact non-negative safe integers, plain or explicitly comma/dot/ordinary-space grouped. No decimals, percentages, scientific notation or K/M abbreviations. Non-breaking grouping spaces are not accepted.
+- One row per calendar day; duplicate dates fail rather than being summed. An optional first non-date summary is excluded only by explicit selection; a valid daily date cannot be dropped this way. Footer summaries are unsupported. Original selected cells and CSV record numbers remain visible. Multiline quoted cells mean record numbers are not physical line numbers.
+- Maximum 500 daily rows, 20 historical reports and a 1 MiB retained library. Sum overflow, invalid old data or capacity exhaustion blocks the import without automatic repair/deletion. The same bytes/mapping/declared platform/scope cannot be added twice. Reports can overlap and are never combined.
+- Chart and table show exact present-day values. Calendar gaps remain unknown, not invented zeroes. The sum is only of supplied daily values; views do not mean unique people. A zero-valued day is present but has no visible bar. Date arithmetic uses UTC solely for calendar-day distances; there is no claim or conversion of the source timezone.
+
+Only selected original date/view cells, normalized rows, optional excluded summary, mapping/selected header names, authored scope and file name/byte count/hash/time are retained. Other CSV cell values and the complete original CSV are **not** backed up by this feature. Keep the original file. A retained hash is not origin authentication and is not reverified on reload because original bytes are not retained. This is not complete account coverage, verified business/financial reporting, a forecast, trend-demand measurement or publishing-time advice.
+
+## Review and recovery
+
+Original-byte source bindings prevent changed/forged in-memory file descriptors from preparing a report. Observed project/source/input A→B→A invalidates review. A delayed real file read is discarded after project changes, replacement selection or unmount. A pre-change version snapshot precedes persistence. Save-only retry keeps the prepared IDs/bytes and does not repeat a successful snapshot. Forged, mutated, stale or already-completed reviews cannot save. Existing project tracks/assets/metadata remain intact.
+
+Unsaved file/form/review state is view-only and lost on navigation/reload; this is visible. Saved reports reopen individually from project metadata. Loading creates no request, file read, import or automatic save. There is no delete/replace/merge function in this slice; normal project version history remains available.
+
+## Acceptance and external references
+
+43 focused tests cover parser/encoding/calendar/grouping/bounds/privacy/sums/source binding/persistence/retries/stale scopes and DE/EN/FR rendering. Full CI ran the complete app/worker/build/syntax gate unchanged. Actual browser acceptance used a clearly **synthetic**, 181-byte semicolon CSV: three days with 1,200/330/0 views, one absent intervening day and an explicitly excluded summary. Browser-computed SHA-256 matched independent filesystem SHA-256 `c2106c399f085ff82f6c284ea1a5cc01904d9633108c0004faab154d42d6abdf`; unrelated private fixture cells were absent from saved data. Failed-save retry produced one report/one snapshot; real-app persistence/reload, DE/FR/EN, delayed read and prepared-review project A→B→A passed. Fresh real-app/final fixture consoles were clean. Browser automation had a stale file-chooser/label timeout and temporary harness HMR warnings; fresh tabs and semantic role selectors completed acceptance. These are not proof of a particular platform export layout or actual audience/account correctness.
+
+Own temporary pages, server, test projects/history and language preference were removed; CSV/screenshot evidence remains in the parent acceptance directory. No foreign files/stash, user media/SSD, model, dependencies or production worker changed. Whole checklist points 4–10 remain open.
+
+Primary references inspected 2026-09-30: [YouTube Advanced Mode export guidance](https://support.google.com/youtube/answer/9717005?hl=en) documents exporting the selected report, not a universal full-account daily CSV schema; [RFC 4180](https://www.rfc-editor.org/rfc/rfc4180.html) describes common CSV quoting/records as an informational RFC. KINAOU's selected formats and extensions are explicit above.
