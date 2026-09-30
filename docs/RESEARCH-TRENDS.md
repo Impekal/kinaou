@@ -1,5 +1,13 @@
 # Public search-trend research
 
+## Selected international markets — #381, 2026-09-30
+
+The fixed allowlist now has 13 countries: DE, FR, GB, US, CA, AT, CH, AU, BR, IN, JP, ZA and NG. The six additional countries require an updated worker advertising `public-search-trend-markets-v2` alongside `public-search-trends`; the UI blocks them with older workers while retaining the original seven. Both lists are immutable. Each explicit request still addresses just one exact country RSS endpoint, with the same authentication, credential-free upstream GET, strict XML/country validation, bounds and per-country cache. No dependencies or protocol schemas changed.
+
+DE/EN/FR country controls and historical filters preserve original terms, news titles, source URLs, raw figures and byte hashes. Market is not language; no automatic translation, complete worldwide coverage, global ranking or inferred weekly/monthly measurement is offered. Google's [Trending now help](https://support.google.com/trends/answer/3076011?hl=en), checked 2026-09-30, documents RSS export and broader web coverage; web filters and statistics are not presumed to exist in this RSS adapter.
+
+Verification: 2,160 app tests, 383 supported local worker tests, build/syntax and full CI including render smoke. New tests cover all six exact URLs, credential absence, literal Japanese/Portuguese text, hashes, isolated cache, wrong-country refusal, retention/serialization/filter/dossier and old-worker gating. Actual authenticated public requests returned ten parsed items for each new country. Browser AU/BR retrieval/save, original provenance in a BR-filtered dossier, DE/FR/EN, legacy gating, AU-filtered reload with two retained observations and zero automatic requests passed; console clean. Isolated test project/root/tab/servers removed, no user media or models used. Public feed contents remain unverified third-party data, not fact-checking evidence.
+
 #373 adds an explicit reviewed local text/JSON export of the currently filtered historical source selection. It preserves original provenance and incomplete/unverified boundaries without exporting whole-project data or retrieving anything. See RESEARCH-DOSSIER.md for privacy, stale-review guards and actual browser download/readback evidence.
 
 ## Local retained-evidence filters — #371, 2026-09-30
