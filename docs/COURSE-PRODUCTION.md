@@ -15,6 +15,14 @@ Saved outlines travel with ordinary project serialization, drive backups and Ver
 
 ## Boundaries to review
 
+### Focused outline authoring (#383)
+
+Course plan offers module and lesson selectors plus previous/next lesson navigation across the current curriculum order. Only one module/lesson editor is mounted; all other authored fields stay in the parent draft, including incomplete titles/ranges. Choosing an empty module leaves it editable and permits adding its first lesson. Additions focus the new item, the selected lesson follows cross-module moves, and removed selections fall back safely. In-page workspace/language changes preserve selection and draft; reload resets selection and loses unsaved edits, as before.
+
+Selection never saves, translates, rearranges the curriculum or changes timeline/media. **Save course outline still saves the entire draft**, not just the visible editor. A schema error with a module/lesson path reveals that item without repairing its value; all diagnostic paths remain available. General course errors retain the current selection. Existing dirty-content/export guards, version safety snapshots, revision checks, explicit discard and save-failure behavior remain.
+
+Acceptance: 20 new tests including frozen/incomplete drafts, identity moves/removal, issue paths, DE/EN/FR and a 200-lesson/50-module course with only one script editor; 2,180 total app tests plus build/syntax/full CI. Real browser passed multiline script/material retention across navigation, move-following, hidden error recovery, failed-save retry, empty/add/remove/discard, reload and actual first safety-version restore; zero requests, clean console. Synthetic fixtures only, not expert course-content approval. Own fixture state/server/tab removed; foreign files and media untouched.
+
 ### Private project plus registered-media archive (#345)
 
 Course Delivery → Archive project and registered media explicitly reviews the saved metadata inventory, then requires acknowledgement before copying. This review does not claim file presence/size; the authenticated local worker checks those and free space. It copies exact JSON and registered managed files into a new private `KINAOU/Archive/ProjectSources/<id>/source/KINAOU/` tree, preserving source-relative paths. Inline captions stay embedded. The original project/media are unchanged.
