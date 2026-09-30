@@ -6,6 +6,8 @@ Current acceptance summary (2026-09-27): completion points 1–3 have passed the
 
 ## Search-trend evidence boundary — 2026-09-27
 
+#389 (2026-09-30) organizes Research into freely selected Discover / Source library / Source assessment / Video brief views. Tabs preserve in-page drafts and existing stale-context guards, not a source-quality approval or completed-check badge. Switching views never starts research, inference or saving. Unsaved drafts still end when leaving the workspace, changing project or reloading.
+
 #387 (2026-09-30) adds an authored source-review trail: specific claims, self-reported read links, support/contradiction/open findings and uncertainty, bound to original observations. A checkbox or creator label is not proof of reading or factual correctness. Saved historical copies travel only through explicitly refreshed briefs/Director drafts and selected-source dossiers; stale copies block transfer. Synthetic workflow tests verify persistence/privacy, not truth, expertise, media rights or model compliance. No automatic article retrieval/verification is claimed; whole point 5 remains open.
 
 #381 (2026-09-30) expands the fixed public RSS markets from seven to 13, adding AU/BR/IN/JP/ZA/NG behind an updated-worker capability. All six real endpoints were checked; browser retention/filter/dossier preserves country and original terms across DE/EN/FR. This is still selected-market search-interest evidence, not complete worldwide coverage, language classification, verified news, video demand, competition measurement or a global ranking. Original provider numbers remain uninterpreted.

@@ -1,5 +1,13 @@
 # Public search-trend research
 
+## Focused Research workspace — #389, 2026-09-30
+
+Four freely selectable DE/EN/FR views replace the long combined page: Discover, Source library, Source assessment and Video brief. Accessible tab/panel links, one keyboard tab stop, wrapping Left/Right and Home/End navigation are provided. The sequence is orientation, not a certification of completed source checking. Discovery is initially visible; changing views starts no retrieval, generation, save or download.
+
+Panels remain mounted while hidden: dirty briefs/assessments, filters and pending dossier review survive tab switches. They still observe project/language changes and reject stale review. A user-started feed request may complete while another view is open; a running-status notice directs back to Discover. Existing connection/project detach guards still reject obsolete replies. Leaving Research, changing project or reloading unmounts the workspace and discards unsaved drafts/filters/reviews; the header states this. Nothing is silently autosaved.
+
+Acceptance: eight new keyboard/SSR/unique-ID tests; 2,235 total app tests, build and full unchanged CI/render smoke. Actual synthetic browser checks passed draft/filter retention across all views and DE/FR/EN, hidden stale-dossier detection, keyboard focus/wrapping/Home/End, explicitly delayed feed completion, connection A→B→A late-response rejection, leave/reload boundary, no automatic fetch/project write and clean console. Screenshot retained outside repo; own fixtures/preferences/server/tab removed. No worker/schema/dependency/model or storage changes. This improves usability, not source truth or completion of point 5.
+
 ## Source-bound creator assessments — #387, 2026-09-30
 
 Choose a retained observation and explicitly edit its claim, finding (open/supports/contradicts), reasoning/uncertainties and linked articles personally read. Supporting/contradicting assessments require at least one selected original link; an observation without articles permits only an open assessment. A checkbox does not prove reading or correctness. Links open only on deliberate activation; no automatic article retrieval, inference, independent fact check or rights clearance occurs.
