@@ -496,3 +496,7 @@ A real authenticated Pack 3 worker run reproduced the human-accepted direct-runt
 ## Local personal performance evidence — 2026-09-30
 
 #377 retains explicitly reviewed local daily-view CSV reports with original selected cells, actual-byte source hashes and authored scope. Exact sums and calendar gaps are descriptive of the imported data only. A self-declared platform or a hash is not provider authentication; views are not unique people, absent days are not zero, and overlapping reports must not be added. No measured best-time, search-demand, competitive advantage or future-reach claim follows. Synthetic fixtures verify software mechanics only; no actual user account export has been accepted. See LOCAL-ANALYTICS.md; whole publication/analytics point 9 remains open.
+
+## Authored learning graphics — 2026-09-30
+
+#391 adds actual local PNG explainer cards, not a model or screenshot substitute. Visible authored-graphic labeling, readable fixed-size layout with overflow refusal, independent content language and exact-byte review preserve provenance and legibility. Real PNG/worker/FFmpeg acceptance proves media mechanics, not fact checking, teaching quality, child suitability or complete cartoon/video production. User-authored source text is not independently verified. Whole point 7 remains open; see EXPLAINER-CARDS.md.
