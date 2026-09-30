@@ -327,6 +327,10 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .explainerPanel .researchBriefAck input { width: auto; }
 .explainerPanel code { overflow-wrap: anywhere; }
 .explainerPreview { width: 100%; max-height: 720px; object-fit: contain; background: #090c14; border: 1px solid #414962; border-radius: 10px; }
+.revealFrames { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,220px),1fr)); gap: 12px; }
+.revealFrames figure { margin: 0; min-width: 0; }
+.revealFrames img { display: block; width: 100%; max-height: 430px; object-fit: contain; background: #090c14; border-radius: 8px; }
+.revealFrames figcaption { margin-top: 6px; color: var(--muted); }
 @media (max-width: 1000px) { .tacticsLayout { grid-template-columns: 1fr; } .tacticsPreview { position: static; } }
 .analyticsFields { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
 .analyticsFields label { display: flex; flex-direction: column; gap: 7px; }

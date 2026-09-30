@@ -18,8 +18,8 @@ export function createExplainerCard(language: ExplainerCard['language']): Explai
   return parseExplainerCard({ schemaVersion:1, language, format:'landscape', theme:'indigo', label:sample.label, title:sample.title, points:[...sample.points], source:'' })
 }
 type Measure = (text: string, size: number, bold: boolean) => number
-export interface ExplainerTextRun { text: string; x: number; y: number; size: number; bold: boolean; color: string }
-export interface ExplainerRect { x: number; y: number; width: number; height: number; color: string }
+export interface ExplainerTextRun { text: string; x: number; y: number; size: number; bold: boolean; color: string; step?: number }
+export interface ExplainerRect { x: number; y: number; width: number; height: number; color: string; step?: number }
 export interface ExplainerLayout { width: number; height: number; background: string; rects: ExplainerRect[]; text: ExplainerTextRun[] }
 
 /** Word wrapping with grapheme fallback. Refuses overflow; never truncates or scales text to unreadability. */
@@ -49,10 +49,10 @@ export function layoutExplainerCard(input: ExplainerCard, measure: Measure): Exp
   const portrait = card.format === 'portrait', wide = card.format === 'landscape', margin = wide ? 96 : 72
   const colors = card.theme === 'indigo' ? { background:'#11152a', panel:'#202840', text:'#f4f6ff', muted:'#c7d1e7', accent:'#99b5ff' } : { background:'#f6f2e9', panel:'#ffffff', text:'#192a35', muted:'#405661', accent:'#265d69' }
   const layout: ExplainerLayout = { width,height,background:colors.background,rects:[{x:margin,y:54,width:84,height:8,color:colors.accent}],text:[] }
-  const text = (value: string,x: number,top: number,maxWidth: number,size: number,bold: boolean,color: string,maxHeight: number) => {
+  const text = (value: string,x: number,top: number,maxWidth: number,size: number,bold: boolean,color: string,maxHeight: number,step?: number) => {
     const lines = wrapExplainerText(value,maxWidth,size,bold,measure), lineHeight = size*1.28
     if (lines.length*lineHeight > maxHeight) throw Error('Text does not fit. Shorten it, use fewer points or choose a taller format.')
-    lines.forEach((line,index) => layout.text.push({text:line,x,y:top+size+index*lineHeight,size,bold,color}))
+    lines.forEach((line,index) => layout.text.push({text:line,x,y:top+size+index*lineHeight,size,bold,color,step}))
   }
   text(card.label,margin,82,width-margin*2,24,true,colors.accent,62)
   text(card.title,margin,150,width-margin*2,wide?64:54,true,colors.text,portrait?280:170)
@@ -60,26 +60,34 @@ export function layoutExplainerCard(input: ExplainerCard, measure: Measure): Exp
   const size = portrait ? 44 : wide ? 36 : 32
   card.points.forEach((point,index) => {
     const top=bodyTop+index*(rowHeight+gap)
-    layout.rects.push({x:margin,y:top,width:width-margin*2,height:rowHeight,color:colors.panel})
-    text(String(index+1).padStart(2,'0'),margin+24,top+20,70,26,true,colors.accent,rowHeight-32)
-    text(point,margin+110,top+20,width-margin*2-142,size,false,colors.text,rowHeight-40)
+    layout.rects.push({x:margin,y:top,width:width-margin*2,height:rowHeight,color:colors.panel,step:index})
+    text(String(index+1).padStart(2,'0'),margin+24,top+20,70,26,true,colors.accent,rowHeight-32,index)
+    text(point,margin+110,top+20,width-margin*2-142,size,false,colors.text,rowHeight-40,index)
   })
   text(card.source,margin,height-147,width-margin*2,22,false,colors.muted,70)
   text(explainerText[card.language].notice,margin,height-56,width-margin*2,18,false,colors.muted,30)
   return layout
 }
 
+export const explainerFont=(size:number,bold:boolean)=>`${bold?700:400} ${size}px Arial, sans-serif`
+/** Shared static/reveal painter. Missing step opacity means fully visible. */
+export function paintExplainerLayout(context:CanvasRenderingContext2D,layout:ExplainerLayout,opacity?:number[]) {
+  if(opacity&&opacity.some(value=>!Number.isFinite(value)||value<0||value>1))throw Error('Invalid reveal opacity')
+  const alpha=(step:number|undefined)=>step===undefined?1:opacity?.[step]??1
+  context.globalAlpha=1;context.fillStyle=layout.background;context.fillRect(0,0,layout.width,layout.height)
+  try{
+    for(const rect of layout.rects){context.globalAlpha=alpha(rect.step);context.fillStyle=rect.color;context.fillRect(rect.x,rect.y,rect.width,rect.height)}
+    context.textBaseline='alphabetic'
+    for(const run of layout.text){context.globalAlpha=alpha(run.step);context.font=explainerFont(run.size,run.bold);context.fillStyle=run.color;context.fillText(run.text,run.x,run.y)}
+  }finally{context.globalAlpha=1}
+}
 /** Local Canvas only: no HTML interpretation, source images, remote fonts, model or network. */
 export async function rasterizeExplainerCard(input: ExplainerCard): Promise<File> {
   const card=parseExplainerCard(input), canvas=document.createElement('canvas'), context=canvas.getContext('2d')
   if (!context) throw Error('Canvas image export unavailable')
-  const font=(size:number,bold:boolean)=>`${bold?700:400} ${size}px Arial, sans-serif`
-  const layout=layoutExplainerCard(card,(text,size,bold)=>{context.font=font(size,bold);return context.measureText(text).width})
+  const layout=layoutExplainerCard(card,(text,size,bold)=>{context.font=explainerFont(size,bold);return context.measureText(text).width})
   canvas.width=layout.width;canvas.height=layout.height
-  context.fillStyle=layout.background;context.fillRect(0,0,layout.width,layout.height)
-  for(const rect of layout.rects){context.fillStyle=rect.color;context.fillRect(rect.x,rect.y,rect.width,rect.height)}
-  context.textBaseline='alphabetic'
-  for(const run of layout.text){context.font=font(run.size,run.bold);context.fillStyle=run.color;context.fillText(run.text,run.x,run.y)}
+  paintExplainerLayout(context,layout)
   const blob=await new Promise<Blob>((resolve,reject)=>{
     const timer=setTimeout(()=>reject(Error('PNG export timed out')),15000)
     try{canvas.toBlob(value=>{clearTimeout(timer);value?resolve(value):reject(Error('PNG export failed'))},'image/png')}

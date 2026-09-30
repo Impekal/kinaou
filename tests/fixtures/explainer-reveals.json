@@ -1,0 +1,5 @@
+[
+  {"format":"landscape","sourceAssetId":"card-0","stepMs":1000,"durationMs":4000,"sizeBytes":358442,"sha256":"1e17c8c7ab0a1844bcc5bde2d3730a7128b9c513550db60c44e904ae98c8fbc8"},
+  {"format":"portrait","sourceAssetId":"card-1","stepMs":2000,"durationMs":7000,"sizeBytes":716140,"sha256":"f371b9ea08d603543e6451fc377887e501b1ce65c1e57d994e410b00307eb82b"},
+  {"format":"square","sourceAssetId":"card-2","stepMs":3000,"durationMs":10000,"sizeBytes":422709,"sha256":"dded3bc4910b1b05be1be984cd1a9aa09336e9cd95b6c22f2a6b2d060fe59528"}
+]

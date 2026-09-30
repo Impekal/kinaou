@@ -73,7 +73,7 @@ it('keeps authored source immutable, persists only accepted PNG and retries save
 it.each(uiLanguages)('mounts both %s image tools with explicit prepare/import and no automatic calls',language=>{
   const save=vi.fn(),fetch=vi.spyOn(globalThis,'fetch')
   try{const html=renderToStaticMarkup(createElement(UiLanguageProvider,{initialLanguage:language,children:createElement(ImagesWorkspacePanel,{project:createProject('Cards'),history:new PersistentVersionHistory({getItem:()=>null,setItem:save,removeItem:save}),workerUrl:'http://127.0.0.1:43117',workerToken:'PRIVATE',workerConnected:true,workerCapabilities:['asset-upload'],managedRoots:[],onProjectChange:save})}))
-    expect(html.match(/role="tab"/g)).toHaveLength(2);expect(html.match(/role="tabpanel"/g)).toHaveLength(2);expect(html.match(/hidden=""/g)).toHaveLength(1)
+    expect(html.match(/role="tab"/g)).toHaveLength(3);expect(html.match(/role="tabpanel"/g)).toHaveLength(3);expect(html.match(/hidden=""/g)).toHaveLength(2)
     for(const key of ['image.heading','explainer.heading','explainer.prepare','explainer.boundary'] as const)expect(html).toContain(translateUi(language,key))
     expect(html).not.toContain('PRIVATE');expect(html).not.toContain('blob:');expect(fetch).not.toHaveBeenCalled();expect(save).not.toHaveBeenCalled()
   }finally{fetch.mockRestore()}
