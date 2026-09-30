@@ -12,7 +12,7 @@ The existing hourly heartbeat `kinaou-autonom-weiterbauen` is PAUSED at the user
 
 ### Usage handoff boundary — latest user instruction
 
-Check the available Codex usage windows at safe slice boundaries. At **85% used / 15% remaining** in any available Codex window, start no new slice; finish the already-started bounded slice, tests, PR/merge and separate documentation as far as the remaining allowance permits, then provide a short copyable prompt for continuing in normal ChatGPT with the Mac terminal and actual repository evidence. Do not promise immunity from a hard limit. Normal ChatGPT chat limits are not visible through the Codex usage tool. See the latest merged handoff below for the current usage checkpoint; earlier percentages are historical. Never redeem a reset credit without explicit confirmation. Heartbeat stays paused.
+Check the available Codex usage windows at safe slice boundaries. The user's latest instruction (2026-09-30, before sleeping) raises the earlier 85% threshold to **93% used / 7% remaining** in any available Codex window. Start no new slice at that boundary; finish the already-started bounded slice, tests, PR/merge and separate documentation as far as the remaining allowance permits, then provide a short copyable prompt for continuing in normal ChatGPT with the Mac terminal and actual repository evidence. Keep slices bounded as the threshold approaches. Do not promise immunity from a hard limit. Normal ChatGPT chat limits are not visible through the Codex usage tool. See the latest merged handoff below for the current usage checkpoint; earlier percentages are historical. Never redeem a reset credit without explicit confirmation. Heartbeat stays paused.
 
 ## Latest merged handoff — real local daily-view Analytics
 
