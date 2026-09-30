@@ -9,6 +9,7 @@ import { useUiLanguage } from './UiLanguageProvider'
 import './SearchTrendsPanel.css'
 import { ResearchBriefPanel } from './ResearchBriefPanel'
 import { filterResearchObservations, newResearchObservationFilter, type ResearchObservationFilter } from '../core/researchObservationFilter'
+import { ResearchDossierPanel } from './ResearchDossierPanel'
 
 export function SearchTrendsPanel({ project, history, onProjectChange, onOpenDirector, workerUrl = '', workerToken = '', workerConnected = false, workerCapabilities = [] }: CourseOutputWorkerProps & { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void; onOpenDirector?: () => void }) {
   const { t } = useUiLanguage(), [country, setCountry] = useState<SearchTrendCountry>('DE')
@@ -74,6 +75,7 @@ export function SearchTrendsPanel({ project, history, onProjectChange, onOpenDir
       {!filterError && !ledgerError && <p role="status">{t('research.filterCount', { matches: visible.length, total: retained.length })}</p>}
       {!retained.length && !ledgerError && <p>{t('research.historyEmpty')}</p>}
       {!!retained.length && !visible.length && !filterError && !ledgerError && <p>{t('research.filterEmpty')}</p>}
+      <ResearchDossierPanel project={project} filters={filters} available={!filterError && !ledgerError && visible.length > 0} />
       {visible.map(({ entry, index }) => <article key={index}><p>{t(`research.${entry.country}`)} · {entry.retrievedAt}</p>{itemView(entry.items[0])}{provenance(entry)}</article>)}
     </div>
   </section>
