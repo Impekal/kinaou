@@ -54,6 +54,8 @@ Editorial language follow-up (#357): an explicit narrow local translation pass, 
 
 ## Complete course production
 
+Focused authoring (#383, 2026-09-30) makes large saved/draft curricula editable one lesson at a time while retaining the whole draft. Navigation, stable selection after moves and visible validation errors are usability features, not instructional verification. All hidden lesson fields still undergo ordinary save validation; course review, media quality and platform acceptance remain separate requirements.
+
 Isolated restoration (#361, 2026-09-30): explicitly reviewed archive evidence now produces a new independent private project/media working copy, with source and readback hashes, durable same-ID recovery and no active-root replacement. A real separate worker reopened the copied project through existing backup routes and rendered while originals and source archive were unavailable. This is technical recovery acceptance, not complete teaching-quality or broader-reference preservation. Models/browser state/external references remain excluded. See PROJECT-SOURCE-RESTORE.md.
 
 Archive recovery evidence (#359, 2026-09-30): Settings explicitly rediscovers private project/registered-media archives without browser reminders or an open project. Only the separate actual-byte check verifies the saved project/media/info hashes; metadata titles and completion-file presence are not integrity evidence. This does not certify factual/teaching quality, preserve models or arbitrary external references, or restore into the live workspace. Real isolated MP4/WAV re-rendering without original-source access passed; safe restoration UX and broader recovery remain open. See PROJECT-SOURCE-LIBRARY.md.

@@ -58,6 +58,8 @@ Actual separate-worker reopening via Projects → drive backup list/load and rea
 
 ## Stage 0 — Prerequisites
 
+Optional focused Course plan (#383): already tested with disposable browser data. Edit a script/material without saving, select other lessons/modules and return; exact text must remain. Move the selected lesson to another module; it stays selected. Leave a hidden lesson title blank and save: that lesson reappears, no save succeeds. Restore its title, test an explicit failed-save retry, save/reload and restore a safety version. Empty modules remain editable; additions focus the new item. DE/EN/FR navigation must not translate authored fields or fetch anything. No SSD/model action needed; see COURSE-PRODUCTION.md.
+
 ### Optional original football tactics acceptance (#363)
 
 Motion extension (#367): create a compatible second pose by editing a saved board, changing only player/ball positions. Select both, choose 2 seconds and inspect start/mid/end before acknowledgement. Expect a measured 1920×1080 / 25 fps VP8 source with 50 decoded frames, source metadata, and no recording permission. Place it on a real track and export MP4; player/ball positions must visibly change while labels/notice remain. Optional 10-second check must yield 250 frames. In the disposable harness, a persistence failure must retry only saving; cancellation during preparation must create no import. A held probe released after root A→B→A must not register. Reload causes no generation; test DE/EN/FR and clean console. Browser support limitations must offer the existing static sequence, not a download/cloud fallback. No user SSD/model action is required for isolated tests.
