@@ -4,6 +4,7 @@ import { courseInstructorReviewState, courseInstructorSignature, projectCourseIn
 import { courseOutputIndexLimits, projectCourseOutputIndex, projectExportHistory } from './exportHistory'
 import { parseProject, type KinaouProject } from './project'
 import { createTextZip, type TextZipEntry } from './textZip'
+import { createCourseLearnerWorkbook, courseWorkbookInstructions } from './courseLearnerWorkbook'
 
 export type CoursePackageAudience = 'learner' | 'instructor'
 const notices = {
@@ -52,6 +53,7 @@ export async function createCourseMaterialPackage(value: KinaouProject, audience
     })
   }))
   if (!entries.length) throw new Error('No saved text materials available for this audience')
+  if (audience === 'learner') entries.push({ path: 'workbook.html', text: createCourseLearnerWorkbook(course) })
   if (audience === 'instructor') {
     const signature = await courseInstructorSignature(project)
     const reviews = projectCourseInstructorReviews(project).filter(record => record.courseId === course.id).map(record => ({
@@ -72,9 +74,10 @@ export async function createCourseMaterialPackage(value: KinaouProject, audience
   const manifest = {
     schemaVersion: 1, kind: 'course-text-materials', audience, draft: true, mediaIncluded: false,
     urlsFetched: false, fullProjectBackup: false, platformApproval: false,
+    ...(audience === 'learner' ? { learnerWorkbook: 'workbook.html' } : {}),
     course: { id: course.id, title: course.title, language: course.language, revision: course.revision }, modules
   }
   entries.unshift({ path: 'manifest.json', text: JSON.stringify(manifest, null, 2) },
-    { path: 'README.txt', text: [text.title, text.draft, text[audience], text.limits].join('\n\n') + '\n' })
+    { path: 'README.txt', text: [text.title, text.draft, text[audience], text.limits, ...(audience === 'learner' ? [courseWorkbookInstructions[course.language]] : [])].join('\n\n') + '\n' })
   return { filename: `course-${course.id}-${audience}-r${course.revision}.zip`, mimeType: 'application/zip', bytes: createTextZip(entries), entryCount: entries.length }
 }
