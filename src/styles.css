@@ -331,6 +331,8 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .revealFrames figure { margin: 0; min-width: 0; }
 .revealFrames img { display: block; width: 100%; max-height: 430px; object-fit: contain; background: #090c14; border-radius: 8px; }
 .revealFrames figcaption { margin-top: 6px; color: var(--muted); }
+.courseCoverage { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,300px),1fr)); gap: 20px; }
+.courseCoverage meter { width: 100%; height: 14px; }
 @media (max-width: 1000px) { .tacticsLayout { grid-template-columns: 1fr; } .tacticsPreview { position: static; } }
 .analyticsFields { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
 .analyticsFields label { display: flex; flex-direction: column; gap: 7px; }

@@ -2,6 +2,7 @@ import type { UiLanguage } from './uiLanguage'
 import { uiExplainerMessages } from './uiExplainerMessages'
 import { uiRevealMessages } from './uiRevealMessages'
 import { uiCourseDemoPlacementMessages } from './uiCourseDemoPlacementMessages'
+import { uiCourseOverviewMessages } from './uiCourseOverviewMessages'
 import { uiResearchWorkspaceMessages } from './uiResearchWorkspaceMessages'
 import { uiAnalyticsMessages } from './uiAnalyticsMessages'
 import { uiSourceLibraryMessages } from './uiSourceLibraryMessages'
@@ -75,6 +76,7 @@ export const uiMessages = {
   ...uiExplainerMessages,
   ...uiRevealMessages,
   ...uiCourseDemoPlacementMessages,
+  ...uiCourseOverviewMessages,
   ...uiAnalyticsMessages,
   ...uiSettingsMessages,
   ...uiHistoryMessages,
