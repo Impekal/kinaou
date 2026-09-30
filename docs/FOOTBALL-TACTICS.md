@@ -1,6 +1,6 @@
 # Original football tactics graphics
 
-Images → Football tactics board creates authored schematic illustrations without a model, download, paid service or external artwork.
+Sports → Tactics board creates authored schematic illustrations without a model, download, paid service or external artwork. Since #369, Board / Sequence / Motion are separate views; drafts survive internal tab changes, not leaving/reloading the workspace. See SPORTS-WORKSPACE.md.
 
 ## Workflow
 1. Choose a player, click inside the pitch or use the horizontal/vertical percentage fields. Set the ball separately. Add up to 12 anchored pass/run arrows and move their endpoints.
