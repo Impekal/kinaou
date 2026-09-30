@@ -1,5 +1,15 @@
 # Public search-trend research
 
+## Local retained-evidence filters — #371, 2026-09-30
+
+The historical library has view-only DE/EN/FR text, country, date-basis, inclusive UTC-day and chronological-order filters. Text is limited to 200 characters and matches every whitespace-separated literal term across query/report titles/source names, ignoring case and combining accents. This is substring matching, not regex, translation or inferred topic/language classification. URLs and provider figures are not text-search fields. Country means recorded source market, not query language.
+
+Dates explicitly refer either to feed publication or own retrieval, including sort order. Empty bounds are open; complete Gregorian dates are checked without host-timezone interpretation, leap errors/rollovers and reversed ranges are rejected, end-day midnight of the following day is excluded. Equal timestamps retain original ledger order. Invalid filters show no results rather than falling back to all records. The ledger is still validated/bounded before filtering; corrupt data is not silently repaired.
+
+These controls affect only the historical list, not current feed retrieval or briefing source selection. Reset, sort, typing and language changes never modify sources, briefs, provider figures or timestamps, and never fetch. Filters are not persisted and reset when the panel remounts/reloads. Counts mean matching saved observations, not topic demand, popularity, market coverage or complete weekly/monthly statistics. Zero matches do not prove absent demand. Original attribution and evidence remain visible.
+
+Acceptance: 23 new pure regressions and expanded DE/EN/FR rendering checks; 2,071 total app tests, 373 supported local worker tests, build and full CI including render smoke. Isolated localhost:43983 used explicitly synthetic DE/FR/CA observations, not live trend evidence. Browser checks covered combined accent/case/source-name/country filters, real date input at UTC midnight, reversed bounds, publication versus retrieval, stable sort/reset/empty results, DE/FR/EN retention, unchanged dirty brief, reload and zero application fetch/project writes. Native keyboard date entry was used after automation-only fill failed to emit the normal change event. Final console clean; owned fixture files/server/tab/preference removed.
+
 ## Implemented 2026-09-27 — #347
 
 Research is a dedicated DE/EN/FR app section. Connect an updated local worker, open a project, select a country and explicitly retrieve the public feed. There is no on-mount request, background poll, model inference or download of linked news/media. A selected observation can be retained in project metadata with a prior-project version snapshot. Saving failures preserve the displayed result for an explicit retry. Retained observations survive standard project serialization and stay visibly historical; reloading does not refresh them.

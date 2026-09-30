@@ -6,6 +6,8 @@ Current acceptance summary (2026-09-27): completion points 1–3 have passed the
 
 ## Search-trend evidence boundary — 2026-09-27
 
+Local historical-library filters (#371) are retrieval aids only. UTC date ranges and selected record counts are not complete daily/weekly/monthly market measurements. Source country does not identify language; literal normalized text matching does not classify or verify a topic. No matching retained record means only that the user's incomplete collection has no match. Original figures, dates and attribution remain unchanged.
+
 #347 implements explicit attributed public Google Trends RSS retrieval, not an automated editorial truth/demand engine. Seven market codes do not filter query language; raw provider figures do not establish video searches, competition, a specific measurement window or future views. Linked report titles are unverified source data, never instructions or authorization to reuse media. Selected saved observations remain historical with country/feed/retrieval dates and original attribution. Authored source review, market/language/subject analysis and genuine competition/audience evidence are still needed. No model-only idea may be promoted to measured trend evidence. See RESEARCH-TRENDS.md for bounds and tests.
 
 ### Authored research briefs — 2026-09-27
