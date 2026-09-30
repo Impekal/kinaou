@@ -8,6 +8,16 @@ Script, linked demonstration, complete prompt/solution and nonempty material cou
 
 This is read-only saved metadata. It does not inspect files, measure visible pixels or audible speech, check effects/automation, generate content, fill gaps, approve teaching quality or certify platform acceptance. Silence can be intentional; complete occupancy is not a finished course. Review actual playback and instructional correctness separately.
 
+## Explicit gap-to-demonstration draft (#399)
+
+Expand visual gaps and choose one lasting at least 250 ms. This focuses the placement section with an exact saved-lesson interval. **Load gap into placement draft** explicitly replaces only that form's lesson/times and clears its media selection; **Keep current draft** preserves existing inputs. Neither action inserts a clip, writes history, retrieves media or generates anything. Choose a saved demonstration, review original versus authored provenance, source start/duration and permission, then use the existing separate acknowledgement/save flow. A short video source is rejected, never stretched or silently trimmed. Gaps caused by excluded/offline active clips cannot be covered: review those clips in Studio first.
+
+Selection is a frozen ephemeral capability bound to the complete project and UI language. Observed project/language/dirty-draft changes permanently invalidate it, including changes while Course plan is shown. Forged/serialized selections cannot be revived. Pending selection disables the old placement review; loading or keeping requires a fresh review before save. Reload loses pending selection. No current draft is automatically saved.
+
+Acceptance: 2,403 app tests / 225 files, build/syntax and [full CI 36673416752](https://github.com/Impekal/kinaou/actions/runs/36673416752), 17 new cases. The actual FFmpeg test now fills the first previously blank second with an explicitly selected image and checks decoded equality with the existing image interval; the final one-second gap, original narration and unchanged source hashes remain. The #397 evidence above records the earlier version of that executing test.
+
+Actual synthetic browser passed preserved custom duration on keep, exact 1.25-second offset/1.75-second duration on load, cleared media selection, too-short video refusal, DE/FR/EN, hidden dirty-draft and project A→B→A rejection, and explicit image placement closing only the intended gap. Failed save retried with one clip and one snapshot. Zero requests, zero preparation writes; clean console. Temporary fixture/server/tab removed and preference restored. No SSD/models or user media changes; this is not instructional-quality acceptance.
+
 ## Evidence
 
 - 2,386 application tests / 224 files, build/syntax and full unchanged [CI 36672423891](https://github.com/Impekal/kinaou/actions/runs/36672423891) passed. Twenty-five new cases cover union partition/permutations, eligibility, privacy, historical/corrupt records, two hundred lessons, localization and bounded rendering.
