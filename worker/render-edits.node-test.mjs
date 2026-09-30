@@ -10,6 +10,48 @@ const workerScript = fileURLToPath(new URL('./mac-worker.mjs', import.meta.url))
 const TOKEN = 'render-edits-test-token'
 const PORT = 43918
 
+function trackChild(child) {
+  // Observe from spawn, not from finally: close may precede the startup failure.
+  let spawnError
+  child.once('error', (error) => { spawnError = error })
+  const closed = new Promise((resolve) => child.once('close', resolve))
+  return {
+    closed,
+    get error() { return spawnError },
+    async stop() { child.kill('SIGKILL'); await closed }
+  }
+}
+
+test('edit cleanup retains an already observed close and the original failure', { timeout: 5000 }, async () => {
+  const child = spawn(process.execPath, ['-e', 'process.exit(7)'], { stdio: 'ignore' })
+  const lifetime = trackChild(child)
+  await lifetime.closed
+  const original = new Error('original worker startup diagnostic')
+  await assert.rejects(async () => {
+    try { throw original } finally { await lifetime.stop() }
+  }, (error) => error === original)
+  await lifetime.stop()
+  assert.equal(child.exitCode, 7)
+})
+
+test('edit cleanup waits for an active child to close', { timeout: 5000 }, async () => {
+  const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' })
+  const lifetime = trackChild(child)
+  await lifetime.stop()
+  assert.equal(child.signalCode, 'SIGKILL')
+})
+
+test('edit cleanup retains spawn errors without an unhandled event or hanging promise', { timeout: 5000 }, async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'kinaou-edit-spawn-failure-'))
+  try {
+    const child = spawn(path.join(directory, 'missing-executable'), [], { stdio: 'ignore' })
+    const lifetime = trackChild(child)
+    await lifetime.closed
+    await lifetime.stop()
+    assert.equal(lifetime.error?.code, 'ENOENT')
+  } finally { await rm(directory, { recursive: true, force: true }) }
+})
+
 function run(command, args) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { shell: false })
@@ -78,6 +120,7 @@ test('the real compositor applies the edit semantics it promises', { timeout: 42
     env: { PATH: process.env.PATH, KINAOU_MANAGED_ROOT: managedRoot, KINAOU_WORKER_TOKEN: TOKEN, KINAOU_WORKER_PORT: String(PORT) },
     stdio: ['ignore', 'pipe', 'pipe']
   })
+  const lifetime = trackChild(child)
   let output = ''
   child.stdout.on('data', (data) => { output += data.toString() })
   child.stderr.on('data', (data) => { output += data.toString() })
@@ -85,7 +128,8 @@ test('the real compositor applies the edit semantics it promises', { timeout: 42
   try {
     const deadline = Date.now() + 15_000
     while (!output.includes(`listening on http://127.0.0.1:${PORT}`)) {
-      if (child.exitCode !== null) throw new Error(`Worker exited before listening: ${output}`)
+      if (lifetime.error) throw lifetime.error
+      if (child.exitCode !== null || child.signalCode !== null) throw new Error(`Worker exited before listening (code ${child.exitCode}, signal ${child.signalCode}): ${output}`)
       if (Date.now() > deadline) throw new Error(`Worker did not start in time: ${output}`)
       await new Promise((resolve) => setTimeout(resolve, 100))
     }
@@ -148,8 +192,7 @@ test('the real compositor applies the edit semantics it promises', { timeout: 42
       assert.ok(quietDb < loudDb - 9, `gain 0.25 should be clearly quieter (got ${quietDb} dB vs ${loudDb} dB)`)
     })
   } finally {
-    child.kill('SIGKILL')
-    await new Promise((resolve) => { child.on('close', resolve); setTimeout(resolve, 3000).unref() })
+    await lifetime.stop()
     await rm(root, { recursive: true, force: true })
   }
 })
