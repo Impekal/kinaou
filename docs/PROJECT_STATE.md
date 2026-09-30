@@ -14,7 +14,15 @@ The existing hourly heartbeat `kinaou-autonom-weiterbauen` is PAUSED at the user
 
 Check the available Codex usage windows at safe slice boundaries. At **85% used / 15% remaining** in any available Codex window, start no new slice; finish the already-started bounded slice, tests, PR/merge and separate documentation as far as the remaining allowance permits, then provide a short copyable prompt for continuing in normal ChatGPT with the Mac terminal and actual repository evidence. Do not promise immunity from a hard limit. Normal ChatGPT chat limits are not visible through the Codex usage tool. See the latest merged handoff below for the current usage checkpoint; earlier percentages are historical. Never redeem a reset credit without explicit confirmation. Heartbeat stays paused.
 
-## Latest merged handoff — private reviewed research-source dossier
+## Latest merged handoff — render test process lifetime
+
+[PR #375](https://github.com/Impekal/kinaou/pull/375) fixes a test-only cleanup race exposed by documentation PR #374: the render-edit test subscribed to `close` only in `finally`, after a startup failure could already have closed the child. Its unreferenced fallback timer allowed Node to cancel the pending test and hide the original diagnostic. The test now observes the lifetime immediately after spawn, retains spawn errors, detects signal exits and awaits actual closure. Three executing regressions cover already-closed/error preservation and repeated cleanup, active-child termination, and a missing executable. The original startup cause from the failed CI log is unknown; the fix makes any recurrence visible rather than claiming to cure that unknown cause.
+
+Acceptance: eight focused tests, 376 supported local worker tests and full unchanged [CI 36656212303](https://github.com/Impekal/kinaou/actions/runs/36656212303) passed. Real speed/fade/scale/audio assertions remain unchanged. No production worker, feature, dependency or CI-gate change. The unchanged full rerun of #374 also passed and its source-dossier documentation was merged. Foreign files/stash remain untouched. This maintenance repair does not complete another main checklist point.
+
+Usage checkpoint: 59% weekly consumed; no reset credit redeemed. Heartbeat remains paused and AC-only wake helper unchanged. Next safe priority remains bounded local daily-view CSV Analytics as described below; no immediate SSD/model/user action required.
+
+## Previous merged handoff — private reviewed research-source dossier
 
 [PR #373](https://github.com/Impekal/kinaou/pull/373) merged as `127e63aedd61400447478724527e37a681a69ddd` after full [CI 36655187874](https://github.com/Impekal/kinaou/actions/runs/36655187874), including render smoke. Research can explicitly prepare/review the displayed historical source selection and download real local UTF-8 text/JSON. The files include project title, exact filter context, selected original observations, links/dates/recorded feed hashes and incomplete/unverified boundaries. Scripts, briefing drafts, media, credentials and whole-project metadata are excluded. Observed project/title/source/filter/language changes permanently invalidate the old review, including A→B→A. No network, inference, project save or automatic reload export.
 
