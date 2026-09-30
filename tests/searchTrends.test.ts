@@ -52,6 +52,8 @@ it.each(uiLanguages)('renders safe historical observations and explicit boundari
   try{
     const markup=renderToStaticMarkup(createElement(UiLanguageProvider,{initialLanguage:language,children:createElement(SearchTrendsPanel,{project,history:new PersistentVersionHistory(storage()),onProjectChange:change})}))
     expect(markup).toContain(translateUi(language,'research.history'));expect(markup).toContain(translateUi(language,'research.unavailable'))
+    for(const key of ['research.filterHeading','research.filterHelp','research.filterBasis','research.filterReset'] as const)expect(markup).toContain(translateUi(language,key))
+    expect(markup).toContain(translateUi(language,'research.filterCount',{matches:1,total:1}))
     expect(markup).toContain('&lt;script&gt;');expect(markup).not.toContain('<script>alert');expect(markup).toContain('rel="noopener noreferrer"')
     expect(change).not.toHaveBeenCalled();expect(fetch).not.toHaveBeenCalled()
   }finally{fetch.mockRestore()}

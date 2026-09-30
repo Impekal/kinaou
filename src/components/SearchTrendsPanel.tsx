@@ -8,9 +8,11 @@ import type { CourseOutputWorkerProps } from './CourseOutputFileCheckPanel'
 import { useUiLanguage } from './UiLanguageProvider'
 import './SearchTrendsPanel.css'
 import { ResearchBriefPanel } from './ResearchBriefPanel'
+import { filterResearchObservations, newResearchObservationFilter, type ResearchObservationFilter } from '../core/researchObservationFilter'
 
 export function SearchTrendsPanel({ project, history, onProjectChange, onOpenDirector, workerUrl = '', workerToken = '', workerConnected = false, workerCapabilities = [] }: CourseOutputWorkerProps & { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void; onOpenDirector?: () => void }) {
   const { t } = useUiLanguage(), [country, setCountry] = useState<SearchTrendCountry>('DE')
+  const [filters, setFilters] = useState(newResearchObservationFilter)
   const available = workerConnected && !!workerToken.trim() && workerCapabilities.includes('public-search-trends')
   const scope = JSON.stringify([project.id, country, workerUrl, workerToken, available]), current = useRef(scope), session = useRef<SearchTrendSession | null>(null)
   const [result, setResult] = useState<{ scope: string; snapshot: SearchTrendSnapshot } | null>(null), [busy, setBusy] = useState(false), [error, setError] = useState(''), [saved, setSaved] = useState(false)
@@ -18,6 +20,8 @@ export function SearchTrendsPanel({ project, history, onProjectChange, onOpenDir
   useEffect(() => { setResult(null); setBusy(false); setError(''); setSaved(false); return () => { session.current?.detach() } }, [scope])
   let retained: RetainedSearchTrend[] = [], ledgerError = ''
   try { retained = retainedSearchTrends(project) } catch (cause) { ledgerError = String(cause) }
+  let visible: ReturnType<typeof filterResearchObservations> = [], filterError = ''
+  if (!ledgerError) { try { visible = filterResearchObservations(retained, filters) } catch (cause) { filterError = String(cause) } }
   async function retrieve() {
     if (!available || busy) return
     session.current?.detach(); const next = new SearchTrendSession(); session.current = next
@@ -56,8 +60,21 @@ export function SearchTrendsPanel({ project, history, onProjectChange, onOpenDir
     </div>}
     <ResearchBriefPanel key={project.id} project={project} history={history} onProjectChange={onProjectChange} onOpenDirector={onOpenDirector} />
     <div className="card stack"><h3>{t('research.history')} ({retained.length}/200)</h3>
+      <p>{t('research.filterHelp')}</p>
+      <fieldset className="researchLibraryFilters"><legend>{t('research.filterHeading')}</legend>
+        <label>{t('research.filterText')}<input maxLength={200} value={filters.text} onChange={e => setFilters({ ...filters, text: e.target.value })} /></label>
+        <label>{t('research.filterCountry')}<select value={filters.country} onChange={e => setFilters({ ...filters, country: e.target.value as ResearchObservationFilter['country'] })}><option value="all">{t('research.filterAll')}</option>{searchTrendCountries.map(code => <option key={code} value={code}>{t(`research.${code}`)}</option>)}</select></label>
+        <label>{t('research.filterBasis')}<select value={filters.dateBasis} onChange={e => setFilters({ ...filters, dateBasis: e.target.value as ResearchObservationFilter['dateBasis'] })}><option value="published">{t('research.filterPublished')}</option><option value="retrieved">{t('research.filterRetrieved')}</option></select></label>
+        <label>{t('research.filterFrom')}<input type="date" min="0001-01-01" max="9999-12-31" value={filters.from} onChange={e => setFilters({ ...filters, from: e.target.value })} /></label>
+        <label>{t('research.filterThrough')}<input type="date" min="0001-01-01" max="9999-12-31" value={filters.through} onChange={e => setFilters({ ...filters, through: e.target.value })} /></label>
+        <label>{t('research.filterOrder')}<select value={filters.order} onChange={e => setFilters({ ...filters, order: e.target.value as ResearchObservationFilter['order'] })}><option value="newest">{t('research.filterNewest')}</option><option value="oldest">{t('research.filterOldest')}</option></select></label>
+        <button className="secondaryButton" onClick={() => setFilters(newResearchObservationFilter())}>{t('research.filterReset')}</button>
+      </fieldset>
+      {filterError && <div role="alert">{t('research.filterInvalid')}<details><summary>{t('common.details')}</summary>{filterError}</details></div>}
+      {!filterError && !ledgerError && <p role="status">{t('research.filterCount', { matches: visible.length, total: retained.length })}</p>}
       {!retained.length && !ledgerError && <p>{t('research.historyEmpty')}</p>}
-      {retained.map((entry, index) => <article key={index}><p>{t(`research.${entry.country}`)} · {entry.retrievedAt}</p>{itemView(entry.items[0])}{provenance(entry)}</article>)}
+      {!!retained.length && !visible.length && !filterError && !ledgerError && <p>{t('research.filterEmpty')}</p>}
+      {visible.map(({ entry, index }) => <article key={index}><p>{t(`research.${entry.country}`)} · {entry.retrievedAt}</p>{itemView(entry.items[0])}{provenance(entry)}</article>)}
     </div>
   </section>
 }
