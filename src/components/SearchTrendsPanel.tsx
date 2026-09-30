@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { KinaouProject } from '../core/project'
 import type { PersistentVersionHistory } from '../core/versioning'
 import { WorkerClient } from '../core/workerClient'
@@ -11,9 +11,13 @@ import { ResearchBriefPanel } from './ResearchBriefPanel'
 import { filterResearchObservations, newResearchObservationFilter, type ResearchObservationFilter } from '../core/researchObservationFilter'
 import { ResearchDossierPanel } from './ResearchDossierPanel'
 import { ResearchSourceAssessmentPanel } from './ResearchSourceAssessmentPanel'
+import { researchViews, researchViewForKey, type ResearchView } from '../core/researchWorkspace'
 
 export function SearchTrendsPanel({ project, history, onProjectChange, onOpenDirector, workerUrl = '', workerToken = '', workerConnected = false, workerCapabilities = [] }: CourseOutputWorkerProps & { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void; onOpenDirector?: () => void }) {
   const { t } = useUiLanguage(), [country, setCountry] = useState<SearchTrendCountry>('DE')
+  const id = useId(), [view, setView] = useState<ResearchView>('discover')
+  const tabs = useRef<Partial<Record<ResearchView, HTMLButtonElement | null>>>({})
+  const panel = (item: ResearchView) => ({ id: `${id}-${item}-panel`, role: 'tabpanel', 'aria-labelledby': `${id}-${item}-tab`, tabIndex: 0, hidden: view !== item, className: 'researchView stack' })
   const [filters, setFilters] = useState(newResearchObservationFilter)
   const available = workerConnected && !!workerToken.trim() && supportsSearchTrendCountry(country, workerCapabilities)
   const scope = JSON.stringify([project.id, country, workerUrl, workerToken, available]), current = useRef(scope), session = useRef<SearchTrendSession | null>(null)
@@ -50,6 +54,14 @@ export function SearchTrendsPanel({ project, history, onProjectChange, onOpenDir
   }
   const snapshot = result?.scope === scope ? result.snapshot : null
   return <section className="stack searchTrendsPanel">
+    <header className="card stack researchWorkspaceLead"><div className="eyebrow">{t('nav.Research')}</div><h2>{t('researchWorkspace.heading')}</h2><p>{t('researchWorkspace.help')}</p><p className="note">{t('researchWorkspace.drafts')}</p>
+      <div role="tablist" aria-label={t('researchWorkspace.views')} className="researchTabs">{researchViews.map(item => <button key={item} type="button" role="tab" id={`${id}-${item}-tab`} aria-controls={`${id}-${item}-panel`} aria-selected={view === item} tabIndex={view === item ? 0 : -1} ref={node => { tabs.current[item] = node }} onClick={() => setView(item)} onKeyDown={event => {
+        const next = researchViewForKey(item, event.key)
+        if (next) { event.preventDefault(); setView(next); tabs.current[next]?.focus() }
+      }}><strong>{t(`researchWorkspace.${item}`)}</strong><span>{t(`researchWorkspace.${item}Help`)}</span></button>)}</div>
+      {busy && view !== 'discover' && <p role="status">{t('researchWorkspace.background')}</p>}
+    </header>
+    <div {...panel('discover')}>
     <div className="card stack"><h2>{t('research.title')}</h2><p>{t('research.help')}</p><p>{t('research.limits')}</p><p>{t('research.marketCoverage')}</p>
       <label>{t('research.country')}<select value={country} onChange={event => setCountry(event.target.value as SearchTrendCountry)}>{searchTrendCountries.map(code => <option key={code} value={code}>{t(`research.${code}`)}</option>)}</select></label>
       <button className="primary" disabled={!available || busy} onClick={retrieve}>{t('research.load')}</button>{!available && <p>{t('research.unavailable')}</p>}
@@ -60,8 +72,10 @@ export function SearchTrendsPanel({ project, history, onProjectChange, onOpenDir
       {!snapshot.items.length && <p>{t('research.empty')}</p>}
       {snapshot.items.map((item, index) => <article key={index}>{itemView(item)}<button className="secondaryButton" disabled={!!ledgerError} onClick={() => retain(index)}>{t('research.retain')}</button></article>)}
     </div>}
-    <ResearchSourceAssessmentPanel key={`assessment-${project.id}`} project={project} history={history} onProjectChange={onProjectChange} />
-    <ResearchBriefPanel key={project.id} project={project} history={history} onProjectChange={onProjectChange} onOpenDirector={onOpenDirector} />
+    </div>
+    <div {...panel('assess')}><ResearchSourceAssessmentPanel key={`assessment-${project.id}`} project={project} history={history} onProjectChange={onProjectChange} /></div>
+    <div {...panel('brief')}><ResearchBriefPanel key={project.id} project={project} history={history} onProjectChange={onProjectChange} onOpenDirector={onOpenDirector} /></div>
+    <div {...panel('library')}>
     <div className="card stack"><h3>{t('research.history')} ({retained.length}/200)</h3>
       <p>{t('research.filterHelp')}</p>
       <fieldset className="researchLibraryFilters"><legend>{t('research.filterHeading')}</legend>
@@ -79,6 +93,7 @@ export function SearchTrendsPanel({ project, history, onProjectChange, onOpenDir
       {!!retained.length && !visible.length && !filterError && !ledgerError && <p>{t('research.filterEmpty')}</p>}
       <ResearchDossierPanel project={project} filters={filters} available={!filterError && !ledgerError && visible.length > 0} />
       {visible.map(({ entry, index }) => <article key={index}><p>{t(`research.${entry.country}`)} · {entry.retrievedAt}</p>{itemView(entry.items[0])}{provenance(entry)}</article>)}
+    </div>
     </div>
   </section>
 }

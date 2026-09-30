@@ -1,5 +1,12 @@
 .searchTrendsPanel { min-width: 0; }
-.searchTrendsPanel > .card { padding: 24px; min-width: 0; }
+.searchTrendsPanel > .card, .researchView > .card { padding: 24px; min-width: 0; }
+.researchView { min-width: 0; }
+.researchView[hidden] { display: none; }
+.researchTabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.searchTrendsPanel .researchTabs button { justify-self: stretch; width: 100%; display: grid; gap: 8px; text-align: left; padding: 16px; border: 1px solid #494060; background: #1d1c2a; border-radius: 12px; color: #f0edff; }
+.researchTabs button[aria-selected="true"] { background: #342557; border-color: #b9aaff; }
+.researchTabs span { font-size: .85rem; line-height: 1.5; color: #d1c9e8; }
+.researchView:focus-visible { outline: 3px solid #b9aaff; outline-offset: 3px; }
 .searchTrendsPanel article { border-top: 1px solid #343b4d; padding-top: 18px; overflow-wrap: anywhere; }
 .searchTrendsPanel article h4 { margin: 0 0 10px; font-size: 18px; }
 .searchTrendsPanel article p { margin-bottom: 8px; }
@@ -20,4 +27,4 @@
 .researchDossier textarea { width: 100%; resize: vertical; font-family: ui-monospace, SFMono-Regular, monospace; font-weight: 400; font-size: 13px; line-height: 1.5; }
 .researchDossier pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 360px; overflow: auto; }
 .researchDossierActions { display: flex; flex-wrap: wrap; gap: 12px; }
-@media (max-width: 600px) { .searchTrendsPanel > .card { padding: 16px; } .searchTrendsPanel button { width: 100%; } }
+@media (max-width: 600px) { .searchTrendsPanel > .card, .researchView > .card { padding: 16px; } .searchTrendsPanel button { width: 100%; } .researchTabs { grid-template-columns: 1fr; } }
