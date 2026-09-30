@@ -11,6 +11,8 @@ import {reviewCourseDemoPlacement,commitCourseDemoPlacement} from '../src/core/c
 import {createRenderPlan,preview1080pPreset} from '../src/core/render'
 import {WorkerClient} from '../src/core/workerClient'
 import {courseProductionOverview} from '../src/core/courseProductionOverview'
+import {prepareCourseGapPlacement,courseGapPlacementDraft} from '../src/core/courseGapPlacement'
+import {parseDemoSeconds} from '../src/core/courseDemoPlacement'
 const exec=promisify(execFile),run=async(cmd:string,args:string[])=>(await exec(cmd,args,{encoding:'buffer',maxBuffer:12*1024**2})).stdout
 it('renders actual video-source trim and still evidence at lesson-relative times while preserving narration and muting demo audio',async context=>{
  try{await run('ffmpeg',['-version']);await run('ffprobe',['-version'])}catch(cause){if(process.env.CI)throw cause;context.skip('FFmpeg required');return}
@@ -33,6 +35,9 @@ it('renders actual video-source trim and still evidence at lesson-relative times
   commitCourseDemoPlacement(p,reviewCourseDemoPlacement(p,{lessonId:'lesson',demoId:'image',lessonOffsetMs:3000,sourceOffsetMs:0,durationMs:1000}),true,deps)
   expect(p.tracks[0]).toEqual(original.tracks[0]);expect(p.metadata).toEqual(original.metadata);expect(p.assets).toEqual(original.assets)
   expect(courseProductionOverview(p)[0]).toMatchObject({visuals:{coveredMs:3000,gaps:[{startMs:0,endMs:1000},{startMs:4000,endMs:5000}]},voice:{coveredMs:5000,gaps:[]}})
+  const chosen=prepareCourseGapPlacement(p,'lesson',courseProductionOverview(p)[0].visuals.gaps[0],'en'),draft=courseGapPlacementDraft(p,chosen,'en')
+  expect(draft.demoId).toBe('');commitCourseDemoPlacement(p,reviewCourseDemoPlacement(p,{lessonId:draft.lessonId,demoId:'image',lessonOffsetMs:parseDemoSeconds(draft.offset),durationMs:parseDemoSeconds(draft.duration),sourceOffsetMs:0}),true,deps)
+  expect(courseProductionOverview(p)[0].visuals).toMatchObject({coveredMs:4000,gaps:[{startMs:4000,endMs:5000}]})
   const output='KINAOU/Renders/lesson.mp4',full=createRenderPlan(p,{...preview1080pPreset,width:160,height:90,fps:10},output),plan=planCourseLessonExport(p,'lesson',full,output)
   let job=await client.startRender(plan.plan)
   for(let i=0;i<300&&['queued','running'].includes(job.state);i++){await new Promise(r=>setTimeout(r,30));job=await client.renderStatus(job.id)}
@@ -41,7 +46,8 @@ it('renders actual video-source trim and still evidence at lesson-relative times
   const raw=await run('ffmpeg',['-v','error','-i',file,'-f','rawvideo','-pix_fmt','rgb24','-']),frameSize=160*90*3
   expect(raw.length/frameSize).toBe(50)
   const frame=(i:number)=>raw.subarray(i*frameSize,(i+1)*frameSize),mean=(b:Buffer)=>b.reduce((s,v)=>s+v,0)/b.length
-  expect(mean(frame(3))).toBeLessThan(3);expect(mean(frame(45))).toBeLessThan(3);expect(mean(frame(15))).toBeGreaterThan(20);expect(mean(frame(35))).toBeGreaterThan(10)
+  expect(mean(frame(3))).toBeGreaterThan(10);expect(mean(frame(45))).toBeLessThan(3);expect(mean(frame(15))).toBeGreaterThan(20);expect(mean(frame(35))).toBeGreaterThan(10)
+  expect(frame(3).reduce((sum,v,i)=>sum+Math.abs(v-frame(35)[i]),0)/frameSize).toBeLessThan(4)
   const reference=await run('ffmpeg',['-v','error','-ss','1.5','-i',video,'-frames:v','1','-f','rawvideo','-pix_fmt','rgb24','-'])
   expect(frame(15).reduce((sum,v,i)=>sum+Math.abs(v-reference[i]),0)/frameSize).toBeLessThan(12)
   const audio=await run('ffmpeg',['-v','error','-ss','1.5','-i',file,'-t','0.5','-ac','1','-ar','48000','-f','f32le','-'])
