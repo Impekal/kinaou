@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { FootballTacticsPanel } from './components/FootballTacticsPanel'
+import { SportsWorkspacePanel } from './components/SportsWorkspacePanel'
 import { AssetAvailabilityControl } from './components/AssetAvailabilityControl'
 import { ManagedMediaPanel } from './components/ManagedMediaPanel'
 import { AssetUploadPanel } from './components/AssetUploadPanel'
@@ -43,7 +43,7 @@ import { WorkerClient } from './core/workerClient'
 import type { WorkerHandshake } from './core/workerProtocol'
 import { PersistentVersionHistory } from './core/versioning'
 
-const nav = ['Projects', 'Create', 'Director', 'Research', 'Studio', 'Course', 'Assets', 'Avatar', 'Audio', 'Images', 'Video', 'Capture', 'Publish', 'Analytics', 'Settings'] as const
+const nav = ['Projects', 'Create', 'Director', 'Research', 'Studio', 'Course', 'Sports', 'Assets', 'Avatar', 'Audio', 'Images', 'Video', 'Capture', 'Publish', 'Analytics', 'Settings'] as const
 const creationKinds = ['idea', 'document', 'url', 'image', 'audio', 'video'] as const
 
 export function App() {
@@ -195,7 +195,8 @@ export function App() {
         {section === 'Director' && (project ? <section className="stack"><DirectorPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /><MediaPlanPanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /></section> : <section className="card emptyState">{t('shell.openProject')}</section>)}
         {section === 'Audio' && (project ? <AudioStudioPanel key={project.id} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} courseHandoff={courseHandoff} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
         {section === 'Avatar' && (project ? <AvatarStudioPanel key={project.id} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
-        {section === 'Images' && (project ? <section className="stack"><FootballTacticsPanel key={'tactics:' + project.id} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} managedRoots={workerHandshake?.managedRoots ?? []} onProjectChange={persistProject} /><ImageStudioPanel key={project.id} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /></section> : <section className="card emptyState">{t('shell.openProject')}</section>)}
+        {section === 'Sports' && (project ? <SportsWorkspacePanel key={project.id} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} managedRoots={workerHandshake?.managedRoots ?? []} onProjectChange={persistProject} onOpenStudio={() => setSection('Studio')} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
+        {section === 'Images' && (project ? <ImageStudioPanel key={project.id} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
         {section === 'Video' && (project ? <VideoStudioPanel key={`${project.id}:${workerUrl}:${workerToken}`} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
         {section === 'Capture' && (project ? <CapturePanel project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
         {section === 'Publish' && (project ? <><PublicationPlanPanel key={project.id} project={project} history={versionHistory} onProjectChange={persistProject} /><PublicationEditorialPanel key={'editorial:' + project.id} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /><PublishPanel project={project} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} /></> : <section className="card emptyState">{t('shell.openProject')}</section>)}
@@ -241,7 +242,7 @@ export function App() {
           onWorkspaceRootChange={setWorkspaceRoot} onStorageBackendChange={setStorageBackend} onSaveStorage={saveStorageProfile}
         /><ProjectSourceArchiveLibraryPanel workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} managedRoots={workerHandshake?.managedRoots ?? []} /></>}
 
-        {!['Projects', 'Create', 'Director', 'Studio', 'Course', 'Assets', 'Avatar', 'Audio', 'Images', 'Video', 'Capture', 'Publish', 'Settings'].includes(section) && <section className="card emptyState"><div className="eyebrow">{t(`nav.${section}`)}</div><h2>{t('shell.reserved')}</h2><p>{t('shell.reservedHelp')}</p></section>}
+        {section === 'Analytics' && <section className="card emptyState"><div className="eyebrow">{t(`nav.${section}`)}</div><h2>{t('shell.reserved')}</h2><p>{t('shell.reservedHelp')}</p></section>}
       </main>
     </div>
   )

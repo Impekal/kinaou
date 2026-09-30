@@ -11,8 +11,6 @@ import { WorkerClient } from '../core/workerClient'
 import { AssetImportStatus } from './AssetUploadPanel'
 import { AssetPlacementControl } from './AssetPlacementControl'
 import { useUiLanguage } from './UiLanguageProvider'
-import { FootballSequencePanel } from './FootballSequencePanel'
-import { FootballMotionPanel } from './FootballMotionPanel'
 interface Props { project: KinaouProject; history: PersistentVersionHistory; workerUrl: string; workerToken: string; workerConnected: boolean; workerCapabilities: string[]; managedRoots: string[]; onProjectChange: (project: KinaouProject) => void }
 export function FootballTacticsPanel({ project, history, workerUrl, workerToken, workerConnected, workerCapabilities, managedRoots, onProjectChange }: Props) {
   const { t } = useUiLanguage()
@@ -95,7 +93,5 @@ export function FootballTacticsPanel({ project, history, workerUrl, workerToken,
     {visibleFeedback && <AssetImportStatus feedback={visibleFeedback} onRetry={() => void session.current?.run()} onDetach={() => { session.current?.detach(); setFeedback(v => v ? { ...v, phase: 'detached' } : null) }} />}
     {error && <div role="alert">{t('tactics.error')}<details><summary>{t('common.details')}</summary>{error}</details></div>}
     {graphics.length > 0 && <div className="stack"><h3>{t('tactics.saved')}</h3><p>{t('tactics.savedHelp')}</p>{graphics.map(asset => <div className="tacticsSaved" key={asset.id}><strong>{String((asset.metadata.board as FootballTacticsBoard | undefined)?.title || t('tactics.untitled'))}</strong><code>{asset.uri}</code><button className="secondaryButton" disabled={locked} onClick={() => { try { edit(parseFootballTactics(asset.metadata.board)) } catch (cause) { setError(String(cause)) } }}>{t('tactics.edit')}</button>{!compatibleTracks(project, asset).length && <button className="secondaryButton" disabled={locked} onClick={() => placeNewTrack(asset.id)}>{t('tactics.newTrack')}</button>}<AssetPlacementControl project={project} asset={asset} onProjectChange={value => { history.snapshot(project, 'Before manual timeline edit', 'system'); onProjectChange(value) }} /></div>)}</div>}
-    <FootballSequencePanel key={project.id} project={project} history={history} onProjectChange={onProjectChange} />
-    <FootballMotionPanel key={'motion:'+project.id} project={project} history={history} workerUrl={workerUrl} workerToken={workerToken} workerConnected={workerConnected} workerCapabilities={workerCapabilities} managedRoots={managedRoots} onProjectChange={onProjectChange}/>
   </section>
 }

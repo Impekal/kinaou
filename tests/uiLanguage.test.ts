@@ -65,7 +65,7 @@ it.each(uiLanguages)('renders the real app shell and creation form in %s without
   const write = vi.spyOn(store, 'setItem')
   vi.stubGlobal('window', { localStorage: store })
   const html = renderToStaticMarkup(createElement(UiLanguageProvider, { initialLanguage: language, children: createElement(App) }))
-  for (const key of ['nav.Course', 'nav.Settings', 'create.title', 'create.submit', 'ui.language'] as const) expect(html).toContain(translateUi(language, key))
+  for (const key of ['nav.Course', 'nav.Sports', 'nav.Settings', 'create.title', 'create.submit', 'ui.language'] as const) expect(html).toContain(translateUi(language, key))
   expect(html).toContain(`value="${language}" lang="${language}" selected=""`)
   expect(write).not.toHaveBeenCalled()
 })
