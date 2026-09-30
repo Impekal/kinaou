@@ -3,23 +3,18 @@ import { AnalyticsSession, analyticsByteLimit, analyticsSummary, loadAnalyticsSo
 import type { KinaouProject } from '../core/project'
 import type { PersistentVersionHistory } from '../core/versioning'
 import { useUiLanguage } from './UiLanguageProvider'
+import { AnalyticsCalendarView } from './AnalyticsCalendarView'
 
 export function AnalyticsReportView({ report }: { report: PerformanceReport }) {
   const { t, language } = useUiLanguage(), [page, setPage] = useState(0), summary = analyticsSummary(report)
   const number = (value: number) => value.toLocaleString(language), shown = report.rows.slice(page * 25, (page + 1) * 25)
-  const start = Date.parse(summary.from), span = (Date.parse(summary.through) - start) / 86400000 + 1, maximum = Math.max(1, ...report.rows.map(row => row.views))
   return <div className="analyticsReport stack">
     <h3>{report.draft.name}</h3><p>{report.draft.platform} · {report.draft.scope}</p>
     {report.draft.timezoneNote && <p>{t('analytics.zone')}: {report.draft.timezoneNote}</p>}
     <p>{summary.from} — {summary.through}</p>
     <strong>{t('analytics.sum', { value: number(summary.sum) })}</strong><p>{t('analytics.days', { count: number(summary.count), missing: number(summary.missing) })}</p>
-    <svg className="analyticsChart" viewBox="0 0 800 210" role="img" aria-label={t('analytics.chart')}>
-      <title>{t('analytics.chart')}</title><desc>{t('analytics.chartHelp')}</desc>
-      <line x1="40" y1="180" x2="780" y2="180" stroke="currentColor" />
-      <text x="40" y="15" fill="currentColor">{number(maximum)}</text>
-      {report.rows.map(row => <rect key={row.date} x={40 + ((Date.parse(row.date) - start) / 86400000 + 0.1) / span * 740} y={180 - row.views / maximum * 150} width={Math.min(24, 740 / span * 0.8)} height={row.views / maximum * 150} fill="currentColor"><title>{row.date}: {number(row.views)}</title></rect>)}
-      <text x="40" y="205" fill="currentColor">{summary.from}</text><text x="780" y="205" textAnchor="end" fill="currentColor">{summary.through}</text>
-    </svg><small>{t('analytics.chartHelp')}</small>
+    <AnalyticsCalendarView key={report.id} report={report} />
+    <h4>{t('analytics.dailyOriginals')}</h4>
     <div className="analyticsTable"><table><thead><tr><th>{t('analytics.date')}</th><th>{t('analytics.views')}</th><th>{t('analytics.raw')}</th><th>{t('analytics.record')}</th></tr></thead><tbody>{shown.map(row => <tr key={row.date}><td>{row.date}</td><td>{number(row.views)}</td><td><code>{JSON.stringify([row.rawDate, row.rawViews])}</code></td><td>{row.record}</td></tr>)}</tbody></table></div>
     <div className="directorActions"><button className="secondaryButton" disabled={!page} onClick={() => setPage(p => p - 1)}>{t('analytics.previous')}</button><span>{page * 25 + 1}–{Math.min((page + 1) * 25, report.rows.length)} / {report.rows.length}</span><button className="secondaryButton" disabled={(page + 1) * 25 >= report.rows.length} onClick={() => setPage(p => p + 1)}>{t('analytics.next')}</button></div>
     {report.excludedSummary && <p>{t('analytics.excluded')}: <code>{JSON.stringify([report.excludedSummary.rawDate, report.excludedSummary.rawViews])}</code></p>}
