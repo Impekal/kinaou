@@ -1,4 +1,5 @@
 import type { UiLanguage } from './uiLanguage'
+import { uiAnalyticsMessages } from './uiAnalyticsMessages'
 import { uiSourceLibraryMessages } from './uiSourceLibraryMessages'
 import { uiSourceRestoreMessages } from './uiSourceRestoreMessages'
 import { uiFootballTacticsMessages } from './uiFootballTacticsMessages'
@@ -64,6 +65,7 @@ import { uiRecoveryMessages } from './uiRecoveryMessages'
 
 // Ordered de/en/fr tuples make missing language entries a compile-time error.
 export const uiMessages = {
+  ...uiAnalyticsMessages,
   ...uiSettingsMessages,
   ...uiHistoryMessages,
   ...uiBackupMessages,

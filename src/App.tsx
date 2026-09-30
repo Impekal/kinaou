@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { AnalyticsPanel } from './components/AnalyticsPanel'
 import { SportsWorkspacePanel } from './components/SportsWorkspacePanel'
 import { AssetAvailabilityControl } from './components/AssetAvailabilityControl'
 import { ManagedMediaPanel } from './components/ManagedMediaPanel'
@@ -242,7 +243,7 @@ export function App() {
           onWorkspaceRootChange={setWorkspaceRoot} onStorageBackendChange={setStorageBackend} onSaveStorage={saveStorageProfile}
         /><ProjectSourceArchiveLibraryPanel workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} managedRoots={workerHandshake?.managedRoots ?? []} /></>}
 
-        {section === 'Analytics' && <section className="card emptyState"><div className="eyebrow">{t(`nav.${section}`)}</div><h2>{t('shell.reserved')}</h2><p>{t('shell.reservedHelp')}</p></section>}
+        {section === 'Analytics' && (project ? <AnalyticsPanel key={project.id} project={project} history={versionHistory} onProjectChange={persistProject} /> : <section className="card emptyState">{t('shell.openProject')}</section>)}
       </main>
     </div>
   )
