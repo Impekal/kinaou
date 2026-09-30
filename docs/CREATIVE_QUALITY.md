@@ -54,6 +54,8 @@ Editorial language follow-up (#357): an explicit narrow local translation pass, 
 
 ## Complete course production
 
+Learner workbook (#385, 2026-09-30): actual learner ZIPs include a self-contained readable HTML workbook in saved course language, with original public materials/prompts/hints, contents links and blank answer space. It excludes designated private fields but cannot detect answers/private details written into public prose. It remains DRAFT; real teaching accuracy and distribution review are separate. Print CSS is present, not a tested automatic PDF exporter or platform acceptance claim.
+
 Focused authoring (#383, 2026-09-30) makes large saved/draft curricula editable one lesson at a time while retaining the whole draft. Navigation, stable selection after moves and visible validation errors are usability features, not instructional verification. All hidden lesson fields still undergo ordinary save validation; course review, media quality and platform acceptance remain separate requirements.
 
 Isolated restoration (#361, 2026-09-30): explicitly reviewed archive evidence now produces a new independent private project/media working copy, with source and readback hashes, durable same-ID recovery and no active-root replacement. A real separate worker reopened the copied project through existing backup routes and rendered while originals and source archive were unavailable. This is technical recovery acceptance, not complete teaching-quality or broader-reference preservation. Models/browser state/external references remain excluded. See PROJECT-SOURCE-RESTORE.md.

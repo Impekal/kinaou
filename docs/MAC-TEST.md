@@ -58,6 +58,8 @@ Actual separate-worker reopening via Projects → drive backup list/load and rea
 
 ## Stage 0 — Prerequisites
 
+Optional learner workbook (#385): download the learner ZIP with saved public materials/exercises, extract and open `workbook.html`. Check course-language headings, contents links and readable original text; no answers/internal text/scripts should be included. HTML-looking authored text must remain inert. Dirty drafts block export. Real download/extraction/browser acceptance already passed on isolated synthetic data; printing/PDF pagination still needs optional visual checking through your browser if you intend to distribute a PDF. No SSD/model action is needed and no PDF is claimed to have been generated automatically.
+
 Optional focused Course plan (#383): already tested with disposable browser data. Edit a script/material without saving, select other lessons/modules and return; exact text must remain. Move the selected lesson to another module; it stays selected. Leave a hidden lesson title blank and save: that lesson reappears, no save succeeds. Restore its title, test an explicit failed-save retry, save/reload and restore a safety version. Empty modules remain editable; additions focus the new item. DE/EN/FR navigation must not translate authored fields or fetch anything. No SSD/model action needed; see COURSE-PRODUCTION.md.
 
 ### Optional original football tactics acceptance (#363)
