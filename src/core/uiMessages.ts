@@ -33,6 +33,7 @@ import { uiCourseWorkspaceMessages } from './uiCourseWorkspaceMessages'
 import { uiCourseHandoffMessages } from './uiCourseHandoffMessages'
 import { uiSourceArchiveMessages } from './uiSourceArchiveMessages'
 import { uiSearchTrendMessages } from './uiSearchTrendMessages'
+import { uiSourceAssessmentMessages } from './uiSourceAssessmentMessages'
 import { uiResearchBriefMessages } from './uiResearchBriefMessages'
 import { uiPublicationPlanMessages } from './uiPublicationPlanMessages'
 import { uiManualSocialHandoffMessages } from './uiManualSocialHandoffMessages'
@@ -65,6 +66,7 @@ import { uiRecoveryMessages } from './uiRecoveryMessages'
 
 // Ordered de/en/fr tuples make missing language entries a compile-time error.
 export const uiMessages = {
+  ...uiSourceAssessmentMessages,
   ...uiAnalyticsMessages,
   ...uiSettingsMessages,
   ...uiHistoryMessages,

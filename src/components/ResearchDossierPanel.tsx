@@ -24,7 +24,7 @@ export function ResearchDossierPanel({ project, filters, available }: { project:
     } catch (cause) { setError(String(cause)) }
   }
   return <section className="researchDossier stack">
-    <h4>{t('research.dossierHeading')}</h4><p>{t('research.dossierHelp')}</p>
+    <h4>{t('research.dossierHeading')}</h4><p>{t('research.dossierHelp')}</p><p>{t('assessment.dossier')}</p>
     <button className="secondaryButton" disabled={!available} onClick={prepare}>{t('research.dossierPrepare')}</button>
     {review && !current && <p role="alert">{t('research.dossierStale')}</p>}
     {current && review && <><p>{t('research.filterCount', { matches: review.count, total: review.total })}</p>
