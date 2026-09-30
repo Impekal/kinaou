@@ -58,6 +58,8 @@ Editorial language follow-up (#357): an explicit narrow local translation pass, 
 
 ## Complete course production
 
+Saved production overview (#397, 2026-09-30): exact union of eligible saved visual/voice intervals identifies lesson-relative gaps without double-counting overlap. It shows record presence and historical exports, not rendered pixels, audible/intelligible speech, subtitle agreement, fresh media integrity, complete teaching or platform approval. Zero-gain audio, muted tracks and unsupported/unavailable media do not count. Silence can be intentional; full occupancy can still contain bad or invisible content. No automatic fill, generation, inspection, retrieval or project writes. See COURSE-PRODUCTION-OVERVIEW.md.
+
 Learner workbook (#385, 2026-09-30): actual learner ZIPs include a self-contained readable HTML workbook in saved course language, with original public materials/prompts/hints, contents links and blank answer space. It excludes designated private fields but cannot detect answers/private details written into public prose. It remains DRAFT; real teaching accuracy and distribution review are separate. Print CSS is present, not a tested automatic PDF exporter or platform acceptance claim.
 
 Focused authoring (#383, 2026-09-30) makes large saved/draft curricula editable one lesson at a time while retaining the whole draft. Navigation, stable selection after moves and visible validation errors are usability features, not instructional verification. All hidden lesson fields still undergo ordinary save validation; course review, media quality and platform acceptance remain separate requirements.
