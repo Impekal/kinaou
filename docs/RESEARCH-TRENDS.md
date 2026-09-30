@@ -1,5 +1,7 @@
 # Public search-trend research
 
+#373 adds an explicit reviewed local text/JSON export of the currently filtered historical source selection. It preserves original provenance and incomplete/unverified boundaries without exporting whole-project data or retrieving anything. See RESEARCH-DOSSIER.md for privacy, stale-review guards and actual browser download/readback evidence.
+
 ## Local retained-evidence filters — #371, 2026-09-30
 
 The historical library has view-only DE/EN/FR text, country, date-basis, inclusive UTC-day and chronological-order filters. Text is limited to 200 characters and matches every whitespace-separated literal term across query/report titles/source names, ignoring case and combining accents. This is substring matching, not regex, translation or inferred topic/language classification. URLs and provider figures are not text-search fields. Country means recorded source market, not query language.
