@@ -14,7 +14,17 @@ The existing hourly heartbeat `kinaou-autonom-weiterbauen` is PAUSED at the user
 
 Check the available Codex usage windows at safe slice boundaries. At **85% used / 15% remaining** in any available Codex window, start no new slice; finish the already-started bounded slice, tests, PR/merge and separate documentation as far as the remaining allowance permits, then provide a short copyable prompt for continuing in normal ChatGPT with the Mac terminal and actual repository evidence. Do not promise immunity from a hard limit. Normal ChatGPT chat limits are not visible through the Codex usage tool. See the latest merged handoff below for the current usage checkpoint; earlier percentages are historical. Never redeem a reset credit without explicit confirmation. Heartbeat stays paused.
 
-## Latest merged handoff — verified isolated project/media restoration
+## Latest merged handoff — original editable football tactics graphics
+
+[PR #363](https://github.com/Impekal/kinaou/pull/363) merged as `ff5a4dfac9ef58ad040696180acc08b3dafdf965` after full [CI 36647813832](https://github.com/Impekal/kinaou/actions/runs/36647813832), including render smoke. Images now offers an original 22-player football tactics board with editable player/ball positions, labels, pass/run arrows and local undo/redo. A reviewed self-contained browser SVG becomes an actual measured 1920×1080 managed PNG with its editable source and an unavoidable localized illustration notice. UI and image language are independent DE/EN/FR. Explicit timeline placement includes a new five-second image track when no compatible track exists.
+
+Acceptance: 1,994 app tests / 205 files, 373 supported local worker tests, production build and full unchanged CI. Actual browser → authenticated import/probe → project persistence → real FFmpeg video passed. The retained project-authored PNG/source fixture is exercised automatically through real import, failed-save recovery and rendered duration/field/team/arrow pixels. Browser checks include editing, undo/redo, independent language, reload, save-only retry without duplicate upload and late root A→B→A reply rejection; fresh console clean. Own test data/processes removed; foreign files/stash and user SSD/media untouched.
+
+This is a static authored schematic, not measured tracking, match footage, automatic analysis or animated players. Saved graphics/clips are not changed by reopening a new draft. Unsaved drafts remain in-view only; detached imports may leave an honestly reported unregistered copy. See [FOOTBALL-TACTICS.md](FOOTBALL-TACTICS.md). Whole points 4–10 remain open.
+
+Usage checkpoint: 40% weekly consumed, no reset credit redeemed. Heartbeat remains paused; AC-only wake helper unchanged. Next safe priority: an explicit ordered explanation sequence from saved tactics graphics, with authored durations, separate new-track creation and real render acceptance. It must be labelled a sequence of static boards, not player animation. No immediate SSD/model/user action required.
+
+## Previous merged handoff — verified isolated project/media restoration
 
 [PR #361](https://github.com/Impekal/kinaou/pull/361) merged as `9cd3425ce4f63ca4479bc72f8953404e7df6e793` after full [CI 36645102249](https://github.com/Impekal/kinaou/actions/runs/36645102249) on the latest feature head, including render smoke. Settings now explicitly creates a private independent working copy from a fully checked archive, in a new exclusive `Archive/RestoredProjects/<id>/source/KINAOU` directory. Reviewed project/media hashes bind the request; sources and copied bytes are checked. The original archive and active root are never replaced, and storage/project opening never switches automatically.
 
