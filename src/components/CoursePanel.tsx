@@ -19,6 +19,7 @@ import { CourseModuleOrderControls, CourseLessonOrderControls } from './CourseOr
 import { CourseWorkspaceNavigation, type CourseWorkspaceStage } from './CourseWorkspaceNavigation'
 import { CourseProductionLauncher } from './CourseProductionLauncher'
 import { CourseDemoPlacementPanel } from './CourseDemoPlacementPanel'
+import { CourseProductionOverviewPanel } from './CourseProductionOverviewPanel'
 import { ProjectSourceArchivePanel } from './ProjectSourceArchivePanel'
 import type { CourseProductionHandoff } from '../core/courseProductionHandoff'
 import { CourseOutlineNavigator } from './CourseOutlineNavigator'
@@ -135,6 +136,7 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio, o
     </div>
     </>}
     {stage === 'production' && <>
+    <CourseProductionOverviewPanel project={project} dirty={dirty} onEditLesson={(moduleId,lessonId)=>{if(dirty)return;setSelection({moduleId,lessonId});setStage('outline')}}/>
     {onOpenProduction && <CourseProductionLauncher project={project} dirty={dirty} onOpen={onOpenProduction} />}
     <CourseDemoPlacementPanel project={project} dirty={dirty} history={history} onProjectChange={onProjectChange}/>
     <div className="directorActions"><button className="primary" disabled={dirty} onClick={onOpenStudio}>{t('course.studio')}</button>{onOpenAudio && <button className="secondaryButton" disabled={dirty} onClick={onOpenAudio}>{t('course.narration.open')}</button>}</div>

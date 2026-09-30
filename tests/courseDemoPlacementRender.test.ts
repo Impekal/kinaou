@@ -10,6 +10,7 @@ import {newCourseOutline,saveCourseOutline,planCourseLessonExport} from '../src/
 import {reviewCourseDemoPlacement,commitCourseDemoPlacement} from '../src/core/courseDemoPlacement'
 import {createRenderPlan,preview1080pPreset} from '../src/core/render'
 import {WorkerClient} from '../src/core/workerClient'
+import {courseProductionOverview} from '../src/core/courseProductionOverview'
 const exec=promisify(execFile),run=async(cmd:string,args:string[])=>(await exec(cmd,args,{encoding:'buffer',maxBuffer:12*1024**2})).stdout
 it('renders actual video-source trim and still evidence at lesson-relative times while preserving narration and muting demo audio',async context=>{
  try{await run('ffmpeg',['-version']);await run('ffprobe',['-version'])}catch(cause){if(process.env.CI)throw cause;context.skip('FFmpeg required');return}
@@ -31,6 +32,7 @@ it('renders actual video-source trim and still evidence at lesson-relative times
   expect(()=>commitCourseDemoPlacement(p,reviewed,true,deps)).toThrow('synthetic save');failed=false;commitCourseDemoPlacement(p,reviewed,true,deps);expect(snapshots).toHaveLength(1)
   commitCourseDemoPlacement(p,reviewCourseDemoPlacement(p,{lessonId:'lesson',demoId:'image',lessonOffsetMs:3000,sourceOffsetMs:0,durationMs:1000}),true,deps)
   expect(p.tracks[0]).toEqual(original.tracks[0]);expect(p.metadata).toEqual(original.metadata);expect(p.assets).toEqual(original.assets)
+  expect(courseProductionOverview(p)[0]).toMatchObject({visuals:{coveredMs:3000,gaps:[{startMs:0,endMs:1000},{startMs:4000,endMs:5000}]},voice:{coveredMs:5000,gaps:[]}})
   const output='KINAOU/Renders/lesson.mp4',full=createRenderPlan(p,{...preview1080pPreset,width:160,height:90,fps:10},output),plan=planCourseLessonExport(p,'lesson',full,output)
   let job=await client.startRender(plan.plan)
   for(let i=0;i<300&&['queued','running'].includes(job.state);i++){await new Promise(r=>setTimeout(r,30));job=await client.renderStatus(job.id)}
