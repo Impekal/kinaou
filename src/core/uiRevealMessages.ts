@@ -1,4 +1,5 @@
 export const uiRevealMessages={
+  'reveal.history':['Vor dem Speichern des Erklärvideos','Before saving explainer reveal','Avant l’enregistrement de la vidéo explicative'],
   'reveal.heading':['Schrittweise Erklärvideos','Step-by-step explainer videos','Vidéos explicatives progressives'],
   'reveal.tab':['Erklärvideos','Explainer videos','Vidéos explicatives'],
   'reveal.help':['Aus der gespeicherten Kartendefinition ein echtes lokales Video erstellen: eine Sekunde Titel, danach die Punkte nacheinander weich einblenden. Das ursprüngliche PNG wird weder gelesen noch verändert.','Create a real local video from a saved card definition: one second of title, then gently reveal each point. The original PNG is neither read nor changed.','Créez une vraie vidéo locale à partir de la définition enregistrée : une seconde de titre, puis apparition progressive des points. Le PNG original n’est ni lu ni modifié.'],
