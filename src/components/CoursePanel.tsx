@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { courseLessonExercisesExport, courseLessonScriptExport, courseOutlineSchema, courseScriptLimits, newCourseOutline, projectCourse, saveCourseOutline, type CourseOutline } from '../core/course'
 import { contentLanguageLabels, type ContentLanguage } from '../core/contentProfile'
 import type { KinaouProject } from '../core/project'
@@ -20,6 +20,7 @@ import { CourseWorkspaceNavigation, type CourseWorkspaceStage } from './CourseWo
 import { CourseProductionLauncher } from './CourseProductionLauncher'
 import { CourseDemoPlacementPanel } from './CourseDemoPlacementPanel'
 import { CourseProductionOverviewPanel } from './CourseProductionOverviewPanel'
+import {courseGapPlacementIsCurrent,type CourseGapPlacement} from '../core/courseGapPlacement'
 import { ProjectSourceArchivePanel } from './ProjectSourceArchivePanel'
 import type { CourseProductionHandoff } from '../core/courseProductionHandoff'
 import { CourseOutlineNavigator } from './CourseOutlineNavigator'
@@ -28,7 +29,7 @@ import { courseOutlineIssueFocus, resolveCourseOutlineFocus, type CourseOutlineF
 interface Props extends CourseOutputWorkerProps { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void; onOpenStudio: () => void; onOpenAudio?: () => void; onOpenProduction?: (handoff: CourseProductionHandoff) => void }
 
 export function CoursePanel({ project, history, onProjectChange, onOpenStudio, onOpenAudio, onOpenProduction, ...worker }: Props) {
-  const { t } = useUiLanguage()
+  const { t, language } = useUiLanguage()
   let saved: CourseOutline | null = null
   let loadError = ''
   try { saved = projectCourse(project) } catch (cause) { loadError = (cause as Error).message }
@@ -40,6 +41,8 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio, o
   const [selection, setSelection] = useState<CourseOutlineFocus>({ moduleId: '', lessonId: '' })
   const focus = resolveCourseOutlineFocus(draft, selection)
   const dirty = JSON.stringify(saved) !== JSON.stringify(draft)
+  const [gap,setGap]=useState<CourseGapPlacement|null>(null),placementAnchor=useRef<HTMLDivElement>(null)
+  if(gap)courseGapPlacementIsCurrent(project,gap,language,dirty) // Observe invalidation even outside Production.
   const count = draft.modules.reduce((sum, module) => sum + module.lessons.length, 0)
   function change(next: CourseOutline, preferred = focus) { setDraft(next); setSelection(resolveCourseOutlineFocus(next, preferred)); setMessage(null) }
   function addModule() {
@@ -136,9 +139,9 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio, o
     </div>
     </>}
     {stage === 'production' && <>
-    <CourseProductionOverviewPanel project={project} dirty={dirty} onEditLesson={(moduleId,lessonId)=>{if(dirty)return;setSelection({moduleId,lessonId});setStage('outline')}}/>
+    <CourseProductionOverviewPanel project={project} dirty={dirty} onEditLesson={(moduleId,lessonId)=>{if(dirty)return;setSelection({moduleId,lessonId});setStage('outline')}} onPrepareGap={value=>{setGap(value);placementAnchor.current?.focus()}}/>
     {onOpenProduction && <CourseProductionLauncher project={project} dirty={dirty} onOpen={onOpenProduction} />}
-    <CourseDemoPlacementPanel project={project} dirty={dirty} history={history} onProjectChange={onProjectChange}/>
+    <div ref={placementAnchor} tabIndex={-1}><CourseDemoPlacementPanel project={project} dirty={dirty} history={history} onProjectChange={onProjectChange} pendingGap={gap} onClearGap={()=>setGap(null)}/></div>
     <div className="directorActions"><button className="primary" disabled={dirty} onClick={onOpenStudio}>{t('course.studio')}</button>{onOpenAudio && <button className="secondaryButton" disabled={dirty} onClick={onOpenAudio}>{t('course.narration.open')}</button>}</div>
     <CourseOutputIndexPanel key={`outputs-${project.id}`} project={project} dirty={dirty} history={history} onProjectChange={onProjectChange} />
     <CourseOutputFileCheckPanel key={`file-check-${project.id}`} project={project} dirty={dirty} {...worker} />
