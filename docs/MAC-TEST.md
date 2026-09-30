@@ -299,6 +299,8 @@ In a separate test project, review a Director plan containing a visual descripti
 3. For anything red: the exact error text shown in the PWA and the worker's terminal output.
 ## Optional local Analytics acceptance — 2026-09-30
 
+Course production overview (#397): inspect a saved disposable course in Production. Compare lesson-relative gaps with actual playback, including overlaps, muted tracks, zero-gain voice and offline media. Filter/paginate and open an exact lesson in the course plan. Unsaved outline edits must remain intact; the overview describes only the saved outline and disables its edit jumps. DE/EN/FR must not translate course text. Actual browser and FFmpeg interval acceptance already passed; this metadata-only view requires no SSD/model action and cannot certify media quality. See COURSE-PRODUCTION-OVERVIEW.md.
+
 Original explainer cards (#391): optional disposable-project acceptance is in EXPLAINER-CARDS.md. Actual browser PNG generation, authenticated import/save-only retry, all three formats, DE/FR/EN controls and real five-second video export already passed without an SSD/model. Review your own content's accuracy, reading time and delivery-size legibility separately; this is not animated/model-quality acceptance.
 
 Timed explainer videos (#393): actual local browser encoding, all three formats, cancellation, scoped reviews, authenticated import/save-only recovery and real H.264 exports passed. In your own disposable example, inspect the entire ordinary export, choose sufficient reading time and add separately authorized narration if needed; do not infer speech synchronization. The local VP8/IVF source is an intermediate, not platform delivery. No immediate SSD/model action required; see EXPLAINER-CARDS.md.
