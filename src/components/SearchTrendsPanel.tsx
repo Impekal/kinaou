@@ -3,7 +3,7 @@ import type { KinaouProject } from '../core/project'
 import type { PersistentVersionHistory } from '../core/versioning'
 import { WorkerClient } from '../core/workerClient'
 import { retainedSearchTrends, retainSearchTrend, SearchTrendSession, type RetainedSearchTrend } from '../core/searchTrends'
-import { searchTrendCountries, type SearchTrendCountry, type SearchTrendSnapshot, type SearchTrendItem } from '../../worker/search-trends-protocol.mjs'
+import { searchTrendCountries, supportsSearchTrendCountry, type SearchTrendCountry, type SearchTrendSnapshot, type SearchTrendItem } from '../../worker/search-trends-protocol.mjs'
 import type { CourseOutputWorkerProps } from './CourseOutputFileCheckPanel'
 import { useUiLanguage } from './UiLanguageProvider'
 import './SearchTrendsPanel.css'
@@ -14,7 +14,7 @@ import { ResearchDossierPanel } from './ResearchDossierPanel'
 export function SearchTrendsPanel({ project, history, onProjectChange, onOpenDirector, workerUrl = '', workerToken = '', workerConnected = false, workerCapabilities = [] }: CourseOutputWorkerProps & { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void; onOpenDirector?: () => void }) {
   const { t } = useUiLanguage(), [country, setCountry] = useState<SearchTrendCountry>('DE')
   const [filters, setFilters] = useState(newResearchObservationFilter)
-  const available = workerConnected && !!workerToken.trim() && workerCapabilities.includes('public-search-trends')
+  const available = workerConnected && !!workerToken.trim() && supportsSearchTrendCountry(country, workerCapabilities)
   const scope = JSON.stringify([project.id, country, workerUrl, workerToken, available]), current = useRef(scope), session = useRef<SearchTrendSession | null>(null)
   const [result, setResult] = useState<{ scope: string; snapshot: SearchTrendSnapshot } | null>(null), [busy, setBusy] = useState(false), [error, setError] = useState(''), [saved, setSaved] = useState(false)
   if (current.current !== scope) { current.current = scope; session.current?.detach() }
@@ -49,7 +49,7 @@ export function SearchTrendsPanel({ project, history, onProjectChange, onOpenDir
   }
   const snapshot = result?.scope === scope ? result.snapshot : null
   return <section className="stack searchTrendsPanel">
-    <div className="card stack"><h2>{t('research.title')}</h2><p>{t('research.help')}</p><p>{t('research.limits')}</p>
+    <div className="card stack"><h2>{t('research.title')}</h2><p>{t('research.help')}</p><p>{t('research.limits')}</p><p>{t('research.marketCoverage')}</p>
       <label>{t('research.country')}<select value={country} onChange={event => setCountry(event.target.value as SearchTrendCountry)}>{searchTrendCountries.map(code => <option key={code} value={code}>{t(`research.${code}`)}</option>)}</select></label>
       <button className="primary" disabled={!available || busy} onClick={retrieve}>{t('research.load')}</button>{!available && <p>{t('research.unavailable')}</p>}
       {busy && <p role="status">{t('research.busy')}</p>}{saved && <p role="status">{t('research.saved')}</p>}

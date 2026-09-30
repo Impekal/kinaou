@@ -9,7 +9,9 @@ import { SearchTrendsPanel } from '../src/components/SearchTrendsPanel'
 import { UiLanguageProvider } from '../src/components/UiLanguageProvider'
 import { uiLanguages } from '../src/core/uiLanguage'
 import { translateUi } from '../src/core/uiMessages'
-import type { SearchTrendSnapshot } from '../worker/search-trends-protocol.mjs'
+import { expandedSearchTrendCountries, supportsSearchTrendCountry, expandedSearchTrendCapability, type SearchTrendSnapshot } from '../worker/search-trends-protocol.mjs'
+import { filterResearchObservations, newResearchObservationFilter } from '../src/core/researchObservationFilter'
+import { buildResearchDossier } from '../src/core/researchDossier'
 const snapshot:SearchTrendSnapshot={schemaVersion:1,provider:'google-trends-rss',country:'DE',sourceUrl:'https://trends.google.com/trending/rss?geo=DE',retrievedAt:'2026-09-27T07:00:00.000Z',feedSha256:'a'.repeat(64),items:[{query:'Example <script>alert(1)</script>',reportedTraffic:'200+',publishedAt:'2026-09-27T06:00:00.000Z',articles:[{title:'Example',url:'https://example.org/report',source:'Source'}]}]}
 const storage=()=>{const values=new Map<string,string>();return {getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>{values.set(key,value)},removeItem:(key:string)=>{values.delete(key)}}}
 it('retains selected historical provenance through project serialization without mutating input',()=>{
@@ -53,8 +55,18 @@ it.each(uiLanguages)('renders safe historical observations and explicit boundari
     const markup=renderToStaticMarkup(createElement(UiLanguageProvider,{initialLanguage:language,children:createElement(SearchTrendsPanel,{project,history:new PersistentVersionHistory(storage()),onProjectChange:change})}))
     expect(markup).toContain(translateUi(language,'research.history'));expect(markup).toContain(translateUi(language,'research.unavailable'))
     for(const key of ['research.filterHeading','research.filterHelp','research.filterBasis','research.filterReset'] as const)expect(markup).toContain(translateUi(language,key))
+    expect(markup).toContain(translateUi(language,'research.marketCoverage'))
+    for(const country of expandedSearchTrendCountries)expect(markup).toContain(translateUi(language,`research.${country}`))
     expect(markup).toContain(translateUi(language,'research.filterCount',{matches:1,total:1}))
     expect(markup).toContain('&lt;script&gt;');expect(markup).not.toContain('<script>alert');expect(markup).toContain('rel="noopener noreferrer"')
     expect(change).not.toHaveBeenCalled();expect(fetch).not.toHaveBeenCalled()
   }finally{fetch.mockRestore()}
+})
+it.each(expandedSearchTrendCountries)('retains, filters and exports original %s provenance independent of UI language',country=>{
+  const value:SearchTrendSnapshot={...snapshot,country,sourceUrl:'https://trends.google.com/trending/rss?geo='+country,items:[{...snapshot.items[0],query:'SYNTHETIC 日本語 · futebol · sport'}]}
+  const project=retainSearchTrend(retainSearchTrend(createProject('Research'),snapshot,0),value,0),reloaded=parseProject(JSON.parse(JSON.stringify(project))),filters={...newResearchObservationFilter(),country}
+  expect(filterResearchObservations(retainedSearchTrends(reloaded),filters).map(r=>r.entry)).toEqual([value])
+  for(const language of uiLanguages){const dossier=buildResearchDossier(reloaded,filters,language);expect(JSON.parse(dossier.files.json.text).observations).toEqual([value]);expect(dossier.files.text.text).toContain('SYNTHETIC 日本語 · futebol · sport');expect(dossier.files.text.text).toContain(translateUi(language,`research.${country}`))}
+  expect(supportsSearchTrendCountry(country,['public-search-trends'])).toBe(false)
+  expect(supportsSearchTrendCountry(country,['public-search-trends',expandedSearchTrendCapability])).toBe(true)
 })
