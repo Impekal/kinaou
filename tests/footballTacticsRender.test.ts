@@ -11,6 +11,7 @@ import { WorkerClient } from '../src/core/workerClient'
 import { AssetImportSession, type AssetImportFeedback } from '../src/core/assetImportSession'
 import { footballBoardSvg, parseFootballTactics, validateTacticsImageProbe } from '../src/core/footballTactics'
 import { placeTacticsOnNewTrack } from '../src/core/footballTacticsPlacement'
+import { commitFootballSequence, reviewFootballSequence } from '../src/core/footballSequence'
 const exec = promisify(execFile)
 const run = async (command: string, args: string[]) => (await exec(command,args,{encoding:'buffer',maxBuffer:4*1024**2})).stdout
 it('imports an actual browser-produced tactics PNG, retries only persistence, and renders its field, teams and arrows through FFmpeg', async context => {
@@ -50,6 +51,35 @@ it('imports an actual browser-produced tactics PNG, retries only persistence, an
     let green=0,red=0,blue=0,yellow=0
     for(let i=0;i<pixels.length;i+=3){const [r,g,b]=[pixels[i],pixels[i+1],pixels[i+2]];if(g>r*1.3&&g>b*1.2)green++;if(r>160&&g<120&&b<120)red++;if(b>150&&b>r*1.4)blue++;if(r>170&&g>140&&b<110)yellow++}
     expect(green).toBeGreaterThan(30000);expect(red).toBeGreaterThan(200);expect(blue).toBeGreaterThan(200);expect(yellow).toBeGreaterThan(30)
+    // A second actual browser raster proves ordered cuts, not only duration or a repeated still.
+    const secondPng=await readFile('tests/fixtures/football-tactics-phase2.png'),secondBoard=parseFootballTactics(JSON.parse(await readFile('tests/fixtures/football-tactics-phase2.json','utf8')))
+    expect(createHash('sha256').update(secondPng).digest('hex')).toBe('dcb91ebaea98b4cf8ac0a8d52b0cf461fdd4a0412d68297b3e4dfe66536474f8')
+    const second= new AssetImportSession(project,'root',new File([new Uint8Array(secondPng)],'phase2.png',{type:'image/png'}),'image',{
+      client:{importAsset:(blob,name)=>client.importAsset(blob,name),probe:async file=>validateTacticsImageProbe(await client.probe(file))},assetMetadata:{sourceKind:'authored-football-tactics-v1',board:secondBoard},environment:()=>({project,connection:'root'}),snapshot:()=>{},persist:p=>{project=p},publish:e=>events.push(e)
+    })
+    await second.run();expect(events.at(-1)?.phase).toBe('succeeded')
+    const beforeSequence=structuredClone(project),review=reviewFootballSequence(project,{name:'Two authored phases',startMs:0,steps:[{assetId:project.assets[0].id,durationMs:1500},{assetId:project.assets[1].id,durationMs:2000}]})
+    commitFootballSequence(project,review,true,()=>{},p=>{project=p})
+    expect(project.tracks[0]).toEqual(beforeSequence.tracks[0]);expect(await readdir(path.join(root,'Assets'))).toHaveLength(2)
+    // Only the new sequence is rendered; unrelated existing tracks are preserved above.
+    const renderProject={...project,tracks:[project.tracks.at(-1)!]}
+    // Compare distinguishing regions rather than shared grass/background: RGB↔YUV rounding
+    // affects the entire common field and otherwise dominates the small changed ball/arrows.
+    const error=(a:Buffer,b:Buffer,mask:number[])=>{expect(a.length).toBe(b.length);let total=0;for(const i of mask)total+=Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2]);return total/(mask.length*3)}
+    for(const [width,height] of [[384,216],[216,384]]){
+      const relative=`KINAOU/Renders/sequence-${width}.mp4`
+      let sequence=await client.startRender(createRenderPlan(renderProject,{...preview1080pPreset,width,height,fps:10,fit:'contain'},relative))
+      for(let i=0;i<200&&['queued','running'].includes(sequence.state);i++){await new Promise(r=>setTimeout(r,30));sequence=await client.renderStatus(sequence.id)}
+      expect(sequence.state,sequence.error).toBe('succeeded')
+      const file=path.join(temp,relative),info=JSON.parse((await run('ffprobe',['-v','error','-show_format','-of','json',file])).toString())
+      expect(Math.abs(Number(info.format.duration)-3.5)).toBeLessThan(0.1)
+      // Center on a YUV canvas like the exported video. RGB pad would position an
+      // odd-height portrait letterbox one chroma pixel differently from overlay.
+      const references=await Promise.all(['tests/fixtures/football-tactics.png','tests/fixtures/football-tactics-phase2.png'].map(image=>run('ffmpeg',['-v','error','-i',image,'-f','lavfi','-i',`color=black:s=${width}x${height}`,'-filter_complex',`[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease[board];[1:v][board]overlay=(W-w)/2:(H-h)/2`,'-frames:v','1','-f','rawvideo','-pix_fmt','rgb24','-'])))
+      const mask:number[]=[];for(let i=0;i<references[0].length;i+=3){if(Math.abs(references[0][i]-references[1][i])+Math.abs(references[0][i+1]-references[1][i+1])+Math.abs(references[0][i+2]-references[1][i+2])>100)mask.push(i)}
+      expect(mask.length).toBeGreaterThan(80)
+      for(const [time,index] of [['1.4',0],['1.6',1],['3.3',1]] as const){const frame=await run('ffmpeg',['-v','error','-ss',time,'-i',file,'-frames:v','1','-f','rawvideo','-pix_fmt','rgb24','-']);expect(error(frame,references[index],mask),`${width}x${height} at ${time}s must show phase ${index+1}`).toBeLessThan(error(frame,references[1-index],mask)*0.75)}
+    }
   } finally {
     child.kill('SIGKILL')
     await new Promise<void>(resolve=>{if(child.exitCode!==null||child.signalCode!==null)return resolve();child.once('close',()=>resolve());setTimeout(resolve,3000).unref()})
