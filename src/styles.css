@@ -315,3 +315,14 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .sportsView { min-width: 0; }
 .sportsView[hidden] { display: none; }
 @media (max-width: 1000px) { .tacticsLayout { grid-template-columns: 1fr; } .tacticsPreview { position: static; } }
+.analyticsFields { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+.analyticsFields label { display: flex; flex-direction: column; gap: 7px; }
+.analyticsBoundary { padding: 16px; border-left: 3px solid #8ac8fa; background: #152538; color: #e5f2ff; line-height: 1.6; }
+.analyticsReview { border: 1px solid #5b9ed4; border-radius: 14px; padding: 20px; }
+.analyticsChart { width: 100%; min-height: 170px; color: #85c8ff; background: #101c2b; border-radius: 10px; }
+.analyticsChart text { font: 12px system-ui, sans-serif; }
+.analyticsTable { overflow-x: auto; }
+.analyticsTable table { width: 100%; border-collapse: collapse; text-align: left; }
+.analyticsTable th, .analyticsTable td { padding: 10px; border-bottom: 1px solid #33455a; }
+.analyticsReport code { overflow-wrap: anywhere; white-space: pre-wrap; }
+.analyticsPanel small { line-height: 1.6; }
