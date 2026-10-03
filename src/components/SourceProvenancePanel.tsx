@@ -2,16 +2,18 @@ import { useRef, useState } from 'react'
 import type { KinaouProject } from '../core/project'
 import { SourceProvenanceSession, type SourceProvenanceReview } from '../core/sourceProvenance'
 import { useUiLanguage } from './UiLanguageProvider'
+import { buildFrameProvenance, hasFrameProvenance } from '../core/frameProvenance'
 
 export function SourceProvenancePanel({ project, assetId }: { project: KinaouProject; assetId: string }) {
   const { t, language } = useUiLanguage(), session = useRef(new SourceProvenanceSession())
+  const asset = project.assets.find(a => a.id === assetId), frame = hasFrameProvenance(asset)
   const [review, setReview] = useState<SourceProvenanceReview | null>(null), [ack, setAck] = useState(false)
   const [error, setError] = useState(''), [started, setStarted] = useState(false)
   const scope = session.current.observe(project, assetId, language), errorScope = useRef(scope)
   const current = review && session.current.current(review)
   function prepare() {
     setReview(null); setAck(false); setStarted(false); setError(''); errorScope.current = scope
-    try { setReview(session.current.prepare(project, assetId, language)) } catch (cause) { setError(String(cause)) }
+    try { setReview(session.current.prepare(project, assetId, language, new Date(), frame ? buildFrameProvenance : undefined)) } catch (cause) { setError(String(cause)) }
   }
   function download(format: 'json' | 'text') {
     if (!review || !current) return
@@ -23,9 +25,9 @@ export function SourceProvenancePanel({ project, assetId }: { project: KinaouPro
       setStarted(true)
     } catch (cause) { setError(String(cause)) }
   }
-  if (project.assets.find(asset => asset.id === assetId)?.metadata.sourceImport === undefined) return null
-  return <details className="sourceProvenancePanel"><summary>{t('sourceReport.heading')}</summary><div className="stack">
-    <p className="note">{t('sourceReport.private')}</p><p>{t('sourceReport.boundary')}</p>
+  if (!frame && asset?.metadata.sourceImport === undefined) return null
+  return <details className="sourceProvenancePanel"><summary>{t(frame ? 'frameReport.heading' : 'sourceReport.heading')}</summary><div className="stack">
+    <p className="note">{t('sourceReport.private')}</p><p>{t(frame ? 'frameReport.boundary' : 'sourceReport.boundary')}</p>
     <button className="secondaryButton" onClick={prepare}>{t('sourceReport.prepare')}</button>
     {current && review && <><strong>{review.name} · {t('sourceReport.uses', { count: review.uses })}</strong>
       <details open><summary>{t('sourceReport.textPreview')}</summary><pre>{review.files.text.text}</pre></details>
