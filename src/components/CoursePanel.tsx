@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { courseLessonExercisesExport, courseLessonScriptExport, courseOutlineSchema, courseScriptLimits, newCourseOutline, projectCourse, saveCourseOutline, type CourseOutline } from '../core/course'
 import { contentLanguageLabels, type ContentLanguage } from '../core/contentProfile'
 import type { KinaouProject } from '../core/project'
@@ -9,16 +9,13 @@ import { CourseLessonExercisesEditor } from './CourseLessonExercisesEditor'
 import { CourseInstructorReviewPanel } from './CourseInstructorReviewPanel'
 import { CourseLessonMaterialsEditor } from './CourseLessonMaterialsEditor'
 import { CourseMaterialPackagePanel } from './CourseMaterialPackagePanel'
-import { CourseOutputIndexPanel } from './CourseOutputIndexPanel'
-import { CourseSubtitleExportPanel } from './CourseSubtitleExportPanel'
-import { CourseOutputFileCheckPanel, type CourseOutputWorkerProps } from './CourseOutputFileCheckPanel'
+import type { CourseOutputWorkerProps } from './CourseOutputFileCheckPanel'
 import { CourseDeliveryWorkspace } from './CourseDeliveryWorkspace'
 import type { CourseExerciseDocument } from '../core/courseExercises'
 import { moveCourseLesson, reorderCourseModule } from '../core/courseOrdering'
 import { CourseModuleOrderControls, CourseLessonOrderControls } from './CourseOrderControls'
 import { CourseWorkspaceNavigation, type CourseWorkspaceStage } from './CourseWorkspaceNavigation'
-import { CourseDemoPlacementPanel } from './CourseDemoPlacementPanel'
-import { CourseProductionOverviewPanel } from './CourseProductionOverviewPanel'
+import { CourseProductionWorkspace } from './CourseProductionWorkspace'
 import {courseGapPlacementIsCurrent,type CourseGapPlacement} from '../core/courseGapPlacement'
 import {courseOutputNavigationIsCurrent,type CourseOutputNavigation} from '../core/courseOutputNavigation'
 import { ProjectSourceArchivePanel } from './ProjectSourceArchivePanel'
@@ -41,9 +38,9 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio, o
   const [selection, setSelection] = useState<CourseOutlineFocus>({ moduleId: '', lessonId: '' })
   const focus = resolveCourseOutlineFocus(draft, selection)
   const dirty = JSON.stringify(saved) !== JSON.stringify(draft)
-  const [gap,setGap]=useState<CourseGapPlacement|null>(null),placementAnchor=useRef<HTMLDivElement>(null)
+  const [gap,setGap]=useState<CourseGapPlacement|null>(null)
   if(gap)courseGapPlacementIsCurrent(project,gap,language,dirty) // Observe invalidation even outside Production.
-  const [outputNavigation,setOutputNavigation]=useState<CourseOutputNavigation|null>(null),outputAnchor=useRef<HTMLDivElement>(null)
+  const [outputNavigation,setOutputNavigation]=useState<CourseOutputNavigation|null>(null)
   if(outputNavigation)courseOutputNavigationIsCurrent(project,outputNavigation,dirty)
   const count = draft.modules.reduce((sum, module) => sum + module.lessons.length, 0)
   function change(next: CourseOutline, preferred = focus) { setDraft(next); setSelection(resolveCourseOutlineFocus(next, preferred)); setMessage(null) }
@@ -140,14 +137,7 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio, o
       {error && <div className="errorBox" role="alert">{t(errorKind)}<details><summary>{t('common.details')}</summary>{error}</details></div>}{message && <div className="successBox" role="status">{t(message)}</div>}
     </div>
     </>}
-    {stage === 'production' && <>
-    <CourseProductionOverviewPanel project={project} dirty={dirty} onEditLesson={(moduleId,lessonId)=>{if(dirty)return;setSelection({moduleId,lessonId});setStage('outline')}} onPrepareGap={value=>{setGap(value);placementAnchor.current?.focus()}} onOpenProduction={onOpenProduction} onOpenOutputs={value=>{setOutputNavigation(value);outputAnchor.current?.focus()}}/>
-    <div ref={placementAnchor} tabIndex={-1}><CourseDemoPlacementPanel project={project} dirty={dirty} history={history} onProjectChange={onProjectChange} pendingGap={gap} onClearGap={()=>setGap(null)}/></div>
-    <div className="directorActions"><button className="primary" disabled={dirty} onClick={onOpenStudio}>{t('course.studio')}</button>{onOpenAudio && <button className="secondaryButton" disabled={dirty} onClick={onOpenAudio}>{t('course.narration.open')}</button>}</div>
-    <CourseOutputIndexPanel key={`outputs-${project.id}`} project={project} dirty={dirty} history={history} onProjectChange={onProjectChange} />
-    <div ref={outputAnchor} tabIndex={-1}><CourseOutputFileCheckPanel key={`file-check-${project.id}`} project={project} dirty={dirty} {...worker} navigation={outputNavigation} onClearNavigation={()=>setOutputNavigation(null)}/></div>
-    <CourseSubtitleExportPanel key={`subtitles-${project.id}`} project={project} dirty={dirty} />
-    </>}
+    {stage === 'production' && <CourseProductionWorkspace key={project.id} project={project} dirty={dirty} history={history} onProjectChange={onProjectChange} {...worker} onOpenStudio={onOpenStudio} onOpenAudio={onOpenAudio} onOpenProduction={onOpenProduction} onEditLesson={(moduleId,lessonId)=>{if(dirty)return;setSelection({moduleId,lessonId});setStage('outline')}} pendingGap={gap} onPrepareGap={setGap} onClearGap={()=>setGap(null)} navigation={outputNavigation} onOpenOutputs={setOutputNavigation} onClearNavigation={()=>setOutputNavigation(null)} />}
     {stage === 'review' && <CourseInstructorReviewPanel key={project.id} project={project} dirty={dirty} history={history} onProjectChange={onProjectChange} />}
     {stage === 'delivery' && <>
     <CourseMaterialPackagePanel key={`materials-${project.id}`} project={project} dirty={dirty} />

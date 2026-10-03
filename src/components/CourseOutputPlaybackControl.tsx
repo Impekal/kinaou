@@ -5,7 +5,7 @@ import { WorkerClient } from '../core/workerClient'
 import { useUiLanguage } from './UiLanguageProvider'
 import type { CourseOutputWorkerProps } from './CourseOutputFileCheckPanel'
 
-export function CourseOutputPlaybackControl({ project, jobId, dirty, workerUrl = '', workerToken = '', workerConnected = false, workerCapabilities = [] }: CourseOutputWorkerProps & { project: KinaouProject; jobId: string; dirty: boolean }) {
+export function CourseOutputPlaybackControl({ project, jobId, dirty, workerUrl = '', workerToken = '', workerConnected = false, workerCapabilities = [], visible = true }: CourseOutputWorkerProps & { project: KinaouProject; jobId: string; dirty: boolean; visible?: boolean }) {
   const { t } = useUiLanguage(), [feedback, setFeedback] = useState<CoursePlaybackFeedback | null>(null)
   const available = workerConnected && !!workerToken.trim() && workerCapabilities.includes('course-output-playback')
   const scope = { project, jobId, dirty, connection: JSON.stringify([workerUrl, workerToken, available]) }
@@ -14,6 +14,8 @@ export function CourseOutputPlaybackControl({ project, jobId, dirty, workerUrl =
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; session.current?.detach() } }, [])
   const current = session.current, busy = !!current?.busy
   const shown = feedback && current?.wasDetached ? { phase: 'detached' as const } : feedback
+  const player = useRef<HTMLVideoElement>(null), shownUrl = shown && 'url' in shown ? shown.url : undefined
+  useEffect(() => { if (!visible) player.current?.pause() }, [visible, shownUrl])
   async function load() {
     if (!available || !jobId || dirty || busy) return
     current?.detach()
@@ -29,7 +31,7 @@ export function CourseOutputPlaybackControl({ project, jobId, dirty, workerUrl =
     {!available && <p>{t('course.playback.unavailable')}</p>}
     <button disabled={!available || !jobId || dirty || busy} onClick={load}>{t(busy ? 'course.playback.loading' : 'course.playback.load')}</button>
     {shown && <div role={shown.phase === 'failed' ? 'alert' : 'status'}>{t(`course.playback.${shown.phase}`)}{'detail' in shown && shown.detail && <details><summary>{t('common.details')}</summary>{shown.detail}</details>}</div>}
-    {shown && 'url' in shown && shown.url && <video key={shown.url} aria-label={t('course.playback.player')} src={shown.url} controls playsInline preload="metadata" style={{ width: '100%', maxHeight: 480 }} onError={() => { if (session.current === current) current?.playbackFailed() }} />}
+    {shownUrl && <video ref={player} key={shownUrl} aria-label={t('course.playback.player')} src={shownUrl} controls playsInline preload="metadata" style={{ width: '100%', maxHeight: 480 }} onPlay={event => { if (!visible) event.currentTarget.pause() }} onError={() => { if (session.current === current) current?.playbackFailed() }} />}
     {shown && <button onClick={() => { session.current?.detach(); session.current = null; setFeedback(null) }}>{t('course.playback.close')}</button>}
   </section>
 }

@@ -10,7 +10,7 @@ import { CourseLessonDeliveryControl } from './CourseLessonDeliveryControl'
 import {resolveCourseOutputNavigation,type CourseOutputNavigation} from '../core/courseOutputNavigation'
 
 export interface CourseOutputWorkerProps { workerUrl?: string; workerToken?: string; workerConnected?: boolean; workerCapabilities?: string[] }
-export function CourseOutputFileCheckPanel({ project, dirty, workerUrl = '', workerToken = '', workerConnected = false, workerCapabilities = [], navigation, onClearNavigation }: CourseOutputWorkerProps & { project: KinaouProject; dirty: boolean;navigation?:CourseOutputNavigation|null;onClearNavigation?:()=>void }) {
+export function CourseOutputFileCheckPanel({ project, dirty, workerUrl = '', workerToken = '', workerConnected = false, workerCapabilities = [], navigation, onClearNavigation, visible = true }: CourseOutputWorkerProps & { project: KinaouProject; dirty: boolean;navigation?:CourseOutputNavigation|null;onClearNavigation?:()=>void;visible?:boolean }) {
   const { t, language } = useUiLanguage()
   let receipts: ExportReceipt[] = [], invalid = ''
   try { receipts = projectCourseOutputIndex(project) } catch (cause) { invalid = String(cause) }
@@ -57,7 +57,7 @@ export function CourseOutputFileCheckPanel({ project, dirty, workerUrl = '', wor
       <p>{t(result.actual.audioCodec ? 'course.fileCheck.audio' : 'course.fileCheck.noAudio', { codec: result.actual.audioCodec ?? '' })}</p>
     </div>}
     {shown && <button onClick={() => { session.current?.detach(); session.current = null; setFeedback(null) }}>{t('course.fileCheck.forget')}</button>}
-    <CourseOutputPlaybackControl project={project} jobId={receipt?.jobId ?? ''} dirty={dirty} workerUrl={workerUrl} workerToken={workerToken} workerConnected={workerConnected} workerCapabilities={workerCapabilities}/>
+    <CourseOutputPlaybackControl project={project} jobId={receipt?.jobId ?? ''} dirty={dirty} workerUrl={workerUrl} workerToken={workerToken} workerConnected={workerConnected} workerCapabilities={workerCapabilities} visible={visible}/>
     <CourseLessonDeliveryControl project={project} jobId={receipt?.jobId ?? ''} dirty={dirty} workerUrl={workerUrl} workerToken={workerToken} workerConnected={workerConnected} workerCapabilities={workerCapabilities}/>
   </section>
 }
