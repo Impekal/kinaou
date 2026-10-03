@@ -3,11 +3,12 @@ import { parseProject, type KinaouProject } from './project'
 import { compatibleTracks } from './timelinePlacement'
 import { applyTimelineOperation } from './timeline'
 import { buildFrameProvenance, hasFrameProvenance } from './frameProvenance'
+import { createTimelinePreviewPlan } from './render'
 
 const requestSchema = z.object({ assetId: z.string().min(1), trackId: z.string().min(1), startMs: z.number().int().min(0), durationMs: z.number().int().positive() }).strict()
 export type ImageIntervalRequest = z.infer<typeof requestSchema>
 export class ImageIntervalError extends Error {
-  constructor(readonly code: 'input' | 'media' | 'track' | 'overlap' | 'stale' | 'ack' | 'save') { super('Image interval: ' + code) }
+  constructor(readonly code: 'input' | 'media' | 'track' | 'overlap' | 'stale' | 'ack' | 'save' | 'previewLength') { super('Image interval: ' + code) }
 }
 function fail(code: ImageIntervalError['code']): never { throw new ImageIntervalError(code) }
 
@@ -40,6 +41,13 @@ export class ImageIntervalPlacement {
   }
   observe(project: KinaouProject, scope = '') { if (JSON.stringify(project) !== this.baseline || scope !== this.scope) this.active = false }
   get current() { return this.active && !this.done }
+  /** Full bounded composition, not an isolated image or a silently approximated range. */
+  preview(project: KinaouProject, scope = '') {
+    this.observe(project, scope)
+    if (!this.current) fail('stale')
+    if (this.next.tracks.some(t => t.clips.some(c => c.startMs + c.durationMs > 60000))) fail('previewLength')
+    return createTimelinePreviewPlan(structuredClone(this.next))
+  }
   commit(project: KinaouProject, scope: string, acknowledged: boolean, snapshot: (p: KinaouProject) => unknown, persist: (p: KinaouProject) => unknown) {
     this.observe(project, scope)
     if (!acknowledged) fail('ack')
