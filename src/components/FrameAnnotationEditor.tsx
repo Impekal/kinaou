@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { frameAnnotationPoint, frameMarkSchema, loadFrameBitmap, newFrameMark, paintFrameAnnotations, rasterizeFrameAnnotations, type AnnotatedFrame, type FrameMark, type SourceFrame } from '../core/frameAnnotations'
+import { frameAnnotationPoint, frameMarkSchema, frameAnnotationsSchema, loadFrameBitmap, newFrameMark, paintFrameAnnotations, rasterizeFrameAnnotations, type AnnotatedFrame, type FrameMark, type SourceFrame } from '../core/frameAnnotations'
 import { useUiLanguage } from './UiLanguageProvider'
 
-export function FrameAnnotationEditor({frame,disabled,onChange,onReviewed}:{frame:SourceFrame;disabled:boolean;onChange:()=>void;onReviewed:(value:AnnotatedFrame)=>void}) {
+export function FrameAnnotationEditor({frame,initialMarks,disabled,onChange,onReviewed}:{frame:SourceFrame;initialMarks?:FrameMark[];disabled:boolean;onChange:()=>void;onReviewed:(value:AnnotatedFrame)=>void}) {
  const {t}=useUiLanguage(),canvas=useRef<HTMLCanvasElement>(null),mounted=useRef(true),flight=useRef(false)
- const [bitmap,setBitmap]=useState<ImageBitmap|null>(null),[edits,setEdits]=useState<FrameMark[][]>([[]]),[position,setPosition]=useState(0),[selected,setSelected]=useState(''),[target,setTarget]=useState<'start'|'end'>('start'),[preparing,setPreparing]=useState(false),[error,setError]=useState('')
+ const [bitmap,setBitmap]=useState<ImageBitmap|null>(null),[edits,setEdits]=useState<FrameMark[][]>(()=>[frameAnnotationsSchema.parse(initialMarks??[])]),[position,setPosition]=useState(0),[selected,setSelected]=useState(''),[target,setTarget]=useState<'start'|'end'>('start'),[preparing,setPreparing]=useState(false),[error,setError]=useState('')
  const marks=edits[position],mark=marks.find(m=>m.id===selected)??marks[0],locked=disabled||preparing
  useEffect(()=>{mounted.current=true;let current=true,image:ImageBitmap|undefined;void loadFrameBitmap(frame).then(value=>{if(!current){value.close();return}image=value;setBitmap(value)},cause=>{if(current)setError(String(cause))});return()=>{current=false;mounted.current=false;image?.close()}},[frame])
  useEffect(()=>{if(!bitmap||!canvas.current)return;const ctx=canvas.current.getContext('2d');if(!ctx){setError('Canvas unavailable');return}ctx.clearRect(0,0,bitmap.width,bitmap.height);ctx.drawImage(bitmap,0,0);try{paintFrameAnnotations(ctx,bitmap.width,bitmap.height,marks);setError('')}catch(cause){setError(String(cause))}},[bitmap,marks])

@@ -9,10 +9,11 @@ import { AssetImportStatus } from './AssetUploadPanel'
 import { useUiLanguage } from './UiLanguageProvider'
 import { FrameAnnotationEditor } from './FrameAnnotationEditor'
 import type { AnnotatedFrame } from '../core/frameAnnotations'
+import { prepareFrameRevision, matchFrameRevision, type FrameRevisionSeed } from '../core/frameRevision'
 
 type Frame = Awaited<ReturnType<WorkerClient['extractSourceFrame']>>
-export function SourceFrameControl({ project, asset, history, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange }: MediaPreviewProps) {
-  const { t, language } = useUiLanguage(), [time, setTime] = useState('0'), [preparing, setPreparing] = useState(false)
+export function SourceFrameControl({ project, asset, history, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange, revision }: MediaPreviewProps & {revision?:FrameRevisionSeed}) {
+  const { t, language } = useUiLanguage(), [time, setTime] = useState(String((revision?.expected.requestedMs??0)/1000)), [preparing, setPreparing] = useState(false)
   const [review, setReview] = useState<{ frame: Frame; metadata: ReturnType<typeof sourceFrameMetadata>; url: string; current: () => boolean } | null>(null)
   const [annotationMode, setAnnotationMode] = useState(false), [annotated, setAnnotated] = useState<{value: AnnotatedFrame; url: string} | null>(null)
   const [ack, setAck] = useState(false), [feedback, setFeedback] = useState<AssetImportFeedback | null>(null), [error, setError] = useState<{ message: string; current: () => boolean } | null>(null)
@@ -34,10 +35,13 @@ export function SourceFrameControl({ project, asset, history, workerUrl, workerT
     setAnnotated(null); setAnnotationMode(false)
     const isCurrent = scope.current.begin()
     try {
+      const currentRevision = revision ? prepareFrameRevision(project, revision.assetId) : undefined
+      if (revision && (JSON.stringify(currentRevision) !== JSON.stringify(revision) || currentRevision?.sourceId !== asset.id)) throw Error('Saved frame template changed; load it again')
       const source = sourceFrameSource(project, asset.id), client = new WorkerClient({ baseUrl: workerUrl, token: workerToken })
       const frame = await client.extractSourceFrame({ path: source.uri, timeMs: parseExcerptSeconds(time) })
       if (!mounted.current || !isCurrent()) return
       const metadata = sourceFrameMetadata(project, asset.id, frame)
+      if (currentRevision) { matchFrameRevision(currentRevision,frame); setAnnotationMode(true) }
       setReview({ frame, metadata, url: URL.createObjectURL(frame.file), current: isCurrent })
     } catch (cause) { if (mounted.current && isCurrent()) setError({ message: String(cause), current: isCurrent }) }
     finally { flight.current = false; if (mounted.current) setPreparing(false) }
@@ -46,8 +50,8 @@ export function SourceFrameControl({ project, asset, history, workerUrl, workerT
     if (!available || locked || flight.current || !review?.current() || !ack || (annotationMode && !annotated)) return
     flight.current = true; const accepted = review, client = new WorkerClient({ baseUrl: workerUrl, token: workerToken })
     const selectedFrame = annotated && annotationMode ? { ...accepted.frame, file: annotated.value.file } : accepted.frame
-    const metadata = annotated && annotationMode ? { ...accepted.metadata, sourceKind: 'annotated-video-frame-v1', extractionOnly: false, modified: true, annotations: annotated.value.provenance } : accepted.metadata
     try {
+      const metadata = { ...(annotated && annotationMode ? { ...accepted.metadata, sourceKind: 'annotated-video-frame-v1', extractionOnly: false, modified: true, annotations: annotated.value.provenance } : accepted.metadata), ...(revision ? {frameRevision:matchFrameRevision(revision,accepted.frame)} : {}) }
       const task = new AssetImportSession(project, connection, selectedFrame.file, 'image', {
         client: { importAsset: (file, name) => client.importAsset(file, name), probe: async path => validateSourceFrameProbe(await client.probe(path), selectedFrame) },
         environment: () => environment.current, assetMetadata: metadata,
@@ -65,15 +69,15 @@ export function SourceFrameControl({ project, asset, history, workerUrl, workerT
   if (asset.kind !== 'video') return null
   const scopedFeedback = feedback?.phase === 'succeeded' && successScope.current !== JSON.stringify(environment.current) ? null : feedback
   const visibleFeedback = scopedFeedback && session.current?.wasDetached ? { ...scopedFeedback, phase: 'detached' as const } : scopedFeedback
-  return <details className="mediaExcerptPanel"><summary>{t('sourceFrame.heading')}</summary><div className="stack">
-    <p>{t('sourceFrame.help')}</p><p className="note">{t('sourceFrame.boundary')}</p>
-    <label>{t('sourceFrame.time')}<input inputMode="decimal" value={time} disabled={locked} onChange={e => { setTime(e.target.value); setReview(null); setAnnotated(null); setAnnotationMode(false); setAck(false); setError(null) }} /></label>
+  return <details className="mediaExcerptPanel" open={revision?true:undefined}><summary>{t(revision?'frameRevision.read':'sourceFrame.heading')}</summary><div className="stack">
+    <p>{t(revision?'frameRevision.fixedTime':'sourceFrame.help')}</p><p className="note">{t('sourceFrame.boundary')}</p>
+    <label>{t('sourceFrame.time')}<input inputMode="decimal" value={time} disabled={locked||!!revision} onChange={e => { setTime(e.target.value); setReview(null); setAnnotated(null); setAnnotationMode(false); setAck(false); setError(null) }} /></label>
     <button className="secondaryButton" disabled={!available || locked} onClick={() => void prepare()}>{t(preparing ? 'sourceFrame.reading' : 'sourceFrame.read')}</button>
     {!available && <p>{t('sourceFrame.unavailable')}</p>}
     {review && !current && <p role="alert">{t('sourceFrame.stale')}</p>}
     {review && current && <div className="stack">{!annotationMode && <img className="explainerPreview" src={review.url} alt={t('sourceFrame.preview')} />}<p>{t('sourceFrame.facts', { time: review.frame.record.requestedMs / 1000, width: review.frame.record.width, height: review.frame.record.height, bytes: review.frame.file.size })}</p>
       <button className="secondaryButton" disabled={locked} onClick={() => { setAnnotationMode(!annotationMode); setAnnotated(null); setAck(false) }}>{t(annotationMode ? 'frameMarks.original' : 'frameMarks.open')}</button>
-      {annotationMode && <FrameAnnotationEditor key={review.frame.file.name} frame={review.frame} disabled={locked} onChange={() => { setAnnotated(null); setAck(false) }} onReviewed={value => { if (review.current()) { setAnnotated({value,url:URL.createObjectURL(value.file)}); setAck(false) } }} />}
+      {annotationMode && <FrameAnnotationEditor key={review.frame.file.name} frame={review.frame} initialMarks={revision?.marks} disabled={locked} onChange={() => { setAnnotated(null); setAck(false) }} onReviewed={value => { if (review.current()) { setAnnotated({value,url:URL.createObjectURL(value.file)}); setAck(false) } }} />}
       {annotationMode && (annotated ? <><img className="explainerPreview" src={annotated.url} alt={t('frameMarks.preview')} /><p>{t('frameMarks.ready',{count:annotated.value.provenance.marks.length,bytes:annotated.value.file.size})}</p></> : <p>{t('frameMarks.pending')}</p>)}
       <label className="sourceReportAck"><input type="checkbox" disabled={locked || (annotationMode && !annotated)} checked={ack} onChange={e => setAck(e.target.checked)} />{t('sourceFrame.ack')}</label>
       <button className="primary" disabled={!ack || locked || !available || (annotationMode && !annotated)} onClick={() => void save()}>{t('sourceFrame.save')}</button></div>}
