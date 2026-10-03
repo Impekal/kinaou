@@ -4,6 +4,8 @@ PR #185 adds persistent course outlines and independent lesson MP4 exports; PR #
 
 ## What works
 
+Local exercise drafts (#409) append 1–3 reviewed tasks from the saved lesson script using an actual installed local model. Learner prompts/hints remain separate from private answers/criteria, with exact source quotes, editable review, append-only save/recovery and private provenance. Existing exercises stay intact. Real model, browser and learner ZIP checks passed; human review remains mandatory. See [COURSE-EXERCISE-DRAFTS.md](COURSE-EXERCISE-DRAFTS.md).
+
 Local single-lesson script drafting (#407) now uses an actual installed Ollama model from explicit authored notes, with source quotes, editable comparisons, separate acknowledgement, one-lesson replacement, private provenance and save-only recovery. Actual DE/EN/FR model and browser samples passed after correcting observed source-label leakage and ambiguous test notes. This does not generate or verify a complete course; see [COURSE-SCRIPT-DRAFTS.md](COURSE-SCRIPT-DRAFTS.md).
 
 1. Open/create a project, then **Course**. Enter a course title, German/English/French language, intended learners, prerequisites and learning outcomes.

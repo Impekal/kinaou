@@ -1,0 +1,26 @@
+# Local lesson exercise drafts (#409)
+
+In Course plan, select a saved lesson with a non-empty script and expand **Local AI exercise drafts**. Save/discard outline changes first. Choose 1–3 additional exercises, explicitly discover installed local models, select one and generate. Updated authenticated worker capability: `course-exercises`. No downloads, cloud/paid inference, automatic generation or narration.
+
+Only the selected saved script, course/lesson titles, language, audience, objective and count enter the model prompt. Other lessons, existing answers, media, paths, credentials and history are excluded. Installed-model discovery and `/api/show` reject absent models, cloud aliases, unknown architectures and missing/insufficient context metadata before sharing source text. A verified maximum of at least 32,768 context tokens is required. Complete context is capped at 12,000 UTF-8 bytes: longer input fails, never silently cut. Ordinary scripts/manual exercises retain their existing limits. Metadata is not authentication against a malicious local runtime.
+
+Each exercise contains a title (120 characters), learner task, optional learner hint, private model answer and private assessment criteria (1,500 each), plus an exact unchanged source-script quotation (500). Strict schema/count/model/source validation and bounded UTF-8 transport reject unsupported replies. Quotes prove literal presence, not correct reasoning or teaching suitability.
+
+## Review and append
+
+Read the complete source, edit every field and review the exact learner/private split. Explicitly acknowledge language, facts, answers, criteria and permissions. Check that public tasks/hints do not accidentally disclose answers: excluding designated private fields cannot guarantee semantic secrecy of public text. No expert, Udemy, child-suitability or course approval is automatic.
+
+Acceptance appends only to this exact lesson. Existing exercises, scripts, neighboring lessons, ranges, assets and timeline remain intact. Normal 20-exercises-per-lesson/course-wide limits apply. Duplicate prompts (case/whitespace normalized) are refused, not replaced. IDs, next project and one safety snapshot are prepared once; failed persistence retries saving without regeneration. Successful review cannot append twice.
+
+Project, dirty-outline, count, lesson, model, connection and interface-language changes invalidate requests/reviews permanently after observation, including A→B→A. Leaving/switching lessons loses unsaved proposals. Started local computation may continue; detached replies cannot apply.
+
+Private `courseExerciseDrafts` metadata retains one latest batch per course/lesson: exact source context, original model output, accepted edits, exercise IDs, model, language, date and edited flag. Limit 200 records / 4,000,000 UTF-8 bytes; invalid/oversized records fail without eviction. A new batch replaces only that provenance entry, never older exercises. Safety versions preserve earlier state. Historical records do not certify later edits. Learner ZIP/workbook exports do not inherit this metadata.
+
+## Acceptance
+
+- 2,481 app tests / 232 files (28 new), seven new worker regressions plus existing script regressions, build/syntax and unchanged [full CI 37123418438](https://github.com/Impekal/kinaou/actions/runs/37123418438), including rendering, passed.
+- Executing authenticated worker with an explicitly synthetic local server verifies authorization, installed-model selection, remote refusal and exact routes; not model-quality evidence.
+- Actual installed `llama3.1:8b` generated DE/EN/FR two-exercise samples. Initial German output incorrectly inferred “square” from four sides alone. Prompt constraints were tightened against classification from incomplete properties and regression-tested; repeated samples were sound introductory exercises (~8.4/7.3/8.3 s). Initial failure and corrected results are retained. This is not general reasoning/language/teaching certification.
+- Actual browser/worker discarded a held real reply after project A→B→A, did not revive a review after DE→FR→EN, and accepted edited content only after review. Deliberately failed persistence followed by retry produced two attempts, one snapshot, four explicit model-list/generation requests and no regeneration. Existing exercise, both scripts, ranges and second lesson stayed intact; saved outline remained clean. Dirty blocking, retained original/accepted provenance, keyboard disclosures and final clean console passed. Scoped readable drafting controls were visually checked at the actual narrow browser width, without viewport override.
+- Real learner ZIPs were unpacked/CRC-checked; every entry excluded private answer/criteria/source-provenance markers while workbook/worksheet retained tasks. Instructor keys retained designated answers/criteria.
+- Own temporary fixtures/tab/worker/Vite/cloud-disabled Ollama server removed/stopped, UI preference restored. Parent `acceptance/course-exercise-drafts-409` retains samples and initial failure; `course-exercise-draft-ui.png` shows actual UI. No model download, user SSD/media changes or deployment. Whole point 8 remains open.
