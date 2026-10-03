@@ -9,6 +9,7 @@ import { SourceProvenancePanel } from './SourceProvenancePanel'
 import { MediaExcerptPlacementControl } from './MediaExcerptPlacementControl'
 import { SourceFrameControl } from './SourceFrameControl'
 import { FrameRevisionControl } from './FrameRevisionControl'
+import { ImageIntervalPlacementControl } from './ImageIntervalPlacementControl'
 
 export type ProjectAssetListProps = Omit<MediaPreviewProps, 'asset'>
 
@@ -44,6 +45,7 @@ export function ProjectAssetList(props: ProjectAssetListProps) {
               <VideoProxyControl {...props} asset={asset} />
             </div>
             <SourceProvenancePanel project={project} assetId={asset.id} />
+            <ImageIntervalPlacementControl key={`image-interval-${asset.id}-${asset.uri}`} {...props} asset={asset} />
             <MediaExcerptPlacementControl key={`excerpt-${asset.id}-${asset.uri}`} {...props} asset={asset} />
             <SourceFrameControl key={`frame-${asset.id}-${asset.uri}`} {...props} asset={asset} />
             <FrameRevisionControl key={`revision-${asset.id}-${asset.uri}`} {...props} asset={asset} />
