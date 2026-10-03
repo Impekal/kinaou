@@ -58,6 +58,8 @@ Editorial language follow-up (#357): an explicit narrow local translation pass, 
 
 ## Complete course production
 
+Focused Production views (#405, 2026-10-03) reduce the long stacked workflow to four explicit tasks while preserving internal drafts and active guards. Real worker/browser playback pauses when hidden and never auto-resumes. Existing expert content, actual speech and final full-video review remain required; navigation/session acceptance does not complete course point 8.
+
 Direct lesson actions (#401, 2026-09-30) reduce repeated selection, not review. Audio Studio and video export still require explicit script/range application and separate job submission. Voice-gap filtering measures eligible saved clip intervals, not audible/intelligible speech or a requirement to narrate every second. Browser checks reached both real recipient panels with zero generation/requests/writes; actual speech, media and teaching quality remain separate acceptance requirements.
 
 Explicit gap drafts (#399, 2026-09-30) transfer exact saved visual-gap times to a separately accepted demonstration-placement form. They do not infer useful teaching content, auto-select a source, fill/render a gap or certify permission/quality. Existing active media remain protected even when excluded/offline. Full review and acknowledgement still precede insertion; changed context invalidates pending selection. Actual decoded-frame/narration/hash tests and synthetic browser recovery checks passed; whole course point remains open.
