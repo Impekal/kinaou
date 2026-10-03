@@ -1,5 +1,9 @@
 # KINAOU — Real Mac Execution Test
 
+## Reviewed frame annotations — 2026-10-03
+
+#443 passed actual local browser/worker PNG creation, import/save recovery and executing FFmpeg marked-image export. Optionally extract an authorized disposable frame, add arrow/box/text, test undo/redo and create the final PNG. Inspect delivery-size legibility and meaning, acknowledge, then save. Editing must clear the accepted PNG/acknowledgement; originals and timeline stay unchanged. Saved metadata retains both hashes/marks and explicitly identifies modification. Unsaved drafts are session-only; saved marks are provenance, not yet a reopenable editor. No immediate SSD/model action required; see SOURCE-FRAMES.md.
+
 ## Video still-frame extraction — 2026-10-03
 
 #441 passed actual FFmpeg and browser/worker acceptance. After normal update/restart/reconnect, `source-video-frame` permits explicitly reading a disposable managed MP4 frame. Review the real image/time before separate acknowledged PNG import; no automatic clip is placed. Save failure retries the accepted copy, not extraction/upload. Source provenance and synthetic flags must survive reload; source/project/language changes discard stale reviews. Existing actual red/blue, large/rotated source and final MP4 tests passed; non-square-pixel files explicitly refuse. Reading does not certify rights, exact recording time or full-source integrity. No immediate SSD/model action required for repository work; see SOURCE-FRAMES.md.
