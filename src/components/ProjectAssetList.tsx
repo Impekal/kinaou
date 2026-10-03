@@ -6,6 +6,7 @@ import { VideoThumbnailControl } from './VideoThumbnailControl'
 import { WaveformControl } from './WaveformControl'
 import { useUiLanguage } from './UiLanguageProvider'
 import { SourceProvenancePanel } from './SourceProvenancePanel'
+import { MediaExcerptPlacementControl } from './MediaExcerptPlacementControl'
 
 export type ProjectAssetListProps = Omit<MediaPreviewProps, 'asset'>
 
@@ -41,6 +42,7 @@ export function ProjectAssetList(props: ProjectAssetListProps) {
               <VideoProxyControl {...props} asset={asset} />
             </div>
             <SourceProvenancePanel project={project} assetId={asset.id} />
+            <MediaExcerptPlacementControl key={`excerpt-${asset.id}-${asset.uri}`} project={project} asset={asset} history={props.history} onProjectChange={onProjectChange} />
           </div>)}
         </div>}
   </div>
