@@ -17,6 +17,7 @@ import { CourseModuleOrderControls, CourseLessonOrderControls } from './CourseOr
 import { CourseWorkspaceNavigation, type CourseWorkspaceStage } from './CourseWorkspaceNavigation'
 import { CourseProductionWorkspace } from './CourseProductionWorkspace'
 import { CourseScriptDraftPanel } from './CourseScriptDraftPanel'
+import { CourseCurriculumDraftPanel } from './CourseCurriculumDraftPanel'
 import { CourseExerciseDraftPanel } from './CourseExerciseDraftPanel'
 import {courseGapPlacementIsCurrent,type CourseGapPlacement} from '../core/courseGapPlacement'
 import {courseOutputNavigationIsCurrent,type CourseOutputNavigation} from '../core/courseOutputNavigation'
@@ -109,6 +110,7 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio, o
       <label>{t('course.outcomes')}<textarea maxLength={8000} value={draft.learningOutcomes} onChange={(event) => change({ ...draft, learningOutcomes: event.target.value })} /></label>
     </div>
     <div className="card stack">
+      <CourseCurriculumDraftPanel key={`curriculum-${project.id}`} project={project} dirty={dirty} history={history} onProjectChange={onProjectChange} onSaved={next=>change(projectCourse(next)!)} {...worker} />
       <p>{t('course.rangeHelp')}</p>
       <p>{t('course.order.help')}</p>
       <CourseOutlineNavigator draft={draft} selected={focus} onSelect={setSelection} />

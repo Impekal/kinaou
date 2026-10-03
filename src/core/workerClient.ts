@@ -1257,6 +1257,12 @@ export class WorkerClient {
     return payload.models.filter((model: unknown): model is { id: string; sizeBytes: number } => Boolean(model && typeof (model as any).id === 'string' && typeof (model as any).sizeBytes === 'number'))
   }
 
+  async generateCourseCurriculum(model: string, context: unknown): Promise<unknown> {
+    const payload = await this.request('/course/curriculum/generate', { method: 'POST', body: JSON.stringify({ model, context }) })
+    if (payload?.ok !== true || payload?.type !== 'course-curriculum') throw new Error('Invalid curriculum response')
+    return payload.result
+  }
+
   async generateCourseExercises(model: string, context: unknown): Promise<unknown> {
     const payload = await this.request('/course/exercises/generate', { method: 'POST', body: JSON.stringify({ model, context }) })
     if (payload?.ok !== true || payload?.type !== 'course-exercises') throw new Error('Invalid lesson exercise response')
