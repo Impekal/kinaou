@@ -46,7 +46,7 @@ export function ShortPreviewPanel(props: Props) {
 }
 
 /** Shared exact-range job lifecycle for Shorts and individual course lessons. */
-export function RangePreviewPlayback({ plan, disabled, workerUrl, workerToken, workerConnected, onBusyChange }: Pick<Props, 'workerUrl' | 'workerToken' | 'workerConnected' | 'onBusyChange' | 'disabled'> & { plan: RenderPlan | null }) {
+export function RangePreviewPlayback({ plan, disabled, workerUrl, workerToken, workerConnected, onBusyChange, seekPoints }: Pick<Props, 'workerUrl' | 'workerToken' | 'workerConnected' | 'onBusyChange' | 'disabled'> & { plan: RenderPlan | null; seekPoints?: ReadonlyArray<{ label: string; seconds: number }> }) {
   const { t } = useUiLanguage()
   const [feedback, setFeedback] = useState<ShortPreviewFeedback>({ phase: 'idle' })
   const [url, setUrl] = useState('')
@@ -80,7 +80,7 @@ export function RangePreviewPlayback({ plan, disabled, workerUrl, workerToken, w
     </div>
     {!workerConnected && <p>{t('preview.connect')}</p>}
     <ShortPreviewStatus feedback={feedback} />
-    {url && <PreviewPlayback key={url} url={url} durationSeconds={(plan?.durationMs ?? 0) / 1000} />}
+    {url && <PreviewPlayback key={url} url={url} durationSeconds={(plan?.durationMs ?? 0) / 1000} seekPoints={seekPoints} />}
   </div>
 }
 

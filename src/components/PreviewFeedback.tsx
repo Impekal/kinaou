@@ -45,17 +45,20 @@ export function PreviewPlayback({
   url,
   durationSeconds,
   playheadSeconds,
-  onPlayheadChange
+  onPlayheadChange,
+  seekPoints = []
 }: {
   url: string
   durationSeconds?: number
   playheadSeconds?: number
   onPlayheadChange?: (seconds: number) => void
+  seekPoints?: ReadonlyArray<{ label: string; seconds: number }>
 }) {
   const { language, t } = useUiLanguage()
   const video = useRef<HTMLVideoElement>(null)
   const [time, setTime] = useState(0)
   const [failed, setFailed] = useState(false)
+  const [ready, setReady] = useState(false)
 
   const requestedTime = playheadSeconds ?? time
   const boundedTime = Math.max(
@@ -99,9 +102,11 @@ export function PreviewPlayback({
       controls
       preload="metadata"
       onError={() => setFailed(true)}
+      onLoadedMetadata={() => setReady(true)}
       onTimeUpdate={(event) => publishTime(event.currentTarget.currentTime)}
     />
     {failed && <div className="errorBox" role="alert">{t('preview.playbackFailed')}</div>}
+    {seekPoints.length > 0 && <div className="renderActions">{seekPoints.filter(point => point.label.trim() && Number.isFinite(point.seconds) && point.seconds >= 0 && Number.isFinite(durationSeconds) && point.seconds < durationSeconds!).map((point, index) => <button key={index} className="secondaryButton" disabled={failed || !ready} onClick={() => { video.current?.pause(); seek(point.seconds) }}>{point.label}</button>)}</div>}
     {durationSeconds !== undefined && <label>
       {t('preview.playhead', { time: boundedTime.toLocaleString(language, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) })}
       <input
