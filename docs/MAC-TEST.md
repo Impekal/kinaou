@@ -1,5 +1,9 @@
 # KINAOU — Real Mac Execution Test
 
+## Current lesson preview — 2026-10-03
+
+#429 passed actual worker/FFmpeg and integrated export-panel browser tests. Select a saved lesson in Studio export, explicitly render its preview, inspect boundaries/framing/retiming/captions and listen to the whole audio. It must stay in cache without an export receipt. A load failure should retry the same job; changing project/settings removes the old preview without automatic rendering. DE/EN/FR keeps authored names. Actual synthetic frame/PCM/seek tests passed; complete human playback/content acceptance remains separate. No immediate SSD/model action required. See COURSE-PRODUCTION.md.
+
 ## Planned range / narration fit — 2026-10-03
 
 #421 passed real worker/FFmpeg timing and source-byte tests plus synthetic-metadata browser acceptance. On a disposable course-associated recording, audition first; explicitly review extending an undersized lesson end, confirm, save, then separately review/place the full recording. Other lessons and clips stay unchanged; collisions/used sources/invalid duration refuse. Inspect the extended timeline/export content. Failed saving repeats one prepared project and one snapshot per action. Language/project/availability changes invalidate prior reviews; reload must refuse duplicate placement. Actual file/voice quality still requires review. No immediate SSD/model action needed; see COURSE-PRODUCTION.md.
