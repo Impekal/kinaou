@@ -1,6 +1,6 @@
 # KINAOU — PROJECT STATE & HANDOFF
 
-Last updated: 2026-10-03
+Last updated: 2026-10-04
 
 ## Current completion summary — 2026-09-27
 
@@ -14,7 +14,15 @@ The existing hourly heartbeat `kinaou-autonom-weiterbauen` is PAUSED at the user
 
 Check the available Codex usage windows at safe slice boundaries. The user's latest instruction (2026-10-03), “bei 20% stoppen statt 30%”, changes the boundary to **80% used / 20% remaining**, superseding both the earlier 70% and 93% boundaries. Start no new slice at that boundary; finish the already-started bounded slice, tests, PR/merge and separate documentation as far as the remaining allowance permits, then provide a short copyable prompt for continuing in normal ChatGPT with the Mac terminal and actual repository evidence. Keep slices bounded as the threshold approaches. Do not promise immunity from a hard limit. Normal ChatGPT chat limits are not visible through the Codex usage tool. See the latest merged handoff below for the current usage checkpoint; earlier percentages are historical. Never redeem a reset credit without explicit confirmation. Heartbeat stays paused.
 
-## Latest merged handoff — visible historical frame provenance
+## Latest merged handoff — verified new annotation versions
+
+[PR #447](https://github.com/Impekal/kinaou/pull/447) merged as `16216729dc8873035efd9efafe4c4c3b142d0f50` after full [CI 37157589204](https://github.com/Impekal/kinaou/actions/runs/37157589204). Saved frames now reopen as editable new image versions. Explicit template loading validates the retained source record; explicit real re-extraction must match its original base PNG hash and measurements before marks load. Source time remains fixed; differing bytes/metadata refuse instead of applying marks to a new frame. Actual new PNG review/acknowledgement and safe import preserve all old assets and timeline references. Previous asset ID/output hash are retained in both historical report formats, not claimed as freshly verified old-file integrity.
+
+Acceptance: 2,883 app tests / 256 files (24 new), build and unchanged full CI passed. Actual worker re-extraction matches the stored base in the executing render suite. Browser rejected a deliberately wrong retained base hash after real extraction, discarded a held real reply after project A/B/A and saved “Press 2” as a separate 2,418-byte image with an unchanged “Press” predecessor. Two mutating save failures then success used one import/snapshot/identical payload; no clips added. Reload retained both versions/lineage. Final fresh browser after temporary-harness HMR invalidation recreated a real PNG in French, checked DE/EN/FR and had a clean console. Actual old/new hashes checked on disk. Own harness/tabs/services removed; foreign files/stash/user media untouched. Parent evidence `acceptance/frame-revision-447.json`, `frame-revision-ui.png`. See SOURCE-FRAMES.md. Whole points 4–10 remain open.
+
+Usage checkpoint: **75% weekly used / 25% remaining**; keep the next slice bounded before **80% used / 20% remaining**. Heartbeat paused; AC-only wake helper unchanged. Next bounded priority: reviewed exact start/duration placement of images (including marked frames/explainer cards) with no overwrite/ripple and actual timeline render evidence. No immediate SSD/model action required.
+
+## Previous merged handoff — visible historical frame provenance
 
 [PR #445](https://github.com/Impekal/kinaou/pull/445) merged as `f7c3fbf0324eeb1e90c16143f2d96a746605baf1` after full [CI 37156228272](https://github.com/Impekal/kinaou/actions/runs/37156228272). Saved extracted/annotated images now expose explicit private source/annotation reports in the actual media library. Strict metadata binding checks retain original source/time, both stored hashes and authored marks; changed/missing current source records are distinguished from the historical snapshot. Current timeline references are not claimed as actual rendered visibility. Complete reviewed TXT/JSON downloads reuse existing exact-byte acknowledgement, tamper and observed A/B/A guards. No file/network request, fresh hash, rights approval or project/history mutation.
 

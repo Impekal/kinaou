@@ -1,5 +1,9 @@
 # KINAOU — Real Mac Execution Test
 
+## New annotation versions — 2026-10-04
+
+#447 passed actual browser/worker re-extraction, wrong-base-hash refusal, held-reply A/B/A rejection and non-destructive revision saving. Open a saved frame's new-version panel, load its retained template, explicitly re-read the fixed original time, edit and review a new PNG before saving. Old image/timeline remain unchanged; missing/changed original records or base bytes refuse. Parent lineage survives reload; prior-image/full-video hashes are not newly verified by this workflow. Actual two-failure save-only recovery and final fresh DE/EN/FR PNG recreation passed. No immediate SSD/model action required; see SOURCE-FRAMES.md.
+
 ## Historical frame-source reports — 2026-10-03
 
 #445 passed actual media-library DE/EN/FR report/download acceptance with the retained #443 source/annotation record. Open a saved frame's provenance, explicitly prepare and inspect both formats, acknowledge private fields and download. Changing/removing its source record must preserve the historical copy while changing the notice; corrupt flags must refuse. No files are checked or media published. Actual downloaded bytes matched the previews; request/write/history counters stayed zero. No immediate SSD/model action required; see SOURCE-FRAMES.md.
