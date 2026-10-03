@@ -12,6 +12,10 @@
 
 #415 passed real public HTTPS and isolated authenticated browser tests. In a disposable retained observation, open Source assessment, choose an article and explicitly retrieve text. Confirm original/final URLs, HTML hash/time, unverified language and extraction/truncation warnings. Check no read flags/project writes, text retention across Research tabs and permanent rejection after observed project/language/connection changes. Blocked/unsupported pages must report failure without bypass or invented text. Actual tagesschau/heise reads and Spektrum 403 refusal were observed; body extraction retained navigation on heise. No immediate SSD/model action needed; see PUBLIC-SOURCE-READER.md.
 
+## Local analytics comparison — 2026-10-03
+
+#427 passed integrated report-view browser tests using synthetic CSV through the real byte-hash/parser path. Select two equal-length, non-overlapping periods: verify exact sums/coverage; missing dates must suppress differences/percentages and be inspectable; a reported-zero baseline must have no percentage. Changing dates/reports clears old results, while DE/EN/FR preserves values. Fresh final-styled run passed with clean console, unchanged source and zero observed application fetches. No account/model/SSD action required; account-authenticity, causal effects and audience best-time claims remain outside scope. See LOCAL-ANALYTICS.md.
+
 ## Editorial persistence recovery — 2026-10-03
 
 #425 passed browser testing with real components/WorkerClient and explicitly synthetic model-protocol responses: two failed saves then one success use identical prepared bytes and a single safety snapshot; serialized reload preserves copy. Project, UI-language and selected-model A→B→A retire old acknowledgements/held responses. A failed history snapshot prevents the project write; retry succeeds. Separate translation origin and exact quote survive a fresh acknowledged save. No worker or inference changes; no new local action required. Unsaved review recovery remains session-only, not cross-reload. See PUBLICATION-EDITORIAL.md.
