@@ -1,4 +1,5 @@
 import { parseAssetUploadResult, type AssetUploadResult } from './assetUpload'
+import { validateEditorialGenerationContext, validateEditorialLanguageInput } from '../../worker/publication-editorial.mjs'
 import { validateSearchTrendQuery, validateSearchTrendSnapshot, type SearchTrendQuery } from '../../worker/search-trends-protocol.mjs'
 import { publicSourceRequestSchema, validatePublicSourceResult, type PublicSourceRequest } from '../../worker/public-source-protocol.mjs'
 import { workerHandshakeSchema, type MediaProbeResult, type MediaProxyResult, type WorkerHandshake } from './workerProtocol'
@@ -1282,12 +1283,14 @@ export class WorkerClient {
   }
 
   async generatePublicationEditorial(model: string, context: unknown): Promise<unknown> {
+    validateEditorialGenerationContext(context)
     const payload = await this.request('/publication/editorial/generate', { method: 'POST', body: JSON.stringify({ model, context }) })
     if (payload?.ok !== true || payload?.type !== 'publication-editorial') throw new Error('Invalid editorial response')
     return payload.result
   }
 
   async translatePublicationEditorial(model: string, context: unknown, proposal: unknown): Promise<unknown> {
+    validateEditorialLanguageInput(context, proposal)
     const payload = await this.request('/publication/editorial/translate', { method: 'POST', body: JSON.stringify({ model, context, proposal }) })
     if (payload?.ok !== true || payload?.type !== 'publication-editorial-language') throw new Error('Invalid editorial language response')
     return payload.result

@@ -4,6 +4,9 @@ export interface EditorialItem { jobId: string; title: string; description: stri
 export interface EditorialProposal { schemaVersion: 1; items: EditorialItem[] }
 export const editorialContextSchema: ZodType<EditorialContext>
 export const editorialProposalSchema: ZodType<EditorialProposal>
+export const editorialInferenceLimits: Readonly<{inputBytes: number; requestBytes: number; contextTokens: number; outputTokens: number}>
+export function validateEditorialGenerationContext(input: unknown): EditorialContext
+export function validateEditorialLanguageInput(context: unknown, input: unknown): EditorialProposal
 export function validateEditorialProposal(context: unknown, value: unknown): EditorialProposal
 export function generatePublicationEditorial(baseUrl: string, model: string, context: unknown, fetchImpl?: typeof fetch): Promise<{proposal: EditorialProposal; modelId: string; adapterId: 'ollama'}>
 export function validateEditorialLanguagePass(context: unknown, original: unknown, candidate: unknown): EditorialProposal
