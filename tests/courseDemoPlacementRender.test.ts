@@ -13,6 +13,8 @@ import {WorkerClient} from '../src/core/workerClient'
 import {courseProductionOverview} from '../src/core/courseProductionOverview'
 import {prepareCourseGapPlacement,courseGapPlacementDraft} from '../src/core/courseGapPlacement'
 import {parseDemoSeconds} from '../src/core/courseDemoPlacement'
+import {recordSuccessfulExport} from '../src/core/exportHistory'
+import {createCourseOutputNavigation,resolveCourseOutputNavigation} from '../src/core/courseOutputNavigation'
 const exec=promisify(execFile),run=async(cmd:string,args:string[])=>(await exec(cmd,args,{encoding:'buffer',maxBuffer:12*1024**2})).stdout
 it('renders actual video-source trim and still evidence at lesson-relative times while preserving narration and muting demo audio',async context=>{
  try{await run('ffmpeg',['-version']);await run('ffprobe',['-version'])}catch(cause){if(process.env.CI)throw cause;context.skip('FFmpeg required');return}
@@ -53,6 +55,9 @@ it('renders actual video-source trim and still evidence at lesson-relative times
   const audio=await run('ffmpeg',['-v','error','-ss','1.5','-i',file,'-t','0.5','-ac','1','-ar','48000','-f','f32le','-'])
   const energy=(freq:number)=>{let real=0,imag=0;for(let i=0;i<audio.length/4;i++){const v=audio.readFloatLE(i*4),phase=2*Math.PI*freq*i/48000;real+=v*Math.cos(phase);imag+=v*Math.sin(phase)}return real*real+imag*imag}
   expect(energy(440)).toBeGreaterThan(energy(880)*1000)
+  const retained=recordSuccessfulExport(p,{jobId:job.id,label:'Real lesson output',outputRelativePath:output,format:'landscape',range:plan.range,courseLesson:plan.context,durationMs:5000,sizeBytes:(await readFile(file)).length,sceneIds:[],completedAt:new Date().toISOString()}),navigation=createCourseOutputNavigation(retained,'lesson'),selected=resolveCourseOutputNavigation(retained,navigation)[0]
+  const checked=await client.preflightPublishExport(selected);expect(checked.actual).toMatchObject({width:160,height:90,durationMs:5000});expect(checked.checks.dimensions).toBe(false) // Deliberately small test preset; never mislabel as full-HD compliance.
+  const playback=await client.loadCourseOutput(selected);expect(playback.type).toBe('video/mp4');expect(createHash('sha256').update(Buffer.from(await playback.arrayBuffer())).digest('hex')).toBe(await hash(file))
   expect(await Promise.all([video,voice,image].map(hash))).toEqual(before)
  }finally{child.kill('SIGKILL');await closed;await rm(temp,{recursive:true,force:true})}
 },60000)

@@ -5,16 +5,18 @@ import {useUiLanguage} from './UiLanguageProvider'
 import {prepareCourseGapPlacement,type CourseGapPlacement} from '../core/courseGapPlacement'
 import type {CourseInterval} from '../core/courseProductionOverview'
 import {courseProductionChoices,createCourseProductionHandoff,type CourseProductionHandoff,type CourseProductionTarget} from '../core/courseProductionHandoff'
+import {createCourseOutputNavigation,type CourseOutputNavigation} from '../core/courseOutputNavigation'
 function Coverage({value,kind,dirty,onPrepare}:{value:CourseCoverage;kind:'visuals'|'voice';dirty:boolean;onPrepare?:(gap:CourseInterval)=>void}){
   const {t,language}=useUiLanguage(),[shown,setShown]=useState(20),seconds=(ms:number)=>(ms/1000).toLocaleString(language,{maximumFractionDigits:3})
   return <div className="stack"><p>{t(`course.overview.${kind}`,{covered:seconds(value.coveredMs),total:seconds(value.durationMs)})}</p><meter min={0} max={value.durationMs} value={value.coveredMs} aria-label={t(`course.overview.${kind}Label`)}/>{value.gaps.length?<details><summary>{t('course.overview.gaps',{count:value.gaps.length})}</summary><p>{t('course.overview.relative')}</p>{onPrepare&&<small>{t('course.gap.help')}</small>}<ol>{value.gaps.slice(0,shown).map(g=><li key={g.startMs}>{seconds(g.startMs)}–{seconds(g.endMs)} s {onPrepare&&<button className="secondaryButton" disabled={dirty||g.endMs-g.startMs<250} onClick={()=>onPrepare(g)}>{t('course.gap.prepare',{start:seconds(g.startMs),end:seconds(g.endMs)})}</button>}</li>)}</ol>{shown<value.gaps.length&&<button className="secondaryButton" onClick={()=>setShown(n=>n+20)}>{t('course.overview.moreGaps',{shown,total:value.gaps.length})}</button>}</details>:<small>{t('course.overview.noGaps')}</small>}</div>
 }
-export function CourseProductionOverviewPanel({project,dirty,onEditLesson,onPrepareGap,onOpenProduction}:{project:KinaouProject;dirty:boolean;onEditLesson:(moduleId:string,lessonId:string)=>void;onPrepareGap?:(value:CourseGapPlacement)=>void;onOpenProduction?:(value:CourseProductionHandoff)=>void}){
+export function CourseProductionOverviewPanel({project,dirty,onEditLesson,onPrepareGap,onOpenProduction,onOpenOutputs}:{project:KinaouProject;dirty:boolean;onEditLesson:(moduleId:string,lessonId:string)=>void;onPrepareGap?:(value:CourseGapPlacement)=>void;onOpenProduction?:(value:CourseProductionHandoff)=>void;onOpenOutputs?:(value:CourseOutputNavigation)=>void}){
   const {t,language}=useUiLanguage(),[filter,setFilter]=useState<CourseOverviewFilter>('all'),[page,setPage]=useState(0)
   const result=useMemo(()=>{try{return {rows:courseProductionOverview(project),choices:courseProductionChoices(project),error:''}}catch(cause){return {rows:[],choices:[],error:String(cause)}}},[project])
   const [openError,setOpenError]=useState('')
   useEffect(()=>setOpenError(''),[project])
   function open(lessonId:string,target:CourseProductionTarget){if(dirty||!onOpenProduction)return;setOpenError('');try{onOpenProduction(createCourseProductionHandoff(project,lessonId,target))}catch(cause){setOpenError(String(cause))}}
+  function outputs(lessonId:string){if(dirty||!onOpenOutputs)return;setOpenError('');try{onOpenOutputs(createCourseOutputNavigation(project,lessonId))}catch(cause){setOpenError(String(cause))}}
   const [gapError,setGapError]=useState(false)
   useEffect(()=>setGapError(false),[project,language])
   function prepare(lessonId:string,gap:CourseInterval){if(dirty||!onPrepareGap)return;setGapError(false);try{onPrepareGap(prepareCourseGapPlacement(project,lessonId,gap,language))}catch{setGapError(true)}}
@@ -31,6 +33,7 @@ export function CourseProductionOverviewPanel({project,dirty,onEditLesson,onPrep
       <p>{t('course.overview.records',{captions:row.captionClips,linked:row.linkedDemonstrations,demos:row.demonstrations,complete:row.completeExercises,exercises:row.exercises,materials:row.materials})}</p>
       <p>{t('course.overview.exports',{total:row.exports,matching:row.matchingOutlineExports})}</p>{row.excludedClips>0&&<p className="note">{t('course.overview.excluded',{count:row.excludedClips})}</p>}
       <button disabled={dirty} onClick={()=>onEditLesson(row.moduleId,row.lessonId)}>{t('course.overview.edit')}</button>
+      {onOpenOutputs&&<button disabled={dirty||!row.exports} onClick={()=>outputs(row.lessonId)}>{t('course.outputNav.open',{count:row.exports})}</button>}
       {onOpenProduction&&<><div className="directorActions"><button disabled={dirty||!row.scriptPresent} onClick={()=>open(row.lessonId,'narration')}>{t('course.handoff.narration')}</button><button disabled={dirty||!result.choices.find(c=>c.id===row.lessonId)?.check.valid} onClick={()=>open(row.lessonId,'export')}>{t('course.handoff.export')}</button></div>{!row.scriptPresent&&<small>{t('course.handoff.noScript')}</small>}{!result.choices.find(c=>c.id===row.lessonId)?.check.valid&&<small>{t('course.handoff.invalidRange')}</small>}</>}
     </article>)}
     {rows.length>10&&<div className="directorActions"><button disabled={!current} onClick={()=>setPage(current-1)}>{t('course.overview.previous')}</button><span>{t('course.overview.page',{current:current+1,total:last+1})}</span><button disabled={current===last} onClick={()=>setPage(current+1)}>{t('course.overview.next')}</button></div>}
