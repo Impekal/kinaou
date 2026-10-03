@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
+    "parse5": "8.0.1",
     "react": "latest",
     "react-dom": "latest",
     "saxes": "6.0.0",

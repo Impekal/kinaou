@@ -73,7 +73,7 @@ export function SearchTrendsPanel({ project, history, onProjectChange, onOpenDir
       {snapshot.items.map((item, index) => <article key={index}>{itemView(item)}<button className="secondaryButton" disabled={!!ledgerError} onClick={() => retain(index)}>{t('research.retain')}</button></article>)}
     </div>}
     </div>
-    <div {...panel('assess')}><ResearchSourceAssessmentPanel key={`assessment-${project.id}`} project={project} history={history} onProjectChange={onProjectChange} /></div>
+    <div {...panel('assess')}><ResearchSourceAssessmentPanel key={`assessment-${project.id}`} project={project} history={history} onProjectChange={onProjectChange} workerUrl={workerUrl} workerToken={workerToken} workerConnected={workerConnected} workerCapabilities={workerCapabilities} /></div>
     <div {...panel('brief')}><ResearchBriefPanel key={project.id} project={project} history={history} onProjectChange={onProjectChange} onOpenDirector={onOpenDirector} /></div>
     <div {...panel('library')}>
     <div className="card stack"><h3>{t('research.history')} ({retained.length}/200)</h3>
