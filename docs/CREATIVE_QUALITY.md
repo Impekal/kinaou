@@ -58,6 +58,8 @@ Editorial language follow-up (#357): an explicit narrow local translation pass, 
 
 ## Complete course production
 
+Local lesson script drafts (#407, 2026-10-03) are source-bound editable proposals, not verified lessons. Exact quotes establish literal presence, never semantic support or truth. Actual installed-model DE/EN/FR samples and browser replacement/recovery passed; initial technical source-label leakage and ambiguous authored notes were corrected and retained as evidence. Review every spoken paragraph, language, content and timing before separately producing speech/video. Original/model/accepted text remains privately attributable; no automatic instructor, Udemy or whole-course approval. See COURSE-SCRIPT-DRAFTS.md.
+
 Focused Production views (#405, 2026-10-03) reduce the long stacked workflow to four explicit tasks while preserving internal drafts and active guards. Real worker/browser playback pauses when hidden and never auto-resumes. Existing expert content, actual speech and final full-video review remain required; navigation/session acceptance does not complete course point 8.
 
 Direct lesson actions (#401, 2026-09-30) reduce repeated selection, not review. Audio Studio and video export still require explicit script/range application and separate job submission. Voice-gap filtering measures eligible saved clip intervals, not audible/intelligible speech or a requirement to narrate every second. Browser checks reached both real recipient panels with zero generation/requests/writes; actual speech, media and teaching quality remain separate acceptance requirements.

@@ -4,6 +4,8 @@ PR #185 adds persistent course outlines and independent lesson MP4 exports; PR #
 
 ## What works
 
+Local single-lesson script drafting (#407) now uses an actual installed Ollama model from explicit authored notes, with source quotes, editable comparisons, separate acknowledgement, one-lesson replacement, private provenance and save-only recovery. Actual DE/EN/FR model and browser samples passed after correcting observed source-label leakage and ambiguous test notes. This does not generate or verify a complete course; see [COURSE-SCRIPT-DRAFTS.md](COURSE-SCRIPT-DRAFTS.md).
+
 1. Open/create a project, then **Course**. Enter a course title, German/English/French language, intended learners, prerequisites and learning outcomes.
 2. Add modules and lessons. Each lesson has its own stable identity, title, objective and explicit In/Out range in this project's timeline.
 3. Optionally enter a **Lesson script** for each lesson. **Save course outline** validates all drafts and creates a Version History safety snapshot before changing project data. Save before navigating away: draft edits are not autosaved. A malformed saved outline is reported and never silently replaced; recover through Version History. Saving scripts does not synthesize speech, translate, modify the timeline or start a render. **Download saved script as TXT** exports exact saved text only; it is disabled until all outline edits are saved and when that lesson has no nonblank script.
