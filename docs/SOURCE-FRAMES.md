@@ -22,4 +22,16 @@ Project/source/input/interface-language/connection changes invalidate reviews an
 
 ## Acceptance
 
+### Authored annotations — #443
+
+Before saving a reviewed frame, optionally choose **Add arrows, boxes or text**. Up to 16 authored elements have yellow/red/white colors and normalized coordinates. Select the start/end point, then click the canvas, enter coordinates or use arrow keys (1%; Shift 0.1%). Labels stay inside image edges; labels too large to fit, empty text and degenerate shapes refuse. Undo/redo is limited to the current unsaved draft and 100 states. Reload or source/project/language changes do not recover an unsaved draft.
+
+**Create and review annotated PNG** rasterizes the actual original PNG and the displayed marks locally. The original PNG hash, size and decoded dimensions are checked first. Encoding/decoding is bounded and failed/late results cannot become accepted media. Inspect the final PNG before acknowledging and saving; any edit removes that prepared PNG and acknowledgement. Discarding annotations explicitly returns to the untouched source frame. Small originals are not magically higher resolution: inspect final delivery-size legibility.
+
+Saved image metadata uses `sourceKind: annotated-video-frame-v1`, `extractionOnly: false`, `modified: true`, both PNG SHA-256 values and exact authored marks. The extraction record still describes the base PNG. Synthetic source provenance remains synthetic. The original video is never overwritten. This is not measured tracking, automatic tactical analysis, legal clearance or an unaltered original frame. Saved marks are retained as provenance, not yet a reopenable editing project.
+
+2,827 application tests / 254 files and full unchanged CI passed. Actual browser generated and imported a 2,253-byte PNG, tested edit/acknowledgement invalidation, undo/redo, DE/EN/FR, scope changes, reload and two mutating save failures followed by an identical successful save (one upload/snapshot/image, no clip). Real PNG fixtures and hashes are retained; an executing authenticated-worker/FFmpeg test checks import/probe, video export, marked/background pixels and unchanged original bytes. Existing motion-test cleanup was repaired after CI exposed a cancelled pending cleanup promise; the full gate was rerun, not bypassed.
+
+### Base extraction — #441
+
 2,805 app tests / 253 files, 21 new worker tests, production build and unchanged full CI passed. Actual FFmpeg extraction, PNG copy/probe, save-only retry and H.264 image export checked pixels and original bytes. Large and rotated inputs preserve bounded dimensions/orientation; actual non-square-pixel input refused. Browser against the real worker checked review, source overrun, two mutating persistence failures followed by an identical successful payload, one import/snapshot/image, zero timeline clips, reload without requests, scoped late-response rejection, DE/EN/FR and old-worker blocking. Fresh final image decoded with a clean console. These synthetic fixtures verify behavior, not the content or rights of production footage.
