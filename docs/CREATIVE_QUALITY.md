@@ -6,6 +6,8 @@ Current acceptance summary (2026-09-27): completion points 1–3 have passed the
 
 ## Local exercise quality — 2026-10-03
 
+#421 connects a too-short planned lesson to an existing complete narration through explicit end-only extension and separate placement. Retained measured duration is not a fresh physical-file or spoken-content check. Real synthetic tone rendering establishes timing/preservation, not pronunciation, emotion or teaching acceptance. No automatic range shifts or content approval; whole point 8 remains open.
+
 #419 adds actual installed-local curriculum proposals, not complete courses. Source quotations identify literal source text only. DE/EN/FR structure/count/language checks passed, but German objectives were factual statements rather than observable learner actions. Human editing remains required. Planned lesson ranges are explicit author choices, not measured video duration or automatically produced media. See COURSE-CURRICULUM-DRAFTS.md; whole point 8 remains open.
 
 #413 implements lexical review hints for full answer overlap and missing/additional quoted numeric references, visible in editing, final review and historical originals/accepted copies. They are not semantic verification, scores or acceptance gates: multiple-choice options, sound derivations and ambiguous number words can trigger them, while unflagged prose can still be wrong. Stronger prompts did not eliminate DE/FR answer leakage in actual installed-model samples. These failures remain visible and retained; instructors must correct and independently review content. See COURSE-SCRIPT-DRAFTS.md and COURSE-EXERCISE-DRAFTS.md.

@@ -1,5 +1,9 @@
 # KINAOU — Real Mac Execution Test
 
+## Planned range / narration fit — 2026-10-03
+
+#421 passed real worker/FFmpeg timing and source-byte tests plus synthetic-metadata browser acceptance. On a disposable course-associated recording, audition first; explicitly review extending an undersized lesson end, confirm, save, then separately review/place the full recording. Other lessons and clips stay unchanged; collisions/used sources/invalid duration refuse. Inspect the extended timeline/export content. Failed saving repeats one prepared project and one snapshot per action. Language/project/availability changes invalidate prior reviews; reload must refuse duplicate placement. Actual file/voice quality still requires review. No immediate SSD/model action needed; see COURSE-PRODUCTION.md.
+
 ## Local curriculum acceptance — 2026-10-03
 
 #419 passed real installed-model DE/EN/FR generation and actual browser/worker review/append/retry/reload. On an updated worker, save a disposable course, enter authorized notes and explicitly generate 1–6 new lessons. Edit objectives and inspect quotes, enter planned start/time, then review/acknowledge. Existing scripts/media must remain; overlap/capacity conflicts fail. Failed persistence repeats only saving with one safety snapshot. Language changes do not translate saved source/proposals. No immediate SSD/model action required. Runtime consumed about 8.7 GiB GPU memory at 32,768 context; real content still needs instructor review, especially the observed German objective wording. See COURSE-CURRICULUM-DRAFTS.md.
