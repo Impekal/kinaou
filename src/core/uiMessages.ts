@@ -12,6 +12,7 @@ import { uiPublicSourceMessages } from './uiPublicSourceMessages'
 import { uiSourceExcerptMessages } from './uiSourceExcerptMessages'
 import { uiResearchWorkspaceMessages } from './uiResearchWorkspaceMessages'
 import { uiAnalyticsMessages } from './uiAnalyticsMessages'
+import { uiAnalyticsComparisonMessages } from './uiAnalyticsComparisonMessages'
 import { uiSourceLibraryMessages } from './uiSourceLibraryMessages'
 import { uiSourceRestoreMessages } from './uiSourceRestoreMessages'
 import { uiFootballTacticsMessages } from './uiFootballTacticsMessages'
@@ -92,6 +93,7 @@ export const uiMessages = {
   ...uiPublicSourceMessages,
   ...uiSourceExcerptMessages,
   ...uiAnalyticsMessages,
+  ...uiAnalyticsComparisonMessages,
   ...uiSettingsMessages,
   ...uiHistoryMessages,
   ...uiBackupMessages,
