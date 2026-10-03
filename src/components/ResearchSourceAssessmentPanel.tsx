@@ -4,8 +4,10 @@ import type { PersistentVersionHistory } from '../core/versioning'
 import { retainedSearchTrends, type RetainedSearchTrend } from '../core/searchTrends'
 import { newSourceAssessmentDraft, selectedSourceAssessments, sourceAssessmentDraft, sourceAssessmentKey, SourceAssessmentSession, type SourceAssessment, type SourceAssessmentDraft } from '../core/researchSourceAssessment'
 import { useUiLanguage } from './UiLanguageProvider'
+import type { CourseOutputWorkerProps } from './CourseOutputFileCheckPanel'
+import { PublicSourceReader } from './PublicSourceReader'
 
-export function ResearchSourceAssessmentPanel({ project, history, onProjectChange }: { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void }) {
+export function ResearchSourceAssessmentPanel({ project, history, onProjectChange, ...worker }: CourseOutputWorkerProps & { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void }) {
   const { t, language } = useUiLanguage(), session = useRef(new SourceAssessmentSession())
   const [selected, setSelected] = useState(0), [loaded, setLoaded] = useState<{ source: RetainedSearchTrend; baseline: string; draft: SourceAssessmentDraft } | null>(null)
   const [review, setReview] = useState<SourceAssessment | null>(null), [ack, setAck] = useState(false), [error, setError] = useState(''), [saved, setSaved] = useState(false)
@@ -32,6 +34,7 @@ export function ResearchSourceAssessmentPanel({ project, history, onProjectChang
     </select></label>
     {!loaded && <><button disabled={!!readError || !sources[selected]} onClick={load}>{t('assessment.load')}</button>{existing ? display(existing) : <p>{t('assessment.none')}</p>}</>}
     {loaded && <><p role="status">{t('assessment.draft')}</p><strong>{loaded.source.items[0].query} · {loaded.source.country} · {loaded.source.retrievedAt}</strong>
+      <PublicSourceReader project={project} source={loaded.source} {...worker} />
       <label>{t('assessment.claim')}<textarea maxLength={2000} value={loaded.draft.claim} onChange={event => edit({ claim: event.target.value })}/></label>
       <label>{t('assessment.finding')}<select value={loaded.draft.finding} onChange={event => edit({ finding: event.target.value as SourceAssessmentDraft['finding'] })}>{(['open','supports','contradicts'] as const).map(value => <option key={value} value={value}>{t(`assessment.${value}`)}</option>)}</select></label>
       <label>{t('assessment.notes')}<textarea rows={5} maxLength={4000} value={loaded.draft.notes} onChange={event => edit({ notes: event.target.value })}/></label>

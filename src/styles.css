@@ -366,3 +366,10 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .courseDraftConcern { padding: 14px 16px; border-left: 3px solid #e6bd78; border-radius: 8px; background: #30271c; color: #fae5c1; }
 .courseDraftConcern p { color: #f0dab7; margin: 8px 0; }
 .courseDraftConcern small { line-height: 1.5; }
+.publicSourceReader { border: 1px solid #44516a; padding: 1rem; border-radius: 12px; overflow-wrap: anywhere; }
+.publicSourceReader select { max-width: 100%; }
+.publicSourceActions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+.publicSourceActions button { padding: .7rem 1rem; cursor: pointer; }
+.publicSourceActions button:disabled { cursor: not-allowed; opacity: .55; }
+.publicSourceReader :focus-visible { outline: 2px solid #aebdff; outline-offset: 3px; }
+.publicSourceText { white-space: pre-wrap; max-height: 32rem; overflow: auto; padding: 1rem; border: 1px solid #44516a; border-radius: 8px; line-height: 1.65; background: #111827; }
