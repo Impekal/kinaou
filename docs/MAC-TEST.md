@@ -1,5 +1,9 @@
 # KINAOU — Real Mac Execution Test
 
+## Local course context/completion acceptance — 2026-10-03
+
+#411 passed actual installed-model DE/EN/FR script/exercise protocol calls and a fresh browser/worker test: over-budget complete source fails before inference, older large provenance remains readable, a separate valid generation/manual edit saves normally, DE/EN/FR help works. Model identity/completion/counters and 32,768 runtime context were observed; no automatic content approval. Additional samples exposed answer leakage and vague prose, documented in COURSE-SCRIPT-DRAFTS.md for follow-up. Own services/test files were removed; no immediate SSD/model action is required. The latest power check showed battery operation: the approved AC-only wake helper does not prevent battery sleep.
+
 ## Local exercise draft acceptance — 2026-10-03
 
 #409 already passed actual installed `llama3.1:8b` DE/EN/FR generation and browser/worker acceptance with an isolated course. On an updated worker, choose a saved lesson script, expand Local AI exercise drafts, select 1–3 exercises and explicitly discover/generate. Inspect source quotes, edit tasks/hints/private answers/criteria, review, acknowledge and append. Existing exercises/scripts/ranges must remain unchanged. Retry a failed save without another generation or safety snapshot. Project/language/dirty changes must invalidate old work. Learner ZIP/workbook must exclude private fields/provenance, though public text still requires human review. Complete source context is capped at 12,000 UTF-8 bytes and verified model context must be at least 32,768 tokens. Initial model reasoning error and corrected samples are retained, not hidden. No immediate SSD/model action is needed for independent work; do not download models silently. See COURSE-EXERCISE-DRAFTS.md.
