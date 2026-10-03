@@ -1,0 +1,36 @@
+import {it,expect,vi} from 'vitest'
+import {spawn,execFile} from 'node:child_process'
+import {promisify} from 'node:util'
+import {mkdtemp,mkdir,readFile,realpath,readdir,rm} from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
+import {createProject,parseProject,type KinaouProject} from '../src/core/project'
+import {importProbedMedia} from '../src/core/mediaImport'
+import {WorkerClient} from '../src/core/workerClient'
+import {sourceFrameMetadata,validateSourceFrameProbe} from '../src/core/sourceFrame'
+import {AssetImportSession} from '../src/core/assetImportSession'
+import {createRenderPlan,projectFormatPreset} from '../src/core/render'
+const exec=promisify(execFile),run=async(program:string,args:string[])=>(await exec(program,args,{encoding:'buffer',maxBuffer:16*1024**2})).stdout
+it('extracts actual red/blue frames, verifies bytes, registers only on explicit save/retry and renders the still without modifying its source',async context=>{
+ try{await run('ffmpeg',['-version']);await run('ffprobe',['-version'])}catch(cause){if(process.env.CI)throw cause;context.skip('FFmpeg required');return}
+ const temp=await mkdtemp(path.join(os.tmpdir(),'kinaou-source-frame-'));await mkdir(path.join(temp,'KINAOU/Assets'),{recursive:true});const root=await realpath(path.join(temp,'KINAOU')),source=path.join(root,'Assets/source.mp4')
+ const child=spawn(process.execPath,[path.resolve('worker/mac-worker.mjs')],{env:{PATH:process.env.PATH,KINAOU_MANAGED_ROOT:root,KINAOU_WORKER_PORT:'44020',KINAOU_WORKER_TOKEN:'source-frame-test'},stdio:['ignore','pipe','pipe']});let logs='';child.stdout.on('data',d=>{logs+=d});child.stderr.on('data',d=>{logs+=d})
+ try{
+  await run('ffmpeg',['-v','error','-f','lavfi','-i','color=red:size=160x90:rate=25:duration=1','-f','lavfi','-i','color=blue:size=160x90:rate=25:duration=1','-filter_complex','[0:v][1:v]concat=n=2:v=1:a=0[v]','-map','[v]','-c:v','libx264','-pix_fmt','yuv420p',source]);const original=await readFile(source),beforeFiles=await readdir(path.join(root,'Assets'))
+  const deadline=Date.now()+15000;while(!logs.includes('listening on http://127.0.0.1:44020')){if(child.exitCode!==null||Date.now()>deadline)throw Error(logs);await new Promise(r=>setTimeout(r,30))}
+  const client=new WorkerClient({baseUrl:'http://127.0.0.1:44020',token:'source-frame-test'});expect((await client.health()).capabilities).toContain('source-video-frame')
+  const base=parseProject({...createProject('Actual video still'),tracks:[{id:'v',name:'Images',type:'image',clips:[]}]}),project=importProbedMedia(base,{kind:'video',name:'Synthetic red blue',managedPath:'KINAOU/Assets/source.mp4',probe:await client.probe('KINAOU/Assets/source.mp4')}),beforeProject=JSON.stringify(project)
+  const red=await client.extractSourceFrame({path:project.assets[0].uri,timeMs:200}),blue=await client.extractSourceFrame({path:project.assets[0].uri,timeMs:1200});expect(red.record.sha256).not.toBe(blue.record.sha256);expect(blue.record).toMatchObject({sourceDurationMs:2000,width:160,height:90,requestedMs:1200})
+  await expect(client.extractSourceFrame({path:project.assets[0].uri,timeMs:2000})).rejects.toThrow();expect(await readdir(path.join(root,'Assets'))).toEqual(beforeFiles);expect(JSON.stringify(project)).toBe(beforeProject)
+  const unauth=await fetch('http://127.0.0.1:44020/assets/source-frame',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({path:project.assets[0].uri,timeMs:0})});expect(unauth.status).toBe(401)
+  await run('ffmpeg',['-v','error','-f','lavfi','-i','color=blue:size=2560x1440:rate=25:duration=0.2','-c:v','libx264','-preset','ultrafast','-pix_fmt','yuv420p',path.join(root,'Assets/wide.mp4')]);expect((await client.extractSourceFrame({path:'KINAOU/Assets/wide.mp4',timeMs:0})).record).toMatchObject({sourceWidth:2560,sourceHeight:1440,width:1920,height:1080})
+  await run('ffmpeg',['-v','error','-display_rotation','90','-i',source,'-c','copy',path.join(root,'Assets/rotated.mp4')]);const rotation=JSON.parse((await run('ffprobe',['-v','error','-select_streams','v','-show_entries','stream_side_data=rotation','-of','json',path.join(root,'Assets/rotated.mp4')])).toString());expect(rotation.streams[0].side_data_list[0].rotation).toBe(90);expect((await client.extractSourceFrame({path:'KINAOU/Assets/rotated.mp4',timeMs:1200})).record).toMatchObject({width:90,height:160})
+  await run('ffmpeg',['-v','error','-i',source,'-vf','setsar=2','-c:v','libx264',path.join(root,'Assets/non-square.mp4')]);await expect(client.extractSourceFrame({path:'KINAOU/Assets/non-square.mp4',timeMs:0})).rejects.toThrow(/square/)
+  let current=project;const feedback:string[]=[],attempts:string[]=[],upload=vi.fn((file:File,name:string)=>client.importAsset(file,name)),snapshot=vi.fn()
+  const session=new AssetImportSession(project,'A',blue.file,'image',{client:{importAsset:upload,probe:async file=>validateSourceFrameProbe(await client.probe(file),blue)},environment:()=>({project:current,connection:'A'}),assetMetadata:sourceFrameMetadata(project,project.assets[0].id,blue),snapshot,persist:p=>{const copy=structuredClone(p);attempts.push(JSON.stringify(copy));if(attempts.length===1){copy.assets=[];throw Error('synthetic failed save')}current=copy},publish:f=>feedback.push(f.phase)})
+  await session.run();expect(feedback.at(-1)).toBe('saveFailed');await session.run();expect(feedback.at(-1)).toBe('succeeded');expect(upload).toHaveBeenCalledOnce();expect(snapshot).toHaveBeenCalledOnce();expect(new Set(attempts).size).toBe(1);expect(current.assets).toHaveLength(2);expect(current.tracks[0].clips).toHaveLength(0)
+  const image=current.assets[1];expect(await readFile(path.join(root,image.uri.slice(7)))).toEqual(Buffer.from(await blue.file.arrayBuffer()));expect(image.metadata).toMatchObject({sourceKind:'extracted-video-frame-v1',sourceAsset:{id:project.assets[0].id},extraction:{sha256:blue.record.sha256,requestedMs:1200}})
+  const next:KinaouProject=parseProject({...current,tracks:[{...current.tracks[0],clips:[{id:'still',assetId:image.id,startMs:0,durationMs:1000}]}]}),output='KINAOU/Renders/source-still.mp4';let job=await client.startRender(createRenderPlan(next,projectFormatPreset(next,'landscape','preview'),output));for(let n=0;n<300&&['queued','running'].includes(job.state);n++){await new Promise(r=>setTimeout(r,30));job=await client.renderStatus(job.id)}expect(job.state,job.error).toBe('succeeded')
+  const pixel=await run('ffmpeg',['-v','error','-ss','0.5','-i',path.join(root,'Renders/source-still.mp4'),'-vf','scale=1:1','-frames:v','1','-f','rawvideo','-pix_fmt','rgb24','-']);expect(pixel[2]).toBeGreaterThan(200);expect(pixel[0]).toBeLessThan(30);expect(await readFile(source)).toEqual(original);expect(JSON.stringify(project)).toBe(beforeProject)
+ }finally{child.kill('SIGKILL');await new Promise<void>(resolve=>{child.on('close',()=>resolve());setTimeout(resolve,3000).unref()});await rm(temp,{recursive:true,force:true})}
+},60000)
