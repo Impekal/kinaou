@@ -16,6 +16,7 @@ import { moveCourseLesson, reorderCourseModule } from '../core/courseOrdering'
 import { CourseModuleOrderControls, CourseLessonOrderControls } from './CourseOrderControls'
 import { CourseWorkspaceNavigation, type CourseWorkspaceStage } from './CourseWorkspaceNavigation'
 import { CourseProductionWorkspace } from './CourseProductionWorkspace'
+import { CourseScriptDraftPanel } from './CourseScriptDraftPanel'
 import {courseGapPlacementIsCurrent,type CourseGapPlacement} from '../core/courseGapPlacement'
 import {courseOutputNavigationIsCurrent,type CourseOutputNavigation} from '../core/courseOutputNavigation'
 import { ProjectSourceArchivePanel } from './ProjectSourceArchivePanel'
@@ -122,6 +123,7 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio, o
           <label>{t('course.script')}<textarea maxLength={courseScriptLimits.lesson} rows={8} value={lesson.script ?? ''} onChange={(event) => change({ ...draft, modules: draft.modules.map((entry) => entry.id === module.id ? { ...entry, lessons: entry.lessons.map((item) => item.id === lesson.id ? { ...item, script: event.target.value } : item) } : entry) })} /></label>
           <small>{t('course.scriptHelp', { lessonLimit: courseScriptLimits.lesson, courseLimit: courseScriptLimits.course })}</small>
           <button className="secondaryButton" disabled={dirty || !lesson.script?.trim()} onClick={() => downloadLesson(lesson.id, 'script')}>{t('course.scriptDownload')}</button>
+          <CourseScriptDraftPanel key={`script-draft-${project.id}-${lesson.id}`} project={project} lessonId={lesson.id} dirty={dirty} history={history} onProjectChange={onProjectChange} onSaved={next=>change(projectCourse(next)!)} {...worker} />
           <CourseLessonEvidenceEditor project={project} lesson={lesson} onChange={next => change({ ...draft, modules: draft.modules.map(entry => entry.id === module.id ? { ...entry, lessons: entry.lessons.map(item => item.id === lesson.id ? next : item) } : entry) })} />
           <CourseLessonExercisesEditor lesson={lesson} dirty={dirty} onDownload={kind => downloadLesson(lesson.id, kind)} onChange={next => change({ ...draft, modules: draft.modules.map(entry => entry.id === module.id ? { ...entry, lessons: entry.lessons.map(item => item.id === lesson.id ? next : item) } : entry) })} />
           <CourseLessonMaterialsEditor lesson={lesson} onChange={next => change({ ...draft, modules: draft.modules.map(entry => entry.id === module.id ? { ...entry, lessons: entry.lessons.map(item => item.id === lesson.id ? next : item) } : entry) })} />
