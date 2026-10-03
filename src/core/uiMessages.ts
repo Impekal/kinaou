@@ -5,6 +5,7 @@ import { uiMediaExcerptMessages } from './uiMediaExcerptMessages'
 import { uiSourceFrameMessages } from './uiSourceFrameMessages'
 import { uiFrameAnnotationMessages } from './uiFrameAnnotationMessages'
 import { uiFrameReportMessages } from './uiFrameReportMessages'
+import { uiFrameRevisionMessages } from './uiFrameRevisionMessages'
 import { uiExplainerMessages } from './uiExplainerMessages'
 import { uiRevealMessages } from './uiRevealMessages'
 import { uiCourseDemoPlacementMessages } from './uiCourseDemoPlacementMessages'
@@ -89,6 +90,7 @@ export const uiMessages = {
   ...uiSourceFrameMessages,
   ...uiFrameAnnotationMessages,
   ...uiFrameReportMessages,
+  ...uiFrameRevisionMessages,
   ...uiSourceReportMessages,
   ...uiSourceAssessmentMessages,
   ...uiResearchWorkspaceMessages,
