@@ -1,5 +1,9 @@
 # KINAOU — Real Mac Execution Test
 
+## Course-draft review hints — 2026-10-03
+
+#413 passed actual installed-model DE/EN/FR sampling and browser/worker hint checks. In a disposable draft, put the full answer in a learner task, or remove/add a quoted numeric reference in script prose: the relevant edit and final-review views should show advisory hints. Correcting text clears current hints and invalidates the prior review; history shows original and accepted concerns separately. Opening history causes no request/save. Hints may flag valid derived facts or multiple-choice options and cannot certify truth or answer secrecy. A temporary browser reload interrupted an optional repeat of saving; #413 does not claim that repeat succeeded. Existing save paths remain covered by #409/#411. Final fresh read-only multilingual checks passed with a clean console. No immediate SSD/model action required; see COURSE-SCRIPT-DRAFTS.md.
+
 ## Local course context/completion acceptance — 2026-10-03
 
 #411 passed actual installed-model DE/EN/FR script/exercise protocol calls and a fresh browser/worker test: over-budget complete source fails before inference, older large provenance remains readable, a separate valid generation/manual edit saves normally, DE/EN/FR help works. Model identity/completion/counters and 32,768 runtime context were observed; no automatic content approval. Additional samples exposed answer leakage and vague prose, documented in COURSE-SCRIPT-DRAFTS.md for follow-up. Own services/test files were removed; no immediate SSD/model action is required. The latest power check showed battery operation: the approved AC-only wake helper does not prevent battery sleep.
