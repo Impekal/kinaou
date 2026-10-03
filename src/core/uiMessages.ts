@@ -1,5 +1,6 @@
 import type { UiLanguage } from './uiLanguage'
 import { uiSourceImportMessages } from './uiSourceImportMessages'
+import { uiSourceReportMessages } from './uiSourceReportMessages'
 import { uiExplainerMessages } from './uiExplainerMessages'
 import { uiRevealMessages } from './uiRevealMessages'
 import { uiCourseDemoPlacementMessages } from './uiCourseDemoPlacementMessages'
@@ -80,6 +81,7 @@ import { uiRecoveryMessages } from './uiRecoveryMessages'
 
 // Ordered de/en/fr tuples make missing language entries a compile-time error.
 export const uiMessages = {
+  ...uiSourceReportMessages,
   ...uiSourceAssessmentMessages,
   ...uiResearchWorkspaceMessages,
   ...uiExplainerMessages,
