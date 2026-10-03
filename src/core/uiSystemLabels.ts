@@ -13,6 +13,7 @@ const exactHistoryLabels: Record<string, UiMessageKey> = {
   'Before placing lesson narration': 'history.system.courseNarrationPlacement',
   'Before placing lesson demonstration': 'course.demoPlace.history',
   'Before applying lesson script draft': 'course.scriptDraft.history',
+  'Before applying lesson exercise drafts': 'course.exerciseDraft.history',
   'Before saving explainer reveal': 'reveal.history',
   'Before lesson transcript captions': 'history.system.courseCaptions',
   'Before adding a caption': 'history.system.addCaption',

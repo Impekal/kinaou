@@ -17,6 +17,7 @@ import { CourseModuleOrderControls, CourseLessonOrderControls } from './CourseOr
 import { CourseWorkspaceNavigation, type CourseWorkspaceStage } from './CourseWorkspaceNavigation'
 import { CourseProductionWorkspace } from './CourseProductionWorkspace'
 import { CourseScriptDraftPanel } from './CourseScriptDraftPanel'
+import { CourseExerciseDraftPanel } from './CourseExerciseDraftPanel'
 import {courseGapPlacementIsCurrent,type CourseGapPlacement} from '../core/courseGapPlacement'
 import {courseOutputNavigationIsCurrent,type CourseOutputNavigation} from '../core/courseOutputNavigation'
 import { ProjectSourceArchivePanel } from './ProjectSourceArchivePanel'
@@ -125,6 +126,7 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio, o
           <button className="secondaryButton" disabled={dirty || !lesson.script?.trim()} onClick={() => downloadLesson(lesson.id, 'script')}>{t('course.scriptDownload')}</button>
           <CourseScriptDraftPanel key={`script-draft-${project.id}-${lesson.id}`} project={project} lessonId={lesson.id} dirty={dirty} history={history} onProjectChange={onProjectChange} onSaved={next=>change(projectCourse(next)!)} {...worker} />
           <CourseLessonEvidenceEditor project={project} lesson={lesson} onChange={next => change({ ...draft, modules: draft.modules.map(entry => entry.id === module.id ? { ...entry, lessons: entry.lessons.map(item => item.id === lesson.id ? next : item) } : entry) })} />
+          <CourseExerciseDraftPanel key={`exercise-draft-${project.id}-${lesson.id}`} project={project} lessonId={lesson.id} dirty={dirty} history={history} onProjectChange={onProjectChange} onSaved={next=>change(projectCourse(next)!)} {...worker} />
           <CourseLessonExercisesEditor lesson={lesson} dirty={dirty} onDownload={kind => downloadLesson(lesson.id, kind)} onChange={next => change({ ...draft, modules: draft.modules.map(entry => entry.id === module.id ? { ...entry, lessons: entry.lessons.map(item => item.id === lesson.id ? next : item) } : entry) })} />
           <CourseLessonMaterialsEditor lesson={lesson} onChange={next => change({ ...draft, modules: draft.modules.map(entry => entry.id === module.id ? { ...entry, lessons: entry.lessons.map(item => item.id === lesson.id ? next : item) } : entry) })} />
           <div className="formRow">{(['inMs', 'outMs'] as const).map((edge) => <label key={edge}>{t(edge === 'inMs' ? 'course.in' : 'course.out')}<input type="number" min="0" step="0.001" value={Number.isFinite(lesson.range[edge]) ? lesson.range[edge] / 1000 : ''} onChange={(event) => change({ ...draft, modules: draft.modules.map((entry) => entry.id === module.id ? { ...entry, lessons: entry.lessons.map((item) => item.id === lesson.id ? { ...item, range: { ...item.range, [edge]: event.target.value === '' ? NaN : Math.round(Number(event.target.value) * 1000) } } : item) } : entry) })} /></label>)}</div>

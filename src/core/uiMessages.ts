@@ -4,6 +4,7 @@ import { uiRevealMessages } from './uiRevealMessages'
 import { uiCourseDemoPlacementMessages } from './uiCourseDemoPlacementMessages'
 import { uiCourseOverviewMessages } from './uiCourseOverviewMessages'
 import { uiCourseScriptDraftMessages } from './uiCourseScriptDraftMessages'
+import { uiCourseExerciseDraftMessages } from './uiCourseExerciseDraftMessages'
 import { uiResearchWorkspaceMessages } from './uiResearchWorkspaceMessages'
 import { uiAnalyticsMessages } from './uiAnalyticsMessages'
 import { uiSourceLibraryMessages } from './uiSourceLibraryMessages'
@@ -79,6 +80,7 @@ export const uiMessages = {
   ...uiCourseDemoPlacementMessages,
   ...uiCourseOverviewMessages,
   ...uiCourseScriptDraftMessages,
+  ...uiCourseExerciseDraftMessages,
   ...uiAnalyticsMessages,
   ...uiSettingsMessages,
   ...uiHistoryMessages,
