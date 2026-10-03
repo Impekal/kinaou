@@ -1,5 +1,9 @@
 # KINAOU — Real Mac Execution Test
 
+## Actionable image-preview media errors — 2026-10-04
+
+#453 passed metadata-only diagnostics for missing/offline/duplicate active sources and actual DE/EN/FR browser checks (twelve affected references, ten visible, safe literal labels). In a disposable project with unavailable background media, review an otherwise valid image placement: preview must name the problem, not remove or silently skip the background. Separate explicit image insertion may proceed and must retain all other records/clips. This does not access or verify files. 2,933 tests and full CI passed. No immediate SSD/model action; work stops after this documentation gate at the user's 20%-remaining boundary.
+
 ## Prepared image composition preview — 2026-10-04
 
 #451 passed real FFmpeg prepared-preview/export interval pixels and actual browser/worker H.264 decoding. In a disposable timeline up to 60 seconds, prepare an image interval, explicitly render before inserting and inspect image start/midpoint using the pause-and-seek buttons. Other active layers must remain, including actual occlusion. Preview must not write a project/history entry. While rendering insertion is blocked; close/reopen unloads the old video. Missing capabilities or a longer complete timeline refuse preview without silently substituting a smaller composition. Ordinary preview audio defaults are not unsaved export settings. Actual DE/EN/FR, zero writes, 0.2/0.4-second seek/pause and clean console acceptance passed. No immediate SSD/model action required; see SOURCE-FRAMES.md.

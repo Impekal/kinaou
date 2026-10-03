@@ -23,6 +23,8 @@ Playback starts paused. The explicit image-start/midpoint shortcuts seek within 
 
 ### Extraction limits
 
+Prepared-preview diagnostics (#453) list the affected active clip's track/source when a media entry is missing, marked offline or has a duplicate ID. Up to ten bounded labels are displayed with the total affected-reference count. Restore or replace the source deliberately through existing media/timeline tools; no automatic removal, skipping or online flag is applied. Intentionally muted tracks and unreferenced assets do not block this metadata check. Separate valid image insertion remains possible. This is not proof that a present file exists or is readable. 2,933 tests and actual DE/EN/FR browser acceptance passed, including literal HTML-like source names and preservation of twelve existing references/two duplicate records after explicit insertion.
+
 - Updated worker capability `source-video-frame`, FFmpeg/FFprobe, import and probing are required. No installation, cloud API or model download occurs.
 - Managed regular MP4 only, at most 2 GiB/six hours, square pixels, one concurrent extraction and 30 seconds total subprocess time. Symlinks, traversal, non-MP4 headers, source identity/metadata changes and out-of-duration requests refuse. The worker pins a read-only descriptor; libav receives local-only protocols and disabled MOV data references, never an arbitrary URL.
 - PNG at most 1920×1080 and 16 MiB, retaining aspect/orientation without encoded upscaling. Smaller originals stay smaller; displayed browser size is not source resolution. Non-square-pixel sources currently refuse rather than silently distort.
