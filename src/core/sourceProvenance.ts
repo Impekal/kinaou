@@ -65,9 +65,9 @@ export class SourceProvenanceSession {
     if (signature !== this.signature) { this.signature = signature; this.generation++ }
     return this.generation
   }
-  prepare(project: KinaouProject, assetId: string, language: UiLanguage, now = new Date()) {
+  prepare(project: KinaouProject, assetId: string, language: UiLanguage, now = new Date(), build = buildSourceProvenance) {
     this.observe(project, assetId, language)
-    const review = buildSourceProvenance(project, assetId, language, now)
+    const review = build(project, assetId, language, now)
     this.reviews.set(review, { generation: this.generation, bytes: JSON.stringify(review) })
     return review
   }
