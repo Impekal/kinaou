@@ -2,6 +2,14 @@
 
 Implemented in #355, 2026-09-30. This is a private local drafting/review workflow, not automatic publication or a verified marketing engine.
 
+## Save-only recovery — #425, 2026-10-03
+
+One prepared revision/timestamp and one successful safety snapshot are retained privately for each explicit review. If synchronous project persistence throws, another save attempts the same serialized payload without another model call or duplicate safety snapshot. The callback receives a fresh copy, so mutation before a failed write cannot poison the retry. A failed safety snapshot prevents project persistence and is retried; completed/reentrant commits cannot replay. A newly reviewed edit still creates its own ordinary revision/snapshot. This is ephemeral session-only recovery: reloading loses an unsaved draft/review, not a successfully persisted record.
+
+Observed project or review mutation permanently invalidates a review, including A→B→A. The UI additionally binds response/review lifetimes to interface language and selected model; returning to a prior language/model cannot revive an old acknowledgement, translation comparison or held reply. Current drafts remain editable. Diagnostic errors and saved notices only appear for their associated state. All actual schema/quote/provenance checks remain in force; no automatic content approval.
+
+Acceptance: 2,610 app tests / 240 files, including 16 recovery regressions, build and full CI 37135935648. Browser actual components/WorkerClient with clearly synthetic model-protocol replies confirmed byte-identical repeated writes with one snapshot, serialized reload, stale project/language/model rejection, delayed reply rejection, independent translation/final acknowledgement, history failure before project persistence, preserved provenance/quotes, DE/EN/FR and clean console. No new real-model inference was needed or claimed in this slice.
+
 ## Complete inference boundary — #423, 2026-10-03
 
 New generation and translation require `publication-editorial-completion-v2` in addition to their original capabilities. Before private text is sent, local model metadata must report an architecture-specific context length of at least 32,768. Both requests explicitly set `num_ctx=32768`, `num_predict=4096`, temperature zero. A reply must identify the selected model, report `done=true` and `done_reason=stop`, and include non-negative safe-integer prompt/output counts whose sum fits context and output is below the cap. Even schema-valid partial JSON is refused. This is protocol/completion checking, not attestation or proof of comprehension.
