@@ -1,5 +1,9 @@
 # KINAOU — Real Mac Execution Test
 
+## Local curriculum acceptance — 2026-10-03
+
+#419 passed real installed-model DE/EN/FR generation and actual browser/worker review/append/retry/reload. On an updated worker, save a disposable course, enter authorized notes and explicitly generate 1–6 new lessons. Edit objectives and inspect quotes, enter planned start/time, then review/acknowledge. Existing scripts/media must remain; overlap/capacity conflicts fail. Failed persistence repeats only saving with one safety snapshot. Language changes do not translate saved source/proposals. No immediate SSD/model action required. Runtime consumed about 8.7 GiB GPU memory at 32,768 context; real content still needs instructor review, especially the observed German objective wording. See COURSE-CURRICULUM-DRAFTS.md.
+
 ## Public source reader acceptance — 2026-10-03
 
 #415 passed real public HTTPS and isolated authenticated browser tests. In a disposable retained observation, open Source assessment, choose an article and explicitly retrieve text. Confirm original/final URLs, HTML hash/time, unverified language and extraction/truncation warnings. Check no read flags/project writes, text retention across Research tabs and permanent rejection after observed project/language/connection changes. Blocked/unsupported pages must report failure without bypass or invented text. Actual tagesschau/heise reads and Spektrum 403 refusal were observed; body extraction retained navigation on heise. No immediate SSD/model action needed; see PUBLIC-SOURCE-READER.md.

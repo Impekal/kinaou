@@ -255,6 +255,10 @@ The full PR gate passed 289 app tests, 82 native worker tests, production build 
 
 The local browser displayed the new Course entry/form and language options on a separate test origin. The full save/reload/export behavior is covered by automated tests; the optional manual checklist is in MAC-TEST.md. No real teaching course has been reviewed or approved.
 
+## Local curriculum planning — #419
+
+Course plan now proposes source-bound modules/lessons through an explicitly selected installed-local model. Titles/objectives stay editable, exact quotations and complete additions require review, and planned ranges are explicitly authored rather than invented media durations. Append-only acceptance preserves existing production and supports one-snapshot save-only retry with historical private provenance. Real DE/EN/FR inference and browser/worker acceptance passed; German objective wording still required human refinement. See COURSE-CURRICULUM-DRAFTS.md. Complete teaching/media acceptance remains open.
+
 ## Next course slices
 
 Current after #345: Course now also makes real private project/registered-media copies, verified through hash checks and isolated re-render from archived sources. Remaining course work includes broader reference preservation, archive rediscovery/restore UX and actual instructional acceptance; no whole-point completion is claimed. Next safe repository priority: point 5's missing attributable live trend input, beginning with an explicit public RSS read and honest country/time/source limitations, without paid/account/cloud-inference APIs.
