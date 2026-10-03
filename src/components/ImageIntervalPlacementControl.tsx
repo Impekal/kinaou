@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import type { KinaouAsset, KinaouProject } from '../core/project'
 import type { PersistentVersionHistory } from '../core/versioning'
-import { ImageIntervalError, ImageIntervalPlacement } from '../core/imageIntervalPlacement'
+import { ImageIntervalError, ImageIntervalPlacement, ImagePreviewMediaError, type ImagePreviewMediaIssue } from '../core/imageIntervalPlacement'
 import { parseExcerptSeconds } from '../core/mediaExcerpt'
 import { compatibleTracks } from '../core/timelinePlacement'
 import { displayTrackName } from '../core/uiSystemLabels'
@@ -20,8 +20,8 @@ export function ImageIntervalPlacementControl({ project, asset, history, onProje
   const epoch = environment.current.epoch, scope = String(epoch)
   placement?.observe(project, scope)
   const review = placement?.current ? placement.review : null
-  let preview: RenderPlan | null = null, previewError = ''
-  if (review) { try { preview = placement!.preview(project, scope) } catch (cause) { previewError = t(cause instanceof ImageIntervalError && cause.code === 'previewLength' ? 'imageInterval.previewLength' : 'imageInterval.previewUnavailable') } }
+  let preview: RenderPlan | null = null, previewError = '', mediaIssues: ReadonlyArray<Readonly<ImagePreviewMediaIssue>> = []
+  if (review) { try { preview = placement!.preview(project, scope) } catch (cause) { previewError = t(cause instanceof ImageIntervalError && cause.code === 'previewLength' ? 'imageInterval.previewLength' : 'imageInterval.previewUnavailable'); if (cause instanceof ImagePreviewMediaError) mediaIssues = cause.issues } }
   const blocked = Boolean(preview?.requiredCapabilities.some(capability => !workerCapabilities.includes(capability)))
   const previewScope = JSON.stringify([epoch, placement?.clipId, workerUrl, workerToken, workerConnected, workerCapabilities])
   function edit(key: keyof typeof form, value: string) { setForm(old => ({ ...old, [key]: value })); setAck(false); setError(''); setSaved('') }
@@ -44,6 +44,7 @@ export function ImageIntervalPlacementControl({ project, asset, history, onProje
     {review && <div className="renderJob stack"><strong>{review.name} · {review.trackName}</strong><p>{t('imageInterval.summary', { start: review.startMs / 1000, end: review.endMs / 1000, duration: review.durationMs / 1000 })}</p><p>{t('imageInterval.framing')}</p>{review.layered && <p className="note">{t('imageInterval.layered')}</p>}
       <section className="stack"><strong>{t('imageInterval.preview')}</strong><p>{t('imageInterval.previewHelp')}</p><p className="note">{t('preview.scopeHelp')}</p>
         {previewError && <p>{previewError}</p>}{blocked && workerConnected && <p>{t('imageInterval.previewWorker')}</p>}
+        {mediaIssues.length > 0 && <div role="alert"><p>{t('imageInterval.mediaIssues', { count: mediaIssues.length })}</p><ul>{mediaIssues.slice(0, 10).map((issue, index) => <li key={index}>{issue.trackName} · {issue.assetName} — {t(`imageInterval.mediaIssue.${issue.status}`)}</li>)}</ul><p>{t('imageInterval.mediaIssueHelp')}</p></div>}
         {open && preview && <RangePreviewPlayback key={previewScope} plan={preview} disabled={blocked} workerUrl={workerUrl} workerToken={workerToken} workerConnected={workerConnected} onBusyChange={setPreviewBusy} seekPoints={[{ label: t('imageInterval.jumpStart'), seconds: review.startMs / 1000 }, { label: t('imageInterval.jumpMiddle'), seconds: (review.startMs + review.durationMs / 2) / 1000 }]} />}
       </section>
       <label className="sourceReportAck"><input type="checkbox" checked={ack} onChange={e => setAck(e.target.checked)} />{t('imageInterval.ackLabel')}</label><button className="primary" disabled={!ack || previewBusy} onClick={save}>{t('imageInterval.place')}</button></div>}
