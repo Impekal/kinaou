@@ -22,7 +22,7 @@ export function PublicationEditorialPanel({ project, history, workerUrl, workerT
   const [models, setModels] = useState<{ connection: string; values: Array<{ id: string; sizeBytes: number }> } | null>(null), [model, setModel] = useState('')
   const [pending, setPending] = useState<{ current: () => boolean } | null>(null)
   const inFlight = useRef<(() => boolean) | null>(null), scope = useRef(new AiEditorRequestScope())
-  const supported = workerConnected && !!workerToken.trim() && workerCapabilities.includes('publication-editorial')
+  const supported = workerConnected && !!workerToken.trim() && workerCapabilities.includes('publication-editorial') && workerCapabilities.includes('publication-editorial-completion-v2')
   const languageSupported = supported && workerCapabilities.includes('publication-editorial-language')
   const connection = JSON.stringify([workerUrl, workerToken, supported, languageSupported]), identity = JSON.stringify([project, draft, connection])
   const observed = useRef({ identity, epoch: 0 })
@@ -91,6 +91,7 @@ export function PublicationEditorialPanel({ project, history, workerUrl, workerT
   }
   return <section className="card stack" style={{ padding: 28, minWidth: 0 }}>
     <h3>{t('editorial.heading')}</h3><p>{t('editorial.help')}</p>
+    <p className="note">{t('editorial.inferenceBudget')}</p>
     <button className="secondaryButton" disabled={!context || !!recordError || busy} onClick={prepare}>{t('editorial.prepare')}</button><small>{t('editorial.replace')}</small>
     {context && <p>{t('editorial.context', { language: context.outputLanguage, market: context.targetMarket, revision: context.planRevision })}</p>}
     <button className="secondaryButton" disabled={!supported || busy} onClick={() => void request('models')}>{t('editorial.models')}</button>
