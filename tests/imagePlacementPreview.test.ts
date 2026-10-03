@@ -5,6 +5,10 @@ import { createTimelinePreviewPlan, setProjectTargetFormat, setProjectFormatRefr
 import { freshPreviewPlan } from '../src/core/previewSession'
 import { ShortPreviewSession } from '../src/core/shortPreviewSession'
 import { translateUi } from '../src/core/uiMessages'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { PreviewPlayback } from '../src/components/PreviewFeedback'
+import { UiLanguageProvider } from '../src/components/UiLanguageProvider'
 
 function fixture() {
   const project = parseProject({ ...createProject('Full placement preview'), assets: [{ id: 'image', kind: 'image', managed: true, uri: 'KINAOU/Assets/image.png', metadata: {} }, { id: 'video', kind: 'video', managed: true, uri: 'KINAOU/Assets/video.mp4', metadata: { durationMs: 10000 } }], tracks: [{ id: 'v', name: 'Underlying', type: 'video', clips: [{ id: 'video', assetId: 'video', startMs: 0, durationMs: 5000, embeddedAudio: true }] }, { id: 'i', name: 'Images', type: 'image', clips: [] }] })
@@ -43,4 +47,8 @@ it('retries the same real preview protocol job after a lost read and detaches la
 })
 it.each(['de', 'en', 'fr'] as const)('contains honest %s preview boundaries', language => {
   for (const key of ['imageInterval.previewHelp', 'imageInterval.previewLength', 'imageInterval.previewUnavailable', 'imageInterval.previewWorker'] as const) expect(translateUi(language, key).length).toBeGreaterThan(30)
+})
+it.each(['de', 'en', 'fr'] as const)('exposes only bounded localized %s seek shortcuts, disabled until actual metadata is loaded', language => {
+  const label = translateUi(language, 'imageInterval.jumpStart'), html = renderToStaticMarkup(createElement(UiLanguageProvider, { initialLanguage: language, children: createElement(PreviewPlayback, { url: 'blob:synthetic-render-only', durationSeconds: 2, seekPoints: [{ label, seconds: 0.2 }, { label: 'Negative', seconds: -1 }, { label: 'AtEnd', seconds: 2 }, { label: 'Infinite', seconds: Infinity }, { label: 'NaN', seconds: NaN }] }) }))
+  expect(html).toContain(label); expect(html).toContain('disabled=""'); for (const invalid of ['Negative', 'AtEnd', 'Infinite', 'NaN']) expect(html).not.toContain(invalid)
 })
