@@ -1,5 +1,9 @@
 # KINAOU — Real Mac Execution Test
 
+## Private source report — 2026-10-03
+
+#435 passed actual media-list browser and real TXT/JSON download comparison. In Assets, expand one retained online source and explicitly prepare its private provenance report. Compare timeline/source intervals and speed with Studio, including repeated/muted references. Overruns warn; reports do not verify visibility in exports or current physical bytes. Review both complete previews before download; changing project or language must discard previous approval. No automatic requests or project/history writes. Do not publish private permission evidence without reviewing it. No immediate SSD/model action needed. See SOURCE-IMPORT.md.
+
 ## Authorized direct MP4 import — 2026-10-03
 
 #433 passed actual authenticated browser/worker HTTPS download and same-job/save recovery using a small official MDN CC0 example. On an updated worker with `source-import`, use only a disposable authorized direct MP4, review the download/reuse declarations separately, then explicitly register the measured result. Reload must start no request; same-ID check must not download again. Original provenance survives registration, language changes and reload; no timeline placement occurs automatically. Forgetting a reminder neither cancels a download nor deletes media. Automated cancellation/invalid-host/redirect/size/hash/interruption cases use isolated fixtures; do not corrupt real media or fill the disk to test failures. No immediate SSD/model action is required. See SOURCE-IMPORT.md; this is not general YouTube acquisition or legal approval.
