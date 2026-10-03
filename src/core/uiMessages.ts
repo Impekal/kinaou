@@ -6,6 +6,7 @@ import { uiSourceFrameMessages } from './uiSourceFrameMessages'
 import { uiFrameAnnotationMessages } from './uiFrameAnnotationMessages'
 import { uiFrameReportMessages } from './uiFrameReportMessages'
 import { uiFrameRevisionMessages } from './uiFrameRevisionMessages'
+import { uiImageIntervalMessages } from './uiImageIntervalMessages'
 import { uiExplainerMessages } from './uiExplainerMessages'
 import { uiRevealMessages } from './uiRevealMessages'
 import { uiCourseDemoPlacementMessages } from './uiCourseDemoPlacementMessages'
@@ -91,6 +92,7 @@ export const uiMessages = {
   ...uiFrameAnnotationMessages,
   ...uiFrameReportMessages,
   ...uiFrameRevisionMessages,
+  ...uiImageIntervalMessages,
   ...uiSourceReportMessages,
   ...uiSourceAssessmentMessages,
   ...uiResearchWorkspaceMessages,
