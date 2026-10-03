@@ -42,7 +42,7 @@ export function ProjectAssetList(props: ProjectAssetListProps) {
               <VideoProxyControl {...props} asset={asset} />
             </div>
             <SourceProvenancePanel project={project} assetId={asset.id} />
-            <MediaExcerptPlacementControl key={`excerpt-${asset.id}-${asset.uri}`} project={project} asset={asset} history={props.history} onProjectChange={onProjectChange} />
+            <MediaExcerptPlacementControl key={`excerpt-${asset.id}-${asset.uri}`} {...props} asset={asset} />
           </div>)}
         </div>}
   </div>

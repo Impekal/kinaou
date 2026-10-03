@@ -10,6 +10,8 @@ import {MediaExcerptPlacement} from '../src/core/mediaExcerpt'
 import {createRenderPlan,projectFormatPreset} from '../src/core/render'
 import {WorkerClient} from '../src/core/workerClient'
 import {defaultLoudnessNormalization} from '../src/core/audioLoudness'
+import {freshPreviewPlan} from '../src/core/previewSession'
+import {ShortPreviewSession} from '../src/core/shortPreviewSession'
 const exec=promisify(execFile),run=async(program:string,args:string[])=>(await exec(program,args,{encoding:'buffer',maxBuffer:4*1024**2})).stdout
 it('actual selected red/blue source interval renders at 2x with exact placement and explicit audio, leaving the source unchanged',async context=>{
  try{await run('ffmpeg',['-version']);await run('ffprobe',['-version'])}catch(cause){if(process.env.CI)throw cause;context.skip('FFmpeg required');return}
@@ -29,6 +31,11 @@ it('actual selected red/blue source interval renders at 2x with exact placement 
    const measured=await client.probe(output);expect(Math.abs(measured.durationMs!-1000)).toBeLessThan(100)
    if(measured.audioCodec){const pcm=await run('ffmpeg',['-v','error','-i',file,'-vn','-ac','1','-ar','8000','-f','s16le','-']);let sum=0;const from=4800,to=6400;for(let n=from;n<to&&n*2<pcm.length;n++)sum+=(pcm.readInt16LE(n*2)/32768)**2;const rms=Math.sqrt(sum/(to-from));expect(pcm.length,(await run('ffprobe',['-v','error','-show_streams','-of','json',file])).toString()).toBeGreaterThan(to*2);if(includeAudio)expect(rms).toBeGreaterThan(0.02);else expect(rms).toBeLessThan(0.001);let early=0;for(let n=800;n<2400;n++)early+=(pcm.readInt16LE(n*2)/32768)**2;expect(Math.sqrt(early/1600)).toBeLessThan(0.002)}else expect(includeAudio).toBe(false)
   }
+  const sourcePreview=new MediaExcerptPlacement(project,{assetId:project.assets[0].id,trackId:'v',sourceInMs:500,sourceOutMs:1500,timelineInMs:5000,speed:2,includeAudio:true}),previewPlan=freshPreviewPlan(sourcePreview.preview(project)),beforePreview=JSON.stringify(project)
+  let accepted:Blob|undefined;const phases:string[]=[],session=new ShortPreviewSession(previewPlan,{client,publish:f=>phases.push(f.phase),accept:blob=>{accepted=blob},wait:()=>new Promise(r=>setTimeout(r,30))});await session.run();expect(phases.at(-1)).toBe('ready');expect(accepted!.size).toBeGreaterThan(1000)
+  const previewFile=path.join(root,previewPlan.outputRelativePath.slice('KINAOU/'.length)),previewProbe=await client.probe(previewPlan.outputRelativePath);expect(Math.abs(previewProbe.durationMs!-500)).toBeLessThan(100);expect(previewProbe.audioCodec).toBeTruthy()
+  const previewPixel=async(t:string)=>run('ffmpeg',['-v','error','-ss',t,'-i',previewFile,'-vf','scale=1:1','-frames:v','1','-f','rawvideo','-pix_fmt','rgb24','-']);expect((await previewPixel('0.1'))[0]).toBeGreaterThan(200);expect((await previewPixel('0.4'))[2]).toBeGreaterThan(200)
+  const previewPcm=await run('ffmpeg',['-v','error','-i',previewFile,'-vn','-ac','1','-ar','8000','-f','s16le','-']);let power=0;for(let n=800;n<2400;n++)power+=(previewPcm.readInt16LE(n*2)/32768)**2;expect(Math.sqrt(power/1600)).toBeGreaterThan(0.02);expect(JSON.stringify(project)).toBe(beforePreview);expect(sourcePreview.current).toBe(true)
   const silent=path.join(root,'Assets/silent.mp4');await run('ffmpeg',['-v','error','-i',source,'-an','-c:v','copy',silent])
   const withoutAudio=importProbedMedia(base,{kind:'video',name:'Actual silent source',managedPath:'KINAOU/Assets/silent.mp4',probe:await client.probe('KINAOU/Assets/silent.mp4')}),silentPlacement=new MediaExcerptPlacement(withoutAudio,{assetId:withoutAudio.assets[0].id,trackId:'v',sourceInMs:0,sourceOutMs:1000,timelineInMs:0,speed:1,includeAudio:true}),silentNext=silentPlacement.commit(withoutAudio,'',true,()=>{},()=>{})
   let missingAudio=await client.startRender(createRenderPlan(silentNext,projectFormatPreset(silentNext,'landscape','preview'),'KINAOU/Renders/missing-original-audio.mp4'));for(let n=0;n<300&&['queued','running'].includes(missingAudio.state);n++){await new Promise(r=>setTimeout(r,30));missingAudio=await client.renderStatus(missingAudio.id)}expect(missingAudio.state).toBe('failed');expect(missingAudio.error).toBeTruthy()
