@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import type { KinaouProject } from '../core/project'
 import type { PersistentVersionHistory } from '../core/versioning'
 import { retainedSearchTrends, type RetainedSearchTrend } from '../core/searchTrends'
-import { newSourceAssessmentDraft, selectedSourceAssessments, sourceAssessmentDraft, sourceAssessmentKey, SourceAssessmentSession, type SourceAssessment, type SourceAssessmentDraft } from '../core/researchSourceAssessment'
+import { appendSourceExcerpt, newSourceAssessmentDraft, selectedSourceAssessments, sourceAssessmentDraft, sourceAssessmentKey, SourceAssessmentSession, type SourceAssessment, type SourceAssessmentDraft } from '../core/researchSourceAssessment'
 import { useUiLanguage } from './UiLanguageProvider'
 import type { CourseOutputWorkerProps } from './CourseOutputFileCheckPanel'
 import { PublicSourceReader } from './PublicSourceReader'
+import { SourceExcerptList } from './SourceExcerptControl'
 
 export function ResearchSourceAssessmentPanel({ project, history, onProjectChange, ...worker }: CourseOutputWorkerProps & { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void }) {
   const { t, language } = useUiLanguage(), session = useRef(new SourceAssessmentSession())
@@ -26,7 +27,7 @@ export function ResearchSourceAssessmentPanel({ project, history, onProjectChang
     if (!review || !current || !ack || readError) return
     try { session.current.commit(project, review, ack, value => { history.snapshot(value, 'Before saving source assessment', 'system') }, onProjectChange); setLoaded(null); setReview(null); setAck(false); setSaved(true); setError('') } catch (cause) { setError(String(cause)) }
   }
-  function display(record: SourceAssessment) { return <div className="stack"><p>{t('assessment.historical', { revision: record.revision, date: record.savedAt })}</p><strong>{record.observation.items[0].query} · {record.observation.country}</strong><p style={{ whiteSpace: 'pre-wrap' }}>{record.claim}</p><p>{t(`assessment.${record.finding}`)}</p><p style={{ whiteSpace: 'pre-wrap' }}>{record.notes}</p><p>{t('assessment.links')}</p><ul>{record.readArticleUrls.map(url => <li key={url}><a href={url} target="_blank" rel="noopener noreferrer">{url}</a></li>)}</ul><details><summary>{t('research.provenance')}</summary><pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{JSON.stringify(record.observation, null, 2)}</pre></details><p>{t('assessment.boundary')}</p></div> }
+  function display(record: SourceAssessment) { return <div className="stack"><p>{t('assessment.historical', { revision: record.revision, date: record.savedAt })}</p><strong>{record.observation.items[0].query} · {record.observation.country}</strong><p style={{ whiteSpace: 'pre-wrap' }}>{record.claim}</p><p>{t(`assessment.${record.finding}`)}</p><p style={{ whiteSpace: 'pre-wrap' }}>{record.notes}</p><p>{t('assessment.links')}</p><ul>{record.readArticleUrls.map(url => <li key={url}><a href={url} target="_blank" rel="noopener noreferrer">{url}</a></li>)}</ul><details><summary>{t('research.provenance')}</summary><pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{JSON.stringify(record.observation, null, 2)}</pre></details><SourceExcerptList excerpts={record.excerpts??[]}/><p>{t('assessment.boundary')}</p></div> }
   return <section className="card stack">
     <h3>{t('assessment.heading')}</h3><p>{t('assessment.help')}</p><p>{t('assessment.boundary')}</p>
     <label>{t('assessment.choose')}<select disabled={!!loaded || !!readError || !sources.length} value={sources[selected] ? selected : ''} onChange={event => { setSelected(Number(event.target.value)); setSaved(false); setError('') }}>
@@ -34,7 +35,8 @@ export function ResearchSourceAssessmentPanel({ project, history, onProjectChang
     </select></label>
     {!loaded && <><button disabled={!!readError || !sources[selected]} onClick={load}>{t('assessment.load')}</button>{existing ? display(existing) : <p>{t('assessment.none')}</p>}</>}
     {loaded && <><p role="status">{t('assessment.draft')}</p><strong>{loaded.source.items[0].query} · {loaded.source.country} · {loaded.source.retrievedAt}</strong>
-      <PublicSourceReader project={project} source={loaded.source} {...worker} />
+      <PublicSourceReader project={project} source={loaded.source} {...worker} excerptScope={JSON.stringify(loaded.draft.excerpts??[])} onAppendExcerpt={excerpt=>{const next=appendSourceExcerpt(loaded.source,loaded.draft,excerpt);edit({excerpts:next.excerpts})}} />
+      <SourceExcerptList excerpts={loaded.draft.excerpts??[]} onRemove={index=>edit({excerpts:loaded.draft.excerpts?.filter((_item,i)=>i!==index)})}/>
       <label>{t('assessment.claim')}<textarea maxLength={2000} value={loaded.draft.claim} onChange={event => edit({ claim: event.target.value })}/></label>
       <label>{t('assessment.finding')}<select value={loaded.draft.finding} onChange={event => edit({ finding: event.target.value as SourceAssessmentDraft['finding'] })}>{(['open','supports','contradicts'] as const).map(value => <option key={value} value={value}>{t(`assessment.${value}`)}</option>)}</select></label>
       <label>{t('assessment.notes')}<textarea rows={5} maxLength={4000} value={loaded.draft.notes} onChange={event => edit({ notes: event.target.value })}/></label>

@@ -13,16 +13,22 @@ export function publicSourceUrl(value) {
 const urlSchema = z.string().transform(publicSourceUrl)
 export const publicSourceRequestSchema = z.object({ url: urlSchema }).strict()
 const clean = max => z.string().max(max).refine(value => !/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(value), 'Invalid source text')
-export const publicSourceResultSchema = z.object({
+export const publicSourceAttributionSchema = z.object({
   schemaVersion: z.literal(1), requestedUrl: urlSchema, finalUrl: urlSchema,
   redirectUrls: z.array(urlSchema).max(publicSourceLimits.redirects), retrievedAt: z.iso.datetime(),
   htmlSha256: z.string().regex(/^[a-f0-9]{64}$/), htmlBytes: z.number().int().positive().max(publicSourceLimits.htmlBytes),
   title: clean(500), declaredLanguage: z.string().regex(/^[a-zA-Z0-9-]{1,35}$/).nullable(),
-  extraction: z.enum(['article','main','body']), text: clean(publicSourceLimits.textCharacters).min(1), truncated: z.boolean(), verified: z.literal(false)
+  extraction: z.enum(['article','main','body']), verified: z.literal(false)
 }).strict()
-export function validatePublicSourceResult(value, request) {
-  const expected = publicSourceRequestSchema.parse(request), result = publicSourceResultSchema.parse(value)
+export const publicSourceResultSchema = publicSourceAttributionSchema.extend({ text: clean(publicSourceLimits.textCharacters).min(1), truncated: z.boolean() }).strict()
+export function validatePublicSourceAttribution(value, request) {
+  const expected = publicSourceRequestSchema.parse(request), result = publicSourceAttributionSchema.parse(value)
   const chain = [result.requestedUrl, ...result.redirectUrls]
   if (result.requestedUrl !== expected.url || chain.at(-1) !== result.finalUrl || new Set(chain).size !== chain.length) throw Error('Source response does not match the requested URL/redirect chain')
+  return result
+}
+export function validatePublicSourceResult(value, request) {
+  const result = publicSourceResultSchema.parse(value), {text,truncated,...attribution} = result
+  validatePublicSourceAttribution(attribution,request)
   return result
 }

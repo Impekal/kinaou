@@ -6,8 +6,10 @@ import { WorkerClient } from '../core/workerClient'
 import { publicSourceUrl, type PublicSourceResult } from '../../worker/public-source-protocol.mjs'
 import type { CourseOutputWorkerProps } from './CourseOutputFileCheckPanel'
 import { useUiLanguage } from './UiLanguageProvider'
+import { SourceExcerptControl } from './SourceExcerptControl'
+import type { SourceExcerpt } from '../core/sourceExcerpt'
 
-export function PublicSourceReader({ project, source, workerUrl = '', workerToken = '', workerConnected = false, workerCapabilities = [] }: CourseOutputWorkerProps & { project: KinaouProject; source: RetainedSearchTrend }) {
+export function PublicSourceReader({ project, source, onAppendExcerpt, excerptScope='', workerUrl = '', workerToken = '', workerConnected = false, workerCapabilities = [] }: CourseOutputWorkerProps & { project: KinaouProject; source: RetainedSearchTrend; onAppendExcerpt?:(excerpt:SourceExcerpt)=>void;excerptScope?:string }) {
   const { t, language } = useUiLanguage(), [selected, setSelected] = useState(''), [result, setResult] = useState<PublicSourceResult | null>(null), [busy,setBusy] = useState(false), [error,setError] = useState('')
   const session = useRef<PublicSourceReadSession | null>(null)
   let validSource = false
@@ -44,6 +46,7 @@ export function PublicSourceReader({ project, source, workerUrl = '', workerToke
         <p>{result.truncated ? t('sourceReader.truncated') : t('sourceReader.incomplete')}</p>
         <div className="publicSourceText" tabIndex={0} aria-label={t('sourceReader.text')}>{result.text}</div>
         <details><summary>{t('sourceReader.provenance')}</summary><p>{t('sourceReader.digest')}</p><code>SHA-256: {result.htmlSha256}</code></details>
+        {article&&onAppendExcerpt&&<SourceExcerptControl result={result} originalUrl={article.url} scope={JSON.stringify([scope,excerptScope])} onAppend={onAppendExcerpt}/>}
       </div>}
     </>}
   </section>
