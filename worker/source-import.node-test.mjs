@@ -26,6 +26,13 @@ test('altered completed bytes fail the actual hash check without redownloading',
  const runtime=createSourceImportRuntime({root,probe,download}),input=request();await runtime.start(input);assert.equal((await done(runtime,input.id)).state,'succeeded')
  await writeFile(path.join(temp,sourceImportPath(input.id)),Buffer.alloc(bytes.length));await assert.rejects(runtime.status({id:input.id}),/hash/);await assert.rejects(runtime.start(input),/hash/)
 }))
+test('large multilingual evidence survives retained recovery when job provenance exceeds the request limit',()=>fixture(async({root})=>{
+ const input={...request(),downloadUrl:`https://media.example.org/${'a'.repeat(1900)}.mp4`,sourcePageUrl:`https://media.example.org/${'b'.repeat(1900)}`,projectId:'漢'.repeat(200),name:'漢'.repeat(150),creator:'漢'.repeat(200),evidence:'漢'.repeat(4000),attribution:'漢'.repeat(2000),intendedUse:'漢'.repeat(2000)}
+ assert.ok(Buffer.byteLength(JSON.stringify(input))<32768)
+ const runtime=createSourceImportRuntime({root,probe,download});await runtime.start(input);const job=await done(runtime,input.id);assert.equal(job.state,'succeeded')
+ assert.ok(Buffer.byteLength(JSON.stringify(job))>32768)
+ assert.deepEqual(await createSourceImportRuntime({root,probe,download:()=>{throw Error('no second download')}}).status({id:input.id}),job)
+}))
 test('cancellation removes the owned partial file and never restarts the same ID',()=>fixture(async({root})=>{
  let count=0;const runtime=createSourceImportRuntime({root,probe,download:async(_url,{handle,signal,progress})=>{count++;await handle.writeFile(bytes.subarray(0,8));progress(8);await new Promise((_resolve,reject)=>{if(signal.aborted)reject(signal.reason);else signal.addEventListener('abort',()=>reject(signal.reason),{once:true})})}}),input=request()
  await runtime.start(input);for(let n=0;n<100&&count===0;n++)await new Promise(r=>setTimeout(r,5))
