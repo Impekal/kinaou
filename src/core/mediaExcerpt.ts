@@ -3,12 +3,14 @@ import { parseProject, type KinaouProject } from './project'
 import { compatibleTracks } from './timelinePlacement'
 import { applyTimelineOperation } from './timeline'
 import { buildSourceProvenance } from './sourceProvenance'
+import { createRenderPlan, formatProfiles, projectTargetFormat } from './render'
+import { defaultAudioDucking } from './audioDucking'
 
 const requestSchema = z.object({ assetId: z.string().min(1), trackId: z.string().min(1), sourceInMs: z.number().int().min(0).max(86400000),
   sourceOutMs: z.number().int().positive().max(86400000), timelineInMs: z.number().int().min(0).max(86400000),
   speed: z.number().min(0.25).max(4), includeAudio: z.boolean() }).strict()
 export type MediaExcerptRequest = z.infer<typeof requestSchema>
-export type MediaExcerptErrorCode = 'input' | 'media' | 'track' | 'range' | 'precision' | 'overlap' | 'stale' | 'ack' | 'save'
+export type MediaExcerptErrorCode = 'input' | 'media' | 'track' | 'range' | 'precision' | 'overlap' | 'stale' | 'ack' | 'save' | 'previewLength'
 export class MediaExcerptError extends Error {
   constructor(readonly code: MediaExcerptErrorCode) { super('Media excerpt: ' + code) }
 }
@@ -68,6 +70,20 @@ export class MediaExcerptPlacement {
   }
   observe(project: KinaouProject, scope = '') { if (JSON.stringify(project) !== this.baseline || scope !== this.scope) this.active = false }
   get current() { return this.active && !this.done }
+  /** Read-only source audition, not a project composition or finished export. */
+  preview(project: KinaouProject, scope = '') {
+    this.observe(project, scope)
+    if (!this.current) fail('stale')
+    if (this.review.durationMs > 60000) fail('previewLength')
+    const isolated = structuredClone(this.next)
+    const track = isolated.tracks.find(t => t.id === this.review.trackId)!
+    const clip = track.clips.find(c => c.id === this.clipId)!
+    clip.startMs = 0
+    isolated.tracks = [{ ...track, clips: [clip] }]
+    isolated.assets = isolated.assets.filter(a => a.id === clip.assetId)
+    // Contain the full source; final project framing/mixing is a separate review.
+    return createRenderPlan(isolated, { ...formatProfiles[projectTargetFormat(project)].preview, fit: 'contain' }, 'KINAOU/Cache/Previews/media-excerpt.mp4', { audioDucking: { ...defaultAudioDucking, enabled: false } })
+  }
   commit(project: KinaouProject, scope: string, acknowledged: boolean, snapshot: (p: KinaouProject) => unknown, persist: (p: KinaouProject) => unknown) {
     this.observe(project, scope)
     if (!acknowledged) fail('ack')
