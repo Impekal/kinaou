@@ -4,6 +4,7 @@ import { SportsWorkspacePanel } from './components/SportsWorkspacePanel'
 import { AssetAvailabilityControl } from './components/AssetAvailabilityControl'
 import { ManagedMediaPanel } from './components/ManagedMediaPanel'
 import { AssetUploadPanel } from './components/AssetUploadPanel'
+import { SourceImportPanel } from './components/SourceImportPanel'
 import { ProjectAssetList } from './components/ProjectAssetList'
 import { CaptionEditor } from './components/CaptionEditor'
 import { RenderPanel } from './components/RenderPanel'
@@ -229,6 +230,7 @@ export function App() {
           {!project ? <div className="card emptyState">{t('shell.openProject')}</div> : <>
             <SttPanel key={`stt-${project.id}`} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
             <AssetUploadPanel key={project.id} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
+            <SourceImportPanel key={`source-${project.id}`} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />
             <AssetAvailabilityControl key={`availability:${project.id}`} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} onProjectChange={persistProject} />
             <ManagedMediaPanel key={`managed:${project.id}`} project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} onProjectChange={persistProject} />
             <ProjectAssetList project={project} history={versionHistory} workerUrl={workerUrl} workerToken={workerToken} workerConnected={Boolean(workerHandshake)} workerCapabilities={workerHandshake?.capabilities ?? []} onProjectChange={persistProject} />

@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { managedUploadPaths } from './asset-upload.mjs'
 import { openCourseOutputMedia } from './course-output-media.mjs'
 import { createCourseOutputStreamRuntime } from './course-output-stream.mjs'
+import { createSourceImportRuntime } from './source-import.mjs'
 import { createLessonDeliveryRuntime } from './course-lesson-delivery.mjs'
 import { createCourseCollectionRuntime } from './course-delivery-collection.mjs'
 import { createProjectSourceArchiveRuntime } from './project-source-archive.mjs'
@@ -495,6 +496,7 @@ const projectSourceRestoreRuntime = createProjectSourceRestoreRuntime({ root: MA
 const searchTrendRuntime = createSearchTrendRuntime()
 const publicSourceRuntime = createPublicSourceRuntime()
 const courseOutputStreamRuntime = createCourseOutputStreamRuntime({ root: MANAGED_ROOT })
+const sourceImportRuntime = createSourceImportRuntime({ root: MANAGED_ROOT, probe: probeMedia })
 
 const server = http.createServer(async (request, response) => {
   setCorsHeaders(request, response)
@@ -510,6 +512,12 @@ const server = http.createServer(async (request, response) => {
   if (!isAuthorized(request)) return send(response, 401, { ok: false, error: { code: 'UNAUTHORIZED', message: 'Invalid worker token' } })
 
   try {
+    if (request.method === 'POST' && ['/source-import/start', '/source-import/status', '/source-import/cancel'].includes(request.url)) {
+      if (!versions.ffprobe) throw capabilityError('FFprobe is required for authorized source import')
+      const body = await readJson(request, 32768)
+      const job = request.url.endsWith('/start') ? await sourceImportRuntime.start(body) : request.url.endsWith('/cancel') ? await sourceImportRuntime.cancel(body) : await sourceImportRuntime.status(body)
+      return send(response, 200, { ok: true, type: 'source-import', job })
+    }
     if (request.method === 'POST' && request.url === '/course/output-stream') {
       const body = await readJson(request)
       const stream = await courseOutputStreamRuntime.create(body.export, request.headers.origin)

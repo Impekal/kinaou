@@ -386,3 +386,10 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .sourceExcerptComposer { border-top: 1px solid #44516a; padding-top: 1rem; }
 .sourceExcerptComposer button { padding: .7rem 1rem; }
 .publicSourceText { white-space: pre-wrap; max-height: 32rem; overflow: auto; padding: 1rem; border: 1px solid #44516a; border-radius: 8px; line-height: 1.65; background: #111827; }
+.sourceImportPanel { padding: 20px; }
+.sourceImportPanel > summary { cursor: pointer; font-size: 1.1rem; font-weight: 700; padding: 8px 0; }
+.sourceImportPanel > div { margin-top: 16px; }
+.sourceImportPanel dd { margin: 4px 0 16px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.sourceImportPanel dt { color: #aeb8cc; }
+.sourceImportPanel pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 32rem; overflow: auto; }
+.sourceImportPanel summary:focus-visible { outline: 2px solid #b7a7ff; outline-offset: 4px; }
