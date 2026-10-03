@@ -1,5 +1,9 @@
 # KINAOU — Real Mac Execution Test
 
+## Exact image intervals — 2026-10-04
+
+#449 passed actual FFmpeg red/blue/red interval pixels with an extracted PNG, unchanged source bytes, DE/EN/FR browser overlap/stale-review checks and two-failure save-only recovery (one clip/snapshot). In a disposable project, use an image's exact-placement disclosure, choose a free target interval, review and explicitly insert. Existing clips must stay put; other active image layers warn rather than reorder. Inspect actual project framing, layer visibility and legibility afterwards. New file/content/rights verification is not implied. No immediate SSD/model action required; see SOURCE-FRAMES.md.
+
 ## New annotation versions — 2026-10-04
 
 #447 passed actual browser/worker re-extraction, wrong-base-hash refusal, held-reply A/B/A rejection and non-destructive revision saving. Open a saved frame's new-version panel, load its retained template, explicitly re-read the fixed original time, edit and review a new PNG before saving. Old image/timeline remain unchanged; missing/changed original records or base bytes refuse. Parent lineage survives reload; prior-image/full-video hashes are not newly verified by this workflow. Actual two-failure save-only recovery and final fresh DE/EN/FR PNG recreation passed. No immediate SSD/model action required; see SOURCE-FRAMES.md.
