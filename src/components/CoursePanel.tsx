@@ -20,6 +20,7 @@ import { CourseWorkspaceNavigation, type CourseWorkspaceStage } from './CourseWo
 import { CourseDemoPlacementPanel } from './CourseDemoPlacementPanel'
 import { CourseProductionOverviewPanel } from './CourseProductionOverviewPanel'
 import {courseGapPlacementIsCurrent,type CourseGapPlacement} from '../core/courseGapPlacement'
+import {courseOutputNavigationIsCurrent,type CourseOutputNavigation} from '../core/courseOutputNavigation'
 import { ProjectSourceArchivePanel } from './ProjectSourceArchivePanel'
 import type { CourseProductionHandoff } from '../core/courseProductionHandoff'
 import { CourseOutlineNavigator } from './CourseOutlineNavigator'
@@ -42,6 +43,8 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio, o
   const dirty = JSON.stringify(saved) !== JSON.stringify(draft)
   const [gap,setGap]=useState<CourseGapPlacement|null>(null),placementAnchor=useRef<HTMLDivElement>(null)
   if(gap)courseGapPlacementIsCurrent(project,gap,language,dirty) // Observe invalidation even outside Production.
+  const [outputNavigation,setOutputNavigation]=useState<CourseOutputNavigation|null>(null),outputAnchor=useRef<HTMLDivElement>(null)
+  if(outputNavigation)courseOutputNavigationIsCurrent(project,outputNavigation,dirty)
   const count = draft.modules.reduce((sum, module) => sum + module.lessons.length, 0)
   function change(next: CourseOutline, preferred = focus) { setDraft(next); setSelection(resolveCourseOutlineFocus(next, preferred)); setMessage(null) }
   function addModule() {
@@ -138,11 +141,11 @@ export function CoursePanel({ project, history, onProjectChange, onOpenStudio, o
     </div>
     </>}
     {stage === 'production' && <>
-    <CourseProductionOverviewPanel project={project} dirty={dirty} onEditLesson={(moduleId,lessonId)=>{if(dirty)return;setSelection({moduleId,lessonId});setStage('outline')}} onPrepareGap={value=>{setGap(value);placementAnchor.current?.focus()}} onOpenProduction={onOpenProduction}/>
+    <CourseProductionOverviewPanel project={project} dirty={dirty} onEditLesson={(moduleId,lessonId)=>{if(dirty)return;setSelection({moduleId,lessonId});setStage('outline')}} onPrepareGap={value=>{setGap(value);placementAnchor.current?.focus()}} onOpenProduction={onOpenProduction} onOpenOutputs={value=>{setOutputNavigation(value);outputAnchor.current?.focus()}}/>
     <div ref={placementAnchor} tabIndex={-1}><CourseDemoPlacementPanel project={project} dirty={dirty} history={history} onProjectChange={onProjectChange} pendingGap={gap} onClearGap={()=>setGap(null)}/></div>
     <div className="directorActions"><button className="primary" disabled={dirty} onClick={onOpenStudio}>{t('course.studio')}</button>{onOpenAudio && <button className="secondaryButton" disabled={dirty} onClick={onOpenAudio}>{t('course.narration.open')}</button>}</div>
     <CourseOutputIndexPanel key={`outputs-${project.id}`} project={project} dirty={dirty} history={history} onProjectChange={onProjectChange} />
-    <CourseOutputFileCheckPanel key={`file-check-${project.id}`} project={project} dirty={dirty} {...worker} />
+    <div ref={outputAnchor} tabIndex={-1}><CourseOutputFileCheckPanel key={`file-check-${project.id}`} project={project} dirty={dirty} {...worker} navigation={outputNavigation} onClearNavigation={()=>setOutputNavigation(null)}/></div>
     <CourseSubtitleExportPanel key={`subtitles-${project.id}`} project={project} dirty={dirty} />
     </>}
     {stage === 'review' && <CourseInstructorReviewPanel key={project.id} project={project} dirty={dirty} history={history} onProjectChange={onProjectChange} />}

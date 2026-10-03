@@ -7,13 +7,17 @@ import { WorkerClient } from '../core/workerClient'
 import { useUiLanguage } from './UiLanguageProvider'
 import { CourseOutputPlaybackControl } from './CourseOutputPlaybackControl'
 import { CourseLessonDeliveryControl } from './CourseLessonDeliveryControl'
+import {resolveCourseOutputNavigation,type CourseOutputNavigation} from '../core/courseOutputNavigation'
 
 export interface CourseOutputWorkerProps { workerUrl?: string; workerToken?: string; workerConnected?: boolean; workerCapabilities?: string[] }
-export function CourseOutputFileCheckPanel({ project, dirty, workerUrl = '', workerToken = '', workerConnected = false, workerCapabilities = [] }: CourseOutputWorkerProps & { project: KinaouProject; dirty: boolean }) {
+export function CourseOutputFileCheckPanel({ project, dirty, workerUrl = '', workerToken = '', workerConnected = false, workerCapabilities = [], navigation, onClearNavigation }: CourseOutputWorkerProps & { project: KinaouProject; dirty: boolean;navigation?:CourseOutputNavigation|null;onClearNavigation?:()=>void }) {
   const { t, language } = useUiLanguage()
   let receipts: ExportReceipt[] = [], invalid = ''
   try { receipts = projectCourseOutputIndex(project) } catch (cause) { invalid = String(cause) }
-  const [selected, setSelected] = useState(''), [feedback, setFeedback] = useState<CourseOutputCheckFeedback | null>(null)
+  let navigationStale=false
+  if(navigation){try{receipts=resolveCourseOutputNavigation(project,navigation,dirty)}catch{receipts=[];navigationStale=true}}
+  const [selection,setSelection]=useState<{navigation?:CourseOutputNavigation|null;jobId:string}>({navigation,jobId:''}), [feedback, setFeedback] = useState<CourseOutputCheckFeedback | null>(null)
+  const selected=!navigationStale&&selection.navigation===navigation?selection.jobId:''
   const available = workerConnected && !!workerToken.trim() && workerCapabilities.includes('publish-preflight')
   const connection = JSON.stringify([workerUrl, workerToken, available])
   const scope = { project, dirty, jobId: selected, connection }, environment = useRef(scope), session = useRef<CourseOutputPreflight | null>(null), mounted = useRef(true)
@@ -35,10 +39,11 @@ export function CourseOutputFileCheckPanel({ project, dirty, workerUrl = '', wor
   const result = shown && 'result' in shown ? shown.result : undefined
   return <section className="card stack">
     <h3>{t('course.fileCheck.heading')}</h3><p>{t('course.fileCheck.help')}</p><p>{t('course.fileCheck.boundary')}</p>
+    {navigation&&<div className="note stack"><strong>{navigation.label}</strong><p>{t('course.outputNav.help',{count:receipts.length})}</p>{navigationStale&&<p role="alert">{t('course.outputNav.stale')}</p>}<button className="secondaryButton" onClick={()=>{setSelection({navigation:null,jobId:''});onClearNavigation?.()}}>{t('course.outputNav.all')}</button></div>}
     {!available && <p>{t('course.fileCheck.unavailable')}</p>}{dirty && <p>{t('course.fileCheck.saveFirst')}</p>}
     {invalid && <div role="alert">{t('course.outputs.invalid')}<details><summary>{t('common.details')}</summary>{invalid}</details></div>}
-    {!invalid && !receipts.length && <p>{t('course.fileCheck.empty')}</p>}
-    <label>{t('course.fileCheck.select')}<select value={receipt ? selected : ''} disabled={dirty || !!invalid} onChange={event => setSelected(event.target.value)}>
+    {!invalid && !navigationStale && !receipts.length && <p>{t('course.fileCheck.empty')}</p>}
+    <label>{t('course.fileCheck.select')}<select value={receipt ? selected : ''} disabled={dirty || !!invalid || navigationStale} onChange={event => setSelection({navigation,jobId:event.target.value})}>
       <option value="">{t('course.fileCheck.choose')}</option>{receipts.map(entry => <option key={entry.jobId} value={entry.jobId}>{entry.courseLesson!.courseTitle} / {entry.courseLesson!.moduleTitle} / {entry.courseLesson!.lessonTitle} · {t(`export.${entry.format}`)} · {new Date(entry.completedAt).toLocaleString(language)} · {entry.jobId}</option>)}
     </select></label>
     {receipt && <><code>{receipt.outputRelativePath}</code><p>{t(outline ? `course.outputs.state.${outline}` : 'course.fileCheck.outlineUnknown')}</p></>}
