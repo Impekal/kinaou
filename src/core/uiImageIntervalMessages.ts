@@ -1,4 +1,9 @@
 export const uiImageIntervalMessages = {
+  'imageInterval.mediaIssues': ['{count} problematische Clipverweise (höchstens 10 angezeigt):', '{count} problematic clip references (up to 10 shown):', '{count} références de clip problématiques (10 affichées au maximum) :'],
+  'imageInterval.mediaIssue.missing': ['Medieneintrag fehlt', 'Media record missing', 'Entrée média manquante'],
+  'imageInterval.mediaIssue.offline': ['Als offline markiert', 'Marked offline', 'Marqué hors ligne'],
+  'imageInterval.mediaIssue.ambiguous': ['Medien-ID mehrfach vergeben', 'Duplicate media ID', 'Identifiant média dupliqué'],
+  'imageInterval.mediaIssueHelp': ['Medienverwaltung oder Timeline prüfen und die Quelle bewusst wiederherstellen bzw. ersetzen. Nichts wird automatisch entfernt, übersprungen oder online gesetzt. Diese Prüfung liest nur gespeicherte Metadaten, keine Dateien. Die separate Bildplatzierung bleibt möglich.', 'Check the media library or timeline and deliberately restore or replace the source. Nothing is automatically removed, skipped or marked online. This check reads only stored metadata, not files. Separate image placement remains available.', 'Vérifiez la médiathèque ou la timeline et restaurez ou remplacez volontairement la source. Rien n’est supprimé, ignoré ou marqué disponible automatiquement. Cette vérification lit seulement les métadonnées enregistrées, pas les fichiers. Le placement séparé de l’image reste possible.'],
   'imageInterval.jumpStart': ['Pausiert zum Bildanfang', 'Pause at image start', 'Pause au début de l’image'],
   'imageInterval.jumpMiddle': ['Pausiert zur Bildmitte', 'Pause at image midpoint', 'Pause au milieu de l’image'],
   'imageInterval.preview': ['Vor dem Einfügen ansehen', 'Preview before inserting', 'Prévisualiser avant l’insertion'],

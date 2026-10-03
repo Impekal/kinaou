@@ -12,6 +12,21 @@ export class ImageIntervalError extends Error {
 }
 function fail(code: ImageIntervalError['code']): never { throw new ImageIntervalError(code) }
 
+export interface ImagePreviewMediaIssue { trackName: string; assetName: string; status: 'missing' | 'offline' | 'ambiguous' }
+export class ImagePreviewMediaError extends Error {
+  constructor(readonly issues: ReadonlyArray<Readonly<ImagePreviewMediaIssue>>) { super('Prepared preview contains unavailable or ambiguous media') }
+}
+/** Metadata-only diagnostics for active clip references; no file access or source repair. */
+export function imagePreviewMediaIssues(project: KinaouProject): ImagePreviewMediaIssue[] {
+  const assets = new Map<string, KinaouProject['assets']>()
+  for (const asset of project.assets) assets.set(asset.id, [...(assets.get(asset.id) ?? []), asset])
+  return project.tracks.filter(t => !t.muted).flatMap(track => track.clips.flatMap(clip => {
+    const matches = assets.get(clip.assetId) ?? [], asset = matches[0]
+    const status = matches.length > 1 ? 'ambiguous' : !asset ? 'missing' : asset.offline ? 'offline' : null
+    return status ? [{ trackName: track.name.slice(0, 160), assetName: String(asset?.metadata.name ?? clip.assetId).slice(0, 160), status }] : []
+  }))
+}
+
 /** Reviewed insertion, never ripple/replace; private prepared bytes survive save-only retries. */
 export class ImageIntervalPlacement {
   readonly clipId = crypto.randomUUID()
@@ -46,6 +61,8 @@ export class ImageIntervalPlacement {
     this.observe(project, scope)
     if (!this.current) fail('stale')
     if (this.next.tracks.some(t => t.clips.some(c => c.startMs + c.durationMs > 60000))) fail('previewLength')
+    const issues = imagePreviewMediaIssues(this.next)
+    if (issues.length) throw new ImagePreviewMediaError(Object.freeze(issues.map(issue => Object.freeze(issue))))
     return createTimelinePreviewPlan(structuredClone(this.next))
   }
   commit(project: KinaouProject, scope: string, acknowledged: boolean, snapshot: (p: KinaouProject) => unknown, persist: (p: KinaouProject) => unknown) {
