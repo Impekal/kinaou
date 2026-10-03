@@ -1,6 +1,16 @@
 # Online-video acquisition and reuse review
 
-User requirement, 2026-09-20: obtain permitted footage and integrate suitable excerpts into original productions, for example football tactics analysis or a player portrait. **#433 implements the first bounded acquisition adapter: authorized direct public HTTPS MP4 files.** YouTube/platform-player acquisition, automated license verification and automatic publication clearance remain unsupported. Existing manual timeline editing can use registered originals; dedicated source/excerpt review remains a separate task.
+User requirement, 2026-09-20: obtain permitted footage and integrate suitable excerpts into original productions, for example football tactics analysis or a player portrait. **#433 implements the first bounded acquisition adapter: authorized direct public HTTPS MP4 files; #435 adds retained provenance review and #437 adds reviewed excerpt placement.** YouTube/platform-player acquisition, automated license verification and automatic publication clearance remain unsupported.
+
+## Reviewed excerpt placement and original audio — #437
+
+Expand an audio/video asset's excerpt control. Choose source in/out, speed, target timeline start/track and original audio. Retained measured duration is shown; it and provenance are not silently rechecked against the physical file. Times are seconds with up to three decimals, maximum 24 hours; speed 0.25–4. Positive source intervals must fit the original duration, and retiming must yield whole milliseconds without silent rounding. Managed available media and a compatible unlocked/unmuted track are required. Same-track overlap refuses; other active overlapping tracks warn about mixing/layering rather than changing them.
+
+Explicit review/use acknowledgement inserts one non-destructive clip. Original bytes, other clips and retained provenance stay unchanged. Save-only retry uses the same prepared clip/project and one successful safety snapshot, even if a failing callback mutates its argument. Project/form/language changes permanently retire old approvals. This is session-only recovery, not unsaved-draft durability across reload.
+
+Video original audio defaults off. When explicitly enabled it renders from the same source/in-point/speed as the image, including gain/fades and optional final loudness normalization, without a duplicated audio asset/track. Studio can toggle it and adjust gain; split/trim/retime preserve it, source replacement clears it. Legacy visual clips remain silent. A video with no audio stream fails honestly if audio was requested. Updated worker `embedded-video-audio` is verified before submission; it cannot silently degrade on an older worker. Actual health also now advertises the previously missing `source-import` capability when FFprobe is available.
+
+Acceptance: 38 new tests, 2,764 app tests, production build, full Linux CI and actual local FFmpeg/browser checks passed. A retimed half-second red/blue excerpt placed after half a second of black/silence produced correct frames and decoded tone; normalization and actual no-audio-source refusal checked. Save recovery, toggle/undo, reload, invalidation and DE/EN/FR passed. Native one-second preview played to its end while muted on the Mac. No human listening/quality approval or rights verdict is implied.
 
 ## Implemented direct MP4 adapter — 2026-10-03
 
