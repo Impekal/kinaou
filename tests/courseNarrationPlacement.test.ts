@@ -132,7 +132,7 @@ it.each(uiLanguages)('renders an explicit review before placement and localized 
   const project = fixture(), persist = vi.fn()
   const html = renderToStaticMarkup(createElement(UiLanguageProvider, { initialLanguage: language, children: createElement(CourseNarrationPlacementControl, { project, asset: project.assets[0], history: new PersistentVersionHistory({ getItem: () => null, setItem: vi.fn(), removeItem: vi.fn() }), onProjectChange: persist }) }))
   expect(html).toContain(translateUi(language, 'course.voicePlace.heading'))
-  expect(html).toContain(`<button disabled="">${translateUi(language, 'course.voicePlace.apply')}</button>`)
+  expect(html).toContain(`<button class="secondaryButton" disabled="">${translateUi(language, 'course.voicePlace.apply')}</button>`)
   expect(persist).not.toHaveBeenCalled()
   expect(displaySystemHistoryLabel({ source: 'system', label: 'Before placing lesson narration' }, (key, values) => translateUi(language, key, values))).toBe(translateUi(language, 'history.system.courseNarrationPlacement'))
 })

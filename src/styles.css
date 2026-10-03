@@ -163,6 +163,10 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .sttJob > div:first-child { display: flex; justify-content: space-between; }
 .sttJob small { color: #7d8699; }
 .audioStudio { padding: 24px; display: grid; gap: 14px; }
+.courseNarrationControl { flex: 1 1 100%; min-width: 0; }
+.courseNarrationRange { border: 1px solid #454d62; border-radius: 12px; padding: 14px; background: #10131a; }
+.courseNarrationControl button { white-space: normal; }
+.courseNarrationControl summary:focus-visible, .courseNarrationControl button:focus-visible { outline: 2px solid #b7a7ff; outline-offset: 4px; }
 .generatedVoices { padding: 24px; display: grid; gap: 10px; }
 .generatedVoices > div:not(.eyebrow) { display: grid; grid-template-columns: 1fr minmax(260px, .8fr); gap: 14px; align-items: center; border-top: 1px solid #292f3d; padding-top: 10px; }
 .generatedVoices span { display: grid; gap: 4px; }
