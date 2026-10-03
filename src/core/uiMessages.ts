@@ -3,6 +3,7 @@ import { uiSourceImportMessages } from './uiSourceImportMessages'
 import { uiSourceReportMessages } from './uiSourceReportMessages'
 import { uiMediaExcerptMessages } from './uiMediaExcerptMessages'
 import { uiSourceFrameMessages } from './uiSourceFrameMessages'
+import { uiFrameAnnotationMessages } from './uiFrameAnnotationMessages'
 import { uiExplainerMessages } from './uiExplainerMessages'
 import { uiRevealMessages } from './uiRevealMessages'
 import { uiCourseDemoPlacementMessages } from './uiCourseDemoPlacementMessages'
@@ -85,6 +86,7 @@ import { uiRecoveryMessages } from './uiRecoveryMessages'
 export const uiMessages = {
   ...uiMediaExcerptMessages,
   ...uiSourceFrameMessages,
+  ...uiFrameAnnotationMessages,
   ...uiSourceReportMessages,
   ...uiSourceAssessmentMessages,
   ...uiResearchWorkspaceMessages,

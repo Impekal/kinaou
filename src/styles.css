@@ -401,3 +401,5 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .sourceImportPanel dt { color: #aeb8cc; }
 .sourceImportPanel pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 32rem; overflow: auto; }
 .sourceImportPanel summary:focus-visible { outline: 2px solid #b7a7ff; outline-offset: 4px; }
+.frameAnnotationCanvas { width: 100%; height: auto; display: block; border: 1px solid #353b4a; border-radius: 10px; cursor: crosshair; touch-action: manipulation; }
+.frameAnnotationCanvas:focus-visible { outline: 3px solid #8d78ff; outline-offset: 3px; }
