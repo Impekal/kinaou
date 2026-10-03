@@ -4,6 +4,10 @@ User clarification: 2026-09-20. These are acceptance targets, not a claim that t
 
 Current acceptance summary (2026-09-27): completion points 1–3 have passed their documented gates: DE/EN/FR UI, comfortable editing and human-accepted natural/authorized-own-voice speech. FLUX.2 Klein still-image identity and Pack 3 multi-reference preservation are accepted, but final generative avatar motion/expression/lip sync remain open. Course outlines, individual exports and per-lesson scripts are implemented; complete course production is not. Later dated evidence below supersedes historical baseline descriptions. See COMPLETION_CHECKLIST.md for the current seven open main points.
 
+## Editorial context/completion — 2026-10-03
+
+#423 requires verified local 32,768-token context and normally completed, token-accounted responses for copy generation/translation, with complete bounded input and no truncation. This is not language or marketing-quality certification. Six actual installed-model DE/EN/FR short examples passed protocol/quote checks; German rationale grammar still needed editing. Historical French failures remain documented. Larger manual records remain available; no trend/view/platform claim is introduced. See PUBLICATION-EDITORIAL.md.
+
 ## Local exercise quality — 2026-10-03
 
 #421 connects a too-short planned lesson to an existing complete narration through explicit end-only extension and separate placement. Retained measured duration is not a fresh physical-file or spoken-content check. Real synthetic tone rendering establishes timing/preservation, not pronunciation, emotion or teaching acceptance. No automatic range shifts or content approval; whole point 8 remains open.

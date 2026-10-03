@@ -2,6 +2,14 @@
 
 Implemented in #355, 2026-09-30. This is a private local drafting/review workflow, not automatic publication or a verified marketing engine.
 
+## Complete inference boundary — #423, 2026-10-03
+
+New generation and translation require `publication-editorial-completion-v2` in addition to their original capabilities. Before private text is sent, local model metadata must report an architecture-specific context length of at least 32,768. Both requests explicitly set `num_ctx=32768`, `num_predict=4096`, temperature zero. A reply must identify the selected model, report `done=true` and `done_reason=stop`, and include non-negative safe-integer prompt/output counts whose sum fits context and output is below the cap. Even schema-valid partial JSON is refused. This is protocol/completion checking, not attestation or proof of comprehension.
+
+Complete actual inference input is at most 12,000 UTF-8 bytes, and the whole prompt/schema/request at most 24,000 bytes. Generation includes complete authored source/profile/market and ordered export IDs/kinds, not project/plan identifiers, receipt paths or saved labels. Translation budgets only its complete transferred text fields/IDs: a small proposal attached to a larger historical source can still be translated because source and quotes remain local. Client and worker validate new input before model discovery; neither silently truncates or retries. Historical/manual context/proposal/record schemas stay unchanged. Oversized new AI requests do not prevent manual editing or reading old records.
+
+Acceptance: 2,594 app tests / 239 files, 20 targeted worker tests, build/syntax and full CI 37134917162. The actual installed model completed six small DE/EN/FR generation/translation calls normally (about 9–35 seconds), with exact quote binding and untranslated translation quotes. German generation had awkward rationale grammar. These small examples do not erase older French/mixed-language failures below or establish final editorial quality. Real authenticated worker tests also refuse partial replies and over-budget input before model I/O. Browser checked actual capability/discovery, old-worker gating, large historical source refusal retaining fields, manual review/save/reload, three languages and clean console. Own isolated model stopped after inference; no downloads/cloud/global config changes. Existing save retry behavior is unchanged by #423.
+
 ## Optional local language pass — #357
 
 If a complete draft uses mixed or incorrect language, explicitly select an installed local model and request a language revision. This is a separate action, not an automatic repair/retry of generation. It targets the saved content profile's output language, not the interface language. Changing the content profile first makes the old editorial context stale and requires a new current draft.
@@ -33,7 +41,7 @@ The selected model must be listed as installed. Before sending source text, `/ap
 
 The generation prompt contains authored source/profile/market plus export IDs/kinds. Historical receipt paths and labels are retained for local review bindings but not sent to the model. Output uses a JSON schema, explicit target-language instructions and temperature zero. The model has no tools. A ten-minute request timeout, bounded 1,000,000-byte UTF-8 JSON response and strict post-validation apply; there is no automatic inference retry. The metadata probe has a 15-second deadline.
 
-Context: 2–4 exports, exactly one main followed by 1–3 distinct Shorts; 40,000 source characters and 100,000 UTF-8 context bytes maximum. Output: exactly matching ordered IDs, title ≤200 characters, description ≤5,000, ≤30 unique plain keywords of ≤80 characters, rationale ≤1,500 and exact quote ≤500; total proposal ≤32,000 UTF-8 bytes. Persisted record ≤140,000 bytes; revisions 1–10,000. These are application bounds, not promises about a model's token/context capacity. The runtime may use a smaller context window; no complete-source comprehension claim is made.
+Historical/manual context: 2–4 exports, exactly one main followed by 1–3 distinct Shorts; 40,000 source characters and 100,000 UTF-8 context bytes maximum. Output: exactly matching ordered IDs, title ≤200 characters, description ≤5,000, ≤30 unique plain keywords of ≤80 characters, rationale ≤1,500 and exact quote ≤500; total proposal ≤32,000 UTF-8 bytes. Persisted record ≤140,000 bytes; revisions 1–10,000. New inference additionally obeys the stricter verified context/input/completion boundary above; no complete-source comprehension claim is made.
 
 ## Acceptance and limitations
 
