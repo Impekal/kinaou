@@ -36,7 +36,7 @@ export function publicationEditorialCurrent(project: KinaouProject, record: Publ
   try { return JSON.stringify(validateRecord(record, project.id).context) === JSON.stringify(publicationEditorialContext(project)) } catch { return false }
 }
 export interface PublicationEditorialReview { record: PublicationEditorial }
-const bindings = new WeakMap<PublicationEditorialReview, { project: string; record: string }>()
+const bindings = new WeakMap<PublicationEditorialReview, { project: string; record: string; next?: string; snapshotDone?: boolean; saving?: boolean; done?: boolean }>()
 export function reviewPublicationEditorial(project: KinaouProject, context: EditorialContext, input: unknown, origin: EditorialProvenance): PublicationEditorialReview {
   if (JSON.stringify(context) !== JSON.stringify(publicationEditorialContext(project))) throw Error('Editorial sources changed; prepare a fresh draft')
   const previous = projectPublicationEditorial(project)
@@ -45,10 +45,37 @@ export function reviewPublicationEditorial(project: KinaouProject, context: Edit
   const review = Object.freeze({ record }); bindings.set(review, { project: JSON.stringify(project), record: JSON.stringify(record) }); return review
 }
 export function applyPublicationEditorial(project: KinaouProject, review: PublicationEditorialReview, acknowledged: boolean): KinaouProject {
-  const binding = bindings.get(review)
-  if (!acknowledged || !binding || binding.project !== JSON.stringify(project) || binding.record !== JSON.stringify(review.record)) throw Error('A current unchanged editorial review and acknowledgement are required')
+  if (!acknowledged || !publicationEditorialReviewIsCurrent(project, review)) throw Error('A current unchanged editorial review and acknowledgement are required')
   const record = validateRecord(review.record, project.id)
   return parseProject({ ...project, updatedAt: record.savedAt, metadata: { ...project.metadata, publicationEditorial: record } })
+}
+
+/** Observed changes permanently retire a review, including an A → B → A return. */
+export function publicationEditorialReviewIsCurrent(project: KinaouProject, review: PublicationEditorialReview): boolean {
+  const binding = bindings.get(review)
+  if (!binding || binding.done) return false
+  if (binding.project !== JSON.stringify(project) || binding.record !== JSON.stringify(review.record)) { bindings.delete(review); return false }
+  return true
+}
+export function invalidatePublicationEditorialReview(review: PublicationEditorialReview) { bindings.delete(review) }
+
+/** Synchronous project persistence: one prepared revision and one successful safety snapshot per review. */
+export function commitPublicationEditorial(project: KinaouProject, review: PublicationEditorialReview, acknowledged: boolean,
+  deps: { snapshot: (project: KinaouProject) => void; persist: (project: KinaouProject) => void }): KinaouProject {
+  if (!acknowledged || !publicationEditorialReviewIsCurrent(project, review)) throw Error('A current unchanged editorial review and acknowledgement are required')
+  const binding = bindings.get(review)!
+  if (binding.saving) throw Error('Editorial save is already in progress')
+  binding.saving = true
+  try {
+    // Keep serialized preparation private so a failed callback cannot mutate the retry payload.
+    binding.next ??= JSON.stringify(applyPublicationEditorial(project, review, true))
+    if (!binding.snapshotDone) { deps.snapshot(parseProject(JSON.parse(binding.project))); binding.snapshotDone = true }
+    if (!publicationEditorialReviewIsCurrent(project, review)) throw Error('Editorial review changed during save')
+    const next = parseProject(JSON.parse(binding.next))
+    deps.persist(next)
+    binding.done = true
+    return parseProject(JSON.parse(binding.next))
+  } finally { binding.saving = false }
 }
 export function publicationEditorialDraft(project: KinaouProject): EditorialProposal {
   const context = publicationEditorialContext(project)

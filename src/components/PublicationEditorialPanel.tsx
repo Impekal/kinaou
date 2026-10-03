@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
 import { editorialProposalSchema, validateEditorialLanguagePass } from '../../worker/publication-editorial.mjs'
-import { applyPublicationEditorial, projectPublicationEditorial, publicationEditorialContext, publicationEditorialCurrent, publicationEditorialDraft, reviewPublicationEditorial, type EditorialContext, type EditorialItem, type EditorialProposal, type EditorialProvenance, type PublicationEditorialReview } from '../core/publicationEditorial'
+import { commitPublicationEditorial, invalidatePublicationEditorialReview, publicationEditorialReviewIsCurrent, projectPublicationEditorial, publicationEditorialContext, publicationEditorialCurrent, publicationEditorialDraft, reviewPublicationEditorial, type EditorialContext, type EditorialItem, type EditorialProposal, type EditorialProvenance, type PublicationEditorialReview } from '../core/publicationEditorial'
 import { AiEditorRequestScope } from '../core/aiEditorReview'
 import type { KinaouProject } from '../core/project'
 import type { PersistentVersionHistory } from '../core/versioning'
@@ -13,20 +13,21 @@ const generatedSchema = z.object({ proposal: editorialProposalSchema, modelId: z
 const languageSchema = generatedSchema.extend({ outputLanguage: z.enum(['de', 'en', 'fr']) }).strict()
 
 export function PublicationEditorialPanel({ project, history, workerUrl, workerToken, workerConnected, workerCapabilities, onProjectChange }: Props) {
-  const { t } = useUiLanguage()
+  const { t, language } = useUiLanguage()
   const [draft, setDraft] = useState<{ context: EditorialContext; proposal: EditorialProposal; origin: EditorialProvenance } | null>(null)
   const [review, setReview] = useState<{ value: PublicationEditorialReview; identity: string; epoch: number } | null>(null)
   const [languageProposal, setLanguageProposal] = useState<{ proposal: EditorialProposal; modelId: string; identity: string; epoch: number } | null>(null)
   const [languageAck, setLanguageAck] = useState(false)
-  const [ack, setAck] = useState(false), [error, setError] = useState(''), [saved, setSaved] = useState(false)
+  const [ack, setAck] = useState(false), [error, setError] = useState<{ identity: string; epoch: number; detail: string } | null>(null), [saved, setSaved] = useState<string | null>(null)
   const [models, setModels] = useState<{ connection: string; values: Array<{ id: string; sizeBytes: number }> } | null>(null), [model, setModel] = useState('')
   const [pending, setPending] = useState<{ current: () => boolean } | null>(null)
   const inFlight = useRef<(() => boolean) | null>(null), scope = useRef(new AiEditorRequestScope())
   const supported = workerConnected && !!workerToken.trim() && workerCapabilities.includes('publication-editorial') && workerCapabilities.includes('publication-editorial-completion-v2')
   const languageSupported = supported && workerCapabilities.includes('publication-editorial-language')
-  const connection = JSON.stringify([workerUrl, workerToken, supported, languageSupported]), identity = JSON.stringify([project, draft, connection])
+  const connection = JSON.stringify([workerUrl, workerToken, supported, languageSupported]), identity = JSON.stringify([project, draft, connection, language, model])
+  const savedIdentity = (value: KinaouProject) => JSON.stringify([value, connection, language, model])
   const observed = useRef({ identity, epoch: 0 })
-  if (observed.current.identity !== identity) observed.current = { identity, epoch: observed.current.epoch + 1 }
+  if (observed.current.identity !== identity) { if (review) invalidatePublicationEditorialReview(review.value); observed.current = { identity, epoch: observed.current.epoch + 1 } }
   scope.current.update(identity)
   useEffect(() => { scope.current.attach(); return () => scope.current.detach() }, [])
   const busy = !!pending?.current(), installed = models?.connection === connection ? models.values : []
@@ -34,9 +35,11 @@ export function PublicationEditorialPanel({ project, history, workerUrl, workerT
   try { context = publicationEditorialContext(project) } catch (cause) { contextError = String(cause) }
   try { current = projectPublicationEditorial(project) } catch (cause) { recordError = String(cause) }
   const stale = !!draft && JSON.stringify(draft.context) !== JSON.stringify(context)
-  const visibleReview = review?.identity === identity && review.epoch === observed.current.epoch ? review.value : null
+  const visibleReview = review?.identity === identity && review.epoch === observed.current.epoch && publicationEditorialReviewIsCurrent(project, review.value) ? review.value : null
   const visibleLanguage = languageProposal?.identity === identity && languageProposal.epoch === observed.current.epoch ? languageProposal : null
-  function resetReview() { setReview(null); setAck(false); setLanguageProposal(null); setLanguageAck(false); setError(''); setSaved(false) }
+  const visibleError = error?.identity === identity && error.epoch === observed.current.epoch ? error.detail : ''
+  function reportError(cause: unknown) { setError({ identity, epoch: observed.current.epoch, detail: String(cause) }) }
+  function resetReview() { if (review) invalidatePublicationEditorialReview(review.value); setReview(null); setAck(false); setLanguageProposal(null); setLanguageAck(false); setError(null); setSaved(null) }
   function prepare() {
     if (busy || !context || recordError) return
     resetReview(); setDraft({ context, proposal: publicationEditorialDraft(project), origin: { kind: 'authored', edited: false } })
@@ -74,20 +77,20 @@ export function PublicationEditorialPanel({ project, history, workerUrl, workerT
           setDraft({ ...draft, proposal: result.proposal, origin: { kind: 'local-model', modelId: model, adapterId: 'ollama', edited: false } })
         }
       }
-    } catch (cause) { if (active()) setError(String(cause)) }
+    } catch (cause) { if (active()) reportError(cause) }
     finally { if (active()) { inFlight.current = null; setPending(null) } }
   }
   function prepareReview() {
     if (!draft || busy || stale) return
     resetReview()
     try { setReview({ value: reviewPublicationEditorial(project, draft.context, draft.proposal, draft.origin), identity, epoch: observed.current.epoch }) }
-    catch (cause) { setError(String(cause)) }
+    catch (cause) { reportError(cause) }
   }
   function save() {
     if (!visibleReview || !ack || busy || recordError) return
-    setError(''); setSaved(false)
-    try { const next = applyPublicationEditorial(project, visibleReview, ack); history.snapshot(project, 'Before saving publication editorial copy', 'system'); onProjectChange(next); setReview(null); setAck(false); setSaved(true) }
-    catch (cause) { setError(String(cause)) }
+    setError(null); setSaved(null)
+    try { const next = commitPublicationEditorial(project, visibleReview, ack, { snapshot: value => { history.snapshot(value, 'Before saving publication editorial copy', 'system') }, persist: onProjectChange }); setReview(null); setAck(false); setSaved(savedIdentity(next)) }
+    catch (cause) { reportError(cause) }
   }
   return <section className="card stack" style={{ padding: 28, minWidth: 0 }}>
     <h3>{t('editorial.heading')}</h3><p>{t('editorial.help')}</p>
@@ -129,9 +132,9 @@ export function PublicationEditorialPanel({ project, history, workerUrl, workerT
       <button className="secondaryButton" disabled={busy} onClick={() => { setLanguageProposal(null); setLanguageAck(false) }}>{t('editorial.languageDiscard')}</button>
     </div>}
     {visibleReview && <div className="stack"><p>{t('editorial.reviewed')}</p><label><input type="checkbox" checked={ack} onChange={event => setAck(event.target.checked)} />{t('editorial.ack')}</label><button className="primary" disabled={!ack || busy} onClick={save}>{t('editorial.save')}</button></div>}
-    {saved && <p role="status">{t('editorial.saved')}</p>}
+    {saved === savedIdentity(project) && <p role="status">{t('editorial.saved')}</p>}
     {contextError && <p>{t('editorial.requirements')}</p>}
-    {(error || contextError || recordError) && <div role="alert">{t('editorial.error')}<details><summary>{t('common.details')}</summary>{error || contextError || recordError}</details></div>}
+    {(visibleError || contextError || recordError) && <div role="alert">{t('editorial.error')}<details><summary>{t('common.details')}</summary>{visibleError || contextError || recordError}</details></div>}
     {current && <div className="stack"><h4>{t('editorial.savedHeading')}</h4><small>{current.savedAt} · r{current.revision}</small>
       {current.provenance.languagePass && <p>{t('editorial.languageOrigin', { model: current.provenance.languagePass.modelId, language: current.provenance.languagePass.outputLanguage })}</p>}
       {current.proposal.items.map(item => <p key={item.jobId}><strong>{item.title}</strong><br />{item.description}</p>)}
