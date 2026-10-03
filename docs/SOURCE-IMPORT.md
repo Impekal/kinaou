@@ -4,6 +4,14 @@ User requirement, 2026-09-20: obtain permitted footage and integrate suitable ex
 
 ## Reviewed excerpt placement and original audio — #437
 
+### Source-only preview before insertion — #439
+
+After preparing an excerpt, explicitly render its optional preview before saving. The cache-only video contains just that source interval, starts at zero and keeps selected speed/audio. It shows the full uncropped source in the current project format, not other timeline clips, project effects, target delay or final audio mixing. Audio-only sources have a black visual canvas. At most 60 seconds of resulting timeline duration; longer selections are not truncated and remain insertable without this audition. The composed Studio preview remains the final composition check.
+
+Actual worker capabilities are required, especially embedded original audio. Each deliberate new preview receives a unique cache path; read/status failure retries the same job. Project/form/language/connection changes detach the old result. Closing unloads the player; reopening is idle, not a new render. Detach does not cancel accepted worker work or delete cache files. Preview never creates a saved asset, export receipt, timeline edit or safety snapshot; placement remains separately acknowledged and blocked while its preview is busy.
+
+Acceptance: 14 new tests, 2,778 application tests, build/full CI; real worker frame/PCM and actual browser half-second playback, injected load recovery, held-reply project A/B/A, no-auto-reopen, DE/EN/FR and clean final console passed. One final explicit save placed the clip at its reviewed five-second target with one snapshot, not at the preview's zero origin.
+
 Expand an audio/video asset's excerpt control. Choose source in/out, speed, target timeline start/track and original audio. Retained measured duration is shown; it and provenance are not silently rechecked against the physical file. Times are seconds with up to three decimals, maximum 24 hours; speed 0.25–4. Positive source intervals must fit the original duration, and retiming must yield whole milliseconds without silent rounding. Managed available media and a compatible unlocked/unmuted track are required. Same-track overlap refuses; other active overlapping tracks warn about mixing/layering rather than changing them.
 
 Explicit review/use acknowledgement inserts one non-destructive clip. Original bytes, other clips and retained provenance stay unchanged. Save-only retry uses the same prepared clip/project and one successful safety snapshot, even if a failing callback mutates its argument. Project/form/language changes permanently retire old approvals. This is session-only recovery, not unsaved-draft durability across reload.

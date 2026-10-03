@@ -1,5 +1,9 @@
 # KINAOU — Real Mac Execution Test
 
+## Source-only excerpt audition — 2026-10-03
+
+#439 passed real FFmpeg/worker/browser checks. Prepare a disposable media excerpt, explicitly preview before saving and verify source in/out, speed and original audio. It starts at zero without other clips/mix, unlike its later timeline position. Closing/reopening must unload and remain idle; changes retire old playback/replies. A failed file read should retry the same job. More than 60 seconds shows a limit, never a truncated preview, while reviewed insertion remains possible. Only explicit saving creates one clip/snapshot. Actual red/blue frames, decoded tone, native playback and DE/EN/FR acceptance already passed; content/listening review remains separate. No immediate SSD/model action required.
+
 ## Media excerpts and original audio — 2026-10-03
 
 #437 passed actual worker/FFmpeg and media-list/Studio browser checks using self-generated red/blue video with tone. After normal worker restart/reconnect, `embedded-video-audio` and the corrected `source-import` advertisement should appear. In a disposable asset, review source in/out, speed, free timeline position and explicit original audio, acknowledge and save. Invalid bounds/overlaps refuse. Check composed preview, Studio original-audio toggle/gain and undo; video-only live preview remains silent by design. Original files must stay unchanged and reload retain the single clip. Audio requested from a genuinely silent file must fail, not pretend success. Browser playback and decoded PCM already passed, but listen to real production audio separately. No immediate SSD/model action required for repository work; see SOURCE-IMPORT.md.
