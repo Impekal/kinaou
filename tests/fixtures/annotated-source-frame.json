@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "renderer": "canvas-source-annotations-v1",
+  "sourcePngSha256": "04ab4801bc25d696bbde376a921c198ae6e95582954adb947809746c36a1aa50",
+  "outputPngSha256": "e5ad0915acddfacdf63e96369873fcb3ee6ec125a3652a24a1f00b00e5bdae45",
+  "marks": [
+    {"id":"3b0d4e9a-6f91-4a96-9a2b-43f32a02f05d","kind":"arrow","color":"yellow","x1":21,"y1":30,"x2":75,"y2":70,"text":""},
+    {"id":"f3592e08-15a6-48d9-aae5-e66c78197786","kind":"box","color":"white","x1":10,"y1":10,"x2":75,"y2":70,"text":""},
+    {"id":"4013d4bb-f81e-4164-9a10-f40664ba7b5c","kind":"label","color":"yellow","x1":5,"y1":75,"x2":75,"y2":70,"text":"Press"}
+  ]
+}

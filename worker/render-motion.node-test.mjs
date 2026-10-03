@@ -143,8 +143,15 @@ test('a still scene really moves when motion is enabled', { timeout: 300_000 }, 
       assert.match(payload.error.message, /clip motion/i)
     })
   } finally {
-    child.kill('SIGKILL')
-    await new Promise((resolve) => { child.on('close', resolve); setTimeout(resolve, 3000).unref() })
+    // An already-exited worker must not leave an unreferenced cleanup promise
+    // masking the original startup/render failure as cancelledByParent.
+    if (child.exitCode === null && child.signalCode === null) {
+      await new Promise((resolve) => {
+        const timer = setTimeout(resolve, 3000)
+        child.once('close', () => { clearTimeout(timer); resolve() })
+        child.kill('SIGKILL')
+      })
+    }
     await rm(root, { recursive: true, force: true })
   }
 })
