@@ -1,6 +1,6 @@
 # KINAOU — PROJECT STATE & HANDOFF
 
-Last updated: 2026-09-30
+Last updated: 2026-10-03
 
 ## Current completion summary — 2026-09-27
 
@@ -12,9 +12,17 @@ The existing hourly heartbeat `kinaou-autonom-weiterbauen` is PAUSED at the user
 
 ### Usage handoff boundary — latest user instruction
 
-Check the available Codex usage windows at safe slice boundaries. The user's latest instruction (2026-09-30, before sleeping) raises the earlier 85% threshold to **93% used / 7% remaining** in any available Codex window. Start no new slice at that boundary; finish the already-started bounded slice, tests, PR/merge and separate documentation as far as the remaining allowance permits, then provide a short copyable prompt for continuing in normal ChatGPT with the Mac terminal and actual repository evidence. Keep slices bounded as the threshold approaches. Do not promise immunity from a hard limit. Normal ChatGPT chat limits are not visible through the Codex usage tool. See the latest merged handoff below for the current usage checkpoint; earlier percentages are historical. Never redeem a reset credit without explicit confirmation. Heartbeat stays paused.
+Check the available Codex usage windows at safe slice boundaries. The user's latest instruction (2026-10-03) explicitly resumes work with a boundary of **70% used / 30% remaining**, superseding the earlier 93% boundary. Start no new slice at that boundary; finish the already-started bounded slice, tests, PR/merge and separate documentation as far as the remaining allowance permits, then provide a short copyable prompt for continuing in normal ChatGPT with the Mac terminal and actual repository evidence. Keep slices bounded as the threshold approaches. Do not promise immunity from a hard limit. Normal ChatGPT chat limits are not visible through the Codex usage tool. See the latest merged handoff below for the current usage checkpoint; earlier percentages are historical. Never redeem a reset credit without explicit confirmation. Heartbeat stays paused.
 
-## Latest merged handoff — direct lesson production actions; usage stop
+## Latest merged handoff — exact lesson export navigation
+
+[PR #403](https://github.com/Impekal/kinaou/pull/403) merged as `29847d2` after full [CI 37118657786](https://github.com/Impekal/kinaou/actions/runs/37118657786), including render smoke. Each saved lesson now opens only its own retained historical exports, newest first, by exact course/lesson IDs. Old revisions/module assignments remain historical references. Selecting a lesson or export never requests files or starts playback: inspection and loading remain separate explicit actions. Changing lesson or showing all references clears file selection, detaches checks and unloads playback. Observed project/dirty changes invalidate navigation permanently, including hidden A→B→A; interface-language changes do not rewrite or invalidate historical identities.
+
+Acceptance: 2,423 app tests / 227 files (14 new), build/syntax and full unchanged CI. Executing FFmpeg lesson test records the actual export, navigates to that exact receipt, checks it through the worker (truthfully reporting the test's small dimensions), and loads bytes matching its hash. Actual browser with an isolated authenticated worker checked two real full-HD two-second H.264 files, exact historical filtering, no automatic selection/request, paused non-autoplay metadata, player unload, delayed check rejection after A→B→A, hidden dirty-outline invalidation, and DE/FR/EN. No project/history writes. Fresh final console clean; fixture-only timestamp/HMR issues corrected without production workarounds. Own temporary files/servers/tabs removed, preferences restored; evidence retained outside repo at parent `acceptance/course-output-navigation-403` and `course-output-navigation-ui.png`. No user SSD/media/model changes. Whole course point 8 remains open.
+
+Usage checkpoint: **5% weekly used / 95% remaining**. Continue safe work under the new 70% boundary; no reset redeemed. Heartbeat stays paused and approved AC-only wake helper unchanged. Next bounded priority: focused Production views for overview, demonstrations, export inspection and subtitles, preserving internal drafts and explicit operations without automatic file access. No immediate user action required.
+
+## Previous merged handoff — direct lesson production actions; historical usage stop
 
 [PR #401](https://github.com/Impekal/kinaou/pull/401) merged as `2c16afb60809cad06f7f678ad675076e843c0bbf` after full [CI 36674380179](https://github.com/Impekal/kinaou/actions/runs/36674380179), including render smoke. Production overview now opens each exact saved lesson in the existing guarded Audio Studio or video-export recipient, replacing the extra course-wide selector. Missing script and out-of-timeline range are distinct eligibility checks. A voice-gap filter is independent of script presence or visual occupancy; silence can be intentional. Recipient script/range application remains explicit, followed by separate synthesis/export. Cards now have scoped readable spacing and styled buttons.
 

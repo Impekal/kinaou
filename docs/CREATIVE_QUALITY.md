@@ -505,6 +505,8 @@ A real authenticated Pack 3 worker run reproduced the human-accepted direct-runt
 
 ## Authored learning graphics — 2026-09-30
 
+Historical lesson exports (#403) can now be reached by stable saved lesson identity without treating the newest file as the current edit. Actual byte inspection and paused playback require separate explicit actions. Real worker/FFmpeg/browser acceptance establishes routing and file mechanics only, not teaching quality, current timeline agreement or platform approval. Whole course point 8 remains open.
+
 #391 adds actual local PNG explainer cards, not a model or screenshot substitute. Visible authored-graphic labeling, readable fixed-size layout with overflow refusal, independent content language and exact-byte review preserve provenance and legibility. Real PNG/worker/FFmpeg acceptance proves media mechanics, not fact checking, teaching quality, child suitability or complete cartoon/video production. User-authored source text is not independently verified. Whole point 7 remains open; see EXPLAINER-CARDS.md.
 
 #393 adds real timed cumulative point reveals, not speech-aligned narration, character motion or a recording. Source definitions, original notice and explicit authored timings survive encoding/import/export. Preview frames are before compression; full exported playback and reading speed still require review. Real decoded-video acceptance proves timing/text preservation, not educational correctness or suitability. Whole point 7 remains open.
