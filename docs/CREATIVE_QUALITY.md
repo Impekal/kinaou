@@ -6,6 +6,8 @@ Current acceptance summary (2026-09-27): completion points 1–3 have passed the
 
 ## Local exercise quality — 2026-10-03
 
+#411 verifies inference context and normal completion, not teaching quality. Six real DE/EN/FR script/exercise protocol calls passed, but additional DE/FR tasks literally exposed their answers and the EN script omitted key numeric facts. Those samples are retained as limitations, not silently repaired or claimed approved. Next work should make such review concerns visible; simple lexical hints cannot prove truth, coverage, or semantic answer secrecy.
+
 Local exercise drafts (#409) are editable instructor-reviewed proposals, not automatic pedagogy. Exact script quotes prove occurrence only. A real German sample wrongly inferred a square from four sides alone; tighter prompting corrected tested examples but does not certify arbitrary reasoning. DE/EN/FR samples and actual append/recovery/private-export checks passed. Learner exports omit designated answer, criteria and provenance fields; instructors must still inspect public prompts/hints for answer disclosure. Existing exercises are never replaced. See COURSE-EXERCISE-DRAFTS.md; whole point 8 remains open.
 
 ## Search-trend evidence boundary — 2026-09-27
