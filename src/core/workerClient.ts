@@ -1,4 +1,5 @@
 import { parseAssetUploadResult, type AssetUploadResult } from './assetUpload'
+import { sourceImportRequestSchema, sourceImportIdSchema, validateSourceImportJob, type SourceImportRequest } from '../../worker/source-import-protocol.mjs'
 import { validateEditorialGenerationContext, validateEditorialLanguageInput } from '../../worker/publication-editorial.mjs'
 import { validateSearchTrendQuery, validateSearchTrendSnapshot, type SearchTrendQuery } from '../../worker/search-trends-protocol.mjs'
 import { publicSourceRequestSchema, validatePublicSourceResult, type PublicSourceRequest } from '../../worker/public-source-protocol.mjs'
@@ -146,6 +147,18 @@ export class WorkerClient {
     const payload = await this.request('/health', { method: 'GET' })
     if (payload?.ok !== true || payload?.type !== 'health') throw new Error('Invalid worker health response')
     return workerHandshakeSchema.parse(payload.handshake)
+  }
+
+  async startSourceImport(request: SourceImportRequest) {
+    const input = sourceImportRequestSchema.parse(request)
+    const payload = await this.request('/source-import/start', { method: 'POST', redirect: 'error', body: JSON.stringify(input) })
+    if (payload?.ok !== true || payload?.type !== 'source-import') throw Error('Invalid source import response')
+    return validateSourceImportJob(payload.job, input)
+  }
+  async sourceImportStatus(request: SourceImportRequest, cancel = false) {
+    const payload = await this.request(cancel ? '/source-import/cancel' : '/source-import/status', { method: 'POST', redirect: 'error', body: JSON.stringify({ id: sourceImportIdSchema.parse(request.id) }) })
+    if (payload?.ok !== true || payload?.type !== 'source-import') throw Error('Invalid source import response')
+    return validateSourceImportJob(payload.job, request)
   }
 
   async searchTrends(query: SearchTrendQuery) {

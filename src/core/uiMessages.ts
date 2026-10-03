@@ -1,4 +1,5 @@
 import type { UiLanguage } from './uiLanguage'
+import { uiSourceImportMessages } from './uiSourceImportMessages'
 import { uiExplainerMessages } from './uiExplainerMessages'
 import { uiRevealMessages } from './uiRevealMessages'
 import { uiCourseDemoPlacementMessages } from './uiCourseDemoPlacementMessages'
@@ -82,6 +83,7 @@ export const uiMessages = {
   ...uiSourceAssessmentMessages,
   ...uiResearchWorkspaceMessages,
   ...uiExplainerMessages,
+  ...uiSourceImportMessages,
   ...uiRevealMessages,
   ...uiCourseDemoPlacementMessages,
   ...uiCourseOverviewMessages,
