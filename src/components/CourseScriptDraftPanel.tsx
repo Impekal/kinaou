@@ -43,7 +43,7 @@ export function CourseScriptDraftPanel({ project, lessonId, dirty, history, onPr
     try { const next = commitCourseScript(project, review, ack, { snapshot: value => { history.snapshot(value, 'Before applying lesson script draft', 'system') }, persist: onProjectChange }); onSaved(next); setReview(null); setAck(false); setGenerated(null); setDraft(null); setFeedback('saved'); setError('') }
     catch (cause) { setFeedback('failed'); setError(String(cause)) }
   }
-  return <details className="card stack"><summary>{t('course.scriptDraft.heading')}</summary>
+  return <details className="card stack courseDraft"><summary>{t('course.scriptDraft.heading')}</summary>
     <p>{t('course.scriptDraft.help')}</p><p className="note">{t('course.scriptDraft.boundary')}</p>
     {!available && <p>{t('course.scriptDraft.unavailable')}</p>}{dirty && <p>{t('course.saveFirst')}</p>}{invalid && <p role="alert">{t('course.scriptDraft.invalid')}<code>{invalid}</code></p>}
     <label>{t('course.scriptDraft.notes')}<textarea rows={6} maxLength={12000} value={notes} onChange={event => { setNotes(event.target.value); clearReview() }} /></label>
