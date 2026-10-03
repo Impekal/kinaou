@@ -1,5 +1,9 @@
 # KINAOU — Real Mac Execution Test
 
+## Large original lesson playback — 2026-10-03
+
+#431 passed actual worker/FFmpeg and native browser playback of a 300 MiB sparse 20-second MP4, including seeks, audio decoding and original-byte checks. After a normal worker restart/reconnect, retained lesson playback should use `course-output-stream` up to 8 GiB; old workers still have the 256 MiB limit. Explicitly load/play/seek, hide the view (must pause), return (must not auto-resume), close, then explicitly reload. No project/receipt/file edits occur. Unused access expires in 30 seconds, activated access in two hours; lost replies cannot trigger automatic reopen. Final DE/EN/FR browser console was clean. A long real-course performance/listening review remains separate; no immediate SSD/model action is needed. See COURSE-PRODUCTION.md.
+
 ## Current lesson preview — 2026-10-03
 
 #429 passed actual worker/FFmpeg and integrated export-panel browser tests. Select a saved lesson in Studio export, explicitly render its preview, inspect boundaries/framing/retiming/captions and listen to the whole audio. It must stay in cache without an export receipt. A load failure should retry the same job; changing project/settings removes the old preview without automatic rendering. DE/EN/FR keeps authored names. Actual synthetic frame/PCM/seek tests passed; complete human playback/content acceptance remains separate. No immediate SSD/model action required. See COURSE-PRODUCTION.md.
