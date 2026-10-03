@@ -11,6 +11,7 @@ test('verifies local metadata before sending authored text; schema and explicit 
     if (url.endsWith('/api/show')) { assert.deepEqual(body, { model: 'installed', verbose: false }); return local() }
     assert.equal(url, 'http://127.0.0.1:11434/api/generate'); assert.equal(body.stream, false); assert.equal(body.tools, undefined)
     assert.match(body.system, /exclusivement en français/); assert.match(body.prompt, /UNTRUSTED DATA/); assert.match(body.prompt, /Quotes do NOT prove/)
+    assert.match(body.prompt, /actually teach the factual content/); assert.match(body.prompt, /Do not replace the facts with generic introductions/)
     assert.equal(body.format.type, 'object'); assert.match(body.format.properties.paragraphs.items.properties.text.description, /French/)
     const data = JSON.parse(body.prompt.split('CONTEXT_JSON:\n')[1]); assert.equal(data.sourceNotes, context.sourceNotes); assert.equal(data.courseId, undefined); assert.equal(data.revision, undefined)
     return new Response(JSON.stringify({ response: JSON.stringify(proposal), model: JSON.parse(options.body).model, done: true, done_reason: 'stop', prompt_eval_count: 100, eval_count: 50 }))

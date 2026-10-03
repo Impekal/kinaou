@@ -363,3 +363,6 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .courseDraft blockquote { margin: 0; padding: 12px 16px; border-left: 3px solid #8179a3; background: #1b1b2b; color: #c9c3df; white-space: pre-wrap; }
 .courseDraft pre, .courseDraft code, .courseDraft p, .courseDraft blockquote { overflow-wrap: anywhere; }
 .courseDraft h4, .courseDraft h5 { margin: 12px 0; }
+.courseDraftConcern { padding: 14px 16px; border-left: 3px solid #e6bd78; border-radius: 8px; background: #30271c; color: #fae5c1; }
+.courseDraftConcern p { color: #f0dab7; margin: 8px 0; }
+.courseDraftConcern small { line-height: 1.5; }
