@@ -347,6 +347,11 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .analyticsTable { overflow-x: auto; }
 .analyticsTable table { width: 100%; border-collapse: collapse; text-align: left; }
 .analyticsTable th, .analyticsTable td { padding: 10px; border-bottom: 1px solid #33455a; }
+.analyticsComparison > summary { cursor: pointer; font-weight: 700; }
+.analyticsComparison fieldset { min-width: 0; border: 1px solid #33455a; border-radius: 12px; padding: 16px; display: grid; gap: 12px; }
+.analyticsComparison legend { padding: 0 6px; font-weight: 600; }
+.analyticsComparison input[type="date"] { color-scheme: dark; }
+.analyticsComparison caption { text-align: left; padding: 12px 10px; font-weight: 600; }
 .analyticsReport code { overflow-wrap: anywhere; white-space: pre-wrap; }
 .analyticsPanel small { line-height: 1.6; }
 .courseOverview { padding: 20px; }

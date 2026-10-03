@@ -4,6 +4,7 @@ import type { KinaouProject } from '../core/project'
 import type { PersistentVersionHistory } from '../core/versioning'
 import { useUiLanguage } from './UiLanguageProvider'
 import { AnalyticsCalendarView } from './AnalyticsCalendarView'
+import { AnalyticsComparisonView } from './AnalyticsComparisonView'
 
 export function AnalyticsReportView({ report }: { report: PerformanceReport }) {
   const { t, language } = useUiLanguage(), [page, setPage] = useState(0), summary = analyticsSummary(report)
@@ -14,6 +15,7 @@ export function AnalyticsReportView({ report }: { report: PerformanceReport }) {
     <p>{summary.from} — {summary.through}</p>
     <strong>{t('analytics.sum', { value: number(summary.sum) })}</strong><p>{t('analytics.days', { count: number(summary.count), missing: number(summary.missing) })}</p>
     <AnalyticsCalendarView key={report.id} report={report} />
+    <AnalyticsComparisonView report={report} />
     <h4>{t('analytics.dailyOriginals')}</h4>
     <div className="analyticsTable"><table><thead><tr><th>{t('analytics.date')}</th><th>{t('analytics.views')}</th><th>{t('analytics.raw')}</th><th>{t('analytics.record')}</th></tr></thead><tbody>{shown.map(row => <tr key={row.date}><td>{row.date}</td><td>{number(row.views)}</td><td><code>{JSON.stringify([row.rawDate, row.rawViews])}</code></td><td>{row.record}</td></tr>)}</tbody></table></div>
     <div className="directorActions"><button className="secondaryButton" disabled={!page} onClick={() => setPage(p => p - 1)}>{t('analytics.previous')}</button><span>{page * 25 + 1}–{Math.min((page + 1) * 25, report.rows.length)} / {report.rows.length}</span><button className="secondaryButton" disabled={(page + 1) * 25 >= report.rows.length} onClick={() => setPage(p => p + 1)}>{t('analytics.next')}</button></div>
