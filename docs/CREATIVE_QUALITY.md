@@ -4,6 +4,10 @@ User clarification: 2026-09-20. These are acceptance targets, not a claim that t
 
 Current acceptance summary (2026-09-27): completion points 1–3 have passed their documented gates: DE/EN/FR UI, comfortable editing and human-accepted natural/authorized-own-voice speech. FLUX.2 Klein still-image identity and Pack 3 multi-reference preservation are accepted, but final generative avatar motion/expression/lip sync remain open. Course outlines, individual exports and per-lesson scripts are implemented; complete course production is not. Later dated evidence below supersedes historical baseline descriptions. See COMPLETION_CHECKLIST.md for the current seven open main points.
 
+## Local exercise quality — 2026-10-03
+
+Local exercise drafts (#409) are editable instructor-reviewed proposals, not automatic pedagogy. Exact script quotes prove occurrence only. A real German sample wrongly inferred a square from four sides alone; tighter prompting corrected tested examples but does not certify arbitrary reasoning. DE/EN/FR samples and actual append/recovery/private-export checks passed. Learner exports omit designated answer, criteria and provenance fields; instructors must still inspect public prompts/hints for answer disclosure. Existing exercises are never replaced. See COURSE-EXERCISE-DRAFTS.md; whole point 8 remains open.
+
 ## Search-trend evidence boundary — 2026-09-27
 
 #389 (2026-09-30) organizes Research into freely selected Discover / Source library / Source assessment / Video brief views. Tabs preserve in-page drafts and existing stale-context guards, not a source-quality approval or completed-check badge. Switching views never starts research, inference or saving. Unsaved drafts still end when leaving the workspace, changing project or reloading.

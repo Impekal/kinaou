@@ -1,5 +1,9 @@
 # KINAOU — Real Mac Execution Test
 
+## Local exercise draft acceptance — 2026-10-03
+
+#409 already passed actual installed `llama3.1:8b` DE/EN/FR generation and browser/worker acceptance with an isolated course. On an updated worker, choose a saved lesson script, expand Local AI exercise drafts, select 1–3 exercises and explicitly discover/generate. Inspect source quotes, edit tasks/hints/private answers/criteria, review, acknowledge and append. Existing exercises/scripts/ranges must remain unchanged. Retry a failed save without another generation or safety snapshot. Project/language/dirty changes must invalidate old work. Learner ZIP/workbook must exclude private fields/provenance, though public text still requires human review. Complete source context is capped at 12,000 UTF-8 bytes and verified model context must be at least 32,768 tokens. Initial model reasoning error and corrected samples are retained, not hidden. No immediate SSD/model action is needed for independent work; do not download models silently. See COURSE-EXERCISE-DRAFTS.md.
+
 This is the ordered checklist for the first run on real hardware (MacBook Pro M2 Pro, external SSD). Each stage is independently valuable — stop at any point and report what you saw. Nothing here downloads models or software silently: every install is an explicit step you run yourself, and every optional runtime simply shows as "not available" until you add it.
 
 Pre-flight status: the complete worker job pipeline (authentication, honest capability errors, browser discovery, a full web-capture job with managed output, cancellation with temp cleanup) was already executed end-to-end against the real worker in the development sandbox and passed. What only your Mac can verify is everything touching macOS itself: screencapture, TCC permissions, FFmpeg rendering on your files, and the optional AI runtimes.
