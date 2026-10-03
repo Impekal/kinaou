@@ -25,6 +25,7 @@ import { SingleExportStatus } from './SingleExportStatus'
 import { FormatFramingPanel } from './FormatFramingPanel'
 import { ExportHistoryPanel } from './ExportHistoryPanel'
 import { ShortPreviewPanel } from './ShortPreviewPanel'
+import { CourseLessonPreviewPanel } from './CourseLessonPreviewPanel'
 import { ShortIntelligencePanel } from './ShortIntelligencePanel'
 import { ShortBatchArchivePanel } from './ShortBatchArchivePanel'
 import { ShortBatchStatus, ShortBatchReceiptRecovery } from './ShortBatchStatus'
@@ -153,9 +154,10 @@ export function RenderPanel({ project, history, workerUrl, workerToken, workerCo
   const selectedShort = shortExports.candidates.find((candidate) => candidate.id === selectedShortId && candidate.inMs === range.inMs && candidate.outMs === range.outMs)
   const [shortPreviewFormat, setShortPreviewFormat] = useState<TargetFormat>(format)
   const [shortPreviewBusy, setShortPreviewBusy] = useState(false)
+  const [coursePreviewBusy, setCoursePreviewBusy] = useState(false)
   const singleBusy = Boolean(single && !['succeeded', 'failed', 'cancelled', 'detached'].includes(single.phase))
   const batchBusy = shortBatchBusy(batchItems)
-  const busy = singleBusy || batchBusy || shortPreviewBusy || Boolean(batchReceiptError)
+  const busy = singleBusy || batchBusy || shortPreviewBusy || coursePreviewBusy || Boolean(batchReceiptError)
   const workerSupportsFormatReframing = workerCapabilities.includes('format-reframing')
   const singleReframingBlocked = formatReframingRequiresWorker(project, format) && !workerSupportsFormatReframing
   const batchReframingBlocked = batchFormats.some((id) => formatReframingRequiresWorker(project, id)) && !workerSupportsFormatReframing
@@ -648,6 +650,7 @@ export function RenderPanel({ project, history, workerUrl, workerToken, workerCo
       {!duckingCheck.valid && <div className="warning">{t('export.invalidAudio')}<details><summary>{t('common.details')}</summary>{resolveUiMessage(language, duckingCheck.reason)}</details></div>}
 
       {selectedShort && <ShortPreviewPanel project={project} candidate={selectedShort} format={shortPreviewFormat} onFormatChange={setShortPreviewFormat} onBusyChange={setShortPreviewBusy} audioDucking={duckingSettings} loudnessNormalization={loudnessSettings} workerUrl={workerUrl} workerToken={workerToken} workerConnected={workerConnected} workerCapabilities={workerCapabilities} disabled={!readiness.ready || !duckingCheck.valid || singleBusy || batchBusy} />}
+      {selectedLesson && <CourseLessonPreviewPanel project={project} lessonId={selectedLesson.id} format={format} audioDucking={duckingSettings} loudnessNormalization={loudnessSettings} workerUrl={workerUrl} workerToken={workerToken} workerConnected={workerConnected} workerCapabilities={workerCapabilities} disabled={!readiness.ready || !duckingCheck.valid || lessonReviewStale || singleBusy || batchBusy || shortPreviewBusy || Boolean(batchReceiptError)} onBusyChange={setCoursePreviewBusy} />}
 
       {!readiness.ready && <div className="warning">{readiness.code ? t(`preview.reason.${readiness.code}`, { track: readiness.track ?? '', speed: readiness.speed ?? 1 }) : readiness.reason}</div>}
       {!workerConnected && readiness.ready && <div className="warning">{t('preview.connect')}</div>}

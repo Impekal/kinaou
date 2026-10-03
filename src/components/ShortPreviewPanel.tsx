@@ -41,11 +41,12 @@ export function ShortPreviewPanel(props: Props) {
     </div>
     {error && <div className="errorBox" role="alert">{t('preview.planFailed')}<details><summary>{t('common.details')}</summary>{error}</details></div>}
     {blocked && <div className="warning">{t('preview.restart')}</div>}
-    <ShortPlayback key={scope} plan={plan} disabled={props.disabled || blocked} workerUrl={props.workerUrl} workerToken={props.workerToken} workerConnected={props.workerConnected} onBusyChange={setBusy} />
+    <RangePreviewPlayback key={scope} plan={plan} disabled={props.disabled || blocked} workerUrl={props.workerUrl} workerToken={props.workerToken} workerConnected={props.workerConnected} onBusyChange={setBusy} />
   </div>
 }
 
-function ShortPlayback({ plan, disabled, workerUrl, workerToken, workerConnected, onBusyChange }: Pick<Props, 'workerUrl' | 'workerToken' | 'workerConnected' | 'onBusyChange' | 'disabled'> & { plan: RenderPlan | null }) {
+/** Shared exact-range job lifecycle for Shorts and individual course lessons. */
+export function RangePreviewPlayback({ plan, disabled, workerUrl, workerToken, workerConnected, onBusyChange }: Pick<Props, 'workerUrl' | 'workerToken' | 'workerConnected' | 'onBusyChange' | 'disabled'> & { plan: RenderPlan | null }) {
   const { t } = useUiLanguage()
   const [feedback, setFeedback] = useState<ShortPreviewFeedback>({ phase: 'idle' })
   const [url, setUrl] = useState('')
