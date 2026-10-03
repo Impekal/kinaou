@@ -9,7 +9,8 @@ import { SceneNarrationSession, type NarrationFeedback } from '../src/core/scene
 import { AudioStudioSession, type AudioFeedback } from '../src/core/audioStudioSession'
 import { PersistentVersionHistory } from '../src/core/versioning'
 import { ProjectRepository } from '../src/core/persistence'
-import { newCourseOutline, saveCourseOutline } from '../src/core/course'
+import { newCourseOutline, projectCourse, saveCourseOutline } from '../src/core/course'
+import { commitCourseNarrationRange, reviewCourseNarrationRange } from '../src/core/courseNarrationRange'
 import { assertCourseNarrationVoice, bindCourseNarration, registerCourseNarration } from '../src/core/courseNarration'
 import { applyCourseNarrationPlacement, reviewCourseNarrationPlacement } from '../src/core/courseNarrationPlacement'
 import { createRenderPlan, preview1080pPreset } from '../src/core/render'
@@ -135,8 +136,19 @@ writeFileSync(output+'.json',JSON.stringify({result:{language:'de'},transcriptio
     const courseAudio = courseProject.assets[0]
     courseProject = parseProject({ ...courseProject, assets: [...courseProject.assets, { id: 'placement-visual', kind: 'video', uri: 'KINAOU/Assets/placement-test.mp4', managed: true, metadata: { durationMs: 5000 } }], tracks: [{ id: 'visual', type: 'video', name: 'Visual', clips: [{ id: 'visual-clip', assetId: 'placement-visual', startMs: 0, durationMs: 5000 }] }] })
     const beforePlacement = structuredClone(courseProject)
+    // Real measured two-second audio cannot fit a one-second planned lesson.
+    // Explicitly extend only its out point before the independent placement/render.
+    const originalOutline = projectCourse(courseProject)!
+    courseProject = saveCourseOutline(courseProject, { ...originalOutline, modules: originalOutline.modules.map(module => ({ ...module, lessons: module.lessons.map(lesson => lesson.id === binding.course.lessonId ? { ...lesson, range: { inMs: 1000, outMs: 2000 } } : lesson) })) })
+    expect(() => reviewCourseNarrationPlacement(courseProject, courseAudio.id, null)).toThrow('overrun')
+    const rangeReview = reviewCourseNarrationRange(courseProject, courseAudio.id)
+    expect(rangeReview).toMatchObject({ startMs: 1000, previousEndMs: 2000, endMs: 3000, durationMs: 2000 })
+    courseProject = commitCourseNarrationRange(courseProject, rangeReview, true, { snapshot: value => { history.snapshot(value, 'Before extending lesson for full narration', 'system') }, persist: value => { repository.save(value) } })
+    expect(courseProject.tracks).toEqual(beforePlacement.tracks); expect(courseProject.assets).toEqual(beforePlacement.assets)
+    expect(await readFile(coursePath)).toEqual(courseBytes)
+    const beforePlacementMetadata = structuredClone(courseProject.metadata)
     courseProject = applyCourseNarrationPlacement(courseProject, reviewCourseNarrationPlacement(courseProject, courseAudio.id, null))
-    expect(courseProject.metadata).toEqual(beforePlacement.metadata)
+    expect(courseProject.metadata).toEqual(beforePlacementMetadata)
     expect(courseProject.tracks[0]).toEqual(beforePlacement.tracks[0])
     const plan = createRenderPlan(courseProject, { ...preview1080pPreset, width: 320, height: 180 }, 'KINAOU/Renders/course-narration-placement.mp4')
     let render = await client.startRender(plan)

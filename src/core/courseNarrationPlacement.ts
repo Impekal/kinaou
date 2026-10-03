@@ -13,10 +13,10 @@ export interface CourseNarrationPlacementReview {
   readonly sourceRevision: number; readonly currentRevision: number
   readonly startMs: number; readonly endMs: number; readonly durationMs: number; readonly remainingMs: number
 }
-const reviews = new WeakMap<CourseNarrationPlacementReview, { baseline: string; assetId: string; trackId: string | null }>()
+const reviews = new WeakMap<CourseNarrationPlacementReview, { baseline: string; assetId: string; trackId: string | null; next?: KinaouProject; snapshotDone?: boolean; done?: boolean }>()
 function fail(code: CourseNarrationPlacementErrorCode): never { throw new CourseNarrationPlacementError(code) }
 
-function plan(project: KinaouProject, assetId: string, trackId: string | null): CourseNarrationPlacementReview {
+export function inspectCourseNarrationSource(project: KinaouProject, assetId: string) {
   const assets = project.assets.filter(asset => asset.id === assetId)
   if (assets.length !== 1) fail('media')
   const asset = assets[0]
@@ -32,6 +32,11 @@ function plan(project: KinaouProject, assetId: string, trackId: string | null): 
   const measured = asset.metadata.durationMs
   if (typeof measured !== 'number' || !Number.isFinite(measured) || measured <= 0 || measured > 86400000) fail('duration')
   const durationMs = Math.ceil(measured), startMs = lesson.range.inMs, endMs = startMs + durationMs
+  return { asset, course, lesson, source: source.data, durationMs, startMs, endMs }
+}
+
+function plan(project: KinaouProject, assetId: string, trackId: string | null): CourseNarrationPlacementReview {
+  const { asset, course, lesson, source, durationMs, startMs, endMs } = inspectCourseNarrationSource(project, assetId)
   if (endMs > lesson.range.outMs) fail('overrun')
   if (trackId !== null) {
     const targets = project.tracks.filter(track => track.id === trackId)
@@ -44,7 +49,7 @@ function plan(project: KinaouProject, assetId: string, trackId: string | null): 
     return (['voice', 'dialog'].includes(track.type) || courseAudio)
       && clip.startMs < endMs && clip.startMs + clip.durationMs > startMs
   }))) fail('overlap')
-  return { assetId, trackId, lessonTitle: lesson.title, sourceRevision: source.data.course.outlineRevision, currentRevision: course.revision,
+  return { assetId, trackId, lessonTitle: lesson.title, sourceRevision: source.course.outlineRevision, currentRevision: course.revision,
     startMs, endMs, durationMs, remainingMs: lesson.range.outMs - endMs }
 }
 
@@ -56,8 +61,11 @@ export function reviewCourseNarrationPlacement(project: KinaouProject, assetId: 
 }
 export function courseNarrationPlacementIsCurrent(project: KinaouProject, review: CourseNarrationPlacementReview): boolean {
   const scope = reviews.get(review)
-  return !!scope && scope.baseline === JSON.stringify(project)
+  if (!scope || scope.done) return false
+  if (scope.baseline !== JSON.stringify(project)) { reviews.delete(review); return false }
+  return true
 }
+export function invalidateCourseNarrationPlacement(review: CourseNarrationPlacementReview) { reviews.delete(review) }
 export function applyCourseNarrationPlacement(project: KinaouProject, review: CourseNarrationPlacementReview): KinaouProject {
   const scope = reviews.get(review)
   if (!scope || !courseNarrationPlacementIsCurrent(project, review)) fail('stale')
@@ -67,4 +75,13 @@ export function applyCourseNarrationPlacement(project: KinaouProject, review: Co
   if (scope.trackId === null) next = applyTimelineOperation(next, { type: 'add-track', track: { id: trackId, type: 'voice', name: 'Voice', locked: false, muted: false, clips: [] } })
   next = applyTimelineOperation(next, { type: 'add-clip', trackId, clip: { id: crypto.randomUUID(), assetId: checked.assetId, startMs: checked.startMs, durationMs: checked.durationMs, sourceOffsetMs: 0, gain: 1, speed: 1 } })
   return parseProject(next)
+}
+
+/** Stable clip/track IDs and one history snapshot across persistence retries. */
+export function commitCourseNarrationPlacement(project: KinaouProject, review: CourseNarrationPlacementReview, deps: { snapshot: (project: KinaouProject) => void; persist: (project: KinaouProject) => void }): KinaouProject {
+  if (!courseNarrationPlacementIsCurrent(project, review)) fail('stale')
+  const scope = reviews.get(review)!
+  if (!scope.next) scope.next = applyCourseNarrationPlacement(project, review)
+  if (!scope.snapshotDone) { deps.snapshot(project); scope.snapshotDone = true }
+  deps.persist(scope.next); scope.done = true; return scope.next
 }

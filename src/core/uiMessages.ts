@@ -5,6 +5,7 @@ import { uiCourseDemoPlacementMessages } from './uiCourseDemoPlacementMessages'
 import { uiCourseOverviewMessages } from './uiCourseOverviewMessages'
 import { uiCourseScriptDraftMessages } from './uiCourseScriptDraftMessages'
 import { uiCourseCurriculumMessages } from './uiCourseCurriculumMessages'
+import { uiCourseNarrationRangeMessages } from './uiCourseNarrationRangeMessages'
 import { uiCourseExerciseDraftMessages } from './uiCourseExerciseDraftMessages'
 import { uiCourseDraftQualityMessages } from './uiCourseDraftQualityMessages'
 import { uiPublicSourceMessages } from './uiPublicSourceMessages'
@@ -85,6 +86,7 @@ export const uiMessages = {
   ...uiCourseOverviewMessages,
   ...uiCourseScriptDraftMessages,
   ...uiCourseCurriculumMessages,
+  ...uiCourseNarrationRangeMessages,
   ...uiCourseExerciseDraftMessages,
   ...uiCourseDraftQualityMessages,
   ...uiPublicSourceMessages,
