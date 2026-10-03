@@ -7,6 +7,7 @@ import { WaveformControl } from './WaveformControl'
 import { useUiLanguage } from './UiLanguageProvider'
 import { SourceProvenancePanel } from './SourceProvenancePanel'
 import { MediaExcerptPlacementControl } from './MediaExcerptPlacementControl'
+import { SourceFrameControl } from './SourceFrameControl'
 
 export type ProjectAssetListProps = Omit<MediaPreviewProps, 'asset'>
 
@@ -43,6 +44,7 @@ export function ProjectAssetList(props: ProjectAssetListProps) {
             </div>
             <SourceProvenancePanel project={project} assetId={asset.id} />
             <MediaExcerptPlacementControl key={`excerpt-${asset.id}-${asset.uri}`} {...props} asset={asset} />
+            <SourceFrameControl key={`frame-${asset.id}-${asset.uri}`} {...props} asset={asset} />
           </div>)}
         </div>}
   </div>

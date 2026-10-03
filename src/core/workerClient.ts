@@ -1,4 +1,5 @@
 import { parseAssetUploadResult, type AssetUploadResult } from './assetUpload'
+import { sourceFrameRequestSchema, parseSourceFrameResult, type SourceFrameRequest } from './sourceFrame'
 import { sourceImportRequestSchema, sourceImportIdSchema, validateSourceImportJob, type SourceImportRequest } from '../../worker/source-import-protocol.mjs'
 import { validateEditorialGenerationContext, validateEditorialLanguageInput } from '../../worker/publication-editorial.mjs'
 import { validateSearchTrendQuery, validateSearchTrendSnapshot, type SearchTrendQuery } from '../../worker/search-trends-protocol.mjs'
@@ -1687,6 +1688,14 @@ export class WorkerClient {
     const contentType = response.headers.get('content-type') ?? ''
     if (!contentType.startsWith('video/mp4')) throw new Error('Worker returned an invalid proxy media type')
     return response.blob()
+  }
+
+  async extractSourceFrame(value: SourceFrameRequest) {
+    const request = sourceFrameRequestSchema.parse(value)
+    if (!(await this.health()).capabilities.includes('source-video-frame')) throw Error('Worker missing source-video-frame; update/reconnect first')
+    const payload = await this.request('/assets/source-frame', { method: 'POST', body: JSON.stringify(request) })
+    if (payload?.ok !== true || payload?.type !== 'source-frame') throw Error('Invalid worker source frame response')
+    return parseSourceFrameResult(payload.result, request)
   }
 
   async generateVideoThumbnail(path: string): Promise<{ path: string; sizeBytes: number }> {
