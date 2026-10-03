@@ -1,5 +1,9 @@
 # KINAOU — Real Mac Execution Test
 
+## Historical frame-source reports — 2026-10-03
+
+#445 passed actual media-library DE/EN/FR report/download acceptance with the retained #443 source/annotation record. Open a saved frame's provenance, explicitly prepare and inspect both formats, acknowledge private fields and download. Changing/removing its source record must preserve the historical copy while changing the notice; corrupt flags must refuse. No files are checked or media published. Actual downloaded bytes matched the previews; request/write/history counters stayed zero. No immediate SSD/model action required; see SOURCE-FRAMES.md.
+
 ## Reviewed frame annotations — 2026-10-03
 
 #443 passed actual local browser/worker PNG creation, import/save recovery and executing FFmpeg marked-image export. Optionally extract an authorized disposable frame, add arrow/box/text, test undo/redo and create the final PNG. Inspect delivery-size legibility and meaning, acknowledge, then save. Editing must clear the accepted PNG/acknowledgement; originals and timeline stay unchanged. Saved metadata retains both hashes/marks and explicitly identifies modification. Unsaved drafts are session-only; saved marks are provenance, not yet a reopenable editor. No immediate SSD/model action required; see SOURCE-FRAMES.md.

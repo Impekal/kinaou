@@ -22,6 +22,14 @@ Project/source/input/interface-language/connection changes invalidate reviews an
 
 ## Acceptance
 
+### Historical source and annotation reports — #445
+
+Saved extracted/annotated images offer **Still frame: source and annotations** in the media library. Explicitly prepare the report, inspect all TXT/JSON content, acknowledge private information, then download either exact representation. No file read/request, hash recomputation, project change or publication occurs. Reports retain original source/time, base/output stored hashes, marks, complete historical source metadata and current timeline references. An absent or changed source record has a separate notice; matching records do not prove matching physical bytes. Offline flags are retained declarations, not fresh availability checks.
+
+Invalid metadata, contradictory original/modified flags, mismatched source/base hash binding, empty/invalid mark lists and corrupt nested acquisition provenance refuse instead of producing a plausible report. Observed project/asset/language changes and report mutation invalidate approval. An unrelated legacy image does not acquire invented provenance. Current references are not finished-export inspection or rights clearance; effects, stacking, cropping and render ranges can change actual visibility. Full source metadata may be private. These reports are not public attribution automatically attached to videos.
+
+2,859 tests / 255 files, build and full CI passed. Actual browser using #443's real retained source/annotation record and a synthetic timeline checked DE/EN/FR, changed/missing sources, corrupt flags, scoped reviews and exact downloaded TXT/JSON bytes with zero requests/writes/snapshots and a clean console.
+
 ### Authored annotations — #443
 
 Before saving a reviewed frame, optionally choose **Add arrows, boxes or text**. Up to 16 authored elements have yellow/red/white colors and normalized coordinates. Select the start/end point, then click the canvas, enter coordinates or use arrow keys (1%; Shift 0.1%). Labels stay inside image edges; labels too large to fit, empty text and degenerate shapes refuse. Undo/redo is limited to the current unsaved draft and 100 states. Reload or source/project/language changes do not recover an unsaved draft.
