@@ -13,6 +13,16 @@ Project/source/input/interface-language/connection changes invalidate reviews an
 
 ## Bounds and provenance
 
+### Optional prepared placement preview — #451
+
+After reviewing an exact image placement, explicitly render **Preview before inserting** to inspect the entire prepared composition before saving. This is bounded to a complete timeline of at most 60 seconds, preserves saved project framing and active layer order, and uses ordinary preview audio defaults rather than unsaved export options. Nothing is inserted or snapshotted by previewing. Longer timelines are not silently trimmed; insert separately and use the regular project preview/export. Missing media or worker capabilities can block preview without becoming a hidden substitute or a claim of validity.
+
+Playback starts paused. The explicit image-start/midpoint shortcuts seek within the actual loaded file and pause any current playback. Closing the disclosure unloads the video; project/form/language/connection changes invalidate old media. Existing same-job polling/load retry, cancellation and unique cache filenames apply; an accepted abandoned job may finish and cache files are not automatically deleted. Preview is optional, not final-quality or rights certification. Still acknowledge the reviewed placement separately to save it.
+
+2,925 tests /258 files, build and unchanged full CI passed. Executing FFmpeg tests compare actual before/during/after pixels in both export and prepared preview, preserving source bytes. Actual worker/browser decoded a two-second H.264 composition and tested layer occlusion, busy state, unload, capability/length refusal, DE/EN/FR and zero project/history writes; shortcut tests on the real cached video confirmed pause plus exact requested 0.2/0.4-second playhead positions. Frame display remains codec/frame-rate quantized.
+
+### Extraction limits
+
 - Updated worker capability `source-video-frame`, FFmpeg/FFprobe, import and probing are required. No installation, cloud API or model download occurs.
 - Managed regular MP4 only, at most 2 GiB/six hours, square pixels, one concurrent extraction and 30 seconds total subprocess time. Symlinks, traversal, non-MP4 headers, source identity/metadata changes and out-of-duration requests refuse. The worker pins a read-only descriptor; libav receives local-only protocols and disabled MOV data references, never an arbitrary URL.
 - PNG at most 1920×1080 and 16 MiB, retaining aspect/orientation without encoded upscaling. Smaller originals stay smaller; displayed browser size is not source resolution. Non-square-pixel sources currently refuse rather than silently distort.
