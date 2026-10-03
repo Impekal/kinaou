@@ -9,6 +9,7 @@ import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { managedUploadPaths } from './asset-upload.mjs'
 import { openCourseOutputMedia } from './course-output-media.mjs'
+import { createCourseOutputStreamRuntime } from './course-output-stream.mjs'
 import { createLessonDeliveryRuntime } from './course-lesson-delivery.mjs'
 import { createCourseCollectionRuntime } from './course-delivery-collection.mjs'
 import { createProjectSourceArchiveRuntime } from './project-source-archive.mjs'
@@ -493,6 +494,7 @@ const projectSourceArchiveRuntime = createProjectSourceArchiveRuntime({ root: MA
 const projectSourceRestoreRuntime = createProjectSourceRestoreRuntime({ root: MANAGED_ROOT, sourceRuntime: projectSourceArchiveRuntime })
 const searchTrendRuntime = createSearchTrendRuntime()
 const publicSourceRuntime = createPublicSourceRuntime()
+const courseOutputStreamRuntime = createCourseOutputStreamRuntime({ root: MANAGED_ROOT })
 
 const server = http.createServer(async (request, response) => {
   setCorsHeaders(request, response)
@@ -503,9 +505,21 @@ const server = http.createServer(async (request, response) => {
   response.setHeader('content-type', 'application/json; charset=utf-8')
   response.setHeader('cache-control', 'no-store')
 
+  // Only scoped, expiring single-file capabilities bypass general bearer authentication.
+  if (request.url?.startsWith('/course/output-stream/')) return courseOutputStreamRuntime.serve(request, response)
   if (!isAuthorized(request)) return send(response, 401, { ok: false, error: { code: 'UNAUTHORIZED', message: 'Invalid worker token' } })
 
   try {
+    if (request.method === 'POST' && request.url === '/course/output-stream') {
+      const body = await readJson(request)
+      const stream = await courseOutputStreamRuntime.create(body.export, request.headers.origin)
+      return send(response, 200, { ok: true, type: 'course-output-stream', stream })
+    }
+    if (request.method === 'POST' && request.url === '/course/output-stream-release') {
+      const body = await readJson(request, 4096)
+      courseOutputStreamRuntime.revoke(body.id, request.headers.origin)
+      return send(response, 200, { ok: true, type: 'course-output-stream-released' })
+    }
     if (request.method === 'POST' && request.url === '/research/source/read') {
       const source = await publicSourceRuntime.load(await readJson(request, 4096))
       return send(response, 200, { ok: true, type: 'public-source-text', source })
@@ -610,7 +624,7 @@ const server = http.createServer(async (request, response) => {
           name: 'KINAOU Mac Worker',
           platform: process.platform,
           version: VERSION,
-          capabilities: ['project-source-restore', 'project-source-library', 'publication-editorial-language', 'publication-editorial-completion-v2', 'publication-editorial', 'public-source-reader', 'public-search-trends', 'public-search-trend-markets-v2', 'project-source-archive', 'filesystem', 'asset-upload', 'managed-sha256', 'avatar-creation-receipt', 'avatar-identity-runtime', 'course-output-playback', 'course-delivery-library', 'course-collection-library', 'publish-package-library', 'publish-package-integrity', 'publish-credentials', ...(process.platform === 'darwin' && process.env.KINAOU_YOUTUBE_CLIENT_ID?.trim() ? ['youtube-oauth'] : []), ...((process.env.KINAOU_YOUTUBE_ACCESS_TOKEN?.trim() || (process.env.KINAOU_YOUTUBE_REFRESH_TOKEN?.trim() && process.env.KINAOU_YOUTUBE_CLIENT_ID?.trim()) || (process.platform === 'darwin' && process.env.KINAOU_YOUTUBE_CLIENT_ID?.trim())) ? ['youtube-publish'] : []), ...((process.platform === 'darwin' && process.env.KINAOU_INSTAGRAM_CLIENT_ID?.trim() && process.env.KINAOU_INSTAGRAM_CLIENT_SECRET?.trim() && process.env.KINAOU_INSTAGRAM_REDIRECT_URI?.trim() && process.env.KINAOU_INSTAGRAM_API_VERSION?.trim()) ? ['instagram-oauth'] : []), ...((((process.env.KINAOU_INSTAGRAM_ACCESS_TOKEN?.trim() && process.env.KINAOU_INSTAGRAM_ACCOUNT_ID?.trim()) || (process.platform === 'darwin' && process.env.KINAOU_INSTAGRAM_CLIENT_ID?.trim() && process.env.KINAOU_INSTAGRAM_CLIENT_SECRET?.trim() && process.env.KINAOU_INSTAGRAM_REDIRECT_URI?.trim() && process.env.KINAOU_INSTAGRAM_API_VERSION?.trim())) && process.env.KINAOU_INSTAGRAM_GRAPH_ORIGIN?.trim() && process.env.KINAOU_INSTAGRAM_DELIVERY_URL?.trim() && process.env.KINAOU_INSTAGRAM_DELIVERY_PATH?.trim() && process.env.KINAOU_INSTAGRAM_DELIVERY_SHA256?.trim() && process.env.KINAOU_INSTAGRAM_DELIVERY_SIZE_BYTES?.trim()) ? ['instagram-publish'] : []), ...((process.platform === 'darwin' && process.env.KINAOU_TIKTOK_CLIENT_KEY?.trim() && process.env.KINAOU_TIKTOK_CLIENT_SECRET?.trim()) ? ['tiktok-oauth'] : []), ...((process.env.KINAOU_TIKTOK_ACCESS_TOKEN?.trim() || (process.platform === 'darwin' && process.env.KINAOU_TIKTOK_CLIENT_KEY?.trim() && process.env.KINAOU_TIKTOK_CLIENT_SECRET?.trim())) ? ['tiktok-creator-info'] : []), 'format-reframing', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe', 'publish-preflight', 'publish-package', 'course-lesson-delivery', 'course-delivery-materials', 'course-delivery-subtitles', 'course-delivery-collection'] : []), ...(localModels.length ? ['local-llm', 'director-plan', 'course-script', 'course-exercises', 'course-curriculum'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(((PIPER_CLI && piperVoices.length) || chatterboxRuntime?.available) && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : []), ...(avatarEditAvailable ? ['avatar-identity-edit'] : []), 'avatar-render-runtime', ...(avatarRenderRuntime.localGenerative.available ? ['avatar-final-local'] : [])],
+          capabilities: ['course-output-stream', 'project-source-restore', 'project-source-library', 'publication-editorial-language', 'publication-editorial-completion-v2', 'publication-editorial', 'public-source-reader', 'public-search-trends', 'public-search-trend-markets-v2', 'project-source-archive', 'filesystem', 'asset-upload', 'managed-sha256', 'avatar-creation-receipt', 'avatar-identity-runtime', 'course-output-playback', 'course-delivery-library', 'course-collection-library', 'publish-package-library', 'publish-package-integrity', 'publish-credentials', ...(process.platform === 'darwin' && process.env.KINAOU_YOUTUBE_CLIENT_ID?.trim() ? ['youtube-oauth'] : []), ...((process.env.KINAOU_YOUTUBE_ACCESS_TOKEN?.trim() || (process.env.KINAOU_YOUTUBE_REFRESH_TOKEN?.trim() && process.env.KINAOU_YOUTUBE_CLIENT_ID?.trim()) || (process.platform === 'darwin' && process.env.KINAOU_YOUTUBE_CLIENT_ID?.trim())) ? ['youtube-publish'] : []), ...((process.platform === 'darwin' && process.env.KINAOU_INSTAGRAM_CLIENT_ID?.trim() && process.env.KINAOU_INSTAGRAM_CLIENT_SECRET?.trim() && process.env.KINAOU_INSTAGRAM_REDIRECT_URI?.trim() && process.env.KINAOU_INSTAGRAM_API_VERSION?.trim()) ? ['instagram-oauth'] : []), ...((((process.env.KINAOU_INSTAGRAM_ACCESS_TOKEN?.trim() && process.env.KINAOU_INSTAGRAM_ACCOUNT_ID?.trim()) || (process.platform === 'darwin' && process.env.KINAOU_INSTAGRAM_CLIENT_ID?.trim() && process.env.KINAOU_INSTAGRAM_CLIENT_SECRET?.trim() && process.env.KINAOU_INSTAGRAM_REDIRECT_URI?.trim() && process.env.KINAOU_INSTAGRAM_API_VERSION?.trim())) && process.env.KINAOU_INSTAGRAM_GRAPH_ORIGIN?.trim() && process.env.KINAOU_INSTAGRAM_DELIVERY_URL?.trim() && process.env.KINAOU_INSTAGRAM_DELIVERY_PATH?.trim() && process.env.KINAOU_INSTAGRAM_DELIVERY_SHA256?.trim() && process.env.KINAOU_INSTAGRAM_DELIVERY_SIZE_BYTES?.trim()) ? ['instagram-publish'] : []), ...((process.platform === 'darwin' && process.env.KINAOU_TIKTOK_CLIENT_KEY?.trim() && process.env.KINAOU_TIKTOK_CLIENT_SECRET?.trim()) ? ['tiktok-oauth'] : []), ...((process.env.KINAOU_TIKTOK_ACCESS_TOKEN?.trim() || (process.platform === 'darwin' && process.env.KINAOU_TIKTOK_CLIENT_KEY?.trim() && process.env.KINAOU_TIKTOK_CLIENT_SECRET?.trim())) ? ['tiktok-creator-info'] : []), 'format-reframing', ...(versions.ffmpeg ? ['ffmpeg', 'media-proxy', 'media-thumbnail', 'media-waveform'] : []), ...(versions.ffprobe ? ['media-probe', 'publish-preflight', 'publish-package', 'course-lesson-delivery', 'course-delivery-materials', 'course-delivery-subtitles', 'course-delivery-collection'] : []), ...(localModels.length ? ['local-llm', 'director-plan', 'course-script', 'course-exercises', 'course-curriculum'] : []), ...(WHISPER_CLI && whisperModels.length && versions.ffmpeg ? ['speech-to-text'] : []), ...(((PIPER_CLI && piperVoices.length) || chatterboxRuntime?.available) && versions.ffprobe ? ['text-to-speech'] : []), ...(comfy.available && hasImageTemplates ? ['image-generation'] : []), ...(comfy.available && hasVideoTemplates ? ['video-generation'] : []), ...(captureAvailable ? ['screen-capture'] : []), ...(webBrowsers.length ? ['web-capture'] : []), ...(avatarEditAvailable ? ['avatar-identity-edit'] : []), 'avatar-render-runtime', ...(avatarRenderRuntime.localGenerative.available ? ['avatar-final-local'] : [])],
           managedRoots: [MANAGED_ROOT],
           ffmpegVersion: versions.ffmpeg,
           ffprobeVersion: versions.ffprobe
@@ -2217,8 +2231,8 @@ function setCorsHeaders(request, response) {
   const origin = request.headers.origin
   if (isLoopbackOrigin(origin)) response.setHeader('access-control-allow-origin', origin)
   response.setHeader('vary', 'origin')
-  response.setHeader('access-control-allow-headers', 'authorization, content-type, x-kinaou-filename')
-  response.setHeader('access-control-allow-methods', 'GET, POST, OPTIONS')
+  response.setHeader('access-control-allow-headers', 'authorization, content-type, x-kinaou-filename, range')
+  response.setHeader('access-control-allow-methods', 'GET, HEAD, POST, OPTIONS')
 }
 
 function isLoopbackOrigin(origin) {
