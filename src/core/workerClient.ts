@@ -1726,6 +1726,7 @@ export class WorkerClient {
   }
 
   async startRender(plan: RenderPlan): Promise<RenderJobRecord> {
+    if (plan.clips.some(clip => clip.embeddedAudio === true) && !(await this.health()).capabilities.includes('embedded-video-audio')) throw new Error('Worker missing capability: embedded-video-audio; update/reconnect before rendering original video audio')
     const payload = await this.request('/render', { method: 'POST', body: JSON.stringify({ plan }) })
     if (payload?.ok !== true || payload?.type !== 'render-job') throw new Error('Invalid worker render job response')
     return parseRenderJob(payload.job)

@@ -22,6 +22,7 @@ export type TimelineOperation =
   | { type: 'split-clip'; trackId: string; clipId: string; splitMs: number; rightClipId: string }
   | { type: 'trim-clip'; trackId: string; clipId: string; startMs: number; durationMs: number; sourceOffsetMs: number }
   | { type: 'set-clip-gain'; trackId: string; clipId: string; gain: number }
+  | { type: 'set-clip-embedded-audio'; trackId: string; clipId: string; enabled: boolean }
   | { type: 'set-clip-transform'; trackId: string; clipId: string; transform: NonNullable<TimelineClip['transform']> }
   | { type: 'set-clip-reframe'; trackId: string; clipId: string; reframe?: NonNullable<TimelineClip['reframe']> }
   | { type: 'set-clip-transform-keyframes'; trackId: string; clipId: string; keyframes?: NonNullable<TimelineClip['transformKeyframes']> }
@@ -233,6 +234,13 @@ export function applyTimelineOperation(project: KinaouProject, operation: Timeli
     case 'set-clip-gain':
       if (!Number.isFinite(operation.gain) || operation.gain < 0 || operation.gain > 4) throw new Error('Clip gain must be between 0 and 4')
       return updateUnlockedTrack(project, operation.trackId, (track) => updateExistingClip(track, operation.clipId, (clip) => ({ ...clip, gain: operation.gain })))
+    case 'set-clip-embedded-audio':
+      if (typeof operation.enabled !== 'boolean') throw new Error('Invalid original audio selection')
+      return updateUnlockedTrack(project, operation.trackId, track => updateExistingClip(track, operation.clipId, clip => {
+        const asset = project.assets.find(a => a.id === clip.assetId)
+        if (asset?.kind !== 'video' || !['video', 'broll', 'image', 'avatar', 'overlay'].includes(track.type)) throw new Error('Original audio requires a visual video clip')
+        return { ...clip, embeddedAudio: operation.enabled }
+      }))
     case 'set-clip-transform': {
       const parsed = operation.transform
       if (![parsed.x, parsed.y, parsed.scale, parsed.cropLeft, parsed.cropTop, parsed.cropRight, parsed.cropBottom].every(Number.isFinite)) throw new Error('Clip transform values must be finite')
@@ -336,7 +344,11 @@ export function applyTimelineOperation(project: KinaouProject, operation: Timeli
       // A different source makes the old in-point meaningless, so the clip starts at the
       // beginning of the new media rather than at an offset that belonged to another file.
       if (!project.assets.some((asset) => asset.id === operation.assetId)) throw new Error(`Asset not found: ${operation.assetId}`)
-      return updateUnlockedTrack(project, operation.trackId, (track) => updateExistingClip(track, operation.clipId, (clip) => ({ ...clip, assetId: operation.assetId, sourceOffsetMs: 0 })))
+      return updateUnlockedTrack(project, operation.trackId, (track) => updateExistingClip(track, operation.clipId, (clip) => {
+        // Original audio approval is bound to the old source, not its replacement.
+        const { embeddedAudio: _oldAudio, ...rest } = clip
+        return { ...rest, assetId: operation.assetId, sourceOffsetMs: 0 }
+      }))
     }
 
     case 'set-clip-scene':

@@ -34,6 +34,7 @@ export interface RenderClipStep {
   sourceOffsetMs: number
   gain: number
   speed: number
+  embeddedAudio?: boolean
   reframe?: { focusX: number; focusY: number }
   captionStyle?: CaptionStyle
   transform: { x: number; y: number; scale: number; cropLeft: number; cropTop: number; cropRight: number; cropBottom: number }
@@ -213,6 +214,7 @@ export function createRenderPlan(project: KinaouProject, preset: RenderPreset, o
       if (!asset) throw new Error(`Missing asset for clip ${clip.id}`)
       if (asset.offline) throw new Error(`Asset offline: ${asset.id}`)
       if (clip.speed < 0.25 || clip.speed > 4) throw new Error(`Unsupported speed for clip ${clip.id}`)
+      if (clip.embeddedAudio !== undefined && (typeof clip.embeddedAudio !== 'boolean' || asset.kind !== 'video' || !['video', 'broll', 'image', 'avatar', 'overlay'].includes(track.type))) throw new Error('Embedded audio requires a visual video clip')
       if (
         clip.reframe
         && [clip.reframe.focusX, clip.reframe.focusY].some(
@@ -239,6 +241,7 @@ export function createRenderPlan(project: KinaouProject, preset: RenderPreset, o
         sourceOffsetMs: clip.sourceOffsetMs,
         gain: clip.gain,
         speed: clip.speed,
+        ...(clip.embeddedAudio !== undefined ? { embeddedAudio: clip.embeddedAudio } : {}),
         ...(clip.reframe ? {
           reframe: {
             focusX: clip.reframe.focusX,
@@ -293,6 +296,7 @@ export function createRenderPlan(project: KinaouProject, preset: RenderPreset, o
     requiredCapabilities: [
       'filesystem',
       'ffmpeg',
+      ...(clips.some(clip => clip.embeddedAudio === true) ? ['embedded-video-audio' as const] : []),
       ...(needsFormatReframing
         ? ['format-reframing' as const]
         : [])

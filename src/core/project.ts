@@ -43,6 +43,8 @@ export const clipSchema = z.object({
   sourceOffsetMs: z.number().int().nonnegative().default(0),
   gain: z.number().default(1),
   speed: z.number().min(0.25).max(4).default(1),
+  /** Explicit original audio on a visual video clip; absence preserves legacy silent-video behavior. */
+  embeddedAudio: z.boolean().optional(),
   motion: z.enum(['zoom-in', 'zoom-out']).optional(),
 
   captionStyle:
