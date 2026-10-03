@@ -265,6 +265,14 @@ The local browser displayed the new Course entry/form and language options on a 
 
 Course plan now proposes source-bound modules/lessons through an explicitly selected installed-local model. Titles/objectives stay editable, exact quotations and complete additions require review, and planned ranges are explicitly authored rather than invented media durations. Append-only acceptance preserves existing production and supports one-snapshot save-only retry with historical private provenance. Real DE/EN/FR inference and browser/worker acceptance passed; German objective wording still required human refinement. See COURSE-CURRICULUM-DRAFTS.md. Complete teaching/media acceptance remains open.
 
+## Current-edit lesson preview — #429
+
+In Studio export, select a saved eligible lesson, choose format/framing and audio settings, then explicitly calculate its preview. The exact saved interval goes through the same range render builder as export at reduced preview resolution. Retiming, source offsets, caption clipping and audio treatment are preserved; each request gets a unique file under `KINAOU/Cache/Previews`. This is the current edit, unlike original historical-export playback. It creates no export receipt, history version or project mutation. Format/framing controls retain their existing explicit save behavior.
+
+While starting/rendering/loading, conflicting controls are disabled. Failed file loading/status checks retry the same job, never automatically submit another render. Unknown start acceptance remains uncertain; cancellation uses the existing preview lifecycle. Project/connection/settings changes discard old playback and late replies, including change-and-return. Leaving detaches monitoring but an accepted worker job may finish; cache files are not silently deleted. DE/EN/FR labels do not translate authored lesson names.
+
+Acceptance: 17 new tests, 2,659 app tests total, build/syntax and full CI 37138808160. Actual FFmpeg tests decode red/blue retimed lesson frames and audio, check duration/dimensions and unchanged originals. Actual browser verifies original 0.5-second lesson in landscape/portrait, load-only recovery, busy controls, seek, stale replies and languages. No complete human audiovisual/teaching acceptance is claimed. Existing preview/FFmpeg setup suffices; no model download or immediate SSD action.
+
 ## Next course slices
 
 Current after #345: Course now also makes real private project/registered-media copies, verified through hash checks and isolated re-render from archived sources. Remaining course work includes broader reference preservation, archive rediscovery/restore UX and actual instructional acceptance; no whole-point completion is claimed. Next safe repository priority: point 5's missing attributable live trend input, beginning with an explicit public RSS read and honest country/time/source limitations, without paid/account/cloud-inference APIs.
