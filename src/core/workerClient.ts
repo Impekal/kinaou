@@ -1249,6 +1249,12 @@ export class WorkerClient {
     return payload.models.filter((model: unknown): model is { id: string; sizeBytes: number } => Boolean(model && typeof (model as any).id === 'string' && typeof (model as any).sizeBytes === 'number'))
   }
 
+  async generateCourseScript(model: string, context: unknown): Promise<unknown> {
+    const payload = await this.request('/course/script/generate', { method: 'POST', body: JSON.stringify({ model, context }) })
+    if (payload?.ok !== true || payload?.type !== 'course-script') throw new Error('Invalid lesson script response')
+    return payload.result
+  }
+
   async generateDirectorPlan(model: string, brief: string): Promise<unknown> {
     const payload = await this.request('/director/generate', { method: 'POST', body: JSON.stringify({ model, brief }) })
     if (payload?.ok !== true || payload?.type !== 'director-plan') throw new Error('Invalid Director response')
