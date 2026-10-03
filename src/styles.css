@@ -109,6 +109,11 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .assetRow:first-child { margin-top: 14px; }
 .assetRow > div { display: grid; gap: 4px; }
 .assetRow small { color: #7d8699; }
+.sourceProvenancePanel { grid-column: 1 / -1; min-width: 0; }
+.sourceProvenancePanel > .stack { margin-top: 16px; }
+.sourceProvenancePanel pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 420px; overflow: auto; }
+.sourceReportAck { display: flex; gap: 10px; align-items: flex-start; }
+.sourceReportAck input { width: auto; flex: none; }
 .assetRow code { color: #b8bfd0; overflow-wrap: anywhere; }
 .assetPlacement { display: grid !important; grid-template-columns: minmax(110px, 1fr) auto; gap: 7px !important; }
 .assetPlacement select { padding: 8px; font-size: 11px; }
