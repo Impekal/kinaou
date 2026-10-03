@@ -1,5 +1,9 @@
 # KINAOU — Real Mac Execution Test
 
+## Prepared image composition preview — 2026-10-04
+
+#451 passed real FFmpeg prepared-preview/export interval pixels and actual browser/worker H.264 decoding. In a disposable timeline up to 60 seconds, prepare an image interval, explicitly render before inserting and inspect image start/midpoint using the pause-and-seek buttons. Other active layers must remain, including actual occlusion. Preview must not write a project/history entry. While rendering insertion is blocked; close/reopen unloads the old video. Missing capabilities or a longer complete timeline refuse preview without silently substituting a smaller composition. Ordinary preview audio defaults are not unsaved export settings. Actual DE/EN/FR, zero writes, 0.2/0.4-second seek/pause and clean console acceptance passed. No immediate SSD/model action required; see SOURCE-FRAMES.md.
+
 ## Exact image intervals — 2026-10-04
 
 #449 passed actual FFmpeg red/blue/red interval pixels with an extracted PNG, unchanged source bytes, DE/EN/FR browser overlap/stale-review checks and two-failure save-only recovery (one clip/snapshot). In a disposable project, use an image's exact-placement disclosure, choose a free target interval, review and explicitly insert. Existing clips must stay put; other active image layers warn rather than reorder. Inspect actual project framing, layer visibility and legibility afterwards. New file/content/rights verification is not implied. No immediate SSD/model action required; see SOURCE-FRAMES.md.
