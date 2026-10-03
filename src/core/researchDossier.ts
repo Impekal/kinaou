@@ -41,6 +41,9 @@ export function buildResearchDossier(project: KinaouProject, filters: ResearchOb
     if (assessment) lines.push('', t('assessment.historical', { revision: assessment.revision, date: assessment.savedAt }), t('assessment.boundary'),
       t('assessment.claim') + ': ' + assessment.claim, t('assessment.finding') + ': ' + t(`assessment.${assessment.finding}`),
       t('assessment.notes') + ': ' + assessment.notes, t('assessment.links'), ...assessment.readArticleUrls)
+    for(const excerpt of assessment?.excerpts??[]) lines.push('',t('sourceExcerpt.savedHeading'),t('sourceExcerpt.boundary'),excerpt.quote,excerpt.originalUrl,excerpt.source.title,excerpt.source.finalUrl,
+      t('sourceReader.received',{date:excerpt.source.retrievedAt,bytes:excerpt.source.htmlBytes}),t('sourceReader.language',{language:excerpt.source.declaredLanguage??'—'}),t('sourceReader.mode',{mode:excerpt.source.extraction}),
+      t('sourceExcerpt.offsets',{start:excerpt.startCharacter,end:excerpt.endCharacter}),excerpt.displayTruncated?t('sourceReader.truncated'):t('sourceReader.incomplete'),'HTML SHA-256: '+excerpt.source.htmlSha256,...excerpt.source.redirectUrls)
   })
   const base = 'kinaou-research-sources-' + createdAt.slice(0, 10)
   const files = { json: { filename: base + '.json', mimeType: 'application/json;charset=utf-8', text: JSON.stringify(payload, null, 2) + '\n' },

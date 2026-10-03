@@ -372,4 +372,8 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .publicSourceActions button { padding: .7rem 1rem; cursor: pointer; }
 .publicSourceActions button:disabled { cursor: not-allowed; opacity: .55; }
 .publicSourceReader :focus-visible { outline: 2px solid #aebdff; outline-offset: 3px; }
+.sourceExcerpt { border-left: 3px solid #9a8bf4; padding: .75rem 1rem; overflow-wrap: anywhere; }
+.sourceExcerpt blockquote { margin: 0; white-space: pre-wrap; line-height: 1.6; }
+.sourceExcerptComposer { border-top: 1px solid #44516a; padding-top: 1rem; }
+.sourceExcerptComposer button { padding: .7rem 1rem; }
 .publicSourceText { white-space: pre-wrap; max-height: 32rem; overflow: auto; padding: 1rem; border: 1px solid #44516a; border-radius: 8px; line-height: 1.65; background: #111827; }
