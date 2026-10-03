@@ -1,5 +1,9 @@
 # KINAOU — Real Mac Execution Test
 
+## Media excerpts and original audio — 2026-10-03
+
+#437 passed actual worker/FFmpeg and media-list/Studio browser checks using self-generated red/blue video with tone. After normal worker restart/reconnect, `embedded-video-audio` and the corrected `source-import` advertisement should appear. In a disposable asset, review source in/out, speed, free timeline position and explicit original audio, acknowledge and save. Invalid bounds/overlaps refuse. Check composed preview, Studio original-audio toggle/gain and undo; video-only live preview remains silent by design. Original files must stay unchanged and reload retain the single clip. Audio requested from a genuinely silent file must fail, not pretend success. Browser playback and decoded PCM already passed, but listen to real production audio separately. No immediate SSD/model action required for repository work; see SOURCE-IMPORT.md.
+
 ## Private source report — 2026-10-03
 
 #435 passed actual media-list browser and real TXT/JSON download comparison. In Assets, expand one retained online source and explicitly prepare its private provenance report. Compare timeline/source intervals and speed with Studio, including repeated/muted references. Overruns warn; reports do not verify visibility in exports or current physical bytes. Review both complete previews before download; changing project or language must discard previous approval. No automatic requests or project/history writes. Do not publish private permission evidence without reviewing it. No immediate SSD/model action needed. See SOURCE-IMPORT.md.
