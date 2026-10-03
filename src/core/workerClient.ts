@@ -17,7 +17,7 @@ import { parseWebCaptureBrowsers, parseWebCaptureJob, type WebCaptureBrowser, ty
 import { assertSafeManagedPath } from './storage'
 import { managedPublishPathSchema, parsePublishPreflightResult, publishIntegrityResultSchema, publishPackageListSchema, publishPackageRequestSchema, publishPackageResultSchema, publishProjectIdSchema, type PublishIntegrityResult, type PublishPackageEntry, type PublishPackageRequest, type PublishPackageResult, type PublishPreflightResult } from './publishPackage'
 import { exportReceiptSchema, type ExportReceipt } from './exportHistory'
-import { maxCoursePlaybackBytes } from './courseOutputPlayback'
+import { maxCoursePlaybackBytes, type CourseStreamSource } from './courseOutputPlayback'
 import { lessonDeliveryRequestSchema, parseLessonDeliveryJob, type LessonDeliveryRequest } from './courseLessonDelivery'
 import { validateCourseCollectionRequest, validateCourseCollectionJob, type CourseCollectionRequest } from '../../worker/course-collection-protocol.mjs'
 import { validateSourceArchiveRequest, validateSourceArchiveQuery, validateSourceArchiveJob, type SourceArchiveRequest, type SourceArchiveQuery } from '../../worker/project-source-protocol.mjs'
@@ -245,6 +245,20 @@ export class WorkerClient {
       if (total !== length) throw new Error('Lesson media response ended early')
       return new Blob(chunks, { type: 'video/mp4' })
     } finally { await reader?.cancel().catch(() => {}); reader?.releaseLock() }
+  }
+
+  async openCourseOutputStream(receipt: ExportReceipt, signal?: AbortSignal): Promise<CourseStreamSource> {
+    const validated = exportReceiptSchema.parse(receipt)
+    if (!validated.courseLesson) throw Error('Course streaming requires a lesson receipt')
+    const payload = await this.request('/course/output-stream', { method: 'POST', redirect: 'error', signal, body: JSON.stringify({ export: validated }) })
+    const stream = payload?.stream
+    if (payload?.ok !== true || payload?.type !== 'course-output-stream' || !stream || typeof stream.id !== 'string' || !/^[a-f0-9]{64}$/.test(stream.id) || !Number.isSafeInteger(stream.sizeBytes) || stream.sizeBytes <= 0 || stream.sizeBytes > 8 * 1024 ** 3 || (validated.sizeBytes !== undefined && validated.sizeBytes !== stream.sizeBytes) || !Number.isSafeInteger(stream.expiresAt) || stream.expiresAt <= Date.now() || stream.expiresAt > Date.now() + 2 * 60 * 60 * 1000 + 1000) throw Error('Invalid lesson stream response')
+    let released = false
+    return { url: `${this.baseUrl}/course/output-stream/${stream.id}`, expiresAt: stream.expiresAt, release: () => {
+      if (released) return
+      released = true
+      void this.request('/course/output-stream-release', { method: 'POST', redirect: 'error', keepalive: true, body: JSON.stringify({ id: stream.id }) }).catch(() => undefined)
+    } }
   }
 
   async startLessonDelivery(request: LessonDeliveryRequest) {

@@ -8,7 +8,8 @@ import type { CourseOutputWorkerProps } from './CourseOutputFileCheckPanel'
 export function CourseOutputPlaybackControl({ project, jobId, dirty, workerUrl = '', workerToken = '', workerConnected = false, workerCapabilities = [], visible = true }: CourseOutputWorkerProps & { project: KinaouProject; jobId: string; dirty: boolean; visible?: boolean }) {
   const { t } = useUiLanguage(), [feedback, setFeedback] = useState<CoursePlaybackFeedback | null>(null)
   const available = workerConnected && !!workerToken.trim() && workerCapabilities.includes('course-output-playback')
-  const scope = { project, jobId, dirty, connection: JSON.stringify([workerUrl, workerToken, available]) }
+  const streaming = workerCapabilities.includes('course-output-stream')
+  const scope = { project, jobId, dirty, connection: JSON.stringify([workerUrl, workerToken, available, streaming]) }
   const environment = useRef(scope), session = useRef<CourseOutputPlayback | null>(null), mounted = useRef(true)
   environment.current = scope; session.current?.observe(scope)
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; session.current?.detach() } }, [])
@@ -21,17 +22,17 @@ export function CourseOutputPlaybackControl({ project, jobId, dirty, workerUrl =
     current?.detach()
     const client = new WorkerClient({ baseUrl: workerUrl, token: workerToken })
     const task = new CourseOutputPlayback(environment.current, { environment: () => environment.current,
-      load: (receipt, signal) => client.loadCourseOutput(receipt, signal), createUrl: blob => URL.createObjectURL(blob), revokeUrl: url => URL.revokeObjectURL(url),
+      load: (receipt, signal) => streaming ? client.openCourseOutputStream(receipt, signal) : client.loadCourseOutput(receipt, signal), createUrl: blob => URL.createObjectURL(blob), revokeUrl: url => URL.revokeObjectURL(url),
       publish: value => { if (mounted.current && session.current === task) setFeedback(value) }
     })
     session.current = task; await task.load()
   }
   return <section className="stack">
-    <h4>{t('course.playback.heading')}</h4><p>{t('course.playback.help')}</p>
+    <h4>{t('course.playback.heading')}</h4><p>{t(streaming ? 'course.playback.streamHelp' : 'course.playback.help')}</p>
     {!available && <p>{t('course.playback.unavailable')}</p>}
-    <button disabled={!available || !jobId || dirty || busy} onClick={load}>{t(busy ? 'course.playback.loading' : 'course.playback.load')}</button>
-    {shown && <div role={shown.phase === 'failed' ? 'alert' : 'status'}>{t(`course.playback.${shown.phase}`)}{'detail' in shown && shown.detail && <details><summary>{t('common.details')}</summary>{shown.detail}</details>}</div>}
-    {shownUrl && <video ref={player} key={shownUrl} aria-label={t('course.playback.player')} src={shownUrl} controls playsInline preload="metadata" style={{ width: '100%', maxHeight: 480 }} onPlay={event => { if (!visible) event.currentTarget.pause() }} onError={() => { if (session.current === current) current?.playbackFailed() }} />}
-    {shown && <button onClick={() => { session.current?.detach(); session.current = null; setFeedback(null) }}>{t('course.playback.close')}</button>}
+    <button className="secondaryButton" disabled={!available || !jobId || dirty || busy} onClick={load}>{t(busy ? 'course.playback.loading' : 'course.playback.load')}</button>
+    {shown && <div role={shown.phase === 'failed' ? 'alert' : 'status'}>{t(shown.phase === 'loaded' && streaming ? 'course.playback.streamReady' : `course.playback.${shown.phase}`)}{'detail' in shown && shown.detail && <details><summary>{t('common.details')}</summary>{shown.detail}</details>}</div>}
+    {shownUrl && <video className="proxyVideo" ref={player} key={shownUrl} aria-label={t('course.playback.player')} src={shownUrl} crossOrigin="anonymous" controls playsInline preload="metadata" style={{ width: '100%', maxHeight: 480 }} onPlay={event => { if (!visible) event.currentTarget.pause() }} onError={() => { if (session.current === current) current?.playbackFailed() }} />}
+    {shown && <button className="secondaryButton" onClick={() => { session.current?.detach(); session.current = null; setFeedback(null) }}>{t('course.playback.close')}</button>}
   </section>
 }

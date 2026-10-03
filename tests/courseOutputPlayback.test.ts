@@ -79,5 +79,5 @@ it('cancels body reading on failure and respects an already aborted signal', asy
 it.each(uiLanguages)('renders explicit-only disabled unavailable playback in %s', language => {
   const f = fixture(), html = renderToStaticMarkup(createElement(UiLanguageProvider, { initialLanguage: language, children: createElement(CourseOutputPlaybackControl, { project: f.scope.project, jobId: 'job', dirty: false }) }))
   expect(html).toContain(translateUi(language, 'course.playback.heading')); expect(html).toContain(translateUi(language, 'course.playback.unavailable'))
-  expect(html).not.toContain('<video'); expect(html).toContain(`<button disabled="">${translateUi(language, 'course.playback.load')}</button>`)
+  expect(html).not.toContain('<video'); expect(html).toContain(`<button class="secondaryButton" disabled="">${translateUi(language, 'course.playback.load')}</button>`)
 })
