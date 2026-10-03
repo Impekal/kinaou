@@ -1,5 +1,9 @@
 # KINAOU — Real Mac Execution Test
 
+## Authorized direct MP4 import — 2026-10-03
+
+#433 passed actual authenticated browser/worker HTTPS download and same-job/save recovery using a small official MDN CC0 example. On an updated worker with `source-import`, use only a disposable authorized direct MP4, review the download/reuse declarations separately, then explicitly register the measured result. Reload must start no request; same-ID check must not download again. Original provenance survives registration, language changes and reload; no timeline placement occurs automatically. Forgetting a reminder neither cancels a download nor deletes media. Automated cancellation/invalid-host/redirect/size/hash/interruption cases use isolated fixtures; do not corrupt real media or fill the disk to test failures. No immediate SSD/model action is required. See SOURCE-IMPORT.md; this is not general YouTube acquisition or legal approval.
+
 ## Large original lesson playback — 2026-10-03
 
 #431 passed actual worker/FFmpeg and native browser playback of a 300 MiB sparse 20-second MP4, including seeks, audio decoding and original-byte checks. After a normal worker restart/reconnect, retained lesson playback should use `course-output-stream` up to 8 GiB; old workers still have the 256 MiB limit. Explicitly load/play/seek, hide the view (must pause), return (must not auto-resume), close, then explicitly reload. No project/receipt/file edits occur. Unused access expires in 30 seconds, activated access in two hours; lost replies cannot trigger automatic reopen. Final DE/EN/FR browser console was clean. A long real-course performance/listening review remains separate; no immediate SSD/model action is needed. See COURSE-PRODUCTION.md.
