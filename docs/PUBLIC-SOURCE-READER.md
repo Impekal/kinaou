@@ -13,6 +13,8 @@ Network design uses documented [Node HTTPS requests](https://nodejs.org/docs/lat
 
 ## Temporary, read-only UI
 
+Since #417, a separate explicit reviewed action can retain up to five short exact quotes in an assessment; the full reader text remains temporary. See [SOURCE-EXCERPTS.md](SOURCE-EXCERPTS.md). Retrieval itself still performs no project writes or acknowledgement.
+
 Text stays only in the current reader, not project metadata, exports or a full-article archive. Internal Research tabs retain it, while closing the assessment/remounting/reloading discards it. Observed full-project/source/selected-link/connection/language changes permanently invalidate the session, including A→B→A; late results cannot revive. Explicit close discards a reply, not a claim that already-started upstream work was cancelled. No read checkbox, authored finding, note, project or safety version is changed by retrieval. Source review remains the creator's separate responsibility.
 
 ## Acceptance

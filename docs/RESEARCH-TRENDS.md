@@ -82,6 +82,10 @@ The project ledger is capped at 200 individually selected observations and 1 MiB
 - [Google Trends attribution guidance](https://support.google.com/trends/answer/4365538?hl=en). Preserve Google attribution; applicable Google terms still apply.
 - [Saxes upstream implementation and strict XML behavior](https://github.com/lddubeau/saxes).
 
+## Reviewed source excerpts — #417
+
+Explicitly retrieved text supports short exact quote selection with separate review/acknowledgement before assessment-draft append, then final assessment save. Historical provenance survives explicit brief refresh and selected TXT/JSON exports. No automatic read checkmark, truth/rights approval or full article archive. Real retrieval, browser save recovery and actual byte-matched downloads passed; see SOURCE-EXCERPTS.md. Whole research point 5 remains open.
+
 ## Authored briefs and explicit Director transfer — #349
 
 Select 1–5 retained observations in Research, then write a working title, question, editorial angle and outstanding source checks. Save explicitly. The project keeps exact selected source snapshots, an authored revision and timestamp; history saves the prior project before persistence. Identical saves are idempotent. Maximum 32,000 UTF-8 bytes, title 120 characters, question/angle 2,000 each, outstanding checks 4,000. No automatic fact-verification or inference occurs.
