@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { courseScriptContextSchema, courseScriptProposalSchema, validateCourseScriptProposal, type CourseScriptContext, type CourseScriptProposal } from '../../worker/course-script.mjs'
+import { courseScriptContextSchema, courseScriptProposalSchema, validateCourseScriptProposal, validateCourseScriptGenerationContext, type CourseScriptContext, type CourseScriptProposal } from '../../worker/course-script.mjs'
 import { projectCourse, saveCourseOutline } from './course'
 import { parseProject, type KinaouProject } from './project'
 export type { CourseScriptContext, CourseScriptProposal } from '../../worker/course-script.mjs'
@@ -9,7 +9,7 @@ export type CourseScriptResult = z.infer<typeof resultSchema>
 export function courseScriptContext(project: KinaouProject, lessonId: string, sourceNotes: string): CourseScriptContext {
   const course = projectCourse(project), lesson = course?.modules.flatMap(module => module.lessons).find(item => item.id === lessonId)
   if (!course || !lesson) throw Error('Choose a saved lesson before preparing a script')
-  return courseScriptContextSchema.parse({ schemaVersion: 1, courseId: course.id, lessonId, revision: course.revision, language: course.language, courseTitle: course.title, lessonTitle: lesson.title, audience: course.audience, objective: lesson.objective, sourceNotes })
+  return validateCourseScriptGenerationContext({ schemaVersion: 1, courseId: course.id, lessonId, revision: course.revision, language: course.language, courseTitle: course.title, lessonTitle: lesson.title, audience: course.audience, objective: lesson.objective, sourceNotes })
 }
 export function parseCourseScriptResult(context: CourseScriptContext, input: unknown, expectedModel: string): CourseScriptResult {
   const result = resultSchema.parse(input)

@@ -1040,8 +1040,8 @@ const server = http.createServer(async (request, response) => {
 
     if (request.method === 'POST' && request.url === '/course/script/generate') {
       const body = await readJson(request, 52000)
-      const { courseScriptContextSchema, generateCourseScript } = await import('./course-script.mjs')
-      const context = courseScriptContextSchema.parse(body.context)
+      const { validateCourseScriptGenerationContext, generateCourseScript } = await import('./course-script.mjs')
+      const context = validateCourseScriptGenerationContext(body.context)
       const localModels = await listOllamaModels(OLLAMA_URL).catch(() => [])
       if (!localModels.some(item => item.id === body.model)) throw capabilityError('Requested local model is not installed')
       const result = await generateCourseScript(OLLAMA_URL, body.model, context)

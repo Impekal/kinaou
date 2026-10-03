@@ -44,7 +44,7 @@ export function CourseScriptDraftPanel({ project, lessonId, dirty, history, onPr
     catch (cause) { setFeedback('failed'); setError(String(cause)) }
   }
   return <details className="card stack courseDraft"><summary>{t('course.scriptDraft.heading')}</summary>
-    <p>{t('course.scriptDraft.help')}</p><p className="note">{t('course.scriptDraft.boundary')}</p>
+    <p>{t('course.scriptDraft.help')}</p><p className="note">{t('course.scriptDraft.boundary')}</p><p className="note">{t('course.scriptDraft.budget')}</p>
     {!available && <p>{t('course.scriptDraft.unavailable')}</p>}{dirty && <p>{t('course.saveFirst')}</p>}{invalid && <p role="alert">{t('course.scriptDraft.invalid')}<code>{invalid}</code></p>}
     <label>{t('course.scriptDraft.notes')}<textarea rows={6} maxLength={12000} value={notes} onChange={event => { setNotes(event.target.value); clearReview() }} /></label>
     <button disabled={!available || dirty || !lesson || !!invalid || busy} onClick={() => request('models')}>{t('course.scriptDraft.discover')}</button>

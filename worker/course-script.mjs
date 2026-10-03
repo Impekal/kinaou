@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { requestLocalCourseDraft } from './course-local-model.mjs'
+import { assertCourseSourceBudget } from './course-generation-limits.mjs'
 
 const text = max => z.string().trim().min(1).max(max)
 export const courseScriptContextSchema = z.object({ schemaVersion: z.literal(1), courseId: text(100), lessonId: text(100), revision: z.number().int().positive(), language: z.enum(['de', 'en', 'fr']), courseTitle: text(120), lessonTitle: text(120), audience: z.string().max(2000), objective: z.string().max(2000), sourceNotes: text(12000) }).strict().refine(value => new TextEncoder().encode(JSON.stringify(value)).length <= 48000, 'Source context exceeds 48,000 bytes')
@@ -10,8 +11,12 @@ export function validateCourseScriptProposal(context, input) {
   if (proposal.paragraphs.some(item => ['sourceNotes', 'sourceQuote', 'CONTEXT_JSON'].some(key => item.text.includes(key) && !source.sourceNotes.includes(key)))) throw Error('Technical source-field names must not leak into spoken text')
   return proposal
 }
+/** Historical records keep their original schema; only new inference uses the tighter source budget. */
+export function validateCourseScriptGenerationContext(context) {
+  const checked = courseScriptContextSchema.parse(context); assertCourseSourceBudget(checked); return checked
+}
 export async function generateCourseScript(baseUrl, model, context, fetchImpl = fetch) {
-  const checked = courseScriptContextSchema.parse(context)
+  const checked = validateCourseScriptGenerationContext(context)
   const language = { de: 'German', en: 'English', fr: 'French' }[checked.language], format = z.toJSONSchema(courseScriptProposalSchema)
   format.properties.paragraphs.items.properties.text.description = `Write ONLY the words to be spoken, exclusively in ${language}. No source labels, citations, JSON field names, camera directions, invented facts or claim of verified teaching. Source quotations belong only in the separate sourceQuote field.`
   format.properties.paragraphs.items.properties.sourceQuote.description = 'An exact unchanged substring from sourceNotes, not a translation. It is a source pointer, not proof that the paragraph is true.'
