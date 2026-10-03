@@ -1,5 +1,9 @@
 # Public search-trend research
 
+## Explicit public article reading — #415, 2026-10-03
+
+Source assessment now offers a separate explicit static-text reader for selected original links. It uses bounded public HTTPS with DNS pinning/redirect protections, without accounts, cookies, scripts or model inference. Text/provenance are temporary and visibly unverified/incomplete; no reading acknowledgement or assessment is set automatically. Actual tagesschau/heise retrieval, Spektrum 403 refusal and browser lifetime/privacy checks passed. This supersedes older statements that linked article retrieval is entirely unavailable, not the ban on automatic retrieval. See [PUBLIC-SOURCE-READER.md](PUBLIC-SOURCE-READER.md) for boundaries and full acceptance; point 5 remains open.
+
 ## Focused Research workspace — #389, 2026-09-30
 
 Four freely selectable DE/EN/FR views replace the long combined page: Discover, Source library, Source assessment and Video brief. Accessible tab/panel links, one keyboard tab stop, wrapping Left/Right and Home/End navigation are provided. The sequence is orientation, not a certification of completed source checking. Discovery is initially visible; changing views starts no retrieval, generation, save or download.

@@ -1,5 +1,9 @@
 # KINAOU — Real Mac Execution Test
 
+## Public source reader acceptance — 2026-10-03
+
+#415 passed real public HTTPS and isolated authenticated browser tests. In a disposable retained observation, open Source assessment, choose an article and explicitly retrieve text. Confirm original/final URLs, HTML hash/time, unverified language and extraction/truncation warnings. Check no read flags/project writes, text retention across Research tabs and permanent rejection after observed project/language/connection changes. Blocked/unsupported pages must report failure without bypass or invented text. Actual tagesschau/heise reads and Spektrum 403 refusal were observed; body extraction retained navigation on heise. No immediate SSD/model action needed; see PUBLIC-SOURCE-READER.md.
+
 ## Course-draft review hints — 2026-10-03
 
 #413 passed actual installed-model DE/EN/FR sampling and browser/worker hint checks. In a disposable draft, put the full answer in a learner task, or remove/add a quoted numeric reference in script prose: the relevant edit and final-review views should show advisory hints. Correcting text clears current hints and invalidates the prior review; history shows original and accepted concerns separately. Opening history causes no request/save. Hints may flag valid derived facts or multiple-choice options and cannot certify truth or answer secrecy. A temporary browser reload interrupted an optional repeat of saving; #413 does not claim that repeat succeeded. Existing save paths remain covered by #409/#411. Final fresh read-only multilingual checks passed with a clean console. No immediate SSD/model action required; see COURSE-SCRIPT-DRAFTS.md.

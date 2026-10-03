@@ -14,6 +14,8 @@ Local exercise drafts (#409) are editable instructor-reviewed proposals, not aut
 
 ## Search-trend evidence boundary — 2026-09-27
 
+#415 (2026-10-03) retrieves explicitly selected public article text, not verified evidence or rights clearance. A unique HTML article/main/body heuristic can retain unrelated text or omit meaningful dynamic/hidden material. Actual heise body output included navigation/promotions; Spektrum 403 was refused. Time/hash/original/final URLs document retrieval, not truth. Reading checkboxes/findings stay manual; source text is temporary and not automatically archived or sent to a model. See PUBLIC-SOURCE-READER.md.
+
 #389 (2026-09-30) organizes Research into freely selected Discover / Source library / Source assessment / Video brief views. Tabs preserve in-page drafts and existing stale-context guards, not a source-quality approval or completed-check badge. Switching views never starts research, inference or saving. Unsaved drafts still end when leaving the workspace, changing project or reloading.
 
 #387 (2026-09-30) adds an authored source-review trail: specific claims, self-reported read links, support/contradiction/open findings and uncertainty, bound to original observations. A checkbox or creator label is not proof of reading or factual correctness. Saved historical copies travel only through explicitly refreshed briefs/Director drafts and selected-source dossiers; stale copies block transfer. Synthetic workflow tests verify persistence/privacy, not truth, expertise, media rights or model compliance. No automatic article retrieval/verification is claimed; whole point 5 remains open.
