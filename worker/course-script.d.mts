@@ -3,5 +3,6 @@ export interface CourseScriptContext { schemaVersion: 1; courseId: string; lesso
 export interface CourseScriptProposal { paragraphs: Array<{ text: string; sourceQuote: string }> }
 export const courseScriptContextSchema: ZodType<CourseScriptContext>
 export const courseScriptProposalSchema: ZodType<CourseScriptProposal>
+export function validateCourseScriptGenerationContext(context: unknown): CourseScriptContext
 export function validateCourseScriptProposal(context: unknown, input: unknown): CourseScriptProposal
 export function generateCourseScript(baseUrl: string, model: string, context: unknown, fetchImpl?: typeof fetch): Promise<{ proposal: CourseScriptProposal; modelId: string; adapterId: 'ollama' }>
