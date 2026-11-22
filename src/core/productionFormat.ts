@@ -123,6 +123,18 @@ export function productionReviewStatuses(project: KinaouProject, signature: stri
   })
 }
 
+export interface ProductionReviewSummary { due: number; current: number; missing: number; stale: number }
+
+/** Counts for a status line. `due === current` is the only state in which nothing is outstanding. */
+export function summarizeProductionReviews(statuses: readonly ProductionReviewStatus[]): ProductionReviewSummary {
+  return {
+    due: statuses.length,
+    current: statuses.filter(status => status.state === 'current').length,
+    missing: statuses.filter(status => status.state === 'missing').length,
+    stale: statuses.filter(status => status.state === 'stale').length
+  }
+}
+
 export const productionReviewInputSchema = z.object({
   reviewer: z.string().trim().min(1).max(120),
   note: z.string().trim().min(1).max(2000)

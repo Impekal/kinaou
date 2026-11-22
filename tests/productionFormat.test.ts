@@ -2,11 +2,12 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { ProductionFormatPanel } from '../src/components/ProductionFormatPanel'
+import { ProductionFormatStatus } from '../src/components/ProductionFormatStatus'
 import { UiLanguageProvider } from '../src/components/UiLanguageProvider'
 import { defaultProjectContentProfile, localizedDirectorBrief } from '../src/core/contentProfile'
 import {
   defaultProductionFormatDeclaration, productionFormatDirectorGuidance, productionFormatSignature, productionReviewStatuses,
-  projectProductionFormat, projectProductionFormatReviews, recordProductionFormatReview, requiredProductionReviews, setProjectProductionFormat,
+  projectProductionFormat, projectProductionFormatReviews, recordProductionFormatReview, requiredProductionReviews, setProjectProductionFormat, summarizeProductionReviews,
   type ProductionFormatDeclaration
 } from '../src/core/productionFormat'
 import { createProject, type KinaouProject } from '../src/core/project'
@@ -156,5 +157,42 @@ describe('production format panel', () => {
     const t = (key: Parameters<typeof translateUi>[1]) => translateUi('fr', key)
     expect(displaySystemHistoryLabel({ label: 'Before changing the production format', source: 'system' }, t)).toBe('Avant la modification du format de production')
     expect(displaySystemHistoryLabel({ label: 'Before recording a format check', source: 'system' }, t)).toBe('Avant l’enregistrement d’une vérification de format')
+  })
+})
+
+describe('production format status at publication', () => {
+  const render = (project: KinaouProject, language: 'de' | 'en' | 'fr' = 'en') => renderToStaticMarkup(createElement(UiLanguageProvider, { initialLanguage: language, children: createElement(ProductionFormatStatus, { project }) }))
+
+  it('renders nothing for a production that calls for no check', () => {
+    expect(render(scripted())).toBe('')
+    expect(render(setProjectProductionFormat(scripted(), { format: 'general', ageBand: 'adults', purpose: '' }))).toBe('')
+  })
+
+  it('never shows a check as confirmed before the hash for this exact project is known', async () => {
+    const saved = setProjectProductionFormat(scripted(), children)
+    const reviewed = await recordProductionFormatReview(saved, 'age-suitability', { reviewer: 'Amina', note: 'Gelesen.' })
+    // Static rendering happens before the asynchronous hash arrives: the stored record alone must not count.
+    for (const language of uiLanguages) {
+      const html = render(reviewed, language)
+      expect(html).toContain(translateUi(language, 'format.status.heading'))
+      expect(html).toContain(translateUi(language, 'format.status.outstanding', { open: 2, due: 2, missing: 2, stale: 0 }))
+      expect(html).toContain(translateUi(language, 'format.status.where').slice(0, 25))
+      expect(html).toContain(translateUi(language, 'format.status.selfReport').slice(0, 25))
+      expect(html).not.toContain(translateUi(language, 'format.status.allCurrent', { due: 2 }))
+    }
+  })
+
+  it('counts current, open and outdated checks', async () => {
+    const saved = setProjectProductionFormat(scripted(), children)
+    const one = await recordProductionFormatReview(saved, 'age-suitability', { reviewer: 'A', note: 'x' })
+    const both = await recordProductionFormatReview(one, 'educational-accuracy', { reviewer: 'A', note: 'x' })
+    expect(summarizeProductionReviews(productionReviewStatuses(one, await productionFormatSignature(one)))).toEqual({ due: 2, current: 1, missing: 1, stale: 0 })
+    expect(summarizeProductionReviews(productionReviewStatuses(both, await productionFormatSignature(both)))).toEqual({ due: 2, current: 2, missing: 0, stale: 0 })
+    const edited = { ...both, script: 'Anderer Text.' }
+    expect(summarizeProductionReviews(productionReviewStatuses(edited, await productionFormatSignature(edited)))).toEqual({ due: 2, current: 0, missing: 0, stale: 2 })
+  })
+
+  it('stays out of the way when the saved record is damaged, leaving the error to the editing panel', () => {
+    expect(render({ ...scripted(), metadata: { productionFormat: { schemaVersion: 9 } } })).toBe('')
   })
 })
