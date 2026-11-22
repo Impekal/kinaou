@@ -99,3 +99,11 @@ The actual local-model brief includes authored intent and bounded historical evi
 Acceptance: 17 new app tests, 1,843 total; executable client request confirms source data and explicit French output profile coexist. DE/EN/FR browser test covers failed save preserving draft, language changes, saved reload, explicit replacement of existing Director text, unchanged original project script, zero network calls and blocked source change. Synthetic browser sources are labelled test examples; #347 separately tested genuine public DE/FR RSS retrieval. Full CI including worker/render smoke passed. Disposable fixture/history/server removed.
 
 Next: honest evidence review and research scope/filtering. Broader markets, language/subject evidence, longitudinal observations and legitimate competition/audience measurements remain open. No fabricated substitute when live access is unavailable.
+
+## Competition notes — #463
+
+Research has a fifth view, Competition, for the author's own notes on what already exists: per entry the address, the title as shown, where it is, the day the author looked, any figure the page showed (kept as text, never parsed or compared), what it covers and what it leaves out; plus the topic searched for and the author's statement of what their video does differently. Up to 50 entries. An address must be complete http(s) without credentials; a day cannot be impossible or in the future; the same address cannot be listed twice.
+
+KINAOU opens none of the addresses — no retrieval, scraping or lookup. A small selection is not a market overview, and each entry holds only for the day it was looked at; the summary shows the age of the oldest observation for that reason.
+
+The notes are added to the Director brief as a block labelled as the author's own unverified notes, with an instruction not to copy, quote or imitate the works. Addresses and figures are not sent; at most twelve entries are listed. Thirteen tests; container Chromium recorded zero requests outside the app. Not run on the Mac.

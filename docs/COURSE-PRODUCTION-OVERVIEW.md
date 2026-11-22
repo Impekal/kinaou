@@ -42,3 +42,11 @@ Acceptance for #401: 2,409 tests / 226 files, build/syntax and [full CI 36674380
 - Executing FFmpeg lesson-placement test verifies three seconds of visual occupancy inside a five-second lesson, exact one-second gaps at both ends, five seconds of voice, decoded source frames and preserved narration/source hashes.
 - Actual isolated browser used 25 explicitly synthetic lesson/media records: 40 gaps expanded correctly, filter counts were 13/12/25, page two opened lesson eleven, offline image records were excluded, DE/FR/EN preserved French course text and dirty drafts survived navigation. Zero app requests and project/history writes; console clean. No genuine media availability claim derives from this fixture.
 - Temporary fixture/tab/server removed and prior UI preference restored; screenshot retained outside the repository. No worker endpoint, dependency, model download, user media or SSD changes. Whole course point 8 remains open.
+
+## What is still missing before delivery — #464
+
+Course → Production opens with a list derived from the same saved facts as the overview below it. Per lesson it names what is countably open, in the order a lesson is normally finished: script, picture gaps, narration gaps, captions, missing or offline media, started-but-incomplete exercises, unlinked demonstrations, an export matching the current outline, and a current instructor review. The first open item is shown as the next step; a button opens the lesson in the course plan. A course line counts lessons with nothing open and, per item, how many lessons still need it.
+
+Exercises and demonstrations are optional and count only when started and left incomplete. An older export does not count unless it matches the current outline. An outdated or not-yet-computed instructor review never reads as reviewed. "Nothing open" is labelled as not a quality approval; invalid saved course data is an error that says it is not "all done". The list is read-only and starts nothing.
+
+Ten tests; container Chromium with a saved two-lesson course showed the correct next step for each lesson. Not run on the Mac.

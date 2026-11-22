@@ -170,3 +170,7 @@ Existing-media registration gate (#247): 861 app + 83 native tests and build/syn
 An authenticated actual-worker integration inspects an already imported synthetic WAV and registers it in a separate project without another upload, preserving source/copy bytes. Isolated localhost:5204 verified EN→DE review and unchanged original name, media-kind changes removing the save action, FR mismatch errors, corrected explicit FR registration, EN saved feedback and reload persistence. Console clean; temporary processes/tab stopped. No user files, SSD, model or worker-source changes. Inspection is point-in-time, not file integrity/quality proof; reviews/drafts are not durable across navigation/reload. Whole point 1 remains open.
 
 Next coverage: Remaining Assets controls (STT, thumbnails/waveforms/proxies and asset-list labels) → capture/publishing. Add interaction coverage for each migrated panel, especially pending jobs, errors and drafts. Completion numbering: COMPLETION_CHECKLIST.md. User-facing notifications now refer only to completed WHOLE points; internal substeps do not trigger completion notifications.
+
+## Message keys are unique across modules — #464
+
+Message modules are merged with object spread in `src/core/uiMessages.ts`, so a key defined in two modules compiles and the later one silently replaces the earlier — a panel then shows another feature's text. `tests/uiMessageKeys.test.ts` reads the message sources and fails if any key is defined in more than one module. Give each feature its own key prefix.
