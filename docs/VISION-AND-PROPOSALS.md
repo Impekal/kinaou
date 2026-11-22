@@ -45,4 +45,6 @@ Downloading from YouTube and similar platform players is against those platforms
 8. **A learning loop.** Imported results feed the next round of topic proposals: which formats and subjects did well for this author.
 9. **Brand kit and series.** Fonts, colours, intro, outro and lower thirds defined once and applied to every production; one click to start the next episode of a series.
 
+**Status (2026-11-22):** the user approved implementing these. Item 2 is merged (#466 next-step bar, #467 start screen with five journeys and grouped navigation; the "expert panels behind more" part is left for the final usability pass). Item 1 is next.
+
 Items 1 and 2 are the usability work the user put first. Items 3–6 are what would make the research and editing genuinely better than doing it by hand. All of them run locally and none needs a paid service.

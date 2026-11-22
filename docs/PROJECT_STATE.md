@@ -25,6 +25,8 @@ This section is the handoff. If you are a model picking this project up — afte
 - **Ease of use is a first-rank requirement** (repeated twice on 2026-11-22): every screen must say what to do next and why something is disabled. A final usability pass over the whole product is agreed.
 - Local-first; no paid services, cloud inference, subscriptions or deployments without explicit consent; no circumvention of licences or platform terms; existing files on the SSD are never touched.
 - The user writes German; answer in German. Code, commits and docs are in English.
+- **Whatever is needed from the user is written directly in the chat, one step at a time, and worked through together** (instruction of 2026-11-22). Do not send the user to a file to find out what to do. [ACCEPTANCE-RUN.md](ACCEPTANCE-RUN.md) is the build agent's own reference for the order and content of the Mac sessions; the steps themselves are given in chat, one by one, each waiting for the user's result.
+- The user approved implementing the proposals in [VISION-AND-PROPOSALS.md](VISION-AND-PROPOSALS.md) ("Deine Vorschläge auch gerne umsetzen"). That file records which are done.
 
 **Where things stand:** see "Proposed closing scope" below — the user confirmed it on 2026-11-22. All four software items in it are merged. What remains is the acceptance work in [ACCEPTANCE-RUN.md](ACCEPTANCE-RUN.md), which needs the user at the Mac, and whatever the user picks from [VISION-AND-PROPOSALS.md](VISION-AND-PROPOSALS.md).
 
@@ -67,7 +69,20 @@ Written by the build agent so that "finished" has a definition and **confirmed b
 
 Hashtags (point 6) were closed in #460.
 
-## Latest merged handoff — the four agreed closing items
+## Latest merged handoff — next-step bar, start journeys, grouped navigation
+
+Proposal 2 of [VISION-AND-PROPOSALS.md](VISION-AND-PROPOSALS.md) is merged in two parts.
+
+- **#466 — next-step bar.** `src/core/projectJourney.ts` (`projectJourney(project)`) derives eight stages — plan, visuals, assemble, narration, fit, captions, align, export — each done, open, waiting or unknown, from the project data alone. `ProjectJourneyBar` sits under the top bar in every project area except Projects, Create and Settings, names the next step, says why, and has one button that goes to the area where it is done. The placeholder scene a new project starts with does not count as a plan.
+- **#467 — start screen and navigation.** Create asks what the author wants to make: a video from an idea, research first, a course, sports analysis, or Shorts from an own video (`src/core/startJourneys.ts`). The choice is stored as `metadata.startJourney`, decides the area the project opens in, and makes the bar name that journey's first step (`journeyEntry`) until a plan exists. The sidebar is grouped: Start, Plan, Make, Special formats, Release, System. A project needs a title, and the disabled button says so.
+
+Verified in the cloud container: full gate, and a Chromium run of all five journeys (landing area, stored journey, first step shown, keyboard choice, clean console). Not run on the Mac.
+
+What the bar does not do: it reads project data, not files. "Export" is done when an export receipt is recorded for the current cut; whether the file still exists on the SSD is not checked there.
+
+**Next:** proposal 1, the guided run from topic to rough cut. The pure local steps (assemble, fit to narration, captions, re-align) can run from the bar itself; the steps needing local models stay explicit.
+
+## Previous merged handoff — the four agreed closing items
 
 All four software items of the confirmed closing scope are merged.
 
