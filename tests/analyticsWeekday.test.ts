@@ -23,7 +23,7 @@ describe('weekday pattern', () => {
 
   it('reports the typical day as the median, which one outlier does not move', () => {
     // Four Mondays: 100, 100, 100 and one day of 10,000.
-    const values = Array.from({ length: 28 }, (_, index) => index % 7 === 0 ? 100 : 50)
+    const values: number[] = Array.from({ length: 28 }, (_, index) => index % 7 === 0 ? 100 : 50)
     values[21] = 10_000
     const monday = weekdayPattern(days(values)).rows[0]
     expect(monday).toMatchObject({ days: 4, sum: 10_300, mean: 2575, median: 100, lowest: 100, highest: 10_000, sparse: false })
