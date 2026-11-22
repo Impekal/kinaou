@@ -17,6 +17,8 @@ const exactHistoryLabels: Record<string, UiMessageKey> = {
   'Before extending lesson for full narration': 'course.voiceRange.history',
   'Before applying lesson exercise drafts': 'course.exerciseDraft.history',
   'Before saving explainer reveal': 'reveal.history',
+  'Before changing the production format': 'format.history',
+  'Before recording a format check': 'format.reviewHistory',
   'Before lesson transcript captions': 'history.system.courseCaptions',
   'Before adding a caption': 'history.system.addCaption',
   'Before editing caption text': 'history.system.editCaption',

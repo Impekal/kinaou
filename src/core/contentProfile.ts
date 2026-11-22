@@ -43,7 +43,7 @@ export function setProjectContentProfile(project: KinaouProject, profile: Projec
   return touchProject({ ...project, metadata: { ...project.metadata, contentProfile: normalized } }, now)
 }
 
-export function localizedDirectorBrief(profile: ProjectContentProfile, brief: string): string {
+export function localizedDirectorBrief(profile: ProjectContentProfile, brief: string, formatGuidance: readonly string[] = []): string {
   const normalized = projectContentProfileSchema.parse(profile)
   const source = z.string().trim().min(1).max(45_000).parse(brief)
   return [
@@ -55,6 +55,7 @@ export function localizedDirectorBrief(profile: ProjectContentProfile, brief: st
     `- Conversion objective: ${normalized.objective || 'Not specified'}`,
     `- Voice and tone: ${normalized.tone || 'Not specified'}`,
     `Write every user-facing title, objective, script, scene title, scene description, narration and visual brief in ${contentLanguageLabels[normalized.outputLanguage]}. Preserve proper names and factual source details. Do not claim current trend data unless it is explicitly present in the brief.`,
+    ...(formatGuidance.length ? ['', 'KINAOU production format (declared by the author; follow it in every scene):', ...formatGuidance] : []),
     '',
     'Creative brief:',
     source
