@@ -1,6 +1,6 @@
 # KINAOU — PROJECT STATE & HANDOFF
 
-Last updated: 2026-10-04
+Last updated: 2026-11-22
 
 ## Current completion summary — 2026-09-27
 
@@ -14,7 +14,27 @@ The existing hourly heartbeat `kinaou-autonom-weiterbauen` is PAUSED at the user
 
 Check the available Codex usage windows at safe slice boundaries. The user's latest instruction (2026-10-03), “bei 20% stoppen statt 30%”, changes the boundary to **80% used / 20% remaining**, superseding both the earlier 70% and 93% boundaries. Start no new slice at that boundary; finish the already-started bounded slice, tests, PR/merge and separate documentation as far as the remaining allowance permits, then provide a short copyable prompt for continuing in normal ChatGPT with the Mac terminal and actual repository evidence. Keep slices bounded as the threshold approaches. Do not promise immunity from a hard limit. Normal ChatGPT chat limits are not visible through the Codex usage tool. See the latest merged handoff below for the current usage checkpoint; earlier percentages are historical. Never redeem a reset credit without explicit confirmation. Heartbeat stays paused.
 
-## Latest merged handoff — preview media diagnostics; usage-boundary stop
+## Operating context from 2026-11-22 — read this first
+
+The user ended the ChatGPT/Codex subscription and handed the build to Claude Code. From this date the sections "Current unattended operation" and "Usage handoff boundary" above describe a finished arrangement: there is no Codex usage window to watch and no continuation prompt to hand over. The paused heartbeat stays paused. The AC-only `local.kinaou.keepawake` LaunchAgent is still loaded on the Mac; unloading it is a user action and has not been done.
+
+What changes in practice:
+
+- **Work now runs in a Linux cloud container, not on the Mac.** It has Node, FFmpeg and Chromium, so the full CI gate, real FFmpeg renders and real-browser checks against the development server are run for every slice. It has no macOS, no Apple GPU, none of the installed models (Ollama, Chatterbox, FLUX.2/MFLUX, ComfyUI), no SSD and no platform accounts.
+- **Acceptance statements say where they were run.** "Real browser" from here on means Chromium in that container unless a line says "on the Mac". Nothing run in the container counts toward the real-Mac gates.
+- **What can be finished without the Mac:** software for points 5–8 and the engine-independent parts of 4 and 9.
+- **What cannot:** point 4's motion, expression and lip-sync engines and their human review; point 9's real-account acceptance; all of point 10. These need the user at the Mac, and are collected in MAC-TEST.md as they arise.
+- The foreign files noted earlier (`src/core/renderRange 2.ts`, `tests/renderRange.test 2.ts`, `worker/render-range.node-test 2.mjs`) and the ComfyUI stash exist only in the Mac's working copy. They are not in the repository and are untouched.
+
+## Latest merged handoff — declared production format and text-bound checks
+
+[PR #455](https://github.com/Impekal/kinaou/pull/455) merged as `45c1f19763789327b7a6c99591056d1b8d5c2e51` after full CI on exact head `d6cf37dd657ec6600af7d6d2351a3c360d3855e8`. A project now declares its production format (general, cartoon, children's, learning, sports), the viewer age the author states and what the viewer should take away. The declaration decides which self-reported checks are due — age suitability, factual accuracy, character consistency, cleared sports material — and each confirmation is bound to a hash of the declaration plus all script, scene and narration text, so an edited sentence shows as changed and a changed declaration discards it. The same declaration is passed to the local Director as fixed constraints. See PRODUCTION-FORMATS.md.
+
+Acceptance: **2,947 app tests / 260 files**, 494 worker tests, build and worker syntax check passed. Container Chromium, German UI: unsavable children's format without an age (with the reason shown), persisted declaration, open → confirmed → text-changed → discarded lifecycle, German history entries, French rendering, clean console. Not run on the Mac. This is a declaration and review trail, not a cartoon engine, character system, age rating or fact check. Whole point 7 remains open.
+
+Next: show the declaration and the state of its checks where a production is published, so open or outdated checks are visible before a package is prepared; then recurring character sheets for cartoon productions.
+
+## Previous merged handoff — preview media diagnostics; usage-boundary stop
 
 [PR #453](https://github.com/Impekal/kinaou/pull/453) merged as `b3c9d7798fc1c8474c414c7857ddd9bf392c7e5d` after full [CI 37160270465](https://github.com/Impekal/kinaou/actions/runs/37160270465). Prepared image previews now identify missing, offline and ambiguous active source references by track/source, with bounded labels and the first ten issues plus complete count. Duplicate active source IDs refuse rather than selecting an arbitrary record. No source is removed, skipped, repaired or marked online; muted tracks/unreferenced assets remain irrelevant. This is metadata inspection, not fresh file verification. Valid separately acknowledged image placement remains available and preserves all existing problematic records/clips.
 

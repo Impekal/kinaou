@@ -4,6 +4,10 @@ User clarification: 2026-09-20. These are acceptance targets, not a claim that t
 
 Current acceptance summary (2026-09-27): completion points 1–3 have passed their documented gates: DE/EN/FR UI, comfortable editing and human-accepted natural/authorized-own-voice speech. FLUX.2 Klein still-image identity and Pack 3 multi-reference preservation are accepted, but final generative avatar motion/expression/lip sync remain open. Course outlines, individual exports and per-lesson scripts are implemented; complete course production is not. Later dated evidence below supersedes historical baseline descriptions. See COMPLETION_CHECKLIST.md for the current seven open main points.
 
+## Declared production format — 2026-11-22
+
+#455 makes format, declared viewer age and purpose explicit and ties each self-reported check to the exact text it was made on. A confirmation records that a named person says they checked; it does not establish that the content is suitable, correct or cleared. The declared age is not an age rating. Director constraints for children's, learning, sports and cartoon formats shape a draft and are not a substitute for review. Checked in a Linux container browser, not on the Mac. Whole point 7 remains open; see PRODUCTION-FORMATS.md.
+
 ## Editorial context/completion — 2026-10-03
 
 #423 requires verified local 32,768-token context and normally completed, token-accounted responses for copy generation/translation, with complete bounded input and no truncation. This is not language or marketing-quality certification. Six actual installed-model DE/EN/FR short examples passed protocol/quote checks; German rationale grammar still needed editing. Historical French failures remain documented. Larger manual records remain available; no trend/view/platform claim is introduced. See PUBLICATION-EDITORIAL.md.
