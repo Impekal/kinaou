@@ -2,6 +2,7 @@ import type { UiLanguage } from './uiLanguage'
 import { uiSourceImportMessages } from './uiSourceImportMessages'
 import { uiProductionFormatMessages } from './uiProductionFormatMessages'
 import { uiCharacterSheetMessages } from './uiCharacterSheetMessages'
+import { uiHashtagMessages } from './uiHashtagMessages'
 import { uiSourceReportMessages } from './uiSourceReportMessages'
 import { uiMediaExcerptMessages } from './uiMediaExcerptMessages'
 import { uiSourceFrameMessages } from './uiSourceFrameMessages'
@@ -102,6 +103,7 @@ export const uiMessages = {
   ...uiSourceImportMessages,
   ...uiProductionFormatMessages,
   ...uiCharacterSheetMessages,
+  ...uiHashtagMessages,
   ...uiRevealMessages,
   ...uiCourseDemoPlacementMessages,
   ...uiCourseOverviewMessages,
