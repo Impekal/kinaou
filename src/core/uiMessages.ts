@@ -3,6 +3,7 @@ import { uiSourceImportMessages } from './uiSourceImportMessages'
 import { uiProductionFormatMessages } from './uiProductionFormatMessages'
 import { uiCharacterSheetMessages } from './uiCharacterSheetMessages'
 import { uiHashtagMessages } from './uiHashtagMessages'
+import { uiAnalyticsWeekdayMessages } from './uiAnalyticsWeekdayMessages'
 import { uiSourceReportMessages } from './uiSourceReportMessages'
 import { uiMediaExcerptMessages } from './uiMediaExcerptMessages'
 import { uiSourceFrameMessages } from './uiSourceFrameMessages'
@@ -104,6 +105,7 @@ export const uiMessages = {
   ...uiProductionFormatMessages,
   ...uiCharacterSheetMessages,
   ...uiHashtagMessages,
+  ...uiAnalyticsWeekdayMessages,
   ...uiRevealMessages,
   ...uiCourseDemoPlacementMessages,
   ...uiCourseOverviewMessages,
