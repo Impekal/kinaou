@@ -1,5 +1,7 @@
 # KINAOU — Real Mac Execution Test
 
+> **Start with [ACCEPTANCE-RUN.md](ACCEPTANCE-RUN.md).** It is the ordered list of sessions that close the open completion points. This file is the detailed reference those sessions point into; its dated sections are in reverse order of when they were written.
+
 ## Hashtag lists — 2026-11-22
 
 #460 was checked in a Linux container browser. On the Mac: retrieve public search trends for one market, retain one observation, and under Publish enter that exact term plus a multi-word keyword and one you made up. The retained term must cite market, date and the provider's figure; the multi-word keyword must show what it was rewritten from; the made-up one must read "own choice". Set the limit below the count — saving must refuse and say by how many. Save, copy, and paste the line into a text editor to confirm it matches.

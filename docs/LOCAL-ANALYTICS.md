@@ -46,3 +46,11 @@ Acceptance: 32 new cases cover complete/sparse/zero periods, exact missing days,
 Own temporary pages, server, test projects/history and language preference were removed; CSV/screenshot evidence remains in the parent acceptance directory. No foreign files/stash, user media/SSD, model, dependencies or production worker changed. Whole checklist points 4–10 remain open.
 
 Primary references inspected 2026-09-30: [YouTube Advanced Mode export guidance](https://support.google.com/youtube/answer/9717005?hl=en) documents exporting the selected report, not a universal full-account daily CSV schema; [RFC 4180](https://www.rfc-editor.org/rfc/rfc4180.html) describes common CSV quoting/records as an informational RFC. KINAOU's selected formats and extensions are explicit above.
+
+## Views by weekday — #462
+
+Each saved report has a read-only weekday table below the calendar view: Monday to Sunday, the number of the report's days that fell on that weekday, the median, the mean and the lowest–highest range. The weekday is taken from the file's calendar date in UTC arithmetic; the file carries no timezone, so a "Monday" is the file's Monday.
+
+A weekday with fewer than four days is listed but marked as not comparable, and a report with fewer than two comparable weekdays says that a weekday comparison is not possible. Four is a judgement. If one single day holds more than half of all views, the view says that the apparent pattern is mostly that day. A weekday with no day shows "no day", never zero; calendar gaps are skipped.
+
+It describes; it does not advise. Views on a day do not say when a video was published, and nothing here recommends a publishing day or feeds the timing plan. Eleven tests; container Chromium with a real 35-day CSV imported through the file chooser showed median 200 and mean 340 for a weekday with one 900-view day. Not run on the Mac.

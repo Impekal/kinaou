@@ -14,6 +14,31 @@ The existing hourly heartbeat `kinaou-autonom-weiterbauen` is PAUSED at the user
 
 Check the available Codex usage windows at safe slice boundaries. The user's latest instruction (2026-10-03), “bei 20% stoppen statt 30%”, changes the boundary to **80% used / 20% remaining**, superseding both the earlier 70% and 93% boundaries. Start no new slice at that boundary; finish the already-started bounded slice, tests, PR/merge and separate documentation as far as the remaining allowance permits, then provide a short copyable prompt for continuing in normal ChatGPT with the Mac terminal and actual repository evidence. Keep slices bounded as the threshold approaches. Do not promise immunity from a hard limit. Normal ChatGPT chat limits are not visible through the Codex usage tool. See the latest merged handoff below for the current usage checkpoint; earlier percentages are historical. Never redeem a reset credit without explicit confirmation. Heartbeat stays paused.
 
+## How to continue — for any model, in any session
+
+This section is the handoff. If you are a model picking this project up — after a model switch, a new session or a lost context — read this section and the three below it, then start. Nothing else in this file is needed to continue; the rest is history.
+
+**Standing instructions from the user (all still in force):**
+
+- Work autonomously in small slices and keep going without asking for a "weiter". Stop only for a security risk, possible data loss, a product decision that is really the user's, paid actions, production deployments, or when only actions at the Mac remain.
+- Never fake functionality. Say plainly what was and was not verified, and where.
+- **Ease of use is a first-rank requirement** (repeated twice on 2026-11-22): every screen must say what to do next and why something is disabled. A final usability pass over the whole product is agreed.
+- Local-first; no paid services, cloud inference, subscriptions or deployments without explicit consent; no circumvention of licences or platform terms; existing files on the SSD are never touched.
+- The user writes German; answer in German. Code, commits and docs are in English.
+
+**Where things stand:** see "Proposed closing scope" below — the user confirmed it on 2026-11-22. All four software items in it are merged. What remains is the acceptance work in [ACCEPTANCE-RUN.md](ACCEPTANCE-RUN.md), which needs the user at the Mac, and whatever the user picks from [VISION-AND-PROPOSALS.md](VISION-AND-PROPOSALS.md).
+
+**How a slice is done (unchanged since the first handoff):**
+
+1. `git checkout main && git pull`, then a branch: `build/<topic>` for code, `docs/<topic>` for documentation.
+2. Implement real behaviour. New interface text goes into its own `src/core/ui<Feature>Messages.ts` as `[de, en, fr]` tuples and is registered in `src/core/uiMessages.ts`; keys must be unique across modules (a test enforces it). History labels are English strings mapped in `src/core/uiSystemLabels.ts`.
+3. Tests in `tests/`. Then the full gate, every step of which must pass: `npm test`, `npm run build`, `node --check worker/mac-worker.mjs`, and `node --test worker/*.node-test.mjs` when worker code changed. **Run the build before pushing** — it type-checks the tests, and `npm test` alone does not.
+4. Check the change in a real browser against `npm run dev` (Chromium is available in the cloud container; drive it with Playwright).
+5. Push, open a PR, wait for CI on the exact head commit, squash-merge. The PR text says what was verified and where.
+6. A separate documentation PR afterwards updates this file (a new "Latest merged handoff" entry), COMPLETION_CHECKLIST.md and the feature's own doc, and passes the same gate.
+
+**Pattern every recent feature follows:** a pure `planX()`/status function that changes nothing → a visible list in the panel → one explicit action → an automatic version written first → a named reason for everything refused or skipped → an on-screen sentence saying what the feature does not establish.
+
 ## Operating context from 2026-11-22 — read this first
 
 The user ended the ChatGPT/Codex subscription and handed the build to Claude Code. From this date the sections "Current unattended operation" and "Usage handoff boundary" above describe a finished arrangement: there is no Codex usage window to watch and no continuation prompt to hand over. The paused heartbeat stays paused. The AC-only `local.kinaou.keepawake` LaunchAgent is still loaded on the Mac; unloading it is a user action and has not been done.
@@ -26,9 +51,9 @@ What changes in practice:
 - **What cannot:** point 4's motion, expression and lip-sync engines and their human review; point 9's real-account acceptance; all of point 10. These need the user at the Mac, and are collected in MAC-TEST.md as they arise.
 - The foreign files noted earlier (`src/core/renderRange 2.ts`, `tests/renderRange.test 2.ts`, `worker/render-range.node-test 2.mjs`) and the ComfyUI stash exist only in the Mac's working copy. They are not in the repository and are untouched.
 
-## Proposed closing scope for the open points — 2026-11-22
+## Closing scope for the open points — confirmed by the user on 2026-11-22
 
-Written by the build agent so that "finished" has a definition; **it is a proposal until the user confirms it**. Each open point is split into what can still be built without the Mac and what only the user at the Mac (or with a real account) can close. A point is reported complete only when both halves are done.
+Written by the build agent so that "finished" has a definition and **confirmed by the user ("ja das passt")**. All four items in the middle column are now merged (#462, #463, #464 and ACCEPTANCE-RUN.md); every remaining entry is in the right-hand column. Each open point is split into what can still be built without the Mac and what only the user at the Mac (or with a real account) can close. A point is reported complete only when both halves are done.
 
 | Point | Still to build (no Mac needed) | Needs the user at the Mac / an account |
 |---|---|---|
@@ -42,7 +67,22 @@ Written by the build agent so that "finished" has a definition; **it is a propos
 
 Hashtags (point 6) were closed in #460.
 
-## Latest merged handoff — hashtag lists with their origin
+## Latest merged handoff — the four agreed closing items
+
+All four software items of the confirmed closing scope are merged.
+
+- [PR #462](https://github.com/Impekal/kinaou/pull/462), merged as `f5b78359edb7846659ea6d7c5586be6d8e8c8064` (CI run 45066468963, head `76c92ded6c02acd6e921351794c8dcb31a96f954`) — **views by weekday** (point 6). Each imported analytics report gets a read-only table per weekday: days in the report, median, mean, range. Fewer than four days on a weekday is listed but not comparable; a report where one day holds more than half of all views says so. It describes the author's own numbers and gives no publishing advice. See LOCAL-ANALYTICS.md.
+- [PR #463](https://github.com/Impekal/kinaou/pull/463), merged as `603c234f80a4735f52aa36fb9dab6824350c3d7b` (CI run 45067091883, head `00801458fa2088749b0bd043afb4dcfa5c753510`) — **competition notes** (point 5). A fifth Research view holds the author's own notes on what already exists — address, title, the day they looked, a figure copied as text, what it covers and leaves out — and what the author's video does differently. KINAOU opens none of the addresses. The notes reach the Director as unverified author notes with an instruction not to copy. See RESEARCH-TRENDS.md.
+- [PR #464](https://github.com/Impekal/kinaou/pull/464), merged as `87c2edc3ba9ebe7f1b6dc80e2180b688213b83c6` (CI run 45067765575, head `236131a5f12cad150bed2acd244abe0ffff3696d`) — **what is still missing before delivery** (point 8). Course → Production opens with a list per lesson of what is countably open, in production order, naming the first as the next step. Also a guard test that every interface message key is defined in exactly one module. See COURSE-PRODUCTION-OVERVIEW.md.
+- **ACCEPTANCE-RUN.md** (point 10) — one ordered sheet of eleven sessions for the Mac, replacing the hunt through MAC-TEST.md's dated notes.
+
+Acceptance: **3,020 app tests / 266 files**, build and worker syntax check passed on each merged head; worker code untouched by all three. Each was driven in container Chromium in German, including a real CSV import through the file chooser for #462 and a check that #463 makes zero requests outside the app. Not run on the Mac. One push for #462 would have failed CI on a test-fixture type error; it was caught locally before the PR and the gate now runs the build before every push.
+
+Points 5, 6, 7 and 8 have no software item left in the confirmed scope; each is open only for its Mac session in ACCEPTANCE-RUN.md. Points 4, 9 and 10 are entirely Mac or account work. **No point is reported complete.**
+
+Next: nothing further is agreed. The user asked for proposals to make the studio more capable and stressed ease of use; they are recorded in VISION-AND-PROPOSALS.md and await the user's choice. Until then, the next productive step is session A of ACCEPTANCE-RUN.md with the user.
+
+## Previous merged handoff — hashtag lists with their origin
 
 [PR #460](https://github.com/Impekal/kinaou/pull/460) merged as `e1b1c316e6b69744edc1c908bc7ba58cc57d6e01` after full CI run 45063116688 on exact head `210dbfbe2fad2f960428987d4c51b262eacab111`. Publish builds a hashtag list from the author's keywords, separately for the main video and the Short. Multi-word keywords are rewritten visibly; unusable and duplicate ones are named and block saving; the only limit is the author's own. Each tag shows the evidence the project holds: the scenes in which the keyword is written, and any retained search-trend observation with exactly that term, cited with market, date and the provider's literal figure. A tag with neither is labelled as the author's own choice. See PUBLICATION-HASHTAGS.md.
 
