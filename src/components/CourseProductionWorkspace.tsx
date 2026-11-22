@@ -1,5 +1,6 @@
 import { useId, useRef, useState, type ComponentProps } from 'react'
 import { CourseProductionOverviewPanel } from './CourseProductionOverviewPanel'
+import { CourseDeliveryGapsPanel } from './CourseDeliveryGapsPanel'
 import { CourseDemoPlacementPanel } from './CourseDemoPlacementPanel'
 import { CourseOutputFileCheckPanel } from './CourseOutputFileCheckPanel'
 import { CourseOutputIndexPanel } from './CourseOutputIndexPanel'
@@ -22,7 +23,7 @@ export function CourseProductionWorkspace(props: Props) {
   const panel = (item: CourseProductionView) => ({ id: `${id}-${item}-panel`, role: 'tabpanel', 'aria-labelledby': `${id}-${item}-tab`, tabIndex: 0, hidden: view !== item, className: 'sportsView stack' })
   return <section className="stack">
     <div className="card stack"><div role="tablist" aria-label={t('course.productionViews.label')} className="sportsTabs">{courseProductionViews.map(item => <button type="button" key={item} role="tab" id={`${id}-${item}-tab`} aria-controls={`${id}-${item}-panel`} aria-selected={view === item} tabIndex={view === item ? 0 : -1} ref={node => { tabs.current[item] = node }} onClick={() => select(item)} onKeyDown={event => { const next = courseProductionViewForKey(item, event.key); if (next) { event.preventDefault(); select(next) } }}>{t(`course.productionViews.${item}`)}</button>)}</div><p>{t('course.productionViews.help')}</p></div>
-    <div {...panel('overview')}><CourseProductionOverviewPanel {...props} onPrepareGap={value => { props.onPrepareGap?.(value); select('demonstrations') }} onOpenOutputs={value => { props.onOpenOutputs?.(value); select('exports') }} />
+    <div {...panel('overview')}><CourseDeliveryGapsPanel project={props.project} dirty={props.dirty} onEditLesson={props.onEditLesson} /><CourseProductionOverviewPanel {...props} onPrepareGap={value => { props.onPrepareGap?.(value); select('demonstrations') }} onOpenOutputs={value => { props.onOpenOutputs?.(value); select('exports') }} />
       <div className="directorActions"><button className="primary" disabled={props.dirty} onClick={props.onOpenStudio}>{t('course.studio')}</button>{props.onOpenAudio && <button className="secondaryButton" disabled={props.dirty} onClick={props.onOpenAudio}>{t('course.narration.open')}</button>}</div>
     </div>
     <div {...panel('demonstrations')}><CourseDemoPlacementPanel {...props} /></div>
