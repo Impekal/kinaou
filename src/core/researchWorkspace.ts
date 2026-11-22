@@ -1,4 +1,4 @@
-export const researchViews = ['discover', 'library', 'assess', 'brief'] as const
+export const researchViews = ['discover', 'library', 'assess', 'competition', 'brief'] as const
 export type ResearchView = typeof researchViews[number]
 
 /** Automatic activation for local views only; never starts retrieval or persistence. */

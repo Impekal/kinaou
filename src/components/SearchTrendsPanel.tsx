@@ -12,6 +12,7 @@ import { filterResearchObservations, newResearchObservationFilter, type Research
 import { ResearchDossierPanel } from './ResearchDossierPanel'
 import { ResearchSourceAssessmentPanel } from './ResearchSourceAssessmentPanel'
 import { researchViews, researchViewForKey, type ResearchView } from '../core/researchWorkspace'
+import { CompetitionReviewPanel } from './CompetitionReviewPanel'
 
 export function SearchTrendsPanel({ project, history, onProjectChange, onOpenDirector, workerUrl = '', workerToken = '', workerConnected = false, workerCapabilities = [] }: CourseOutputWorkerProps & { project: KinaouProject; history: PersistentVersionHistory; onProjectChange: (project: KinaouProject) => void; onOpenDirector?: () => void }) {
   const { t } = useUiLanguage(), [country, setCountry] = useState<SearchTrendCountry>('DE')
@@ -74,6 +75,7 @@ export function SearchTrendsPanel({ project, history, onProjectChange, onOpenDir
     </div>}
     </div>
     <div {...panel('assess')}><ResearchSourceAssessmentPanel key={`assessment-${project.id}`} project={project} history={history} onProjectChange={onProjectChange} workerUrl={workerUrl} workerToken={workerToken} workerConnected={workerConnected} workerCapabilities={workerCapabilities} /></div>
+    <div {...panel('competition')}><CompetitionReviewPanel key={`competition-${project.id}`} project={project} history={history} onProjectChange={onProjectChange} /></div>
     <div {...panel('brief')}><ResearchBriefPanel key={project.id} project={project} history={history} onProjectChange={onProjectChange} onOpenDirector={onOpenDirector} /></div>
     <div {...panel('library')}>
     <div className="card stack"><h3>{t('research.history')} ({retained.length}/200)</h3>

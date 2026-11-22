@@ -6,6 +6,7 @@ import { productionFormatDirectorGuidance, projectProductionFormat } from '../co
 import { ProductionFormatPanel } from './ProductionFormatPanel'
 import { characterSheetDirectorGuidance, projectCharacterSheet } from '../core/characterSheet'
 import { CharacterSheetPanel } from './CharacterSheetPanel'
+import { competitionDirectorGuidance, projectCompetitionReview } from '../core/competitionReview'
 import type { DirectorPlan } from '../core/director'
 import { commitDirectorReview, reviewDirectorPlan, type DirectorReview } from '../core/directorReview'
 import { AiEditorRequestScope as RequestScope } from '../core/aiEditorReview'
@@ -68,7 +69,7 @@ export function DirectorPanel({ project, history, workerUrl, workerToken, worker
         const items = await client.listLocalModels()
         if (current()) { setModels({ connection, items }); setModel(items[0]?.id ?? ''); setMessage(items.length ? 'models' : 'noModels') }
       } else {
-        const plan = await client.generateDirectorPlan(model, localizedDirectorBrief(projectContentProfile(project), brief, [...productionFormatDirectorGuidance(projectProductionFormat(project)), ...characterSheetDirectorGuidance(projectCharacterSheet(project))]))
+        const plan = await client.generateDirectorPlan(model, localizedDirectorBrief(projectContentProfile(project), brief, [...productionFormatDirectorGuidance(projectProductionFormat(project)), ...characterSheetDirectorGuidance(projectCharacterSheet(project)), ...competitionDirectorGuidance(projectCompetitionReview(project))]))
         if (current()) accept(plan)
       }
     } catch (cause) { if (current()) setError(cause instanceof Error ? cause.message : String(cause)) }
