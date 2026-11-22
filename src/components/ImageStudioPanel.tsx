@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { CharacterPromptInsert } from './CharacterPromptInsert'
 import { AssetPlacementControl } from './AssetPlacementControl'
 import { SceneFulfillmentControl } from './SceneFulfillmentControl'
 import { ImageJobStatus } from './ImageJobStatus'
@@ -83,6 +84,7 @@ export function ImageStudioPanel({ project, history, workerUrl, workerToken, wor
       {currentAvailability?.comfyui.available && !currentAvailability.templates.length && <p role="status">{t('image.noTemplates')}</p>}
       <label>{t('image.templateLabel')}<select value={templatePath} disabled={locked || detecting} onChange={event => setTemplatePath(event.target.value)}><option value="">{t('image.choose')}</option>{currentAvailability?.templates.map(entry => <option key={entry.path} value={entry.path}>{entry.label}</option>)}</select></label>
       <label>{t('image.promptLabel')}<textarea value={positivePrompt} onChange={event => setPositivePrompt(event.target.value)} /></label>
+      <CharacterPromptInsert project={project} prompt={positivePrompt} disabled={locked} onPrompt={setPositivePrompt} />
       <label>{t('image.negativeLabel')}<textarea value={negativePrompt} onChange={event => setNegativePrompt(event.target.value)} /></label>
       {template && !template.supportsNegativePrompt && <small>{t('image.unsupported')}</small>}
       <div className="formRow">
