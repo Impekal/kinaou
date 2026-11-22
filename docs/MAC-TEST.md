@@ -1,5 +1,11 @@
 # KINAOU — Real Mac Execution Test
 
+## Character sheet and consistency — 2026-11-22
+
+#458 was checked in a Linux container browser; no image was generated there. On the Mac with ComfyUI running: under Director, create two characters with a fixed appearance and a shared style, save, and confirm the cast-per-scene list matches the script. In Images, insert one character into the prompt and generate the same scene three times with different seeds, then a second scene with the same character. Judge by eye whether it reads as the same character each time — that judgement is the acceptance, the "same words" badge is only bookkeeping. Then edit the character's description and confirm the earlier pictures switch to "different words". Report which image template was used and how consistent the results were.
+
+#457: with a children's or sports format declared, open Publish and confirm the status line names the open checks; confirm them under Director and reopen Publish.
+
 ## Production format and checks — 2026-11-22
 
 #455 was checked in a Linux container browser only. On the Mac, in a disposable project with an applied Director plan: under Director, choose "Children's format" without an age — Save must stay disabled and say why. Set an age and a purpose, save, and confirm one of the two listed checks. Edit one narrated sentence: the confirmed check must show as text changed. Declare a different age: both checks must be open again. Version History must hold an entry for the format change and one for the confirmation. With Ollama running, generate a Director plan and read the draft against the declared age — the constraints are sent, but whether the installed model follows them is exactly what needs a human look.

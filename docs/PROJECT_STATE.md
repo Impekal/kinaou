@@ -26,7 +26,19 @@ What changes in practice:
 - **What cannot:** point 4's motion, expression and lip-sync engines and their human review; point 9's real-account acceptance; all of point 10. These need the user at the Mac, and are collected in MAC-TEST.md as they arise.
 - The foreign files noted earlier (`src/core/renderRange 2.ts`, `tests/renderRange.test 2.ts`, `worker/render-range.node-test 2.mjs`) and the ComfyUI stash exist only in the Mac's working copy. They are not in the repository and are untouched.
 
-## Latest merged handoff — declared production format and text-bound checks
+## Latest merged handoff — character sheet; format checks at publication
+
+[PR #458](https://github.com/Impekal/kinaou/pull/458) merged as `d97a1786bd6c09661717a0c2fa4a71d9ed737248` after full CI run 45062105433 on exact head `80c86fb1c626ede763ae05448cef24f37384b5d5`. A project can hold a character sheet — name, one fixed appearance description, way of speaking, shared visual style. The wording goes verbatim to the local Director and can be inserted into the Image Studio prompt without duplication. Two computed views back the human check: literal name occurrences per scene, and generated pictures classified by whether their stored prompt contains the current description. Prompts are compared, not pixels.
+
+[PR #457](https://github.com/Impekal/kinaou/pull/457) merged as `70822037ccbcc73a83e789c6ead152fb5199b08f` after full CI on exact head `2f45b9aea6f2500c331ac4ba75e009eeaa6b3373`. Publish shows the declared format and the state of its checks — confirmed, open, outdated by a text change — as a report that does not gate.
+
+Acceptance: **2,967 app tests / 261 files**, build and worker syntax check passed; worker code untouched by both. Container Chromium, German UI, clean consoles; details in PRODUCTION-FORMATS.md. Not run on the Mac. No image was generated, so the consistency an installed image model actually achieves from a fixed description is unmeasured — that is a Mac check. Whole point 7 remains open.
+
+Point 7 software status: declaration, age and purpose (#455), checks shown at publication (#457), recurring characters and style (#458), and the earlier sports work (tactics board, sequences, motion video, sports workspace) and explainer cards/reveals. What remains for point 7 is acceptance on real output rather than more structure: a cartoon and a children's production made end to end on the Mac with the installed image and speech models, judged by a person.
+
+Next: move to the other open software points — legitimate demand/competition review for research (point 5) and hashtag and editorial-quality review for main video and Shorts (point 6).
+
+## Previous merged handoff — declared production format and text-bound checks
 
 [PR #455](https://github.com/Impekal/kinaou/pull/455) merged as `45c1f19763789327b7a6c99591056d1b8d5c2e51` after full CI on exact head `d6cf37dd657ec6600af7d6d2351a3c360d3855e8`. A project now declares its production format (general, cartoon, children's, learning, sports), the viewer age the author states and what the viewer should take away. The declaration decides which self-reported checks are due — age suitability, factual accuracy, character consistency, cleared sports material — and each confirmation is bound to a hash of the declaration plus all script, scene and narration text, so an edited sentence shows as changed and a changed declaration discards it. The same declaration is passed to the local Director as fixed constraints. See PRODUCTION-FORMATS.md.
 
