@@ -7,6 +7,7 @@ import { uiAnalyticsWeekdayMessages } from './uiAnalyticsWeekdayMessages'
 import { uiCompetitionMessages } from './uiCompetitionMessages'
 import { uiCourseDeliveryGapsMessages } from './uiCourseDeliveryGapsMessages'
 import { uiJourneyMessages } from './uiJourneyMessages'
+import { uiStartMessages } from './uiStartMessages'
 import { uiSourceReportMessages } from './uiSourceReportMessages'
 import { uiMediaExcerptMessages } from './uiMediaExcerptMessages'
 import { uiSourceFrameMessages } from './uiSourceFrameMessages'
@@ -112,6 +113,7 @@ export const uiMessages = {
   ...uiCompetitionMessages,
   ...uiCourseDeliveryGapsMessages,
   ...uiJourneyMessages,
+  ...uiStartMessages,
   ...uiRevealMessages,
   ...uiCourseDemoPlacementMessages,
   ...uiCourseOverviewMessages,

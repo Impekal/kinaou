@@ -408,3 +408,11 @@ input:focus, select:focus, textarea:focus { border-color: #7564ec; box-shadow: 0
 .journeyBar ol { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 6px; }
 .journeyBar li[aria-current='step'] { font-weight: 600; }
 .journeyBar details { margin-top: 8px; }
+
+.navGroup { display: grid; gap: 3px; margin-bottom: 10px; }
+.navGroupLabel { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #6b7388; padding: 4px 12px 2px; }
+.journeyChoices { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.journeyChoice { display: grid; gap: 4px; padding: 12px; border: 1px solid #262b3a; border-radius: 12px; cursor: pointer; }
+.journeyChoice.active { border-color: #7c8cff; background: #181c27; }
+.journeyChoice input { justify-self: start; }
+@media (max-width: 900px) { .navGroup { display: flex; margin-bottom: 0; } .navGroupLabel { display: none; } }

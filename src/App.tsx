@@ -15,6 +15,7 @@ import { VersionHistoryPanel } from './components/VersionHistoryPanel'
 import { DirectorPanel } from './components/DirectorPanel'
 import { HashtagSetPanel } from './components/HashtagSetPanel'
 import { ProjectJourneyBar } from './components/ProjectJourneyBar'
+import { navGroups, startJourneyDestination, startJourneys, withStartJourney, type StartJourney } from './core/startJourneys'
 import { SttPanel } from './components/SttPanel'
 import { AudioStudioPanel } from './components/AudioStudioPanel'
 import { AvatarStudioPanel } from './components/AvatarStudioPanel'
@@ -63,6 +64,7 @@ export function App() {
   function setSection(next: typeof nav[number]) { setCourseHandoff(undefined); setSectionState(next) }
   function openCourseProduction(handoff: CourseProductionHandoff) { setCourseHandoff(handoff); setSectionState(handoff.target === 'narration' ? 'Audio' : 'Studio') }
   const [newTitle, setNewTitle] = useState('')
+  const [startJourney, setStartJourney] = useState<StartJourney>('video')
   const [inputKind, setInputKind] = useState<CreationInputKind>('idea')
   const [inputContent, setInputContent] = useState('')
   const [storage, setStorage] = useState<StorageSettings>(() => storageRepo.load())
@@ -117,11 +119,12 @@ export function App() {
   }
 
   function createNewProject() {
-    const next = createProjectFromInput({ title: newTitle, kind: inputKind, content: inputContent })
+    if (!newTitle.trim()) return
+    const next = withStartJourney(createProjectFromInput({ title: newTitle, kind: inputKind, content: inputContent }), startJourney)
     persistProject(next)
     setNewTitle('')
     setInputContent('')
-    setSection('Studio')
+    setSection(startJourneyDestination[startJourney])
   }
 
   function openProject(next: KinaouProject) {
@@ -171,7 +174,7 @@ export function App() {
         <div className="brand">KINAOU</div>
         <div className="tagline">{t('shell.tagline')}</div>
         <UiLanguageSelector />
-        <nav>{nav.map((item) => <button key={item} className={item === section ? 'navItem active' : 'navItem'} onClick={() => setSection(item)}>{t(`nav.${item}`)}</button>)}</nav>
+        <nav aria-label={t('nav.label')}>{navGroups.map(group => <div className="navGroup" key={group.id} role="group" aria-label={t(`nav.group.${group.id}`)}><div className="navGroupLabel" aria-hidden="true">{t(`nav.group.${group.id}`)}</div>{group.items.map(item => <button key={item} className={item === section ? 'navItem active' : 'navItem'} aria-current={item === section ? 'page' : undefined} onClick={() => setSection(item)}>{t(`nav.${item}`)}</button>)}</div>)}</nav>
         <div className="buildInfo" title={t('shell.buildInfoTitle')}>{t('shell.build', { commit: typeof __KINAOU_COMMIT__ === 'undefined' ? t('shell.unknown') : __KINAOU_COMMIT__ })}{typeof __KINAOU_STARTED__ === 'undefined' ? '' : ` · ${t('shell.servedSince', { time: new Date(__KINAOU_STARTED__).toLocaleTimeString(language) })}`}</div>
       </aside>
 
@@ -188,12 +191,17 @@ export function App() {
         </section>}
 
         {section === 'Create' && <section className="hero card createPanel">
-          <div><div className="eyebrow">{t('nav.Create')}</div><h2>{t('create.heading')}</h2><p>{t('create.help')}</p></div>
+          <div><div className="eyebrow">{t('nav.Create')}</div><h2>{t('create.heading')}</h2><p>{t('start.help')}</p></div>
           <div className="formStack">
+            <div className="journeyChoices" role="radiogroup" aria-label={t('create.heading')}>{startJourneys.map(item => <label key={item} className={item === startJourney ? 'journeyChoice active' : 'journeyChoice'}>
+              <input type="radio" name="start-journey" value={item} checked={item === startJourney} onChange={() => setStartJourney(item)} />
+              <strong>{t(`start.journey.${item}`)}</strong><small>{t(`start.journeyHelp.${item}`)}</small><small>{t('start.opensIn', { area: t(`nav.${startJourneyDestination[item]}`) })}</small>
+            </label>)}</div>
             <label>{t('create.title')}<input value={newTitle} onChange={(event) => setNewTitle(event.target.value)} placeholder={t('create.titleHint')} /></label>
             <label>{t('create.kind')}<select value={inputKind} onChange={(event) => setInputKind(event.target.value as CreationInputKind)}>{creationKinds.map((kind) => <option key={kind} value={kind}>{t(`kind.${kind}`)}</option>)}</select></label>
             <label>{t('create.brief')}<textarea value={inputContent} onChange={(event) => setInputContent(event.target.value)} placeholder={t('create.briefHint')} /></label>
-            <button className="primary" onClick={createNewProject}>{t('create.submit')}</button>
+            {!newTitle.trim() && <small role="status">{t('start.titleRequired')}</small>}
+            <button className="primary" disabled={!newTitle.trim()} onClick={createNewProject}>{t('create.submit')}</button>
           </div>
         </section>}
 
