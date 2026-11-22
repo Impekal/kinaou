@@ -57,6 +57,11 @@ function sceneTrack(project: KinaouProject) {
   return best
 }
 
+/** The visual track the journey counts on, or null when the project has none. */
+export function journeySceneTrackId(project: KinaouProject): string | null {
+  return sceneTrack(project)?.id ?? null
+}
+
 /**
  * Reads where a project stands on the way from a plan to an exported video. It counts
  * what is saved and nothing else: a stage that reads "done" has nothing countable left,
