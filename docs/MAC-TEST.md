@@ -1,5 +1,9 @@
 # KINAOU — Real Mac Execution Test
 
+## Hashtag lists — 2026-11-22
+
+#460 was checked in a Linux container browser. On the Mac: retrieve public search trends for one market, retain one observation, and under Publish enter that exact term plus a multi-word keyword and one you made up. The retained term must cite market, date and the provider's figure; the multi-word keyword must show what it was rewritten from; the made-up one must read "own choice". Set the limit below the count — saving must refuse and say by how many. Save, copy, and paste the line into a text editor to confirm it matches.
+
 ## Character sheet and consistency — 2026-11-22
 
 #458 was checked in a Linux container browser; no image was generated there. On the Mac with ComfyUI running: under Director, create two characters with a fixed appearance and a shared style, save, and confirm the cast-per-scene list matches the script. In Images, insert one character into the prompt and generate the same scene three times with different seeds, then a second scene with the same character. Judge by eye whether it reads as the same character each time — that judgement is the acceptance, the "same words" badge is only bookkeeping. Then edit the character's description and confirm the earlier pictures switch to "different words". Report which image template was used and how consistent the results were.

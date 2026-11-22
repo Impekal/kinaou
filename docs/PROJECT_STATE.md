@@ -26,7 +26,31 @@ What changes in practice:
 - **What cannot:** point 4's motion, expression and lip-sync engines and their human review; point 9's real-account acceptance; all of point 10. These need the user at the Mac, and are collected in MAC-TEST.md as they arise.
 - The foreign files noted earlier (`src/core/renderRange 2.ts`, `tests/renderRange.test 2.ts`, `worker/render-range.node-test 2.mjs`) and the ComfyUI stash exist only in the Mac's working copy. They are not in the repository and are untouched.
 
-## Latest merged handoff — character sheet; format checks at publication
+## Proposed closing scope for the open points — 2026-11-22
+
+Written by the build agent so that "finished" has a definition; **it is a proposal until the user confirms it**. Each open point is split into what can still be built without the Mac and what only the user at the Mac (or with a real account) can close. A point is reported complete only when both halves are done.
+
+| Point | Still to build (no Mac needed) | Needs the user at the Mac / an account |
+|---|---|---|
+| 4 Avatars | nothing engine-independent is outstanding | choose, install and evaluate a motion/expression/lip-sync engine; human review of generated performances |
+| 5 Research | an authored competition review (what already covers the topic, recorded by hand with URL and date) | read real sources and judge them; live retrieval from the 13 markets on the Mac's network |
+| 6 Main + Shorts | measured timing feedback from the author's own imported analytics | judge editorial drafts from the installed language model in DE/EN/FR |
+| 7 Formats | — (declaration, checks, publication status and characters are in) | make one cartoon and one children's production end to end and judge the output |
+| 8 Courses | a single guided "what is missing before delivery" view per lesson | produce one real multi-lesson course and judge teaching quality |
+| 9 Publication | nothing without accounts | one real YouTube and one real Instagram publication with the user's accounts; manual TikTok/Facebook/Threads handoff once each |
+| 10 Whole product | a single ordered acceptance run sheet replacing the accreted notes in MAC-TEST.md | run it |
+
+Hashtags (point 6) were closed in #460.
+
+## Latest merged handoff — hashtag lists with their origin
+
+[PR #460](https://github.com/Impekal/kinaou/pull/460) merged as `e1b1c316e6b69744edc1c908bc7ba58cc57d6e01` after full CI run 45063116688 on exact head `210dbfbe2fad2f960428987d4c51b262eacab111`. Publish builds a hashtag list from the author's keywords, separately for the main video and the Short. Multi-word keywords are rewritten visibly; unusable and duplicate ones are named and block saving; the only limit is the author's own. Each tag shows the evidence the project holds: the scenes in which the keyword is written, and any retained search-trend observation with exactly that term, cited with market, date and the provider's literal figure. A tag with neither is labelled as the author's own choice. See PUBLICATION-HASHTAGS.md.
+
+Acceptance: **2,984 app tests / 262 files**, build and worker syntax check passed; worker untouched. Container Chromium, German UI, clean console. Not run on the Mac. No popularity, reach, platform-limit or best-hashtag claim. Whole point 6 remains open for editorial quality and audience-informed timing.
+
+Next: measured timing feedback from the author's own imported analytics (point 6), then the authored competition review (point 5).
+
+## Previous merged handoff — character sheet; format checks at publication
 
 [PR #458](https://github.com/Impekal/kinaou/pull/458) merged as `d97a1786bd6c09661717a0c2fa4a71d9ed737248` after full CI run 45062105433 on exact head `80c86fb1c626ede763ae05448cef24f37384b5d5`. A project can hold a character sheet — name, one fixed appearance description, way of speaking, shared visual style. The wording goes verbatim to the local Director and can be inserted into the Image Studio prompt without duplication. Two computed views back the human check: literal name occurrences per scene, and generated pictures classified by whether their stored prompt contains the current description. Prompts are compared, not pixels.
 
