@@ -116,3 +116,20 @@ export function projectJourney(project: KinaouProject): ProjectJourney {
 
   return { steps, next: steps.find(step => step.state === 'open') ?? null }
 }
+
+/** The areas a journey can start in, beyond the two the stages themselves use. */
+export type JourneyEntryTarget = 'Research' | 'Course' | 'Sports' | 'Assets'
+
+/**
+ * For an author who set out on a journey other than "a video from an idea", the very
+ * first step is in that journey's own area, not in Director. This applies only while
+ * the project has no plan yet; afterwards the ordinary stages take over.
+ */
+export function journeyEntry(journey: string | null, next: JourneyStep | null): JourneyEntryTarget | null {
+  if (next?.stage !== 'plan') return null
+  if (journey === 'research') return 'Research'
+  if (journey === 'course') return 'Course'
+  if (journey === 'sports') return 'Sports'
+  if (journey === 'shorts') return 'Assets'
+  return null
+}

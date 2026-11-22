@@ -1,0 +1,22 @@
+export const uiStartMessages = {
+  'start.help': ['Wähle, womit du anfängst. Das entscheidet nur, wo dein neues Projekt aufgeht – alle Bereiche bleiben jederzeit erreichbar, und oben steht immer dein nächster Schritt.', 'Choose where you start. This only decides where your new project opens — every area stays reachable at any time, and your next step is always shown at the top.', 'Choisissez par où commencer. Cela détermine seulement où s’ouvre votre nouveau projet : chaque espace reste accessible à tout moment, et votre prochaine étape est toujours indiquée en haut.'],
+  'start.journey.video': ['Ein Video aus einer Idee', 'A video from an idea', 'Une vidéo à partir d’une idée'],
+  'start.journeyHelp.video': ['Du beschreibst das Thema; die Regie macht daraus Skript und Szenen. Danach kommen Bilder, Stimme, Untertitel und der Export.', 'You describe the topic; Director turns it into a script and scenes. Then come visuals, voice, captions and the export.', 'Vous décrivez le sujet ; la réalisation en fait un script et des scènes. Viennent ensuite les images, la voix, les sous-titres et l’export.'],
+  'start.journey.research': ['Erst ein Thema finden', 'Find a topic first', 'Trouver d’abord un sujet'],
+  'start.journeyHelp.research': ['Du siehst, wonach gerade gesucht wird, hältst fest, was es schon gibt, und schreibst daraus dein Video-Briefing.', 'You see what people are searching for, note what already exists, and write your video brief from it.', 'Vous voyez ce que les gens recherchent, notez ce qui existe déjà et en tirez votre brief vidéo.'],
+  'start.journey.course': ['Ein Kurs mit mehreren Lektionen', 'A course with several lessons', 'Un cours en plusieurs leçons'],
+  'start.journeyHelp.course': ['Du planst Module und Lektionen, schreibst Skripte und Übungen und exportierst jede Lektion einzeln.', 'You plan modules and lessons, write scripts and exercises, and export each lesson on its own.', 'Vous planifiez modules et leçons, écrivez scripts et exercices, et exportez chaque leçon séparément.'],
+  'start.journey.sports': ['Eine Sport- oder Taktikanalyse', 'A sports or tactics analysis', 'Une analyse sportive ou tactique'],
+  'start.journeyHelp.sports': ['Du zeichnest Taktiktafeln, lässt Spielzüge als Bewegung ablaufen und baust daraus dein Erklärvideo.', 'You draw tactics boards, play moves as motion, and build your explainer from them.', 'Vous dessinez des tableaux tactiques, animez les mouvements et construisez votre vidéo explicative.'],
+  'start.journey.shorts': ['Shorts aus einem vorhandenen Video', 'Shorts from an existing video', 'Des Shorts à partir d’une vidéo existante'],
+  'start.journeyHelp.shorts': ['Du importierst dein eigenes Video; danach wählst du im Studio die Ausschnitte und exportierst sie im Hochformat.', 'You import your own video; then you choose the excerpts in Studio and export them in vertical format.', 'Vous importez votre propre vidéo ; vous choisissez ensuite les extraits dans le studio et les exportez au format vertical.'],
+  'start.opensIn': ['Öffnet danach in: {area}', 'Then opens in: {area}', 'S’ouvre ensuite dans : {area}'],
+  'start.titleRequired': ['Gib dem Projekt einen Titel, damit du es später wiederfindest.', 'Give the project a title so you can find it again later.', 'Donnez un titre au projet pour le retrouver plus tard.'],
+  'nav.label': ['Bereiche', 'Areas', 'Espaces'],
+  'nav.group.start': ['Start', 'Start', 'Démarrer'],
+  'nav.group.plan': ['Planen', 'Plan', 'Planifier'],
+  'nav.group.make': ['Produzieren', 'Produce', 'Produire'],
+  'nav.group.formats': ['Besondere Formate', 'Special formats', 'Formats spéciaux'],
+  'nav.group.release': ['Veröffentlichen', 'Release', 'Diffuser'],
+  'nav.group.system': ['System', 'System', 'Système']
+} as const
