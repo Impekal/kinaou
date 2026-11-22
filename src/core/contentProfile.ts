@@ -55,7 +55,7 @@ export function localizedDirectorBrief(profile: ProjectContentProfile, brief: st
     `- Conversion objective: ${normalized.objective || 'Not specified'}`,
     `- Voice and tone: ${normalized.tone || 'Not specified'}`,
     `Write every user-facing title, objective, script, scene title, scene description, narration and visual brief in ${contentLanguageLabels[normalized.outputLanguage]}. Preserve proper names and factual source details. Do not claim current trend data unless it is explicitly present in the brief.`,
-    ...(formatGuidance.length ? ['', 'KINAOU production format (declared by the author; follow it in every scene):', ...formatGuidance] : []),
+    ...(formatGuidance.length ? ['', 'KINAOU production constraints (declared by the author; follow them in every scene):', ...formatGuidance] : []),
     '',
     'Creative brief:',
     source

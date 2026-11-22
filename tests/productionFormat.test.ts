@@ -37,7 +37,7 @@ describe('production format declaration', () => {
     expect(projectProductionFormat(project)).toEqual(defaultProductionFormatDeclaration)
     expect(requiredProductionReviews(defaultProductionFormatDeclaration)).toEqual([])
     expect(productionFormatDirectorGuidance(defaultProductionFormatDeclaration)).toEqual([])
-    expect(localizedDirectorBrief(defaultProjectContentProfile, 'Brief.', [])).not.toContain('production format')
+    expect(localizedDirectorBrief(defaultProjectContentProfile, 'Brief.', [])).not.toContain('production constraints')
   })
 
   it('refuses a children\'s format without a declared age and any specific format without a purpose', () => {

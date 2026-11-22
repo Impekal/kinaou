@@ -4,6 +4,8 @@ import { SceneSpeechReview } from './SceneSpeechReview'
 import { localizedDirectorBrief, projectContentProfile } from '../core/contentProfile'
 import { productionFormatDirectorGuidance, projectProductionFormat } from '../core/productionFormat'
 import { ProductionFormatPanel } from './ProductionFormatPanel'
+import { characterSheetDirectorGuidance, projectCharacterSheet } from '../core/characterSheet'
+import { CharacterSheetPanel } from './CharacterSheetPanel'
 import type { DirectorPlan } from '../core/director'
 import { commitDirectorReview, reviewDirectorPlan, type DirectorReview } from '../core/directorReview'
 import { AiEditorRequestScope as RequestScope } from '../core/aiEditorReview'
@@ -66,7 +68,7 @@ export function DirectorPanel({ project, history, workerUrl, workerToken, worker
         const items = await client.listLocalModels()
         if (current()) { setModels({ connection, items }); setModel(items[0]?.id ?? ''); setMessage(items.length ? 'models' : 'noModels') }
       } else {
-        const plan = await client.generateDirectorPlan(model, localizedDirectorBrief(projectContentProfile(project), brief, productionFormatDirectorGuidance(projectProductionFormat(project))))
+        const plan = await client.generateDirectorPlan(model, localizedDirectorBrief(projectContentProfile(project), brief, [...productionFormatDirectorGuidance(projectProductionFormat(project)), ...characterSheetDirectorGuidance(projectCharacterSheet(project))]))
         if (current()) accept(plan)
       }
     } catch (cause) { if (current()) setError(cause instanceof Error ? cause.message : String(cause)) }
@@ -91,6 +93,7 @@ export function DirectorPanel({ project, history, workerUrl, workerToken, worker
     <div className="sectionLead"><div><h2>{t('director.heading')}</h2><p>{t('director.help')}</p></div></div>
     <ContentProfilePanel project={project} onProjectChange={onProjectChange} />
     <ProductionFormatPanel project={project} history={history} onProjectChange={onProjectChange} />
+    <CharacterSheetPanel project={project} history={history} onProjectChange={onProjectChange} />
     <div className="card directorPanel">
       <ResearchBriefDirectorControl project={project} busy={busy} onApply={text => { scope.current.invalidate(); setPending(null); setReviewed(null); setMessage(null); setError(''); setBrief(text) }} />
       <p>{t('editor.scopeHelp')}</p>
