@@ -17,6 +17,7 @@ import { InstagramPublishPanel } from './InstagramPublishPanel'
 import { TikTokHandoffPanel } from './TikTokHandoffPanel'
 import { ManualSocialHandoffPanel } from './ManualSocialHandoffPanel'
 import { PublicationEditorialControl } from './PublicationEditorialControl'
+import { ProductionFormatStatus } from './ProductionFormatStatus'
 
 interface PublishPanelProps {
   project: KinaouProject
@@ -364,6 +365,7 @@ export function PublishPanel({ project, workerUrl, workerToken, workerConnected,
   return (
     <section className="stack">
       <div className="sectionLead"><div><div className="eyebrow">{t('publish.eyebrow')}</div><h2>{t('publish.heading')}</h2></div><span className={packageSupported && preflightSupported && integritySupported ? 'status online' : 'status'}>{t(packageSupported && preflightSupported && integritySupported ? 'publish.status.ready' : workerConnected ? 'publish.status.restart' : 'publish.status.offline')}</span></div>
+      <ProductionFormatStatus project={project} />
       <div className="card settingsPanel">
         <div>
           <h3>{t('publish.card.heading')}</h3>
