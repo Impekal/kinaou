@@ -1,5 +1,9 @@
 # KINAOU — Real Mac Execution Test
 
+## Production format and checks — 2026-11-22
+
+#455 was checked in a Linux container browser only. On the Mac, in a disposable project with an applied Director plan: under Director, choose "Children's format" without an age — Save must stay disabled and say why. Set an age and a purpose, save, and confirm one of the two listed checks. Edit one narrated sentence: the confirmed check must show as text changed. Declare a different age: both checks must be open again. Version History must hold an entry for the format change and one for the confirmation. With Ollama running, generate a Director plan and read the draft against the declared age — the constraints are sent, but whether the installed model follows them is exactly what needs a human look.
+
 ## Actionable image-preview media errors — 2026-10-04
 
 #453 passed metadata-only diagnostics for missing/offline/duplicate active sources and actual DE/EN/FR browser checks (twelve affected references, ten visible, safe literal labels). In a disposable project with unavailable background media, review an otherwise valid image placement: preview must name the problem, not remove or silently skip the background. Separate explicit image insertion may proceed and must retain all other records/clips. This does not access or verify files. 2,933 tests and full CI passed. No immediate SSD/model action; work stops after this documentation gate at the user's 20%-remaining boundary.
